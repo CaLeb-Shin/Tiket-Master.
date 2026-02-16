@@ -1151,6 +1151,13 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
               OutlinedButton.icon(
                 onPressed: () =>
                     _addEntryFromMapBlock(floor: floor, block: block),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 34),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
                 icon: const Icon(Icons.crop_square_rounded, size: 14),
                 label: Text(
                   '구역 대표 업로드',
