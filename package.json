@@ -1,0 +1,15 @@
+{
+  "name": "melonticket-automation",
+  "version": "1.0.0",
+  "description": "Interpark ticket sales checker",
+  "main": "check_interpark_sales.js",
+  "scripts": {
+    "start": "node check_interpark_sales.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "playwright": "^1.58.1"
+  }
+}
