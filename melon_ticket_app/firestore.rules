@@ -30,6 +30,12 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // 공연장 시점 이미지 (공개 읽기, 관리자 쓰기)
+    match /venueViews/{venueId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
     
     // 좌석 (서버 함수만 쓰기 가능)
     match /seats/{seatId} {
@@ -71,8 +77,11 @@ service cloud.firestore {
     
     // 헬퍼 함수: 어드민 확인
     function isAdmin() {
-      return request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return request.auth != null &&
+        (
+          request.auth.token.email == 'sinbun001@gmail.com' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        );
     }
     
     // 헬퍼 함수: 스태프 확인
