@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "buildCommand": "bash melon_ticket_app/scripts/vercel-build.sh",
+  "outputDirectory": "melon_ticket_app/build/web",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(flutter_bootstrap.js|main.dart.js|flutter_service_worker.js|version.json)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ]
+}

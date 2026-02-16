@@ -1,0 +1,67 @@
+name: melon_ticket_app
+description: "모바일 티켓팅 MVP - 연속좌석 배정 시스템"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Firebase
+  firebase_core: ^3.8.0
+  firebase_auth: ^5.3.3
+  cloud_firestore: ^5.5.0
+  firebase_messaging: ^15.1.5
+  cloud_functions: ^5.1.5
+  firebase_storage: ^12.3.6
+  
+  # File Upload & Excel
+  file_picker: ^8.1.6
+  image_picker: ^1.1.2
+  excel: ^4.0.6
+  
+  # Social Login
+  google_sign_in: ^6.2.1
+  sign_in_with_apple: ^6.1.1
+  
+  # State Management
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+  
+  # Routing
+  go_router: ^14.6.2
+  
+  # UI/UX
+  cupertino_icons: ^1.0.8
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^6.0.2
+  cached_network_image: ^3.4.1
+  flutter_svg: ^2.0.10+1
+  
+  # Utils
+  intl: ^0.19.0
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+  uuid: ^4.5.1
+  
+  # Fonts
+  google_fonts: ^6.2.1
+  panorama_viewer: ^2.0.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.13
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
+  riverpod_generator: ^2.6.2
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/

@@ -1,0 +1,7 @@
+**/.dart_tool
+**/build
+**/.firebase
+**/node_modules
+**/.idea
+**/.DS_Store
+**/*.iml

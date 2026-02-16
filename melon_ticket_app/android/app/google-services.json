@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "587640969766",
+    "project_id": "melon-ticket-mvp-2026",
+    "storage_bucket": "melon-ticket-mvp-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:587640969766:android:07c0f1dc931a89776564e7",
+        "android_client_info": {
+          "package_name": "com.example.melon_ticket_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA0lSwPtlWJNFAreEKCdfqHx07b-_Yl7po"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

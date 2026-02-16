@@ -1,0 +1,20 @@
+.vercel
+.DS_Store
+node_modules/
+
+# Flutter/Dart
+**/.dart_tool/
+**/build/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+
+# IDE / local
+.idea/
+*.iml
+.vscode/
+
+# Firebase / logs / misc
+firebase-debug.log
+firebase-debug.*.log
+*.tmp

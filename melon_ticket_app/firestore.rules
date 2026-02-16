@@ -1,0 +1,90 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 사용자 정보
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null &&
+        request.auth.uid == userId &&
+        (
+          request.resource.data.role == 'user' ||
+          (
+            request.resource.data.role == 'admin' &&
+            request.auth.token.email == 'sinbun001@gmail.com'
+          )
+        );
+      allow update: if request.auth != null &&
+        request.auth.uid == userId &&
+        request.resource.data.role == resource.data.role;
+    }
+    
+    // 공연장 (공개 읽기)
+    match /venues/{venueId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // 공연 이벤트 (공개 읽기)
+    match /events/{eventId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // 좌석 (서버 함수만 쓰기 가능)
+    match /seats/{seatId} {
+      allow read: if true;
+      allow write: if false; // 클라이언트 쓰기 금지, Functions에서만
+    }
+    
+    // 주문 (본인 것만)
+    match /orders/{orderId} {
+      allow read: if request.auth != null && 
+        (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if false; // Functions에서만 생성
+      allow update: if false;
+    }
+    
+    // 좌석 블록 (본인 것만 + 어드민)
+    match /seatBlocks/{blockId} {
+      allow read: if request.auth != null && 
+        (
+          resource.data.userId == request.auth.uid ||
+          (resource.data.orderId is string && isOrderOwner(resource.data.orderId)) ||
+          isAdmin()
+        );
+      allow write: if false; // Functions에서만
+    }
+    
+    // 티켓 (본인 것만)
+    match /tickets/{ticketId} {
+      allow read: if request.auth != null && 
+        (request.auth.uid == resource.data.userId || isAdmin() || isStaff());
+      allow write: if false; // Functions에서만
+    }
+    
+    // 체크인 기록 (스태프/어드민만)
+    match /checkins/{checkinId} {
+      allow read: if isStaff() || isAdmin();
+      allow write: if false; // Functions에서만
+    }
+    
+    // 헬퍼 함수: 어드민 확인
+    function isAdmin() {
+      return request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // 헬퍼 함수: 스태프 확인
+    function isStaff() {
+      return request.auth != null && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'staff' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    function isOrderOwner(orderId) {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid;
+    }
+  }
+}
