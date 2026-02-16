@@ -1141,6 +1141,9 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
               Expanded(
                 child: Text(
                   '선택 구역: ${floor.name} ${block.name}구역',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
                   style: GoogleFonts.notoSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -1148,22 +1151,32 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                   ),
                 ),
               ),
-              OutlinedButton.icon(
-                onPressed: () =>
-                    _addEntryFromMapBlock(floor: floor, block: block),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(0, 34),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minWidth: 132,
+                  maxWidth: 170,
                 ),
-                icon: const Icon(Icons.crop_square_rounded, size: 14),
-                label: Text(
-                  '구역 대표 업로드',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      _addEntryFromMapBlock(floor: floor, block: block),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(132, 34),
+                    maximumSize: const Size(170, 34),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: const Icon(Icons.crop_square_rounded, size: 14),
+                  label: Text(
+                    '구역 대표 업로드',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.notoSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
