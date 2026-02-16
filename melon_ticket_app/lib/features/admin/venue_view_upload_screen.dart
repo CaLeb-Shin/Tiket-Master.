@@ -279,7 +279,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            '일반 카메라 사진과 360° 파노라마를 모두 등록할 수 있습니다.\n구역/층/열 단위로 업로드하면 예매 화면에서\n좌석 시야를 바로 확인할 수 있습니다.',
+            '일반 카메라 사진과 360° 파노라마를 모두 등록할 수 있습니다.\n구역/층/행/좌석 단위로 업로드하면 예매 화면에서\n좌석 시야를 바로 확인할 수 있습니다.',
             textAlign: TextAlign.center,
             style: GoogleFonts.notoSans(
               fontSize: 13,
@@ -463,8 +463,17 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                         SizedBox(
                           width: 52,
                           child: _buildMiniField(
-                            hint: '열',
+                            hint: '행',
                             controller: entry.rowCtrl,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        SizedBox(
+                          width: 56,
+                          child: _buildMiniField(
+                            hint: '좌석',
+                            controller: entry.seatCtrl,
+                            keyboardType: TextInputType.number,
                           ),
                         ),
                       ],
@@ -560,9 +569,11 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
   Widget _buildMiniField({
     required String hint,
     required TextEditingController controller,
+    TextInputType? keyboardType,
   }) {
     return TextFormField(
       controller: controller,
+      keyboardType: keyboardType,
       style: GoogleFonts.notoSans(fontSize: 13, color: AppTheme.textPrimary),
       decoration: InputDecoration(
         hintText: hint,
@@ -671,7 +682,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            '추천 로직에서 사용하는 구역/층/열 키 기준으로 업로드 항목을 자동 생성합니다.',
+            '추천 로직에서 사용하는 구역/층/행/좌석 키 기준으로 업로드 항목을 자동 생성합니다.',
             style: GoogleFonts.notoSans(
               fontSize: 11,
               color: AppTheme.textTertiary,
@@ -1184,7 +1195,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            '$gradeLabel · 총 $seatTotal석 · 좌석 점 클릭 시 해당 행 업로드 항목 생성',
+            '$gradeLabel · 총 $seatTotal석 · 좌석 점 클릭 시 해당 좌석 업로드 항목 생성',
             style: GoogleFonts.notoSans(
               fontSize: 11,
               color: AppTheme.textTertiary,
@@ -1193,20 +1204,36 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
           const SizedBox(height: 8),
           ...rowLabels.map((rowLabel) {
             final seatCount = _seatCountForRow(block, rowLabel);
-            final pendingIdx =
-                _findPendingEntryIndex(block.name, floor.name, rowLabel);
-            final hasPending = pendingIdx >= 0;
-            final hasSaved = _hasSavedRowView(
-              existingViews,
-              zone: block.name,
-              floor: floor.name,
-              row: rowLabel,
-            );
-            final statusColor = hasPending
+            final rowPendingCount =
+                List<int>.generate(seatCount, (idx) => idx + 1)
+                    .where((seatNumber) {
+              return _findPendingEntryIndex(
+                    block.name,
+                    floor.name,
+                    rowLabel,
+                    seatNumber,
+                  ) >=
+                  0;
+            }).length;
+            final rowSavedCount =
+                List<int>.generate(seatCount, (idx) => idx + 1)
+                    .where((seatNumber) {
+              return _hasSavedSeatView(
+                existingViews,
+                zone: block.name,
+                floor: floor.name,
+                row: rowLabel,
+                seat: seatNumber,
+              );
+            }).length;
+            final statusColor = rowPendingCount > 0
                 ? AppTheme.gold
-                : (hasSaved ? AppTheme.success : AppTheme.textTertiary);
-            final statusLabel =
-                hasPending ? '업로드 대기' : (hasSaved ? '등록됨' : '미등록');
+                : (rowSavedCount > 0
+                    ? AppTheme.success
+                    : AppTheme.textTertiary);
+            final statusLabel = rowPendingCount > 0
+                ? '대기 $rowPendingCount석'
+                : (rowSavedCount > 0 ? '등록 $rowSavedCount석' : '미등록');
 
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
@@ -1254,31 +1281,57 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                     spacing: 6,
                     runSpacing: 6,
                     children: List.generate(seatCount, (seatIdx) {
-                      return InkWell(
-                        borderRadius: BorderRadius.circular(999),
-                        onTap: () => _addEntryFromMapRow(
-                          floor: floor,
-                          block: block,
-                          rowLabel: rowLabel,
-                        ),
-                        child: Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: (hasPending
-                                    ? AppTheme.gold
-                                    : (hasSaved
-                                        ? AppTheme.success
-                                        : _gradeColorForBlock(block.grade)))
-                                .withOpacity(0.24),
-                            border: Border.all(
-                              color: hasPending
-                                  ? AppTheme.gold
-                                  : (hasSaved
-                                      ? AppTheme.success
-                                      : _gradeColorForBlock(block.grade)),
-                              width: 1,
+                      final seatNumber = seatIdx + 1;
+                      final hasPending = _findPendingEntryIndex(
+                            block.name,
+                            floor.name,
+                            rowLabel,
+                            seatNumber,
+                          ) >=
+                          0;
+                      final hasSaved = _hasSavedSeatView(
+                        existingViews,
+                        zone: block.name,
+                        floor: floor.name,
+                        row: rowLabel,
+                        seat: seatNumber,
+                      );
+                      final seatColor = hasPending
+                          ? AppTheme.gold
+                          : (hasSaved
+                              ? AppTheme.success
+                              : _gradeColorForBlock(block.grade));
+                      final seatStatus =
+                          hasPending ? '업로드 대기' : (hasSaved ? '등록됨' : '미등록');
+
+                      return Tooltip(
+                        waitDuration: const Duration(milliseconds: 250),
+                        message: '$rowLabel행 $seatNumber번 · $seatStatus',
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(999),
+                          onTap: () => _addEntryFromMapSeat(
+                            floor: floor,
+                            block: block,
+                            rowLabel: rowLabel,
+                            seatNumber: seatNumber,
+                          ),
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: seatColor.withOpacity(0.22),
+                              border: Border.all(color: seatColor, width: 1),
+                            ),
+                            child: Text(
+                              '$seatNumber',
+                              style: GoogleFonts.notoSans(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                                color: seatColor,
+                                height: 1.0,
+                              ),
                             ),
                           ),
                         ),
@@ -1303,9 +1356,12 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
     final floors = floorsOverride ?? venue.floors;
     final occupiedKeys = <String>{
       ...existingViews.values
-          .map((view) => _entryKey(view.zone, view.floor, view.row)),
+          .map((view) => _entryKey(view.zone, view.floor, view.row, view.seat)),
       ..._entries.map((entry) => _entryKey(
-          entry.zoneCtrl.text, entry.floorCtrl.text, entry.rowCtrl.text)),
+          entry.zoneCtrl.text,
+          entry.floorCtrl.text,
+          entry.rowCtrl.text,
+          _seatFromText(entry.seatCtrl.text))),
     };
 
     var added = 0;
@@ -1357,8 +1413,19 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
     );
   }
 
-  String _entryKey(String zone, String floor, String? row) {
-    return '${zone.trim().toUpperCase()}|${floor.trim()}|${(row ?? '').trim()}';
+  int? _seatFromText(String? text) {
+    final trimmed = (text ?? '').trim();
+    if (trimmed.isEmpty) return null;
+    return int.tryParse(trimmed);
+  }
+
+  String _entryKey(String zone, String floor, String? row, [int? seat]) {
+    return VenueSeatView.buildKey(
+      zone: zone.trim().toUpperCase(),
+      floor: floor.trim(),
+      row: (row ?? '').trim(),
+      seat: seat,
+    );
   }
 
   List<String> _rowLabelsForBlock(VenueBlock block) {
@@ -1415,17 +1482,25 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
     }
   }
 
-  int _findPendingEntryIndex(String zone, String floor, String? row) {
+  int _findPendingEntryIndex(
+    String zone,
+    String floor,
+    String? row, [
+    int? seat,
+  ]) {
     final normalizedZone = zone.trim().toUpperCase();
     final normalizedFloor = floor.trim();
     final normalizedRow = (row ?? '').trim();
+    final normalizedSeat = seat;
     return _entries.indexWhere((entry) {
       final entryZone = entry.zoneCtrl.text.trim().toUpperCase();
       final entryFloor = entry.floorCtrl.text.trim();
       final entryRow = entry.rowCtrl.text.trim();
+      final entrySeat = _seatFromText(entry.seatCtrl.text);
       return entryZone == normalizedZone &&
           entryFloor == normalizedFloor &&
-          entryRow == normalizedRow;
+          entryRow == normalizedRow &&
+          entrySeat == normalizedSeat;
     });
   }
 
@@ -1439,16 +1514,18 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
     return existingViews.values.any((view) {
       final matchesZone = view.zone.trim().toUpperCase() == normalizedZone;
       final matchesFloor = view.floor.trim() == normalizedFloor;
-      final isRepresentative = view.row == null || view.row!.trim().isEmpty;
+      final isRepresentative =
+          (view.row == null || view.row!.trim().isEmpty) && view.seat == null;
       return matchesZone && matchesFloor && isRepresentative;
     });
   }
 
-  bool _hasSavedRowView(
+  bool _hasSavedSeatView(
     Map<String, VenueZoneView> existingViews, {
     required String zone,
     required String floor,
     required String row,
+    required int seat,
   }) {
     final normalizedZone = zone.trim().toUpperCase();
     final normalizedFloor = floor.trim();
@@ -1457,7 +1534,10 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
       final matchesZone = view.zone.trim().toUpperCase() == normalizedZone;
       final matchesFloor = view.floor.trim() == normalizedFloor;
       final viewRow = (view.row ?? '').trim();
-      return matchesZone && matchesFloor && viewRow == normalizedRow;
+      return matchesZone &&
+          matchesFloor &&
+          viewRow == normalizedRow &&
+          view.seat == seat;
     });
   }
 
@@ -1485,14 +1565,19 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
     await _pickImage(createdIndex);
   }
 
-  Future<void> _addEntryFromMapRow({
+  Future<void> _addEntryFromMapSeat({
     required VenueFloor floor,
     required VenueBlock block,
     required String rowLabel,
+    required int seatNumber,
   }) async {
     final normalizedRow = rowLabel.trim();
-    final pendingIdx =
-        _findPendingEntryIndex(block.name, floor.name, normalizedRow);
+    final pendingIdx = _findPendingEntryIndex(
+      block.name,
+      floor.name,
+      normalizedRow,
+      seatNumber,
+    );
     if (pendingIdx >= 0) {
       await _pickImage(pendingIdx);
       return;
@@ -1504,7 +1589,9 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
           zone: block.name,
           floor: floor.name,
           row: normalizedRow,
-          description: '${floor.name} ${block.name}구역 $normalizedRow행 시야',
+          seat: '$seatNumber',
+          description:
+              '${floor.name} ${block.name}구역 $normalizedRow행 $seatNumber번 시야',
         ),
       );
     });
@@ -1574,7 +1661,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
         final storage = ref.read(storageServiceProvider);
         await storage.deleteFile(view.imageUrl);
         await repo.deleteVenueView(
-            widget.venueId, view.zone, view.floor, view.row);
+            widget.venueId, view.zone, view.floor, view.row, view.seat);
         final remainingViews = await repo.getVenueViews(widget.venueId);
         await venueRepo.updateVenue(
           widget.venueId,
@@ -1603,12 +1690,17 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
 
   Future<void> _uploadAll() async {
     // Validate
-    final valid = _entries
-        .every((e) => e.zoneCtrl.text.isNotEmpty && e.imageBytes != null);
+    final valid = _entries.every((e) {
+      final hasRequired =
+          e.zoneCtrl.text.trim().isNotEmpty && e.imageBytes != null;
+      final seatText = e.seatCtrl.text.trim();
+      final seatValid = seatText.isEmpty || int.tryParse(seatText) != null;
+      return hasRequired && seatValid;
+    });
     if (!valid) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('모든 항목에 구역명과 이미지를 입력해주세요'),
+          content: Text('구역명/이미지를 입력하고 좌석 번호는 숫자로 입력해주세요'),
           backgroundColor: AppTheme.error,
         ),
       );
@@ -1641,12 +1733,14 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
         );
 
         final rowText = entry.rowCtrl.text.trim();
+        final seatNumber = _seatFromText(entry.seatCtrl.text);
         views.add(VenueZoneView(
           zone: entry.zoneCtrl.text.trim(),
           floor: entry.floorCtrl.text.trim().isEmpty
               ? '1층'
               : entry.floorCtrl.text.trim(),
           row: rowText.isEmpty ? null : rowText,
+          seat: seatNumber,
           imageUrl: imageUrl,
           is360: entry.is360,
           description: entry.descCtrl.text.trim().isEmpty
@@ -1688,6 +1782,7 @@ class _ZoneViewEntry {
   final TextEditingController zoneCtrl;
   final TextEditingController floorCtrl;
   final TextEditingController rowCtrl;
+  final TextEditingController seatCtrl;
   final TextEditingController descCtrl;
   bool is360 = false;
   Uint8List? imageBytes;
@@ -1697,16 +1792,19 @@ class _ZoneViewEntry {
     String zone = '',
     String floor = '1층',
     String? row,
+    String? seat,
     String? description,
   })  : zoneCtrl = TextEditingController(text: zone),
         floorCtrl = TextEditingController(text: floor),
         rowCtrl = TextEditingController(text: row ?? ''),
+        seatCtrl = TextEditingController(text: seat ?? ''),
         descCtrl = TextEditingController(text: description ?? '');
 
   void dispose() {
     zoneCtrl.dispose();
     floorCtrl.dispose();
     rowCtrl.dispose();
+    seatCtrl.dispose();
     descCtrl.dispose();
   }
 }

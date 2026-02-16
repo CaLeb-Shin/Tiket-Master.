@@ -1507,44 +1507,75 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// 좌석에서 가장 가까운 시점 이미지 찾기
-  /// 우선순위: 같은 구역+같은 열 → 같은 구역+가까운 열 → 같은 구역 전체
+  /// 우선순위:
+  /// 1) 같은 구역+층+행+좌석
+  /// 2) 같은 구역+층+행
+  /// 3) 같은 구역+층+가까운 행
+  /// 4) 같은 구역+층+좌석
+  /// 5) 같은 구역+층 대표
   VenueSeatView? _findBestView(Map<String, VenueSeatView> views, Seat seat) {
-    final floor = seat.floor;
-    final zone = seat.block;
-    final row = seat.row;
+    final floor = seat.floor.trim();
+    final zone = seat.block.trim().toUpperCase();
+    final row = (seat.row ?? '').trim();
+    final seatNumber = seat.number;
 
-    // 1. 정확한 매치 (구역+층+열)
-    if (row != null) {
-      final exactKey = '${zone}_${floor}_$row';
-      if (views.containsKey(exactKey)) return views[exactKey];
+    bool matchesZoneFloor(VenueSeatView view) {
+      return view.zone.trim().toUpperCase() == zone &&
+          view.floor.trim() == floor;
     }
 
-    // 2. 가장 가까운 열 찾기
-    if (row != null) {
+    // 1. 같은 구역+층+행+좌석
+    for (final view in views.values) {
+      if (!matchesZoneFloor(view)) continue;
+      if (view.seat != seatNumber) continue;
+      final viewRow = (view.row ?? '').trim();
+      if (viewRow == row) return view;
+    }
+
+    // 2. 같은 구역+층+행
+    if (row.isNotEmpty) {
+      for (final view in views.values) {
+        if (!matchesZoneFloor(view)) continue;
+        final viewRow = (view.row ?? '').trim();
+        if (view.seat == null && viewRow == row) return view;
+      }
+    }
+
+    // 3. 같은 구역+층+가까운 행
+    if (row.isNotEmpty) {
       final rowNum = int.tryParse(row);
       if (rowNum != null) {
         VenueSeatView? closest;
         int minDist = 999;
-        for (final entry in views.entries) {
-          final v = entry.value;
-          if (v.zone == zone && v.floor == floor && v.row != null) {
-            final vRow = int.tryParse(v.row!);
-            if (vRow != null) {
-              final dist = (vRow - rowNum).abs();
-              if (dist < minDist) {
-                minDist = dist;
-                closest = v;
-              }
-            }
+        for (final view in views.values) {
+          if (!matchesZoneFloor(view)) continue;
+          if (view.seat != null || view.row == null) continue;
+          final vRow = int.tryParse(view.row!.trim());
+          if (vRow == null) continue;
+          final dist = (vRow - rowNum).abs();
+          if (dist < minDist) {
+            minDist = dist;
+            closest = view;
           }
         }
         if (closest != null) return closest;
       }
     }
 
-    // 3. 구역 전체 이미지
-    final zoneKey = '${zone}_$floor';
-    if (views.containsKey(zoneKey)) return views[zoneKey];
+    // 4. 같은 구역+층+좌석 (행 미기재 데이터 대응)
+    for (final view in views.values) {
+      if (!matchesZoneFloor(view)) continue;
+      if (view.seat != seatNumber) continue;
+      final viewRow = (view.row ?? '').trim();
+      if (viewRow.isEmpty) return view;
+    }
+
+    // 5. 같은 구역+층 대표
+    for (final view in views.values) {
+      if (!matchesZoneFloor(view)) continue;
+      final viewRow = (view.row ?? '').trim();
+      if (viewRow.isEmpty && view.seat == null) return view;
+    }
 
     return null;
   }
