@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -11,22 +10,15 @@ import 'app/router.dart';
 import 'app/theme.dart';
 import 'firebase_options.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 시스템 UI 설정 - 프리미엄 다크
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
     systemNavigationBarColor: AppTheme.background,
     systemNavigationBarIconBrightness: Brightness.light,
   ));
-
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  await initializeDateFormatting('ko_KR', null);
 
   runApp(
     const ProviderScope(
@@ -35,64 +27,47 @@ void main() async {
   );
 }
 
-class MelonTicketApp extends ConsumerWidget {
+class MelonTicketApp extends ConsumerStatefulWidget {
   const MelonTicketApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(routerProvider);
-
-    return MaterialApp.router(
-      title: '멜론티켓',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.theme,
-      routerConfig: router,
-      builder: (context, child) {
-        return _LaunchIntroOverlay(
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
-    );
-  }
+  ConsumerState<MelonTicketApp> createState() => _MelonTicketAppState();
 }
 
-class _LaunchIntroOverlay extends StatefulWidget {
-  final Widget child;
-  const _LaunchIntroOverlay({required this.child});
-
-  @override
-  State<_LaunchIntroOverlay> createState() => _LaunchIntroOverlayState();
-}
-
-class _LaunchIntroOverlayState extends State<_LaunchIntroOverlay>
-    with SingleTickerProviderStateMixin {
-  static const _completeAt = Duration(milliseconds: 1300);
-  static const _totalDuration = Duration(milliseconds: 1700);
-
-  late final AnimationController _introController;
-  Timer? _completeTimer;
-  Timer? _finishTimer;
+class _MelonTicketAppState extends ConsumerState<MelonTicketApp> {
+  bool _ready = false;
   bool _showComplete = false;
-  bool _finished = false;
+  String? _startupError;
 
   @override
   void initState() {
     super.initState();
-    _introController = AnimationController(
-      vsync: this,
-      duration: _completeAt,
-    )..forward();
+    unawaited(_bootstrap());
+  }
 
-    _completeTimer = Timer(_completeAt, () {
+  Future<void> _bootstrap() async {
+    try {
+      await Future.wait([
+        Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        ),
+        initializeDateFormatting('ko_KR', null),
+        Future<void>.delayed(const Duration(milliseconds: 680)),
+      ]);
+
       if (!mounted) return;
       setState(() => _showComplete = true);
       unawaited(_playConnectionTone());
-    });
 
-    _finishTimer = Timer(_totalDuration, () {
+      await Future<void>.delayed(const Duration(milliseconds: 180));
       if (!mounted) return;
-      setState(() => _finished = true);
-    });
+      setState(() => _ready = true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _startupError = '초기화 실패: $e';
+      });
+    }
   }
 
   Future<void> _playConnectionTone() async {
@@ -106,176 +81,169 @@ class _LaunchIntroOverlayState extends State<_LaunchIntroOverlay>
   }
 
   @override
-  void dispose() {
-    _completeTimer?.cancel();
-    _finishTimer?.cancel();
-    _introController.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    if (_ready) {
+      final router = ref.watch(routerProvider);
+      return MaterialApp.router(
+        title: '멜론티켓',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.theme,
+        routerConfig: router,
+      );
+    }
+
+    return MaterialApp(
+      title: '멜론티켓',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.theme,
+      home: _BootNoteSplash(
+        showComplete: _showComplete,
+        error: _startupError,
+      ),
+    );
+  }
+}
+
+class _BootNoteSplash extends StatefulWidget {
+  final bool showComplete;
+  final String? error;
+
+  const _BootNoteSplash({
+    required this.showComplete,
+    required this.error,
+  });
+
+  @override
+  State<_BootNoteSplash> createState() => _BootNoteSplashState();
+}
+
+class _BootNoteSplashState extends State<_BootNoteSplash>
+    with SingleTickerProviderStateMixin {
+  static const _stages = <_RhythmStage>[
+    _RhythmStage.whole,
+    _RhythmStage.half,
+    _RhythmStage.quarter,
+    _RhythmStage.eighthPair,
+  ];
+
+  late final AnimationController _beatController;
+
+  @override
+  void initState() {
+    super.initState();
+    _beatController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 640),
+    )..repeat();
   }
 
-  _RhythmStage _stageForProgress(double progress) {
-    if (progress < 0.25) return _RhythmStage.whole;
-    if (progress < 0.5) return _RhythmStage.half;
-    if (progress < 0.75) return _RhythmStage.quarter;
-    return _RhythmStage.eighthPair;
-  }
-
-  String _stageLabel(_RhythmStage stage) {
-    switch (stage) {
-      case _RhythmStage.whole:
-        return '온음표';
-      case _RhythmStage.half:
-        return '2분음표';
-      case _RhythmStage.quarter:
-        return '4분음표';
-      case _RhythmStage.eighthPair:
-        return '8분음표 x2';
+  @override
+  void didUpdateWidget(covariant _BootNoteSplash oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.showComplete && _beatController.isAnimating) {
+      _beatController.stop();
+    } else if (!widget.showComplete && !_beatController.isAnimating) {
+      _beatController.repeat();
     }
   }
 
-  Widget _buildProgressRhythm(double progress, _RhythmStage stage) {
-    return SizedBox(
-      width: 132,
-      height: 132,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            width: 132,
-            height: 132,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppTheme.surface.withOpacity(0.45),
-              border: Border.all(
-                color: AppTheme.border.withOpacity(0.6),
-                width: 1.2,
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 118,
-            height: 118,
-            child: CircularProgressIndicator(
-              value: progress,
-              strokeWidth: 8,
-              backgroundColor: AppTheme.card.withOpacity(0.9),
-              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.gold),
-              strokeCap: StrokeCap.round,
-            ),
-          ),
-          Container(
-            width: 84,
-            height: 84,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: AppTheme.goldGradient,
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.gold.withOpacity(0.28),
-                  blurRadius: 22,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              switchInCurve: Curves.easeOutBack,
-              switchOutCurve: Curves.easeIn,
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: ScaleTransition(scale: animation, child: child),
-              ),
-              child: _RhythmGlyph(
-                key: ValueKey(stage),
-                stage: stage,
-                color: AppTheme.onAccent,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  @override
+  void dispose() {
+    _beatController.dispose();
+    super.dispose();
+  }
+
+  int _activeIndex() {
+    if (widget.showComplete) {
+      return _stages.length - 1;
+    }
+    final value = (_beatController.value * _stages.length).floor();
+    return value.clamp(0, _stages.length - 1);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_finished) return widget.child;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        widget.child,
-        AnimatedOpacity(
-          duration: const Duration(milliseconds: 220),
-          opacity: _finished ? 0 : 1,
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(0xFF080609),
-                  Color(0xFF130A11),
-                  Color(0xFF220E18),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Center(
-              child: AnimatedBuilder(
-                animation: _introController,
-                builder: (context, _) {
-                  final rawProgress = _introController.value.clamp(0.0, 1.0);
-                  final progress = Curves.easeOutCubic.transform(rawProgress);
-                  final stage = _showComplete
-                      ? _RhythmStage.eighthPair
-                      : _stageForProgress(progress);
-                  final pulseScale = _showComplete
-                      ? 1.03
-                      : 1 + (math.sin(rawProgress * math.pi * 4) * 0.02);
-
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Transform.scale(
-                        scale: pulseScale,
-                        child: _buildProgressRhythm(progress, stage),
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        _showComplete ? '로딩 완료!' : '앱 로딩 중...',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: AppTheme.textPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                      ),
-                      const SizedBox(height: 8),
-                      AnimatedOpacity(
-                        duration: const Duration(milliseconds: 180),
-                        opacity: _showComplete ? 1 : 0.78,
-                        child: Text(
-                          _showComplete
-                              ? '띠링~'
-                              : '${(progress * 100).round()}% · ${_stageLabel(stage)}',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: _showComplete
-                                        ? AppTheme.goldLight
-                                        : AppTheme.textTertiary,
-                                    fontWeight: _showComplete
-                                        ? FontWeight.w700
-                                        : FontWeight.w500,
-                                  ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFF080609),
+              Color(0xFF130A11),
+              Color(0xFF220E18),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
         ),
-      ],
+        child: Center(
+          child: AnimatedBuilder(
+            animation: _beatController,
+            builder: (context, _) {
+              final active = _activeIndex();
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(_stages.length, (idx) {
+                      final isActive = idx <= active;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 120),
+                        margin: const EdgeInsets.symmetric(horizontal: 7),
+                        transform: Matrix4.identity()
+                          ..translate(0.0, isActive ? -4.0 : 0.0),
+                        child: _RhythmGlyph(
+                          stage: _stages[idx],
+                          color: isActive
+                              ? AppTheme.gold
+                              : AppTheme.textTertiary.withOpacity(0.35),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    widget.showComplete ? '로딩 완료!' : '로딩 중...',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.showComplete ? '띠링~' : '딱 · 딱 · 딱 · 딱',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: widget.showComplete
+                              ? AppTheme.goldLight
+                              : AppTheme.textTertiary,
+                          fontWeight: widget.showComplete
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                        ),
+                  ),
+                  if (widget.error != null) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: 320,
+                      child: Text(
+                        widget.error!,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.error,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
+        ),
+      ),
     );
   }
 }
@@ -292,7 +260,6 @@ class _RhythmGlyph extends StatelessWidget {
   final Color color;
 
   const _RhythmGlyph({
-    super.key,
     required this.stage,
     required this.color,
   });
@@ -300,7 +267,7 @@ class _RhythmGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      size: const Size.square(40),
+      size: const Size.square(34),
       painter: _RhythmGlyphPainter(stage: stage, color: color),
     );
   }
@@ -320,7 +287,7 @@ class _RhythmGlyphPainter extends CustomPainter {
     final stroke = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.8
+      ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round
       ..isAntiAlias = true;
     final fill = Paint()
