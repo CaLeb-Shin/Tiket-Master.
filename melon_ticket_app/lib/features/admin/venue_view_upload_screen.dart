@@ -1882,14 +1882,19 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
         );
       }
     } catch (e) {
+      final rawMessage = '$e';
+      final isRetryLimit = rawMessage.contains('retry-limit-exceeded');
+      final failMessage = isRetryLimit
+          ? '업로드 실패: Storage 재시도 제한 초과. Firebase Storage 버킷/CORS/권한 설정을 확인해주세요.'
+          : '업로드 실패: $e';
       setState(() {
-        _uploadStatus = '업로드 실패: $e';
+        _uploadStatus = failMessage;
         _isUploading = false;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('업로드 실패: $e'),
+            content: Text(failMessage),
             backgroundColor: AppTheme.error,
           ),
         );
