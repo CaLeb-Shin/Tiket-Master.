@@ -1,0 +1,40 @@
+name: Vercel Production Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: vercel-prod-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Deploy to Vercel (Production)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_r4RZiif3zW64u6WjtpX33WAU
+          VERCEL_PROJECT_ID: prj_6w8ZVEZUWdlXejrkpc3jpJMxCH2p
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "Missing GitHub Actions secret: VERCEL_TOKEN"
+            exit 1
+          fi
+
+          npm install -g vercel@latest
+          vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+          vercel build --prod --token "$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod --token "$VERCEL_TOKEN"

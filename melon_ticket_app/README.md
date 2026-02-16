@@ -125,6 +125,15 @@ firebase deploy --project melon-ticket-mvp-2026 --only firestore:rules,firestore
 npx vercel --prod
 ```
 
+### 6-1. GitHub Push 자동 배포
+
+리포지토리에는 `/.github/workflows/vercel-prod-deploy.yml`이 추가되어 있습니다.  
+`main` 브랜치에 푸시하면 Vercel 프로덕션 배포가 자동 실행됩니다.
+
+GitHub 저장소 `Settings > Secrets and variables > Actions`에 아래 시크릿 1개를 추가하세요.
+
+- `VERCEL_TOKEN`: Vercel Personal Token
+
 ### 7. 배포 후 필수 Firebase 설정
 
 1. Firebase Console -> Authentication -> Settings -> Authorized domains에 Vercel 도메인 추가
