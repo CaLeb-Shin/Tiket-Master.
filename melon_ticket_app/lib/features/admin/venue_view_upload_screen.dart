@@ -1147,51 +1147,45 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '선택 구역: ${floor.name} ${block.name}구역',
+          Text(
+            '선택 구역: ${floor.name} ${block.name}구역',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+            style: GoogleFonts.notoSans(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              width: 170,
+              child: OutlinedButton.icon(
+                onPressed: () =>
+                    _addEntryFromMapBlock(floor: floor, block: block),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(132, 34),
+                  maximumSize: const Size(170, 34),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.crop_square_rounded, size: 14),
+                label: Text(
+                  '구역 대표 업로드',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  softWrap: false,
                   style: GoogleFonts.notoSans(
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(
-                  minWidth: 132,
-                  maxWidth: 170,
-                ),
-                child: OutlinedButton.icon(
-                  onPressed: () =>
-                      _addEntryFromMapBlock(floor: floor, block: block),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(132, 34),
-                    maximumSize: const Size(170, 34),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  icon: const Icon(Icons.crop_square_rounded, size: 14),
-                  label: Text(
-                    '구역 대표 업로드',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.notoSans(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
           const SizedBox(height: 4),
           Text(
