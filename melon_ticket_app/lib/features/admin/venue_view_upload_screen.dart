@@ -1577,6 +1577,13 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
       return;
     }
 
+    final createdKey = _entryKey(
+      block.name,
+      floor.name,
+      normalizedRow,
+      seatNumber,
+    );
+
     setState(() {
       _entries.add(
         _ZoneViewEntry(
@@ -1591,25 +1598,55 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
     });
 
     final createdIndex = _entries.length - 1;
-    await _pickImage(createdIndex);
+    final picked = await _pickImage(createdIndex);
+    if (picked || !mounted) return;
+
+    setState(() {
+      final removeIdx = _entries.indexWhere((entry) {
+        final key = _entryKey(
+          entry.zoneCtrl.text,
+          entry.floorCtrl.text,
+          entry.rowCtrl.text,
+          _seatFromText(entry.seatCtrl.text),
+        );
+        return key == createdKey && entry.imageBytes == null;
+      });
+      if (removeIdx >= 0) {
+        final removed = _entries.removeAt(removeIdx);
+        removed.dispose();
+      }
+    });
   }
 
-  Future<void> _pickImage(int index) async {
+  Future<bool> _pickImage(int index) async {
+    if (index < 0 || index >= _entries.length) {
+      return false;
+    }
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
       allowMultiple: false,
       withData: true,
     );
 
-    if (result != null && result.files.isNotEmpty) {
-      final file = result.files.first;
-      if (file.bytes != null) {
-        setState(() {
-          _entries[index].imageBytes = file.bytes;
-          _entries[index].fileName = file.name;
-        });
-      }
+    if (result == null || result.files.isEmpty) {
+      return false;
     }
+
+    final file = result.files.first;
+    if (file.bytes == null) {
+      return false;
+    }
+
+    if (!mounted || index < 0 || index >= _entries.length) {
+      return false;
+    }
+
+    setState(() {
+      _entries[index].imageBytes = file.bytes;
+      _entries[index].fileName = file.name;
+    });
+    return true;
   }
 
   Future<void> _deleteExistingView(String key, VenueZoneView view) async {
