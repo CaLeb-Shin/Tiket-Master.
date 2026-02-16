@@ -27,6 +27,10 @@ class VenueViewUploadScreen extends ConsumerStatefulWidget {
 }
 
 class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
+  static const int _maxImageBytes = 30 * 1024 * 1024; // 30MB
+  static const int _warnLargeImageBytes = 8 * 1024 * 1024; // 8MB
+  static const int _maxParallelUploads = 3;
+  static const Duration _singleUploadTimeout = Duration(seconds: 90);
   final List<_ZoneViewEntry> _entries = [];
   bool _isUploading = false;
   String? _uploadStatus;
@@ -1637,16 +1641,78 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
     if (file.bytes == null) {
       return false;
     }
+    final bytes = file.bytes!;
+    if (bytes.lengthInBytes > _maxImageBytes) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '이미지 용량이 너무 큽니다 (${_formatBytes(bytes.lengthInBytes)}). 30MB 이하 파일을 선택해주세요.',
+            ),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+      return false;
+    }
+    if (bytes.lengthInBytes > _warnLargeImageBytes && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '큰 이미지(${_formatBytes(bytes.lengthInBytes)})는 업로드가 느릴 수 있습니다.',
+          ),
+          backgroundColor: AppTheme.textTertiary,
+        ),
+      );
+    }
 
     if (!mounted || index < 0 || index >= _entries.length) {
       return false;
     }
 
     setState(() {
-      _entries[index].imageBytes = file.bytes;
+      _entries[index].imageBytes = bytes;
       _entries[index].fileName = file.name;
     });
     return true;
+  }
+
+  String _formatBytes(int bytes) {
+    const kb = 1024;
+    const mb = kb * 1024;
+    if (bytes >= mb) {
+      return '${(bytes / mb).toStringAsFixed(1)}MB';
+    }
+    if (bytes >= kb) {
+      return '${(bytes / kb).toStringAsFixed(1)}KB';
+    }
+    return '${bytes}B';
+  }
+
+  Future<String> _uploadVenueViewWithRetry({
+    required StorageService storage,
+    required _ZoneViewEntry entry,
+  }) async {
+    Object? lastError;
+    for (int attempt = 1; attempt <= 2; attempt++) {
+      try {
+        return await storage
+            .uploadVenueViewImage(
+              bytes: entry.imageBytes!,
+              venueId: widget.venueId,
+              zone: entry.zoneCtrl.text.trim(),
+              fileName: entry.fileName ?? 'view.jpg',
+            )
+            .timeout(_singleUploadTimeout);
+      } catch (e) {
+        lastError = e;
+        if (attempt == 2) break;
+        await Future<void>.delayed(const Duration(milliseconds: 350));
+      }
+    }
+    throw lastError ??
+        Exception(
+            '업로드 실패: ${entry.zoneCtrl.text.trim()} ${entry.rowCtrl.text.trim()}행 ${entry.seatCtrl.text.trim()}번');
   }
 
   Future<void> _deleteExistingView(String key, VenueZoneView view) async {
@@ -1748,25 +1814,26 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
       final repo = ref.read(venueViewRepositoryProvider);
       final venueRepo = ref.read(venueRepositoryProvider);
       final views = <VenueZoneView>[];
+      final total = _entries.length;
+      int completed = 0;
 
-      for (int i = 0; i < _entries.length; i++) {
-        final entry = _entries[i];
-        setState(() {
-          _uploadStatus =
-              '${i + 1}/${_entries.length} 업로드 중... (${entry.zoneCtrl.text} 구역)';
-        });
-
-        final imageUrl = await storage.uploadVenueViewImage(
-          bytes: entry.imageBytes!,
-          venueId: widget.venueId,
-          zone: entry.zoneCtrl.text.trim(),
-          fileName: entry.fileName ?? 'view.jpg',
-        );
-
+      Future<void> uploadEntry(_ZoneViewEntry entry) async {
+        final zone = entry.zoneCtrl.text.trim();
         final rowText = entry.rowCtrl.text.trim();
         final seatNumber = _seatFromText(entry.seatCtrl.text);
+
+        if (!mounted) return;
+        setState(() {
+          _uploadStatus = '$completed/$total 업로드 완료... ($zone 구역 처리 중)';
+        });
+
+        final imageUrl = await _uploadVenueViewWithRetry(
+          storage: storage,
+          entry: entry,
+        );
+
         views.add(VenueZoneView(
-          zone: entry.zoneCtrl.text.trim(),
+          zone: zone,
           floor: entry.floorCtrl.text.trim().isEmpty
               ? '1층'
               : entry.floorCtrl.text.trim(),
@@ -1778,6 +1845,20 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
               ? null
               : entry.descCtrl.text.trim(),
         ));
+
+        if (!mounted) return;
+        completed += 1;
+        setState(() {
+          _uploadStatus = '$completed/$total 업로드 완료';
+        });
+      }
+
+      for (int start = 0;
+          start < _entries.length;
+          start += _maxParallelUploads) {
+        final end = math.min(start + _maxParallelUploads, _entries.length);
+        final batch = _entries.sublist(start, end);
+        await Future.wait(batch.map(uploadEntry));
       }
 
       await repo.setVenueViews(widget.venueId, views);
@@ -1805,6 +1886,14 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
         _uploadStatus = '업로드 실패: $e';
         _isUploading = false;
       });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('업로드 실패: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
     }
   }
 }
