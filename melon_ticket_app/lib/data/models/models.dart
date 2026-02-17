@@ -7,4 +7,5 @@ export 'seat.dart';
 export 'seat_block.dart';
 export 'scanner_device.dart';
 export 'ticket.dart';
+export 'review.dart';
 export 'venue.dart';

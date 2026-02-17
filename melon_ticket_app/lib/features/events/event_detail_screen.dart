@@ -8,6 +8,7 @@ import '../../app/theme.dart';
 import '../../data/repositories/event_repository.dart';
 import '../../data/models/event.dart';
 import '../../services/auth_service.dart';
+import 'review_section.dart';
 
 class EventDetailScreen extends ConsumerWidget {
   final String eventId;
@@ -62,6 +63,7 @@ class _DetailBody extends StatelessWidget {
   final Event event;
   final bool isLoggedIn;
   const _DetailBody({required this.event, required this.isLoggedIn});
+
 
   @override
   Widget build(BuildContext context) {
@@ -120,6 +122,9 @@ class _DetailBody extends StatelessWidget {
                 // ── 유의사항 ──
                 if (event.notice != null && event.notice!.isNotEmpty)
                   _ContentSection(title: '예매 유의사항', content: event.notice!),
+
+                // ── 관람 후기 ──
+                ReviewSection(eventId: event.id),
 
                 const SizedBox(height: 120),
               ],
