@@ -22,7 +22,7 @@ import 'package:melon_core/widgets/premium_effects.dart';
 import 'widgets/seat_map_picker.dart';
 
 // =============================================================================
-// 공연 등록 화면 (간편 등록 → 즉시 승인 → 링크 공유)
+// 공연 등록 화면 (Editorial / Luxury Magazine Admin Design)
 // =============================================================================
 
 class EventCreateScreen extends ConsumerStatefulWidget {
@@ -170,8 +170,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           backgroundColor: AppTheme.surface,
           foregroundColor: AppTheme.textPrimary,
           title: Text(
-            '공연 등록',
-            style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+            'Editorial Admin',
+            style: AppTheme.serif(
+              fontSize: 17,
+              fontWeight: FontWeight.w500,
+              fontStyle: FontStyle.italic,
+            ),
           ),
         ),
         body: Center(
@@ -188,17 +192,16 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 const SizedBox(height: 12),
                 Text(
                   '관리자 권한이 필요합니다',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.serif(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   '관리자 계정으로 로그인 후 다시 시도해 주세요.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 13,
                     color: AppTheme.textSecondary,
                   ),
@@ -208,7 +211,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   onPressed: () => context.go('/'),
                   child: Text(
                     '홈으로 이동',
-                    style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                    style: AppTheme.sans(fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -229,12 +232,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               child: SingleChildScrollView(
                 padding: EdgeInsets.symmetric(
                   horizontal:
-                      MediaQuery.of(context).size.width >= 900 ? 40 : 16,
-                  vertical: 20,
+                      MediaQuery.of(context).size.width >= 900 ? 40 : 20,
+                  vertical: 32,
                 ),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 700),
+                    constraints: const BoxConstraints(maxWidth: 680),
                     child: _buildForm(),
                   ),
                 ),
@@ -255,76 +258,118 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Step 1: 기본 정보 ──
-        _stepHeader('1', '기본 정보'),
-        _card(
-          child: Column(
-            children: [
-              _field('공연명', isRequired: true,
-                  child: TextFormField(
-                    controller: _titleCtrl,
-                    style: _inputStyle(),
-                    decoration: _inputDecoration(null),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? '공연명을 입력해주세요' : null,
-                  )),
-              const SizedBox(height: 14),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide = constraints.maxWidth >= 460;
-                  if (isWide) {
-                    return Row(
-                      children: [
-                        Expanded(
-                          child:
-                              _field('카테고리', isRequired: true, child: _buildCategoryDropdown()),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _field('공연일시', isRequired: true, child: _buildDateTimePicker()),
-                        ),
-                      ],
-                    );
-                  }
-                  return Column(
-                    children: [
-                      _field('카테고리', isRequired: true, child: _buildCategoryDropdown()),
-                      const SizedBox(height: 14),
-                      _field('공연일시', isRequired: true, child: _buildDateTimePicker()),
-                    ],
-                  );
-                },
-              ),
-            ],
+        // ── Form Title ──
+        Text(
+          '공연 등록',
+          style: AppTheme.serif(
+            fontSize: 28,
+            fontWeight: FontWeight.w300,
           ),
         ),
+        const SizedBox(height: 8),
+        Container(
+          width: 12,
+          height: 1,
+          color: AppTheme.gold,
+        ),
+        const SizedBox(height: 40),
 
-        const SizedBox(height: 28),
+        // ── Section 1: 기본 정보 ──
+        _sectionHeader('기본 정보'),
+        const SizedBox(height: 24),
+        _field('공연명', isRequired: true,
+            child: TextFormField(
+              controller: _titleCtrl,
+              style: _inputStyle(),
+              decoration: _inputDecoration('공연 제목을 입력하세요'),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? '공연명을 입력해주세요' : null,
+            )),
+        const SizedBox(height: 20),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 460;
+            if (isWide) {
+              return Row(
+                children: [
+                  Expanded(
+                    child:
+                        _field('카테고리', isRequired: true, child: _buildCategoryDropdown()),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: _field('공연일시', isRequired: true, child: _buildDateTimePicker()),
+                  ),
+                ],
+              );
+            }
+            return Column(
+              children: [
+                _field('카테고리', isRequired: true, child: _buildCategoryDropdown()),
+                const SizedBox(height: 20),
+                _field('공연일시', isRequired: true, child: _buildDateTimePicker()),
+              ],
+            );
+          },
+        ),
 
-        // ── Step 2: 좌석 배치 (핵심 기능) ──
-        _stepHeader('2', '좌석 배치', badge: '핵심'),
-        _card(child: _buildSeatMapSection()),
+        const SizedBox(height: 48),
 
-        // ── Step 3: 가격 설정 (좌석 데이터 로드 후 자동 표시) ──
+        // ── Section 2: 공연장 ──
+        _sectionHeader('공연장'),
+        const SizedBox(height: 24),
+        _buildSeatMapSection(),
+
+        // ── Section 3: 등급별 가격 (좌석 데이터 로드 후 자동 표시) ──
         if (_seatMapData != null) ...[
-          const SizedBox(height: 28),
-          _stepHeader('3', '등급별 가격'),
-          _card(child: _buildGradeSelector()),
+          const SizedBox(height: 48),
+          _sectionHeader('등급별 가격'),
+          const SizedBox(height: 24),
+          _buildGradeSelector(),
         ],
 
-        const SizedBox(height: 28),
+        const SizedBox(height: 48),
 
-        // ── Step 4: 상세 정보 ──
-        _stepHeader(_seatMapData != null ? '4' : '3', '상세 정보'),
-        _card(child: _buildOptionalFields()),
+        // ── Section 4: 포스터 ──
+        _sectionHeader('포스터'),
+        const SizedBox(height: 24),
+        _buildPosterPicker(),
 
-        const SizedBox(height: 80),
+        const SizedBox(height: 48),
+
+        // ── Section 5: 상세 정보 ──
+        _sectionHeader('상세 정보'),
+        const SizedBox(height: 24),
+        _buildOptionalFields(),
+
+        const SizedBox(height: 48),
+
+        // ── Section 6: 제작/기획 ──
+        _sectionHeader('제작 / 기획'),
+        const SizedBox(height: 24),
+        _buildProducerFields(),
+
+        const SizedBox(height: 48),
+
+        // ── Section 7: 할인 정책 ──
+        _sectionHeader('할인 정책'),
+        const SizedBox(height: 24),
+        _buildDiscountSection(),
+
+        const SizedBox(height: 48),
+
+        // ── Section 8: 추가 설정 ──
+        _sectionHeader('추가 설정'),
+        const SizedBox(height: 24),
+        _buildAdditionalSettings(),
+
+        const SizedBox(height: 100),
       ],
     );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // APP BAR
+  // APP BAR — Sticky editorial header
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildAppBar() {
@@ -335,9 +380,14 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         right: 16,
         bottom: 12,
       ),
-      decoration: const BoxDecoration(
-        color: AppTheme.surface,
-        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
+      decoration: BoxDecoration(
+        color: AppTheme.background.withValues(alpha: 0.95),
+        border: const Border(
+          bottom: BorderSide(
+            color: AppTheme.border,
+            width: 0.5,
+          ),
+        ),
       ),
       child: Row(
         children: [
@@ -349,17 +399,16 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 context.go('/');
               }
             },
-            icon: const Icon(Icons.arrow_back_ios_new_rounded,
+            icon: const Icon(Icons.west,
                 color: AppTheme.textPrimary, size: 20),
           ),
-          Expanded(
-            child: Text(
-              '공연 등록',
-              style: GoogleFonts.notoSans(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
-              ),
+          const SizedBox(width: 4),
+          Text(
+            'Editorial Admin',
+            style: AppTheme.serif(
+              fontSize: 17,
+              fontWeight: FontWeight.w500,
+              fontStyle: FontStyle.italic,
             ),
           ),
         ],
@@ -368,7 +417,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // BOTTOM BAR
+  // BOTTOM BAR — Fixed burgundy submit
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildBottomBar() {
@@ -379,90 +428,79 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         20,
         12 + MediaQuery.of(context).padding.bottom,
       ),
-      decoration: const BoxDecoration(
-        color: AppTheme.surface,
-        border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
+      decoration: BoxDecoration(
+        color: AppTheme.background.withValues(alpha: 0.95),
+        border: const Border(
+          top: BorderSide(color: AppTheme.border, width: 0.5),
+        ),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: ShimmerButton(
-              text: '등록하기',
-              onPressed: _isSubmitting ? null : _submitEvent,
-              height: 56,
-              borderRadius: 14,
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: ElevatedButton(
+          onPressed: _isSubmitting ? null : _submitEvent,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.gold,
+            foregroundColor: AppTheme.onAccent,
+            disabledBackgroundColor: AppTheme.sage.withValues(alpha: 0.3),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
             ),
           ),
-        ],
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppTheme.onAccent,
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'REGISTER EVENT',
+                      style: AppTheme.serif(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.onAccent,
+                        letterSpacing: 2.5,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Icon(Icons.arrow_forward, size: 18),
+                  ],
+                ),
+        ),
       ),
     );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // STEP HEADER & CARD
+  // SECTION HEADER — Serif italic + thin line
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _stepHeader(String number, String title, {String? badge}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 26,
-            height: 26,
-            decoration: BoxDecoration(
-              gradient: AppTheme.goldGradient,
-              borderRadius: BorderRadius.circular(7),
-            ),
-            child: Center(
-              child: Text(
-                number,
-                style: GoogleFonts.notoSans(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFFFDF3F6),
-                ),
-              ),
-            ),
+  Widget _sectionHeader(String title) {
+    return Row(
+      children: [
+        Text(
+          title,
+          style: AppTheme.serif(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            fontStyle: FontStyle.italic,
           ),
-          const SizedBox(width: 10),
-          Text(
-            title,
-            style: GoogleFonts.notoSans(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
-            ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Container(
+            height: 0.5,
+            color: AppTheme.sage.withValues(alpha: 0.3),
           ),
-          if (badge != null) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppTheme.gold.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                badge,
-                style: GoogleFonts.notoSans(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.gold,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _card({required Widget child}) {
-    return shad.Card(
-      padding: const EdgeInsets.all(18),
-      borderRadius: BorderRadius.circular(14),
-      borderWidth: 0.5,
-      child: child,
+        ),
+      ],
     );
   }
 
@@ -480,8 +518,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               ))
           .toList(),
       onChanged: (v) => setState(() => _category = v!),
-      decoration: _inputDecoration(null),
-      dropdownColor: AppTheme.cardElevated,
+      decoration: _inputDecoration(null).copyWith(
+        suffixIcon: const Icon(Icons.expand_more, size: 20, color: AppTheme.sage),
+      ),
+      dropdownColor: AppTheme.surface,
+      icon: const SizedBox.shrink(),
     );
   }
 
@@ -511,94 +552,69 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     final wd = _weekdays[_startAt.weekday - 1];
     final amPm = _startAt.hour < 12 ? '오전' : '오후';
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.cardElevated,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.border, width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── 한글 요약 표시 + 달력 버튼 ──
-          Row(
-            children: [
-              const Icon(Icons.calendar_today_rounded,
-                  size: 15, color: AppTheme.gold),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '${_startAt.year}년 ${_startAt.month}월 ${_startAt.day}일 ($wd) $amPm ${_startAt.hour}시 ${_startAt.minute.toString().padLeft(2, '0')}분',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.gold,
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── 한글 요약 + 달력 버튼 ──
+        Row(
+          children: [
+            Icon(Icons.calendar_today_rounded,
+                size: 14, color: AppTheme.sage.withValues(alpha: 0.6)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${_startAt.year}년 ${_startAt.month}월 ${_startAt.day}일 ($wd) $amPm ${_startAt.hour}시 ${_startAt.minute.toString().padLeft(2, '0')}분',
+                style: AppTheme.sans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.gold,
                 ),
               ),
-              InkWell(
-                onTap: () => _pickDateTime(
-                    _startAt,
-                    (dt) => setState(() {
-                          _startAt = dt;
-                          _syncControllersFromDateTime();
-                        })),
-                borderRadius: BorderRadius.circular(6),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.gold.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.edit_calendar_rounded,
-                          size: 13, color: AppTheme.gold),
-                      const SizedBox(width: 4),
-                      Text('달력',
-                          style: GoogleFonts.notoSans(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.gold,
-                          )),
-                    ],
-                  ),
+            ),
+            GestureDetector(
+              onTap: () => _pickDateTime(
+                  _startAt,
+                  (dt) => setState(() {
+                        _startAt = dt;
+                        _syncControllersFromDateTime();
+                      })),
+              child: Text(
+                'CALENDAR',
+                style: AppTheme.label(
+                  fontSize: 9,
+                  color: AppTheme.gold,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
 
-          // ── 숫자 직접 입력 필드 ──
-          Row(
-            children: [
-              _dateTimeField(_yearCtrl, 52, '년'),
-              _dtLabel('년'),
-              const SizedBox(width: 6),
-              _dateTimeField(_monthCtrl, 32, '월'),
-              _dtLabel('월'),
-              const SizedBox(width: 6),
-              _dateTimeField(_dayCtrl, 32, '일'),
-              _dtLabel('일'),
-              const SizedBox(width: 14),
-              _dateTimeField(_hourCtrl, 32, '시'),
-              _dtLabel('시'),
-              const SizedBox(width: 4),
-              Text(':', style: GoogleFonts.notoSans(
-                fontSize: 14, fontWeight: FontWeight.w600,
-                color: AppTheme.textTertiary,
-              )),
-              const SizedBox(width: 4),
-              _dateTimeField(_minuteCtrl, 32, '분'),
-              _dtLabel('분'),
-            ],
-          ),
-        ],
-      ),
+        // ── 숫자 직접 입력 필드 ──
+        Row(
+          children: [
+            _dateTimeField(_yearCtrl, 52, '년'),
+            _dtLabel('년'),
+            const SizedBox(width: 6),
+            _dateTimeField(_monthCtrl, 32, '월'),
+            _dtLabel('월'),
+            const SizedBox(width: 6),
+            _dateTimeField(_dayCtrl, 32, '일'),
+            _dtLabel('일'),
+            const SizedBox(width: 14),
+            _dateTimeField(_hourCtrl, 32, '시'),
+            _dtLabel('시'),
+            const SizedBox(width: 4),
+            Text(':', style: AppTheme.sans(
+              fontSize: 14, fontWeight: FontWeight.w600,
+              color: AppTheme.textTertiary,
+            )),
+            const SizedBox(width: 4),
+            _dateTimeField(_minuteCtrl, 32, '분'),
+            _dtLabel('분'),
+          ],
+        ),
+      ],
     );
   }
 
@@ -608,7 +624,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       height: 36,
       child: TextFormField(
         controller: ctrl,
-        style: GoogleFonts.notoSans(
+        style: AppTheme.sans(
           fontSize: 14,
           fontWeight: FontWeight.w600,
           color: AppTheme.textPrimary,
@@ -618,19 +634,15 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         decoration: InputDecoration(
           contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          filled: true,
-          fillColor: AppTheme.surface,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
+          filled: false,
+          border: const UnderlineInputBorder(
+            borderSide: BorderSide(color: AppTheme.border, width: 0.5),
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
+          enabledBorder: UnderlineInputBorder(
+            borderSide: BorderSide(color: AppTheme.sage.withValues(alpha: 0.4), width: 0.5),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(color: AppTheme.gold, width: 1),
+          focusedBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: AppTheme.gold, width: 1),
           ),
         ),
         onChanged: (_) => _syncDateTimeFromControllers(),
@@ -643,7 +655,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       padding: const EdgeInsets.only(left: 2),
       child: Text(
         text,
-        style: GoogleFonts.notoSans(
+        style: AppTheme.sans(
           fontSize: 12,
           fontWeight: FontWeight.w500,
           color: AppTheme.textTertiary,
@@ -664,13 +676,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       children: [
         Text(
           '공연장을 선택하면 좌석 배치가 자동으로 설정됩니다.',
-          style: GoogleFonts.notoSans(
+          style: AppTheme.sans(
             fontSize: 13,
-            color: AppTheme.textTertiary,
+            color: AppTheme.sage.withValues(alpha: 0.7),
             height: 1.5,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
 
         // ── 공연장 DB에서 선택 ──
         venuesAsync.when(
@@ -699,7 +711,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           },
         ),
 
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
 
         // ── 엑셀 업로드 (추가 옵션) ──
         _buildExcelUploadArea(),
@@ -711,9 +723,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppTheme.error.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.error.withValues(alpha: 0.3)),
+                color: AppTheme.error.withValues(alpha: 0.06),
+                border: Border.all(color: AppTheme.error.withValues(alpha: 0.3), width: 0.5),
               ),
               child: Row(
                 children: [
@@ -722,7 +733,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(_seatMapError!,
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                             fontSize: 13, color: AppTheme.error)),
                   ),
                 ],
@@ -743,13 +754,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   Widget _buildNoVenueCard() {
     return InkWell(
       onTap: () => context.push('/venues'),
-      borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppTheme.card,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3), width: 1),
+          color: AppTheme.surface,
+          border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3), width: 0.5),
         ),
         child: Row(
           children: [
@@ -757,8 +766,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: AppTheme.gold.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+                color: AppTheme.gold.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
               ),
               child: const Icon(Icons.add_location_alt_rounded,
                   size: 20, color: AppTheme.gold),
@@ -769,13 +778,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('공연장을 먼저 등록하세요',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.sans(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.gold,
                       )),
                   Text('공연장 관리에서 좌석 배치가 포함된 공연장을 등록할 수 있습니다',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.sans(
                         fontSize: 12,
                         color: AppTheme.textTertiary,
                       )),
@@ -796,15 +805,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
     return InkWell(
       onTap: () => _selectVenue(venue),
-      borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.goldSubtle : AppTheme.cardElevated,
-          borderRadius: BorderRadius.circular(10),
+          color: isSelected ? AppTheme.gold.withValues(alpha: 0.04) : AppTheme.surface,
           border: Border.all(
-            color: isSelected ? AppTheme.gold : AppTheme.border,
-            width: isSelected ? 1.5 : 0.5,
+            color: isSelected ? AppTheme.gold : AppTheme.sage.withValues(alpha: 0.2),
+            width: isSelected ? 1 : 0.5,
           ),
         ),
         child: Row(
@@ -814,9 +821,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               height: 40,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? AppTheme.gold.withValues(alpha: 0.2)
-                    : AppTheme.surface,
-                borderRadius: BorderRadius.circular(10),
+                    ? AppTheme.gold.withValues(alpha: 0.1)
+                    : AppTheme.background,
+                shape: BoxShape.circle,
               ),
               child: Icon(Icons.location_city_rounded,
                   size: 20,
@@ -830,7 +837,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   Row(
                     children: [
                       Text(venue.name,
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.sans(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: AppTheme.textPrimary,
@@ -841,13 +848,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
-                            color: AppTheme.gold.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4), width: 0.5),
                           ),
-                          child: Text('시야',
-                              style: GoogleFonts.notoSans(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
+                          child: Text('VIEW',
+                              style: AppTheme.label(
+                                fontSize: 8,
                                 color: AppTheme.gold,
                               )),
                         ),
@@ -857,7 +862,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   Text(
                     '${fmt.format(venue.totalSeats)}석 · ${venue.floors.length}층'
                     '${venue.address != null ? ' · ${venue.address}' : ''}',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.sans(
                       fontSize: 12,
                       color: AppTheme.textTertiary,
                     ),
@@ -907,14 +912,16 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   Widget _buildExcelUploadArea() {
     return InkWell(
       onTap: _isLoadingSeatMap ? null : _pickExcelFile,
-      borderRadius: BorderRadius.circular(10),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 24),
+        padding: const EdgeInsets.symmetric(vertical: 28),
         decoration: BoxDecoration(
-          color: AppTheme.cardElevated,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.border, width: 0.5),
+          color: AppTheme.surface,
+          border: Border.all(
+            color: AppTheme.sage.withValues(alpha: 0.25),
+            width: 0.5,
+            // Dashed border simulated via pattern
+          ),
         ),
         child: Column(
           children: [
@@ -926,22 +933,22 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       strokeWidth: 2, color: AppTheme.gold))
             else
               Icon(Icons.cloud_upload_outlined,
-                  size: 32, color: AppTheme.textTertiary.withValues(alpha: 0.6)),
+                  size: 28, color: AppTheme.sage.withValues(alpha: 0.4)),
             const SizedBox(height: 10),
             Text(
-              _isLoadingSeatMap ? '엑셀 분석 중...' : '엑셀 파일 업로드',
-              style: GoogleFonts.notoSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textSecondary,
+              _isLoadingSeatMap ? '엑셀 분석 중...' : 'Drag or tap to upload seat data',
+              style: AppTheme.sans(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.sage,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               '시트명=층, 행: 구역 | 열 수 | 좌석 수 | 등급',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.sans(
                 fontSize: 11,
-                color: AppTheme.textTertiary,
+                color: AppTheme.sage.withValues(alpha: 0.5),
               ),
             ),
           ],
@@ -955,11 +962,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     final fmt = NumberFormat('#,###');
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.success.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.success.withValues(alpha: 0.3)),
+        color: AppTheme.surface,
+        border: Border.all(color: AppTheme.success.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -972,28 +978,20 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               Expanded(
                 child: Text(
                   data.venueName,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.serif(
                     fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              InkWell(
+              GestureDetector(
                 onTap: _clearSeatMap,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.error.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
+                child: Text(
+                  'RESET',
+                  style: AppTheme.label(
+                    fontSize: 9,
+                    color: AppTheme.error,
                   ),
-                  child: Text('초기화',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.error,
-                      )),
                 ),
               ),
             ],
@@ -1001,7 +999,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           const SizedBox(height: 10),
           Text(
             '총 ${fmt.format(data.totalSeats)}석 · ${data.floors.length}층',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.sans(
               fontSize: 13,
               color: AppTheme.textSecondary,
             ),
@@ -1015,12 +1013,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppTheme.card,
-                        borderRadius: BorderRadius.circular(6),
+                        color: AppTheme.background,
+                        border: Border.all(color: AppTheme.border, width: 0.5),
                       ),
                       child: Text(
                         '${f.name}: ${f.blocks.length}구역 (${fmt.format(f.totalSeats)}석)',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                           color: AppTheme.textSecondary,
@@ -1048,7 +1046,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                         )),
                     const SizedBox(width: 4),
                     Text(g.name,
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: AppTheme.textSecondary,
@@ -1064,188 +1062,192 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // STEP 3: GRADE SELECTOR
+  // STEP 3: GRADE SELECTOR — 2-column grid editorial
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildGradeSelector() {
     final fmt = NumberFormat('#,###');
 
-    return Column(
-      children: _allGrades.map((grade) {
-        final isEnabled = _enabledGrades.contains(grade);
-        final ctrl = _gradePriceControllers[grade]!;
-        final color = _gradeColors[grade]!;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 460;
 
-        var gradeSeats = 0;
-        if (_seatMapData != null) {
-          for (final floor in _seatMapData!.floors) {
-            for (final block in floor.blocks) {
-              if (block.grade == grade) gradeSeats += block.totalSeats;
-            }
+        if (isWide) {
+          // 2-column grid
+          final gradeWidgets = _allGrades.map((grade) {
+            return _buildGradeItem(grade, fmt);
+          }).toList();
+
+          final rows = <Widget>[];
+          for (var i = 0; i < gradeWidgets.length; i += 2) {
+            rows.add(
+              Padding(
+                padding: EdgeInsets.only(bottom: i + 2 < gradeWidgets.length ? 16 : 0),
+                child: Row(
+                  children: [
+                    Expanded(child: gradeWidgets[i]),
+                    const SizedBox(width: 20),
+                    if (i + 1 < gradeWidgets.length)
+                      Expanded(child: gradeWidgets[i + 1])
+                    else
+                      const Expanded(child: SizedBox.shrink()),
+                  ],
+                ),
+              ),
+            );
           }
+          return Column(children: rows);
         }
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: isEnabled ? AppTheme.cardElevated : AppTheme.card,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isEnabled ? color.withValues(alpha: 0.4) : AppTheme.border,
-                width: isEnabled ? 1 : 0.5,
+        // Single column
+        return Column(
+          children: _allGrades.map((grade) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _buildGradeItem(grade, fmt),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildGradeItem(String grade, NumberFormat fmt) {
+    final isEnabled = _enabledGrades.contains(grade);
+    final ctrl = _gradePriceControllers[grade]!;
+    final color = _gradeColors[grade]!;
+
+    var gradeSeats = 0;
+    if (_seatMapData != null) {
+      for (final floor in _seatMapData!.floors) {
+        for (final block in floor.blocks) {
+          if (block.grade == grade) gradeSeats += block.totalSeats;
+        }
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Grade badge + checkbox
+        Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: Checkbox(
+                value: isEnabled,
+                onChanged: (v) {
+                  setState(() {
+                    if (v == true) {
+                      _enabledGrades.add(grade);
+                    } else {
+                      _enabledGrades.remove(grade);
+                    }
+                  });
+                },
+                activeColor: color,
+                checkColor:
+                    grade == 'VIP' ? const Color(0xFFFDF3F6) : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                side: BorderSide(
+                  color: isEnabled ? color : AppTheme.textTertiary,
+                  width: 1,
+                ),
               ),
             ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: Checkbox(
-                    value: isEnabled,
-                    onChanged: (v) {
-                      setState(() {
-                        if (v == true) {
-                          _enabledGrades.add(grade);
-                        } else {
-                          _enabledGrades.remove(grade);
-                        }
-                      });
-                    },
-                    activeColor: color,
-                    checkColor:
-                        grade == 'VIP' ? const Color(0xFFFDF3F6) : Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    side: BorderSide(
-                      color: isEnabled ? color : AppTheme.textTertiary,
-                      width: 1.5,
-                    ),
-                  ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: isEnabled ? AppTheme.gold : AppTheme.sage.withValues(alpha: 0.3),
+                  width: 0.5,
                 ),
-                const SizedBox(width: 10),
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: isEnabled ? color : color.withValues(alpha: 0.3),
-                    shape: BoxShape.circle,
-                    boxShadow: isEnabled
-                        ? [
-                            BoxShadow(
-                                color: color.withValues(alpha: 0.3), blurRadius: 4)
-                          ]
-                        : null,
-                  ),
+              ),
+              child: Text(
+                grade,
+                style: AppTheme.label(
+                  fontSize: 10,
+                  color: isEnabled ? AppTheme.gold : AppTheme.textTertiary,
                 ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 44,
-                  child: Text(
-                    '$grade석',
-                    style: GoogleFonts.notoSans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: isEnabled
-                          ? AppTheme.textPrimary
-                          : AppTheme.textTertiary,
-                    ),
-                  ),
+              ),
+            ),
+            if (_seatMapData != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                '${fmt.format(gradeSeats)}석',
+                style: AppTheme.sans(
+                  fontSize: 11,
+                  color: AppTheme.textTertiary,
                 ),
-                if (_seatMapData != null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: Text(
-                      '${fmt.format(gradeSeats)}석',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 12,
-                        color: isEnabled
-                            ? AppTheme.textTertiary
-                            : AppTheme.textTertiary.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ),
-                const Spacer(),
-                SizedBox(
-                  width: 140,
-                  child: TextFormField(
-                    controller: ctrl,
-                    enabled: isEnabled,
-                    style: GoogleFonts.notoSans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: isEnabled
-                          ? AppTheme.textPrimary
-                          : AppTheme.textTertiary,
-                    ),
-                    decoration: InputDecoration(
-                      suffixText: '원',
-                      suffixStyle: GoogleFonts.notoSans(
-                        fontSize: 13,
-                        color: AppTheme.textTertiary,
-                      ),
-                      filled: true,
-                      fillColor: isEnabled ? AppTheme.surface : AppTheme.card,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                            color: AppTheme.border, width: 0.5),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                            color: AppTheme.border, width: 0.5),
-                      ),
-                      disabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                            color: AppTheme.border.withValues(alpha: 0.3),
-                            width: 0.5),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide:
-                            const BorderSide(color: AppTheme.gold, width: 1),
-                      ),
-                    ),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [_ThousandsSeparatorFormatter()],
-                    textAlign: TextAlign.end,
-                  ),
-                ),
-              ],
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Price input — underline style
+        TextFormField(
+          controller: ctrl,
+          enabled: isEnabled,
+          style: AppTheme.sans(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: isEnabled
+                ? AppTheme.textPrimary
+                : AppTheme.textTertiary,
+          ),
+          decoration: InputDecoration(
+            suffixText: '원',
+            suffixStyle: AppTheme.sans(
+              fontSize: 13,
+              color: AppTheme.textTertiary,
+            ),
+            filled: false,
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: 0, vertical: 10),
+            border: UnderlineInputBorder(
+              borderSide: BorderSide(
+                  color: AppTheme.sage.withValues(alpha: 0.4), width: 0.5),
+            ),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(
+                  color: AppTheme.sage.withValues(alpha: 0.4), width: 0.5),
+            ),
+            disabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(
+                  color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+            ),
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: AppTheme.gold, width: 1),
             ),
           ),
-        );
-      }).toList(),
+          keyboardType: TextInputType.number,
+          inputFormatters: [_ThousandsSeparatorFormatter()],
+          textAlign: TextAlign.end,
+        ),
+      ],
     );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // OPTIONAL FIELDS
+  // OPTIONAL FIELDS — 상세 정보 section
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildOptionalFields() {
     return Column(
       children: [
-        // 포스터
-        _field('포스터 이미지', child: _buildPosterPicker()),
-        const SizedBox(height: 14),
-
         // 공연 소개
         _field('공연 소개',
             child: TextFormField(
               controller: _descriptionCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration(null),
+              decoration: _inputDecoration('공연에 대한 설명을 입력하세요'),
               maxLines: 4,
             )),
-        const SizedBox(height: 14),
+        const SizedBox(height: 20),
 
         // 관람등급 + 공연시간
         LayoutBuilder(
@@ -1261,8 +1263,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                           ))
                       .toList(),
                   onChanged: (v) => setState(() => _ageLimit = v!),
-                  decoration: _inputDecoration(null),
-                  dropdownColor: AppTheme.cardElevated,
+                  decoration: _inputDecoration(null).copyWith(
+                    suffixIcon: const Icon(Icons.expand_more, size: 20, color: AppTheme.sage),
+                  ),
+                  dropdownColor: AppTheme.surface,
+                  icon: const SizedBox.shrink(),
                 ));
             final runningTimeField = _field('공연시간 (분)', isRequired: true,
                 child: TextFormField(
@@ -1276,7 +1281,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               return Row(
                 children: [
                   Expanded(child: ageLimitField),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 24),
                   Expanded(child: runningTimeField),
                 ],
               );
@@ -1284,13 +1289,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             return Column(
               children: [
                 ageLimitField,
-                const SizedBox(height: 14),
+                const SizedBox(height: 20),
                 runningTimeField,
               ],
             );
           },
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 20),
 
         // 공연장명
         _field('공연장명', isRequired: true,
@@ -1299,218 +1304,230 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               style: _inputStyle(),
               decoration: _inputDecoration(null),
             )),
-        const SizedBox(height: 14),
+        const SizedBox(height: 20),
 
         // 공연장 주소 (카카오 주소 검색)
         _field('공연장 주소', isRequired: true, child: _buildAddressField()),
-        const SizedBox(height: 14),
+        const SizedBox(height: 20),
 
         // 출연진
         _field('출연진',
             child: TextFormField(
               controller: _castCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration(null),
+              decoration: _inputDecoration('출연진 정보를 입력하세요'),
             )),
-        const SizedBox(height: 14),
+      ],
+    );
+  }
 
-        // 주최 + 기획 (분리)
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 460;
-            final hostField = _field('주최',
-                child: TextFormField(
-                  controller: _organizerCtrl,
-                  style: _inputStyle(),
-                  decoration: _inputDecoration(null),
-                ));
-            final plannerField = _field('기획',
-                child: TextFormField(
-                  controller: _plannerCtrl,
-                  style: _inputStyle(),
-                  decoration: _inputDecoration(null),
-                ));
-            if (isWide) {
-              return Row(
-                children: [
-                  Expanded(child: hostField),
-                  const SizedBox(width: 12),
-                  Expanded(child: plannerField),
-                ],
-              );
-            }
-            return Column(
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PRODUCER FIELDS — 제작/기획 section
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildProducerFields() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 460;
+        final hostField = _field('주최',
+            child: TextFormField(
+              controller: _organizerCtrl,
+              style: _inputStyle(),
+              decoration: _inputDecoration(null),
+            ));
+        final plannerField = _field('기획',
+            child: TextFormField(
+              controller: _plannerCtrl,
+              style: _inputStyle(),
+              decoration: _inputDecoration(null),
+            ));
+        if (isWide) {
+          return Row(
+            children: [
+              Expanded(child: hostField),
+              const SizedBox(width: 24),
+              Expanded(child: plannerField),
+            ],
+          );
+        }
+        return Column(
+          children: [
+            hostField,
+            const SizedBox(height: 20),
+            plannerField,
+          ],
+        );
+      },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DISCOUNT SECTION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildDiscountSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 추가된 정책 카드 리스트
+        ..._discountPolicies.asMap().entries.map((entry) {
+          final i = entry.key;
+          final p = entry.value;
+          final priceFormat = NumberFormat('#,###');
+          final basePrice = int.tryParse(
+                  _gradePriceControllers.values.firstOrNull?.text
+                          .replaceAll(',', '') ??
+                      '55000') ??
+              55000;
+          final discounted = p.discountedPrice(basePrice);
+
+          return Container(
+            margin: EdgeInsets.only(bottom: i < _discountPolicies.length - 1 ? 8 : 0),
+            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              border: Border.all(color: AppTheme.sage.withValues(alpha: 0.2), width: 0.5),
+            ),
+            child: Row(
               children: [
-                hostField,
-                const SizedBox(height: 14),
-                plannerField,
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 14),
-
-        // 할인 정책
-        _field('할인 정책',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 추가된 정책 카드 리스트
-                ..._discountPolicies.asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final p = entry.value;
-                  final priceFormat = NumberFormat('#,###');
-                  // 기본가격 기준 할인가 표시용
-                  final basePrice = int.tryParse(
-                          _gradePriceControllers.values.firstOrNull?.text
-                                  .replaceAll(',', '') ??
-                              '55000') ??
-                      55000;
-                  final discounted = p.discountedPrice(basePrice);
-
-                  return Container(
-                    margin: EdgeInsets.only(bottom: i < _discountPolicies.length - 1 ? 8 : 0),
-                    padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardElevated,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.border, width: 0.5),
-                    ),
-                    child: Row(
-                      children: [
-                        // 할인 아이콘
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: p.type == 'bulk'
-                                ? AppTheme.gold.withValues(alpha: 0.12)
-                                : AppTheme.success.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Center(
-                            child: Icon(
-                              p.type == 'bulk'
-                                  ? Icons.groups_rounded
-                                  : Icons.verified_user_rounded,
-                              size: 16,
-                              color: p.type == 'bulk'
-                                  ? AppTheme.gold
-                                  : AppTheme.success,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        // 정보
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                p.name,
-                                style: GoogleFonts.notoSans(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  Text(
-                                    '${(p.discountRate * 100).toInt()}%',
-                                    style: GoogleFonts.notoSans(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppTheme.error,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '${priceFormat.format(discounted)}원',
-                                    style: GoogleFonts.notoSans(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                  ),
-                                  if (p.description != null) ...[
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        p.description!,
-                                        style: GoogleFonts.notoSans(
-                                          fontSize: 10,
-                                          color: AppTheme.textTertiary,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        // 삭제
-                        IconButton(
-                          onPressed: () => setState(() => _discountPolicies.removeAt(i)),
-                          icon: const Icon(Icons.close_rounded,
-                              size: 16, color: AppTheme.textTertiary),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-                if (_discountPolicies.isNotEmpty) const SizedBox(height: 8),
-                // 추가 버튼
-                GestureDetector(
-                  onTap: () => _showAddDiscountDialog(),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.gold.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: AppTheme.gold.withValues(alpha: 0.25),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.add_rounded,
-                            size: 16, color: AppTheme.gold),
-                        const SizedBox(width: 6),
-                        Text(
-                          '할인 정책 추가',
-                          style: GoogleFonts.notoSans(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.gold,
-                          ),
-                        ),
-                      ],
+                // 할인 아이콘
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: p.type == 'bulk'
+                        ? AppTheme.gold.withValues(alpha: 0.08)
+                        : AppTheme.success.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      p.type == 'bulk'
+                          ? Icons.groups_rounded
+                          : Icons.verified_user_rounded,
+                      size: 16,
+                      color: p.type == 'bulk'
+                          ? AppTheme.gold
+                          : AppTheme.success,
                     ),
                   ),
                 ),
+                const SizedBox(width: 10),
+                // 정보
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        p.name,
+                        style: AppTheme.sans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Text(
+                            '${(p.discountRate * 100).toInt()}%',
+                            style: AppTheme.sans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.error,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${priceFormat.format(discounted)}원',
+                            style: AppTheme.sans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          if (p.description != null) ...[
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                p.description!,
+                                style: AppTheme.sans(
+                                  fontSize: 10,
+                                  color: AppTheme.textTertiary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // 삭제
+                IconButton(
+                  onPressed: () => setState(() => _discountPolicies.removeAt(i)),
+                  icon: const Icon(Icons.close_rounded,
+                      size: 16, color: AppTheme.textTertiary),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                ),
               ],
-            )),
-        const SizedBox(height: 14),
+            ),
+          );
+        }),
+        if (_discountPolicies.isNotEmpty) const SizedBox(height: 12),
+        // 추가 버튼
+        GestureDetector(
+          onTap: () => _showAddDiscountDialog(),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              border: Border.all(
+                color: AppTheme.gold.withValues(alpha: 0.3),
+                width: 0.5,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.add_rounded,
+                    size: 16, color: AppTheme.gold),
+                const SizedBox(width: 6),
+                Text(
+                  'ADD DISCOUNT POLICY',
+                  style: AppTheme.label(
+                    fontSize: 10,
+                    color: AppTheme.gold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADDITIONAL SETTINGS — 예매 유의사항 + 최대 구매 + 잔여석 토글
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildAdditionalSettings() {
+    return Column(
+      children: [
         // 예매 유의사항
         _field('예매 유의사항',
             child: TextFormField(
               controller: _noticeCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration(null),
+              decoration: _inputDecoration('예매 시 유의사항을 입력하세요'),
               maxLines: 3,
             )),
-        const SizedBox(height: 14),
+        const SizedBox(height: 20),
 
         // 최대 구매 수량
         _field('1인 최대 구매 수량',
@@ -1527,22 +1544,22 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 const SizedBox(height: 6),
                 Text(
                   '0 입력 시 무제한',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 11,
-                    color: AppTheme.textTertiary,
+                    color: AppTheme.sage.withValues(alpha: 0.6),
                   ),
                 ),
               ],
             )),
 
-        // 잔여석 표시 토글
-        const SizedBox(height: 16),
+        // 잔여석 표시 토글 — editorial bordered container
+        const SizedBox(height: 24),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           decoration: BoxDecoration(
-            color: AppTheme.card,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppTheme.border, width: 0.5),
+            color: AppTheme.surface,
+            border: Border.all(color: AppTheme.gold.withValues(alpha: 0.25), width: 0.5),
           ),
           child: Row(
             children: [
@@ -1552,7 +1569,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   children: [
                     Text(
                       '잔여석 표시',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.sans(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textPrimary,
@@ -1561,9 +1578,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                     const SizedBox(height: 2),
                     Text(
                       '예매 화면에 남은 좌석 수를 표시합니다',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.sans(
                         fontSize: 11,
-                        color: AppTheme.textTertiary,
+                        color: AppTheme.sage.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -1596,28 +1613,24 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 onTap: _searchAddress,
               ),
             ),
-            const SizedBox(width: 10),
-            InkWell(
+            const SizedBox(width: 12),
+            GestureDetector(
               onTap: _searchAddress,
-              borderRadius: BorderRadius.circular(10),
               child: Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
-                  color: AppTheme.gold.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4)),
+                  border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4), width: 0.5),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.search_rounded,
-                        size: 16, color: AppTheme.gold),
+                        size: 15, color: AppTheme.gold),
                     const SizedBox(width: 6),
-                    Text('주소 찾기',
-                        style: GoogleFonts.notoSans(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                    Text('SEARCH',
+                        style: AppTheme.label(
+                          fontSize: 9,
                           color: AppTheme.gold,
                         )),
                   ],
@@ -1638,7 +1651,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
       );
       return;
@@ -1669,15 +1682,14 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           return AlertDialog(
-            backgroundColor: AppTheme.card,
+            backgroundColor: AppTheme.surface,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16)),
+                borderRadius: BorderRadius.circular(4)),
             title: Text(
               '할인 정책 추가',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.serif(
                 fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w600,
               ),
             ),
             content: SingleChildScrollView(
@@ -1686,9 +1698,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 유형 선택
-                  Text('할인 유형',
-                      style: GoogleFonts.notoSans(
-                          fontSize: 12, color: AppTheme.textTertiary)),
+                  Text('DISCOUNT TYPE',
+                      style: AppTheme.label(
+                          fontSize: 9, color: AppTheme.sage)),
                   const SizedBox(height: 6),
                   Row(
                     children: [
@@ -1710,9 +1722,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   const SizedBox(height: 16),
 
                   // 이름
-                  Text(type == 'bulk' ? '조건명' : '대상명',
-                      style: GoogleFonts.notoSans(
-                          fontSize: 12, color: AppTheme.textTertiary)),
+                  Text(type == 'bulk' ? 'CONDITION NAME' : 'TARGET NAME',
+                      style: AppTheme.label(
+                          fontSize: 9, color: AppTheme.sage)),
                   const SizedBox(height: 4),
                   TextFormField(
                     controller: nameCtrl,
@@ -1722,9 +1734,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
                   if (type == 'bulk') ...[
                     const SizedBox(height: 12),
-                    Text('최소 수량',
-                        style: GoogleFonts.notoSans(
-                            fontSize: 12, color: AppTheme.textTertiary)),
+                    Text('MIN QUANTITY',
+                        style: AppTheme.label(
+                            fontSize: 9, color: AppTheme.sage)),
                     const SizedBox(height: 4),
                     TextFormField(
                       controller: qtyCtrl,
@@ -1736,9 +1748,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   ],
 
                   const SizedBox(height: 12),
-                  Text('할인율 (%)',
-                      style: GoogleFonts.notoSans(
-                          fontSize: 12, color: AppTheme.textTertiary)),
+                  Text('DISCOUNT RATE (%)',
+                      style: AppTheme.label(
+                          fontSize: 9, color: AppTheme.sage)),
                   const SizedBox(height: 4),
                   TextFormField(
                     controller: rateCtrl,
@@ -1749,9 +1761,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   ),
 
                   const SizedBox(height: 12),
-                  Text('설명 (선택)',
-                      style: GoogleFonts.notoSans(
-                          fontSize: 12, color: AppTheme.textTertiary)),
+                  Text('DESCRIPTION (OPTIONAL)',
+                      style: AppTheme.label(
+                          fontSize: 9, color: AppTheme.sage)),
                   const SizedBox(height: 4),
                   TextFormField(
                     controller: descCtrl,
@@ -1765,7 +1777,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: Text('취소',
-                    style: GoogleFonts.notoSans(color: AppTheme.textTertiary)),
+                    style: AppTheme.sans(color: AppTheme.textTertiary)),
               ),
               FilledButton(
                 onPressed: () {
@@ -1799,10 +1811,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 },
                 style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.gold,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppTheme.onAccent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
                 child: Text('추가',
-                    style: GoogleFonts.notoSans(fontWeight: FontWeight.w700)),
+                    style: AppTheme.sans(fontWeight: FontWeight.w700, color: AppTheme.onAccent)),
               ),
             ],
           );
@@ -1824,13 +1839,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: selected
-                ? AppTheme.gold.withValues(alpha: 0.12)
-                : AppTheme.cardElevated,
-            borderRadius: BorderRadius.circular(8),
+                ? AppTheme.gold.withValues(alpha: 0.06)
+                : AppTheme.background,
             border: Border.all(
               color: selected
                   ? AppTheme.gold.withValues(alpha: 0.4)
-                  : AppTheme.border,
+                  : AppTheme.sage.withValues(alpha: 0.2),
+              width: 0.5,
             ),
           ),
           child: Row(
@@ -1842,7 +1857,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: selected ? AppTheme.gold : AppTheme.textTertiary,
@@ -1859,29 +1874,25 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     if (_posterBytes != null) {
       return Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.gold, width: 1),
+          border: Border.all(color: AppTheme.gold, width: 0.5),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(9),
-              child: Image.memory(
-                _posterBytes!,
-                width: double.infinity,
-                height: 200,
-                fit: BoxFit.cover,
-              ),
+            Image.memory(
+              _posterBytes!,
+              width: double.infinity,
+              height: 200,
+              fit: BoxFit.cover,
             ),
             Positioned(
               top: 8,
               right: 8,
               child: Row(
                 children: [
-                  _posterActionBtn(Icons.edit_rounded, '변경', _pickPosterImage),
+                  _posterActionBtn(Icons.edit_rounded, 'CHANGE', _pickPosterImage),
                   const SizedBox(width: 6),
-                  _posterActionBtn(Icons.close_rounded, '삭제', () {
+                  _posterActionBtn(Icons.close_rounded, 'REMOVE', () {
                     setState(() {
                       _posterBytes = null;
                       _posterFileName = null;
@@ -1897,30 +1908,47 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
     return InkWell(
       onTap: _pickPosterImage,
-      borderRadius: BorderRadius.circular(10),
       child: Container(
         width: double.infinity,
-        height: 100,
+        height: 120,
         decoration: BoxDecoration(
-          color: AppTheme.cardElevated,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.border, width: 0.5),
+          color: AppTheme.surface,
+          border: Border.all(
+            color: AppTheme.sage.withValues(alpha: 0.25),
+            width: 0.5,
+          ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.add_photo_alternate_outlined,
-                size: 28, color: AppTheme.textTertiary.withValues(alpha: 0.6)),
-            const SizedBox(height: 6),
-            Text(
-              '포스터 이미지 선택 (JPG, PNG)',
-              style: GoogleFonts.notoSans(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textTertiary,
+        child: CustomPaint(
+          painter: _DashedBorderPainter(
+            color: AppTheme.sage.withValues(alpha: 0.3),
+            strokeWidth: 0.5,
+            dashWidth: 6,
+            dashSpace: 4,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.cloud_upload_outlined,
+                  size: 28, color: AppTheme.sage.withValues(alpha: 0.4)),
+              const SizedBox(height: 8),
+              Text(
+                'Drag or tap to upload artwork',
+                style: AppTheme.sans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.sage,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                'Recommended: 1000x1440px (JPG, PNG)',
+                style: AppTheme.sans(
+                  fontSize: 11,
+                  color: AppTheme.sage.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1933,7 +1961,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: Colors.black.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(2),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1941,9 +1969,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             Icon(icon, size: 14, color: Colors.white),
             const SizedBox(width: 4),
             Text(label,
-                style: GoogleFonts.notoSans(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                style: AppTheme.label(
+                  fontSize: 8,
                   color: Colors.white,
                 )),
           ],
@@ -1953,7 +1980,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SHARED WIDGETS
+  // SHARED WIDGETS — Editorial field + underline input
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _field(String label, {required Widget child, bool isRequired = false}) {
@@ -1963,18 +1990,17 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         Row(
           children: [
             Text(
-              label,
-              style: GoogleFonts.notoSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textSecondary,
+              label.toUpperCase(),
+              style: AppTheme.label(
+                fontSize: 10,
+                color: AppTheme.sage,
               ),
             ),
             if (isRequired)
               Text(
                 ' *',
-                style: GoogleFonts.notoSans(
-                  fontSize: 13,
+                style: AppTheme.sans(
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.error,
                 ),
@@ -1990,38 +2016,32 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   InputDecoration _inputDecoration(String? hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.notoSans(
+      hintStyle: AppTheme.sans(
         fontSize: 14,
-        color: AppTheme.textTertiary,
+        color: AppTheme.sage.withValues(alpha: 0.5),
       ),
-      filled: true,
-      fillColor: AppTheme.cardElevated,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
+      filled: false,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
+      border: UnderlineInputBorder(
+        borderSide: BorderSide(color: AppTheme.sage.withValues(alpha: 0.4), width: 0.5),
       ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
+      enabledBorder: UnderlineInputBorder(
+        borderSide: BorderSide(color: AppTheme.sage.withValues(alpha: 0.4), width: 0.5),
       ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppTheme.gold, width: 1),
+      focusedBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: AppTheme.gold, width: 1),
       ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppTheme.error, width: 1),
+      errorBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: AppTheme.error, width: 1),
       ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppTheme.error, width: 1.5),
+      focusedErrorBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: AppTheme.error, width: 1.5),
       ),
     );
   }
 
   TextStyle _inputStyle() {
-    return GoogleFonts.notoSans(
+    return AppTheme.sans(
       fontSize: 14,
       fontWeight: FontWeight.w500,
       color: AppTheme.textPrimary,
@@ -2041,10 +2061,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       lastDate: DateTime.now().add(const Duration(days: 730)),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.dark(
+          colorScheme: const ColorScheme.light(
             primary: AppTheme.gold,
-            onPrimary: Color(0xFFFDF3F6),
-            surface: AppTheme.card,
+            onPrimary: AppTheme.onAccent,
+            surface: AppTheme.surface,
             onSurface: AppTheme.textPrimary,
           ),
         ),
@@ -2057,10 +2077,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         initialTime: TimeOfDay.fromDateTime(current),
         builder: (ctx, child) => Theme(
           data: Theme.of(ctx).copyWith(
-            colorScheme: const ColorScheme.dark(
+            colorScheme: const ColorScheme.light(
               primary: AppTheme.gold,
-              onPrimary: Color(0xFFFDF3F6),
-              surface: AppTheme.card,
+              onPrimary: AppTheme.onAccent,
+              surface: AppTheme.surface,
               onSurface: AppTheme.textPrimary,
             ),
           ),
@@ -2163,7 +2183,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 backgroundColor: AppTheme.error,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(4)),
               ),
             );
           }
@@ -2393,16 +2413,15 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 // ── 제목 ──
                 Text(
                   '공연이 등록되었습니다!',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.serif(
                     fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   title,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.gold,
@@ -2412,7 +2431,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 const SizedBox(height: 4),
                 Text(
                   '총 ${fmt.format(totalSeats)}석 · 즉시 판매 시작',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 13,
                     color: AppTheme.textTertiary,
                   ),
@@ -2425,8 +2444,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: AppTheme.surface,
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppTheme.background,
                     border: Border.all(color: AppTheme.border, width: 0.5),
                   ),
                   child: Row(
@@ -2437,7 +2455,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       Expanded(
                         child: Text(
                           fullUrl,
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.sans(
                             fontSize: 12,
                             color: AppTheme.textSecondary,
                           ),
@@ -2445,7 +2463,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      InkWell(
+                      GestureDetector(
                         onTap: () {
                           Clipboard.setData(ClipboardData(text: fullUrl));
                           ScaffoldMessenger.of(ctx).showSnackBar(
@@ -2454,26 +2472,16 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                               backgroundColor: AppTheme.success,
                               behavior: SnackBarBehavior.floating,
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
+                                  borderRadius: BorderRadius.circular(4)),
                               duration: const Duration(seconds: 2),
                             ),
                           );
                         },
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.gold.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '복사',
-                            style: GoogleFonts.notoSans(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.gold,
-                            ),
+                        child: Text(
+                          'COPY',
+                          style: AppTheme.label(
+                            fontSize: 9,
+                            color: AppTheme.gold,
                           ),
                         ),
                       ),
@@ -2487,29 +2495,26 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 SizedBox(
                   width: double.infinity,
                   height: 48,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.goldGradient,
-                      borderRadius: BorderRadius.circular(12),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      context.go(eventPath);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.gold,
+                      foregroundColor: AppTheme.onAccent,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.of(ctx).pop();
-                          context.go(eventPath);
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Center(
-                          child: Text(
-                            '공연 상세 보기',
-                            style: GoogleFonts.notoSans(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFFFDF3F6),
-                            ),
-                          ),
-                        ),
+                    child: Text(
+                      'VIEW EVENT',
+                      style: AppTheme.serif(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.onAccent,
+                        letterSpacing: 2.0,
                       ),
                     ),
                   ),
@@ -2529,14 +2534,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       side:
                           const BorderSide(color: AppTheme.border, width: 0.5),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                     ),
                     child: Text(
-                      '대시보드로 이동',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                      'DASHBOARD',
+                      style: AppTheme.label(
+                        fontSize: 10,
                         color: AppTheme.textSecondary,
                       ),
                     ),
@@ -2558,7 +2562,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         content: Text(message),
         backgroundColor: AppTheme.error,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),
     );
   }
@@ -2592,4 +2596,51 @@ class _ThousandsSeparatorFormatter extends TextInputFormatter {
       selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
+}
+
+/// Dashed border painter for editorial poster upload area
+class _DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double dashWidth;
+  final double dashSpace;
+
+  _DashedBorderPainter({
+    required this.color,
+    this.strokeWidth = 1.0,
+    this.dashWidth = 6.0,
+    this.dashSpace = 4.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    // Draw dashed border
+    final metrics = path.computeMetrics();
+    for (final metric in metrics) {
+      double distance = 0;
+      while (distance < metric.length) {
+        final end = (distance + dashWidth).clamp(0.0, metric.length);
+        canvas.drawPath(
+          metric.extractPath(distance, end),
+          paint,
+        );
+        distance += dashWidth + dashSpace;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
+      color != oldDelegate.color ||
+      strokeWidth != oldDelegate.strokeWidth ||
+      dashWidth != oldDelegate.dashWidth ||
+      dashSpace != oldDelegate.dashSpace;
 }
