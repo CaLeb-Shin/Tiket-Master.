@@ -2,10 +2,11 @@ import 'dart:ui';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:melon_core/app/theme.dart';
 
 // ─────────────────────────────────────────────
-// 1. ShimmerButton — CTA 버튼에 빛 스윕 애니메이션
+// 1. ShimmerButton — Editorial CTA with subtle shimmer
 // ─────────────────────────────────────────────
 
 class ShimmerButton extends StatefulWidget {
@@ -24,7 +25,7 @@ class ShimmerButton extends StatefulWidget {
     this.onPressed,
     this.height = 56,
     this.width,
-    this.borderRadius = 14,
+    this.borderRadius = 4,
     this.textStyle,
     this.icon,
     this.gradient,
@@ -45,7 +46,7 @@ class _ShimmerButtonState extends State<ShimmerButton>
     super.initState();
     _shimmerCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2400),
+      duration: const Duration(milliseconds: 3000),
     )..repeat();
   }
 
@@ -74,13 +75,9 @@ class _ShimmerButtonState extends State<ShimmerButton>
             : null,
         onTapCancel: enabled ? () => setState(() => _isPressed = false) : null,
         child: AnimatedScale(
-          scale: _isPressed
-              ? 0.95
-              : _isHovered
-                  ? 1.02
-                  : 1.0,
-          duration: Duration(milliseconds: _isPressed ? 100 : 300),
-          curve: _isPressed ? Curves.easeIn : Curves.easeOutBack,
+          scale: _isPressed ? 0.98 : 1.0,
+          duration: Duration(milliseconds: _isPressed ? 80 : 300),
+          curve: _isPressed ? Curves.easeIn : Curves.easeOutCubic,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             height: widget.height,
@@ -92,10 +89,9 @@ class _ShimmerButtonState extends State<ShimmerButton>
               boxShadow: [
                 if (enabled)
                   BoxShadow(
-                    color: AppTheme.gold.withValues(alpha: _isHovered ? 0.5 : 0.3),
-                    blurRadius: _isHovered ? 24 : 12,
+                    color: AppTheme.gold.withValues(alpha: _isHovered ? 0.15 : 0.08),
+                    blurRadius: _isHovered ? 20 : 12,
                     offset: const Offset(0, 4),
-                    spreadRadius: _isHovered ? 2 : 0,
                   ),
               ],
             ),
@@ -119,7 +115,7 @@ class _ShimmerButtonState extends State<ShimmerButton>
                                   end: Alignment.centerRight,
                                   colors: [
                                     Colors.white.withValues(alpha: 0),
-                                    Colors.white.withValues(alpha: 0.18),
+                                    Colors.white.withValues(alpha: 0.08),
                                     Colors.white.withValues(alpha: 0),
                                   ],
                                   stops: [
@@ -146,13 +142,13 @@ class _ShimmerButtonState extends State<ShimmerButton>
                       Text(
                         widget.text,
                         style: widget.textStyle ??
-                            TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                            GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
                               color: enabled
                                   ? AppTheme.onAccent
                                   : AppTheme.textTertiary,
-                              letterSpacing: -0.2,
+                              letterSpacing: 2.0,
                             ),
                       ),
                     ],
@@ -169,7 +165,7 @@ class _ShimmerButtonState extends State<ShimmerButton>
 
 
 // ─────────────────────────────────────────────
-// 2. GlowCard — 글래스모피즘 카드
+// 2. GlowCard — Editorial card with subtle hover
 // ─────────────────────────────────────────────
 
 class GlowCard extends StatefulWidget {
@@ -184,11 +180,11 @@ class GlowCard extends StatefulWidget {
   const GlowCard({
     super.key,
     required this.child,
-    this.borderRadius = 16,
+    this.borderRadius = 2,
     this.padding,
     this.backgroundColor,
     this.borderColor,
-    this.blurSigma = 12,
+    this.blurSigma = 0,
     this.onTap,
   });
 
@@ -201,10 +197,9 @@ class _GlowCardState extends State<GlowCard> {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor =
-        widget.backgroundColor ?? AppTheme.card.withValues(alpha: 0.7);
+    final bgColor = widget.backgroundColor ?? AppTheme.card;
     final borderColor =
-        widget.borderColor ?? AppTheme.gold.withValues(alpha: 0.15);
+        widget.borderColor ?? AppTheme.sage.withValues(alpha: 0.15);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -213,48 +208,28 @@ class _GlowCardState extends State<GlowCard> {
           widget.onTap != null ? SystemMouseCursors.click : MouseCursor.defer,
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: _isHovered ? 1.01 : 1.0,
+        child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(widget.borderRadius),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.gold
-                      .withValues(alpha: _isHovered ? 0.12 : 0.05),
-                  blurRadius: _isHovered ? 20 : 8,
-                  spreadRadius: _isHovered ? 1 : 0,
-                ),
-              ],
+          padding: widget.padding ?? const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(widget.borderRadius),
+            border: Border.all(
+              color: _isHovered
+                  ? borderColor.withValues(alpha: 0.35)
+                  : borderColor,
+              width: 0.5,
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(widget.borderRadius),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: widget.blurSigma,
-                  sigmaY: widget.blurSigma,
-                ),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  padding: widget.padding ?? const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    borderRadius: BorderRadius.circular(widget.borderRadius),
-                    border: Border.all(
-                      color: _isHovered
-                          ? borderColor.withValues(alpha: 0.35)
-                          : borderColor,
-                      width: 1,
-                    ),
-                  ),
-                  child: widget.child,
-                ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.gold
+                    .withValues(alpha: _isHovered ? 0.06 : 0.03),
+                blurRadius: _isHovered ? 16 : 8,
+                offset: const Offset(0, 2),
               ),
-            ),
+            ],
           ),
+          child: widget.child,
         ),
       ),
     );
@@ -274,7 +249,7 @@ class PressableScale extends StatefulWidget {
     super.key,
     required this.child,
     this.onTap,
-    this.pressedScale = 0.96,
+    this.pressedScale = 0.98,
   });
 
   @override
@@ -296,7 +271,7 @@ class _PressableScaleState extends State<PressableScale> {
       child: AnimatedScale(
         scale: _pressed ? widget.pressedScale : 1.0,
         duration: Duration(milliseconds: _pressed ? 80 : 250),
-        curve: _pressed ? Curves.easeIn : Curves.easeOutBack,
+        curve: _pressed ? Curves.easeIn : Curves.easeOutCubic,
         child: widget.child,
       ),
     );
@@ -304,7 +279,7 @@ class _PressableScaleState extends State<PressableScale> {
 }
 
 // ─────────────────────────────────────────────
-// 4. AnimatedDialog — 프리미엄 다이얼로그
+// 4. AnimatedDialog — Editorial dialog
 // ─────────────────────────────────────────────
 
 Future<T?> showAnimatedDialog<T>({
@@ -316,7 +291,7 @@ Future<T?> showAnimatedDialog<T>({
     context: context,
     barrierDismissible: barrierDismissible,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    barrierColor: Colors.black54,
+    barrierColor: Colors.black38,
     transitionDuration: const Duration(milliseconds: 300),
     pageBuilder: (ctx, anim, secondAnim) => builder(ctx),
     transitionBuilder: (ctx, anim, secondAnim, child) {
@@ -327,13 +302,13 @@ Future<T?> showAnimatedDialog<T>({
       );
       return BackdropFilter(
         filter: ImageFilter.blur(
-          sigmaX: 20 * anim.value,
-          sigmaY: 20 * anim.value,
+          sigmaX: 16 * anim.value,
+          sigmaY: 16 * anim.value,
         ),
         child: FadeTransition(
           opacity: curved,
           child: ScaleTransition(
-            scale: Tween<double>(begin: 0.85, end: 1.0).animate(curved),
+            scale: Tween<double>(begin: 0.92, end: 1.0).animate(curved),
             child: child,
           ),
         ),
@@ -350,8 +325,8 @@ class AnimatedDialogContent extends StatelessWidget {
   const AnimatedDialogContent({
     super.key,
     required this.child,
-    this.borderRadius = 20,
-    this.padding = const EdgeInsets.all(24),
+    this.borderRadius = 4,
+    this.padding = const EdgeInsets.all(28),
   });
 
   @override
@@ -364,24 +339,13 @@ class AnimatedDialogContent extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 24),
           padding: padding,
           decoration: BoxDecoration(
-            color: AppTheme.card,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(borderRadius),
             border: Border.all(
-              color: AppTheme.gold.withValues(alpha: 0.15),
-              width: 1,
+              color: AppTheme.sage.withValues(alpha: 0.15),
+              width: 0.5,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
-                blurRadius: 40,
-                offset: const Offset(0, 16),
-              ),
-              BoxShadow(
-                color: AppTheme.gold.withValues(alpha: 0.08),
-                blurRadius: 60,
-                spreadRadius: -4,
-              ),
-            ],
+            boxShadow: AppShadows.elevated,
           ),
           child: child,
         ),
@@ -391,7 +355,7 @@ class AnimatedDialogContent extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
-// 5. SlideUpSheet — 바텀시트 대체
+// 5. SlideUpSheet — Editorial bottom sheet
 // ─────────────────────────────────────────────
 
 Future<T?> showSlideUpSheet<T>({
@@ -441,7 +405,7 @@ class _SlideUpSheetPage extends StatelessWidget {
 
     return Stack(
       children: [
-        // Blur + dim backdrop
+        // Dim backdrop
         AnimatedBuilder(
           animation: animation,
           builder: (ctx, _) {
@@ -449,12 +413,12 @@ class _SlideUpSheetPage extends StatelessWidget {
               onTap: isDismissible ? () => Navigator.of(ctx).pop() : null,
               child: BackdropFilter(
                 filter: ImageFilter.blur(
-                  sigmaX: 12 * animation.value,
-                  sigmaY: 12 * animation.value,
+                  sigmaX: 8 * animation.value,
+                  sigmaY: 8 * animation.value,
                 ),
                 child: Container(
                   color: Colors.black
-                      .withValues(alpha: 0.5 * animation.value),
+                      .withValues(alpha: 0.25 * animation.value),
                 ),
               ),
             );
@@ -478,16 +442,16 @@ class _SlideUpSheetPage extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppTheme.surface,
                   borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(24)),
+                      const BorderRadius.vertical(top: Radius.circular(4)),
                   border: Border(
                     top: BorderSide(
-                      color: AppTheme.gold.withValues(alpha: 0.15),
-                      width: 1,
+                      color: AppTheme.sage.withValues(alpha: 0.2),
+                      width: 0.5,
                     ),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 30,
                       offset: const Offset(0, -10),
                     ),
@@ -501,11 +465,8 @@ class _SlideUpSheetPage extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 12, bottom: 8),
                       child: Container(
                         width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: AppTheme.textTertiary.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
+                        height: 2,
+                        color: AppTheme.sage.withValues(alpha: 0.3),
                       ),
                     ),
                     Flexible(child: builder(context)),
@@ -521,7 +482,7 @@ class _SlideUpSheetPage extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
-// 6. ShimmerLoading — 스켈레톤 로딩
+// 6. ShimmerLoading — Editorial skeleton loading
 // ─────────────────────────────────────────────
 
 class ShimmerLoading extends StatefulWidget {
@@ -533,7 +494,7 @@ class ShimmerLoading extends StatefulWidget {
     super.key,
     this.width = double.infinity,
     this.height = 20,
-    this.borderRadius = 8,
+    this.borderRadius = 2,
   });
 
   @override
@@ -573,9 +534,9 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [
-                AppTheme.card,
-                AppTheme.gold.withValues(alpha: 0.08),
-                AppTheme.card,
+                AppTheme.cardElevated,
+                AppTheme.sage.withValues(alpha: 0.08),
+                AppTheme.cardElevated,
               ],
               stops: [
                 math.max(0.0, _ctrl.value - 0.3),
