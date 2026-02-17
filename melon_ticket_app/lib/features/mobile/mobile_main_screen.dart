@@ -451,12 +451,13 @@ class _QuickBookingTab extends ConsumerWidget {
       height: 114,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
         itemCount: cards.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           final card = cards[index];
           return SizedBox(
-            width: 170,
+            width: 148,
             child: GlowCard(
               borderRadius: 12,
               padding: const EdgeInsets.all(12),
