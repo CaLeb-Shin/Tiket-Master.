@@ -106,31 +106,33 @@ class _ShimmerButtonState extends State<ShimmerButton>
                 children: [
                   // Shimmer sweep
                   if (enabled)
-                    AnimatedBuilder(
-                      animation: _shimmerCtrl,
-                      builder: (context, _) {
-                        return Positioned.fill(
-                          child: ShaderMask(
-                            shaderCallback: (rect) {
-                              final dx = _shimmerCtrl.value * rect.width * 2 -
-                                  rect.width * 0.5;
-                              return LinearGradient(
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                                colors: [
-                                  Colors.white.withValues(alpha: 0),
-                                  Colors.white.withValues(alpha: 0.15),
-                                  Colors.white.withValues(alpha: 0),
-                                ],
-                                stops: const [0.0, 0.5, 1.0],
-                                transform: _SlideTransform(dx),
-                              ).createShader(rect);
-                            },
-                            blendMode: BlendMode.srcATop,
-                            child: Container(color: Colors.white),
-                          ),
-                        );
-                      },
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: AnimatedBuilder(
+                          animation: _shimmerCtrl,
+                          builder: (context, _) {
+                            final p = _shimmerCtrl.value;
+                            return DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0),
+                                    Colors.white.withValues(alpha: 0.18),
+                                    Colors.white.withValues(alpha: 0),
+                                  ],
+                                  stops: [
+                                    (p - 0.3).clamp(0.0, 1.0),
+                                    p,
+                                    (p + 0.3).clamp(0.0, 1.0),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ),
                   // Content
                   Row(
@@ -165,15 +167,6 @@ class _ShimmerButtonState extends State<ShimmerButton>
   }
 }
 
-class _SlideTransform extends GradientTransform {
-  final double dx;
-  const _SlideTransform(this.dx);
-
-  @override
-  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
-    return Matrix4.translationValues(dx, 0, 0);
-  }
-}
 
 // ─────────────────────────────────────────────
 // 2. GlowCard — 글래스모피즘 카드
