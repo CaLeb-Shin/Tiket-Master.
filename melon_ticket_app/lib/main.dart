@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -103,6 +104,13 @@ class _MelonTicketAppState extends ConsumerState<MelonTicketApp> {
         title: '멜론티켓',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
+        locale: const Locale('ko', 'KR'),
+        supportedLocales: const [Locale('ko', 'KR')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         routerConfig: router,
       );
     }
@@ -111,6 +119,13 @@ class _MelonTicketAppState extends ConsumerState<MelonTicketApp> {
       title: '멜론티켓',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
+      locale: const Locale('ko', 'KR'),
+      supportedLocales: const [Locale('ko', 'KR')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: _BootNoteSplash(
         showComplete: _showComplete,
         error: _startupError,

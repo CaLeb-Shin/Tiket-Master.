@@ -93,6 +93,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   ];
   static const _ageLimits = [
     '전체관람가',
+    '만 3세 이상',
+    '만 5세 이상',
     '만 7세 이상',
     '만 12세 이상',
     '만 15세 이상',
