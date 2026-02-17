@@ -32,6 +32,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
   static const int _maxParallelUploads = 3;
   static const Duration _singleUploadTimeout = Duration(seconds: 90);
   final List<_ZoneViewEntry> _entries = [];
+  final Set<String> _expandedExistingGroups = <String>{};
   bool _isUploading = false;
   String? _uploadStatus;
   String? _selectedLayoutFloor;
@@ -71,8 +72,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                   if (existingViews.isNotEmpty) ...[
                     _buildSectionTitle('등록된 시점 이미지'),
                     const SizedBox(height: 10),
-                    ...existingViews.entries
-                        .map((e) => _buildExistingViewCard(e.key, e.value)),
+                    ..._buildGroupedExistingViewCards(existingViews),
                     const SizedBox(height: 24),
                   ],
 
@@ -307,12 +307,230 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
     );
   }
 
-  Widget _buildExistingViewCard(String key, VenueZoneView view) {
+  List<Widget> _buildGroupedExistingViewCards(
+    Map<String, VenueZoneView> existingViews,
+  ) {
+    final groups = _groupExistingViews(existingViews);
+    return groups.map(_buildExistingViewGroupCard).toList();
+  }
+
+  List<_ExistingViewGroup> _groupExistingViews(
+    Map<String, VenueZoneView> existingViews,
+  ) {
+    final grouped = <String, _ExistingViewGroup>{};
+
+    for (final entry in existingViews.entries) {
+      final view = entry.value;
+      final floor = view.floor.trim().isEmpty ? '1층' : view.floor.trim();
+      final zone = view.zone.trim().isEmpty ? '미지정' : view.zone.trim();
+      final normalizedZone = zone.toUpperCase();
+      final groupId = '${floor}_$normalizedZone';
+
+      final current = grouped[groupId];
+      if (current == null) {
+        grouped[groupId] = _ExistingViewGroup(
+          id: groupId,
+          floor: floor,
+          zone: normalizedZone,
+          entries: [entry],
+        );
+      } else {
+        current.entries.add(entry);
+      }
+    }
+
+    final groups = grouped.values.toList()
+      ..sort((a, b) {
+        final floorCompare = _compareFloorLabel(a.floor, b.floor);
+        if (floorCompare != 0) return floorCompare;
+        return a.zone.compareTo(b.zone);
+      });
+
+    for (final group in groups) {
+      group.entries.sort(_compareViewsInGroup);
+    }
+    return groups;
+  }
+
+  int _compareFloorLabel(String a, String b) {
+    final aOrder = _extractFloorOrder(a);
+    final bOrder = _extractFloorOrder(b);
+    if (aOrder != bOrder) return aOrder.compareTo(bOrder);
+    return a.compareTo(b);
+  }
+
+  int _extractFloorOrder(String floorLabel) {
+    final normalized = floorLabel.trim().toLowerCase();
+    final match = RegExp(r'(\d+)').firstMatch(normalized);
+    if (match == null) return 9999;
+
+    final parsed = int.tryParse(match.group(1)!) ?? 0;
+    if (normalized.contains('지하') || normalized.startsWith('b')) {
+      return -parsed.abs();
+    }
+    return parsed.abs();
+  }
+
+  int _compareViewsInGroup(
+    MapEntry<String, VenueZoneView> a,
+    MapEntry<String, VenueZoneView> b,
+  ) {
+    final aOrder = _viewSpecificityOrder(a.value);
+    final bOrder = _viewSpecificityOrder(b.value);
+    if (aOrder != bOrder) return aOrder.compareTo(bOrder);
+
+    final rowCompare = _compareRowLabel(a.value.row, b.value.row);
+    if (rowCompare != 0) return rowCompare;
+
+    final aSeat = a.value.seat ?? -1;
+    final bSeat = b.value.seat ?? -1;
+    if (aSeat != bSeat) return aSeat.compareTo(bSeat);
+
+    return a.value.displayName.compareTo(b.value.displayName);
+  }
+
+  int _viewSpecificityOrder(VenueZoneView view) {
+    if (view.seat != null) return 2;
+    final row = (view.row ?? '').trim();
+    if (row.isNotEmpty) return 1;
+    return 0;
+  }
+
+  int _compareRowLabel(String? a, String? b) {
+    final aLabel = (a ?? '').trim();
+    final bLabel = (b ?? '').trim();
+    if (aLabel == bLabel) return 0;
+    if (aLabel.isEmpty) return -1;
+    if (bLabel.isEmpty) return 1;
+
+    final aNum = int.tryParse(aLabel);
+    final bNum = int.tryParse(bLabel);
+    if (aNum != null && bNum != null) return aNum.compareTo(bNum);
+    if (aNum != null) return -1;
+    if (bNum != null) return 1;
+    return aLabel.compareTo(bLabel);
+  }
+
+  Widget _buildExistingViewGroupCard(_ExistingViewGroup group) {
+    final expanded = _expandedExistingGroups.contains(group.id);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border, width: 0.5),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              setState(() {
+                if (expanded) {
+                  _expandedExistingGroups.remove(group.id);
+                } else {
+                  _expandedExistingGroups.add(group.id);
+                }
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+              child: Row(
+                children: [
+                  Icon(
+                    expanded
+                        ? Icons.keyboard_arrow_down_rounded
+                        : Icons.keyboard_arrow_right_rounded,
+                    size: 20,
+                    color: AppTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${group.floor} ${group.zone}구역',
+                          style: GoogleFonts.notoSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          '${group.entries.length}개 이미지',
+                          style: GoogleFonts.notoSans(
+                            fontSize: 11,
+                            color: AppTheme.textTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surface,
+                      borderRadius: BorderRadius.circular(999),
+                      border:
+                          Border.all(color: AppTheme.border.withOpacity(0.8)),
+                    ),
+                    child: Text(
+                      '${group.entries.length}',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (expanded) ...[
+            Divider(
+              height: 1,
+              thickness: 0.5,
+              color: AppTheme.border.withOpacity(0.9),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+              child: Column(
+                children: group.entries.asMap().entries.map((entry) {
+                  final item = entry.value;
+                  final isLast = entry.key == group.entries.length - 1;
+                  return _buildExistingViewCard(
+                    item.key,
+                    item.value,
+                    dense: true,
+                    removeBottomMargin: isLast,
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExistingViewCard(
+    String key,
+    VenueZoneView view, {
+    bool dense = false,
+    bool removeBottomMargin = false,
+  }) {
+    return Container(
+      margin: EdgeInsets.only(
+        bottom: removeBottomMargin ? 0 : (dense ? 8 : 10),
+      ),
+      padding: EdgeInsets.all(dense ? 10 : 12),
+      decoration: BoxDecoration(
+        color: dense ? AppTheme.surface : AppTheme.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.border, width: 0.5),
       ),
@@ -1949,6 +2167,20 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
       }
     }
   }
+}
+
+class _ExistingViewGroup {
+  final String id;
+  final String floor;
+  final String zone;
+  final List<MapEntry<String, VenueZoneView>> entries;
+
+  _ExistingViewGroup({
+    required this.id,
+    required this.floor,
+    required this.zone,
+    required this.entries,
+  });
 }
 
 class _ZoneViewEntry {

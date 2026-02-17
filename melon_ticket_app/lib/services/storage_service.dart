@@ -1,7 +1,9 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image/image.dart' as img;
 import 'package:uuid/uuid.dart';
 
 final storageServiceProvider = Provider<StorageService>((ref) {
@@ -10,6 +12,8 @@ final storageServiceProvider = Provider<StorageService>((ref) {
 
 class StorageService {
   final _uuid = const Uuid();
+  static const int _maxVenueViewEdge = 1920;
+  static const int _venueViewJpegQuality = 82;
 
   List<String> _bucketCandidates() {
     final options = Firebase.app().options;
@@ -135,10 +139,14 @@ class StorageService {
     required String zone,
     required String fileName,
   }) async {
-    return uploadImageBytes(
+    final prepared = _prepareVenueViewImageForUpload(
       bytes: bytes,
-      folder: 'venue_views/$venueId',
       fileName: fileName,
+    );
+    return uploadImageBytes(
+      bytes: prepared.bytes,
+      folder: 'venue_views/$venueId',
+      fileName: prepared.fileName,
     );
   }
 
@@ -167,4 +175,67 @@ class StorageService {
         return 'application/octet-stream';
     }
   }
+
+  _PreparedImageUpload _prepareVenueViewImageForUpload({
+    required Uint8List bytes,
+    required String fileName,
+  }) {
+    try {
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) {
+        return _PreparedImageUpload(bytes: bytes, fileName: fileName);
+      }
+
+      final resized = _resizeVenueViewImage(decoded);
+      final compressed = Uint8List.fromList(
+        img.encodeJpg(resized, quality: _venueViewJpegQuality),
+      );
+      if (compressed.isEmpty ||
+          compressed.lengthInBytes >= bytes.lengthInBytes) {
+        return _PreparedImageUpload(bytes: bytes, fileName: fileName);
+      }
+
+      return _PreparedImageUpload(
+        bytes: compressed,
+        fileName: _replaceFileExtension(fileName, 'jpg'),
+      );
+    } catch (_) {
+      return _PreparedImageUpload(bytes: bytes, fileName: fileName);
+    }
+  }
+
+  img.Image _resizeVenueViewImage(img.Image source) {
+    final currentMaxEdge = math.max(source.width, source.height);
+    if (currentMaxEdge <= _maxVenueViewEdge) {
+      return source;
+    }
+
+    final scale = _maxVenueViewEdge / currentMaxEdge;
+    final targetWidth = math.max(1, (source.width * scale).round());
+    final targetHeight = math.max(1, (source.height * scale).round());
+    return img.copyResize(
+      source,
+      width: targetWidth,
+      height: targetHeight,
+      interpolation: img.Interpolation.linear,
+    );
+  }
+
+  String _replaceFileExtension(String fileName, String extension) {
+    final dotIndex = fileName.lastIndexOf('.');
+    if (dotIndex <= 0) {
+      return '$fileName.$extension';
+    }
+    return '${fileName.substring(0, dotIndex)}.$extension';
+  }
+}
+
+class _PreparedImageUpload {
+  final Uint8List bytes;
+  final String fileName;
+
+  const _PreparedImageUpload({
+    required this.bytes,
+    required this.fileName,
+  });
 }
