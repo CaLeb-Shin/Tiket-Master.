@@ -1411,11 +1411,13 @@ class _EventsContent extends ConsumerWidget {
 }
 
 // ─── 통계 탭 ───
-class _StatsContent extends StatelessWidget {
+class _StatsContent extends ConsumerWidget {
   const _StatsContent();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final eventsAsync = ref.watch(allEventsStreamProvider);
+
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
@@ -1426,7 +1428,7 @@ class _StatsContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '통계',
+                '통계 대시보드',
                 style: GoogleFonts.notoSans(
                   fontSize: 30,
                   fontWeight: FontWeight.w900,
@@ -1436,48 +1438,14 @@ class _StatsContent extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Expanded(
-                child: _DarkCard(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: _deckPanelSoft,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: _deckBorder),
-                          ),
-                          child: Text(
-                            'ANALYTICS',
-                            style: GoogleFonts.robotoMono(
-                              fontSize: 13,
-                              color: _deckBrand.withOpacity(0.8),
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 22),
-                        Text(
-                          '통계 기능 준비 중',
-                          style: GoogleFonts.notoSans(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: _deckText,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '판매 추이, 좌석 점유율, 취소율 지표를 곧 제공합니다.',
-                          style: GoogleFonts.notoSans(
-                            fontSize: 13,
-                            color: _deckTextDim,
-                          ),
-                        ),
-                      ],
-                    ),
+                child: eventsAsync.when(
+                  data: (events) => _StatsBody(events: events),
+                  loading: () => const Center(
+                    child: CircularProgressIndicator(color: _deckBrand),
+                  ),
+                  error: (e, _) => Center(
+                    child: Text('오류: $e',
+                        style: GoogleFonts.notoSans(color: Colors.redAccent)),
                   ),
                 ),
               ),
@@ -1485,6 +1453,341 @@ class _StatsContent extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _StatsBody extends StatelessWidget {
+  final List<Event> events;
+  const _StatsBody({required this.events});
+
+  @override
+  Widget build(BuildContext context) {
+    final priceFormat = NumberFormat('#,###');
+    final now = DateTime.now();
+
+    // 통계 계산
+    final totalEvents = events.length;
+    final activeEvents = events.where((e) => e.status == EventStatus.active).length;
+    final totalSeats = events.fold<int>(0, (s, e) => s + e.totalSeats);
+    final soldSeats = events.fold<int>(0, (s, e) => s + (e.totalSeats - e.availableSeats));
+    final occupancyRate = totalSeats > 0 ? (soldSeats / totalSeats * 100) : 0.0;
+    final estimatedRevenue = events.fold<int>(
+        0, (s, e) => s + ((e.totalSeats - e.availableSeats) * e.price));
+    final upcomingEvents =
+        events.where((e) => e.startAt.isAfter(now)).length;
+    final pastEvents = events.where((e) => e.startAt.isBefore(now)).length;
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── KPI 카드 행 ──
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: [
+              _KpiCard(
+                icon: Icons.event_rounded,
+                label: '총 공연',
+                value: '$totalEvents',
+                subtext: '진행중 $activeEvents',
+                color: _deckBrand,
+              ),
+              _KpiCard(
+                icon: Icons.event_seat_rounded,
+                label: '총 좌석 / 판매',
+                value: '${priceFormat.format(soldSeats)} / ${priceFormat.format(totalSeats)}',
+                subtext: '점유율 ${occupancyRate.toStringAsFixed(1)}%',
+                color: _deckMint,
+              ),
+              _KpiCard(
+                icon: Icons.payments_rounded,
+                label: '예상 매출',
+                value: '${priceFormat.format(estimatedRevenue)}원',
+                subtext: '판매 좌석 기준',
+                color: const Color(0xFFFFB347),
+              ),
+              _KpiCard(
+                icon: Icons.calendar_month_rounded,
+                label: '예정 / 종료',
+                value: '$upcomingEvents / $pastEvents',
+                subtext: '공연 일정',
+                color: const Color(0xFF64B5F6),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 28),
+
+          // ── 공연별 실적 테이블 ──
+          Text(
+            '공연별 실적',
+            style: GoogleFonts.notoSans(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: _deckText,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _DarkCard(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  // 헤더
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: _deckPanelSoft,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        _tableHeader('공연명', flex: 3),
+                        _tableHeader('상태'),
+                        _tableHeader('판매/전체'),
+                        _tableHeader('점유율'),
+                        _tableHeader('예상매출'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // 데이터 행
+                  ...events.map((event) {
+                    final sold = event.totalSeats - event.availableSeats;
+                    final rate = event.totalSeats > 0
+                        ? (sold / event.totalSeats * 100)
+                        : 0.0;
+                    final revenue = sold * event.price;
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                              color: _deckBorder.withOpacity(0.5), width: 0.5),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              event.title,
+                              style: GoogleFonts.notoSans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: _deckText,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Expanded(
+                            child: _StatusDot(
+                              label: event.status == EventStatus.active
+                                  ? '진행중'
+                                  : event.status == EventStatus.soldOut
+                                      ? '매진'
+                                      : '종료',
+                              color: event.status == EventStatus.active
+                                  ? _deckMint
+                                  : event.status == EventStatus.soldOut
+                                      ? Colors.redAccent
+                                      : _deckTextDim,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '$sold / ${event.totalSeats}',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.robotoMono(
+                                fontSize: 12,
+                                color: _deckTextDim,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: _OccupancyBar(rate: rate),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '${priceFormat.format(revenue)}원',
+                              textAlign: TextAlign.right,
+                              style: GoogleFonts.robotoMono(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _deckBrand,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tableHeader(String text, {int flex = 1}) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        text,
+        textAlign: flex > 1 ? TextAlign.left : TextAlign.center,
+        style: GoogleFonts.notoSans(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: _deckTextDim,
+        ),
+      ),
+    );
+  }
+}
+
+class _KpiCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final String subtext;
+  final Color color;
+
+  const _KpiCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.subtext,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 260,
+      child: _DarkCard(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, size: 22, color: color),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: GoogleFonts.notoSans(
+                          fontSize: 11, color: _deckTextDim),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      value,
+                      style: GoogleFonts.notoSans(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: _deckText,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      subtext,
+                      style: GoogleFonts.notoSans(
+                        fontSize: 11,
+                        color: color.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusDot extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _StatusDot({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: GoogleFonts.notoSans(fontSize: 11, color: color),
+        ),
+      ],
+    );
+  }
+}
+
+class _OccupancyBar extends StatelessWidget {
+  final double rate;
+  const _OccupancyBar({required this.rate});
+
+  @override
+  Widget build(BuildContext context) {
+    final clampedRate = rate.clamp(0.0, 100.0);
+    return Column(
+      children: [
+        Text(
+          '${clampedRate.toStringAsFixed(0)}%',
+          style: GoogleFonts.robotoMono(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: clampedRate >= 80
+                ? _deckMint
+                : clampedRate >= 50
+                    ? _deckBrand
+                    : _deckTextDim,
+          ),
+        ),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: 4,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: clampedRate / 100,
+              backgroundColor: _deckBorder,
+              color: clampedRate >= 80
+                  ? _deckMint
+                  : clampedRate >= 50
+                      ? _deckBrand
+                      : _deckTextDim,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
