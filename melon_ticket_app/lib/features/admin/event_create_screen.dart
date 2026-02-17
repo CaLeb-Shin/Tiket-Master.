@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../app/theme.dart';
+import '../../services/kakao_postcode_service.dart'
+    if (dart.library.io) '../../services/kakao_postcode_stub.dart';
 import '../../data/models/event.dart';
 import '../../data/models/venue.dart';
 import '../../data/repositories/event_repository.dart';
@@ -38,8 +40,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   final _maxTicketsCtrl = TextEditingController(text: '4');
   final _descriptionCtrl = TextEditingController();
   final _castCtrl = TextEditingController();
-  final _organizerCtrl = TextEditingController();
+  final _organizerCtrl = TextEditingController(); // 주최
+  final _plannerCtrl = TextEditingController(); // 기획
   final _noticeCtrl = TextEditingController();
+  final _discountCtrl = TextEditingController(); // 할인정보
 
   // ── State ──
   String _category = '콘서트';
@@ -121,6 +125,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     _descriptionCtrl.dispose();
     _castCtrl.dispose();
     _organizerCtrl.dispose();
+    _plannerCtrl.dispose();
+    _discountCtrl.dispose();
     _noticeCtrl.dispose();
     _yearCtrl.dispose();
     _monthCtrl.dispose();
@@ -1265,7 +1271,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             child: TextFormField(
               controller: _descriptionCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration('공연 소개를 입력하세요 (선택)'),
+              decoration: _inputDecoration('공연 소개를 입력하세요'),
               maxLines: 4,
             )),
         const SizedBox(height: 14),
@@ -1274,99 +1280,112 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         LayoutBuilder(
           builder: (context, constraints) {
             final isWide = constraints.maxWidth >= 460;
+            final ageLimitField = _field('관람등급',
+                child: DropdownButtonFormField<String>(
+                  value: _ageLimit,
+                  items: _ageLimits
+                      .map((a) => DropdownMenuItem(
+                            value: a,
+                            child: Text(a, style: _inputStyle()),
+                          ))
+                      .toList(),
+                  onChanged: (v) => setState(() => _ageLimit = v!),
+                  decoration: _inputDecoration(null),
+                  dropdownColor: AppTheme.cardElevated,
+                ));
+            final runningTimeField = _field('공연시간 (분)',
+                child: TextFormField(
+                  controller: _runningTimeCtrl,
+                  style: _inputStyle(),
+                  decoration: _inputDecoration('120'),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                ));
             if (isWide) {
               return Row(
                 children: [
-                  Expanded(
-                    child: _field('관람등급',
-                        child: DropdownButtonFormField<String>(
-                          value: _ageLimit,
-                          items: _ageLimits
-                              .map((a) => DropdownMenuItem(
-                                    value: a,
-                                    child: Text(a, style: _inputStyle()),
-                                  ))
-                              .toList(),
-                          onChanged: (v) => setState(() => _ageLimit = v!),
-                          decoration: _inputDecoration(null),
-                          dropdownColor: AppTheme.cardElevated,
-                        )),
-                  ),
+                  Expanded(child: ageLimitField),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: _field('공연시간 (분)',
-                        child: TextFormField(
-                          controller: _runningTimeCtrl,
-                          style: _inputStyle(),
-                          decoration: _inputDecoration('120'),
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly
-                          ],
-                        )),
-                  ),
+                  Expanded(child: runningTimeField),
                 ],
               );
             }
             return Column(
               children: [
-                _field('관람등급',
-                    child: DropdownButtonFormField<String>(
-                      value: _ageLimit,
-                      items: _ageLimits
-                          .map((a) => DropdownMenuItem(
-                                value: a,
-                                child: Text(a, style: _inputStyle()),
-                              ))
-                          .toList(),
-                      onChanged: (v) => setState(() => _ageLimit = v!),
-                      decoration: _inputDecoration(null),
-                      dropdownColor: AppTheme.cardElevated,
-                    )),
+                ageLimitField,
                 const SizedBox(height: 14),
-                _field('공연시간 (분)',
-                    child: TextFormField(
-                      controller: _runningTimeCtrl,
-                      style: _inputStyle(),
-                      decoration: _inputDecoration('120'),
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    )),
+                runningTimeField,
               ],
             );
           },
         ),
         const SizedBox(height: 14),
 
-        // 공연장명 + 주소
+        // 공연장명
         _field('공연장명',
             child: TextFormField(
               controller: _venueNameCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration('공연장 이름 (선택)'),
-            )),
-        const SizedBox(height: 14),
-        _field('공연장 주소',
-            child: TextFormField(
-              controller: _venueAddressCtrl,
-              style: _inputStyle(),
-              decoration: _inputDecoration('주소 입력 (선택)'),
+              decoration: _inputDecoration('공연장 이름'),
             )),
         const SizedBox(height: 14),
 
-        // 출연진 + 주최
+        // 공연장 주소 (카카오 주소 검색)
+        _field('공연장 주소', child: _buildAddressField()),
+        const SizedBox(height: 14),
+
+        // 출연진
         _field('출연진',
             child: TextFormField(
               controller: _castCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration('홍길동, 김철수 (선택)'),
+              decoration: _inputDecoration('홍길동, 김철수'),
             )),
         const SizedBox(height: 14),
-        _field('주최/기획',
+
+        // 주최 + 기획 (분리)
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 460;
+            final hostField = _field('주최',
+                child: TextFormField(
+                  controller: _organizerCtrl,
+                  style: _inputStyle(),
+                  decoration: _inputDecoration('(주)멜론엔터테인먼트'),
+                ));
+            final plannerField = _field('기획',
+                child: TextFormField(
+                  controller: _plannerCtrl,
+                  style: _inputStyle(),
+                  decoration: _inputDecoration('기획사명'),
+                ));
+            if (isWide) {
+              return Row(
+                children: [
+                  Expanded(child: hostField),
+                  const SizedBox(width: 12),
+                  Expanded(child: plannerField),
+                ],
+              );
+            }
+            return Column(
+              children: [
+                hostField,
+                const SizedBox(height: 14),
+                plannerField,
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 14),
+
+        // 할인정보
+        _field('할인정보',
             child: TextFormField(
-              controller: _organizerCtrl,
+              controller: _discountCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration('(주)멜론엔터테인먼트 (선택)'),
+              decoration: _inputDecoration('예: 학생 20% 할인, 단체 10명 이상 30% 할인'),
+              maxLines: 3,
             )),
         const SizedBox(height: 14),
 
@@ -1375,7 +1394,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             child: TextFormField(
               controller: _noticeCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration('유의사항 입력 (선택)'),
+              decoration: _inputDecoration('유의사항 입력'),
               maxLines: 3,
             )),
         const SizedBox(height: 14),
@@ -1385,12 +1404,86 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             child: TextFormField(
               controller: _maxTicketsCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration('4'),
+              decoration: _inputDecoration('4 (0 입력시 무제한)'),
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             )),
       ],
     );
+  }
+
+  Widget _buildAddressField() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _venueAddressCtrl,
+                style: _inputStyle(),
+                decoration: _inputDecoration('주소 검색 버튼을 눌러주세요'),
+                readOnly: true,
+                onTap: _searchAddress,
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: _searchAddress,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.goldGradient,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.search_rounded,
+                        size: 16, color: Color(0xFFFDF3F6)),
+                    const SizedBox(width: 4),
+                    Text('주소 찾기',
+                        style: GoogleFonts.notoSans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFFFDF3F6),
+                        )),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _searchAddress() async {
+    if (!kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('주소 검색은 웹에서만 지원됩니다'),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+
+    final result = await openKakaoPostcode();
+    if (result != null && mounted) {
+      setState(() {
+        _venueAddressCtrl.text = result.fullAddress;
+        // 공연장명이 비어있으면 건물명으로 자동 입력
+        if (_venueNameCtrl.text.trim().isEmpty &&
+            result.buildingName.isNotEmpty) {
+          _venueNameCtrl.text = result.buildingName;
+        }
+      });
+    }
   }
 
   Widget _buildPosterPicker() {
