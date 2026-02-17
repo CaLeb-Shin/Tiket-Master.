@@ -1733,6 +1733,17 @@ class _ProfileTab extends ConsumerWidget {
 
             const SizedBox(height: 16),
 
+            // 주문 내역
+            if (isLoggedIn) ...[
+              _MenuItem(
+                icon: Icons.receipt_long_rounded,
+                title: '주문 내역',
+                subtitle: '결제 및 환불 내역 확인',
+                onTap: () => context.push('/orders'),
+              ),
+              const SizedBox(height: 8),
+            ],
+
             // 스태프/관리자 메뉴
             if (currentUser.value?.isStaff == true) ...[
               _MenuItem(

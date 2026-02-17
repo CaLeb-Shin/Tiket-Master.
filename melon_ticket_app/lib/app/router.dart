@@ -22,6 +22,8 @@ import '../features/admin/venue_view_upload_screen.dart';
 import '../features/admin/venue_manage_screen.dart';
 import '../features/mobile/mobile_main_screen.dart';
 import '../features/demo/demo_flow_screen.dart';
+import '../features/orders/my_orders_screen.dart';
+import '../features/admin/admin_orders_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -31,6 +33,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final path = state.matchedLocation;
 
       final requiresAuth = path.startsWith('/tickets') ||
+          path.startsWith('/orders') ||
           path.startsWith('/checkout') ||
           path.startsWith('/staff') ||
           path.startsWith('/admin');
@@ -140,6 +143,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
 
+          // 주문 내역
+          GoRoute(
+            path: '/orders',
+            name: 'orders',
+            builder: (context, state) => const MyOrdersScreen(),
+          ),
+
           // 내 티켓
           GoRoute(
             path: '/tickets',
@@ -203,6 +213,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final eventId = state.pathParameters['eventId']!;
               return AssignmentCheckScreen(eventId: eventId);
+            },
+          ),
+          GoRoute(
+            path: 'events/:eventId/orders',
+            name: 'adminOrders',
+            builder: (context, state) {
+              final eventId = state.pathParameters['eventId']!;
+              return AdminOrdersScreen(eventId: eventId);
             },
           ),
           GoRoute(
