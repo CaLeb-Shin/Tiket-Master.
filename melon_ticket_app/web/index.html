@@ -57,8 +57,65 @@
       });
     })();
   </script>
-  <!-- Kakao 주소 검색 API (무료, API 키 불필요) -->
+  <!-- Kakao JS SDK (로그인 + 주소검색) -->
+  <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js"></script>
   <script src="//t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+  <script>
+    // 카카오 앱키는 환경변수로 관리 (Kakao Developers 콘솔에서 발급)
+    // TODO: 실제 JavaScript 앱키로 교체
+    if (typeof Kakao !== 'undefined' && !Kakao.isInitialized()) {
+      Kakao.init('YOUR_KAKAO_JAVASCRIPT_APP_KEY');
+    }
+
+    // 카카오 로그인 → 액세스 토큰 반환
+    function loginWithKakao() {
+      return new Promise(function(resolve, reject) {
+        if (typeof Kakao === 'undefined' || !Kakao.isInitialized()) {
+          reject('카카오 SDK가 초기화되지 않았습니다');
+          return;
+        }
+        Kakao.Auth.login({
+          success: function(authObj) {
+            resolve(authObj.access_token);
+          },
+          fail: function(err) {
+            reject(JSON.stringify(err));
+          }
+        });
+      });
+    }
+
+    // 네이버 로그인 (팝업 방식)
+    // TODO: 네이버 클라이언트 ID로 교체
+    var NAVER_CLIENT_ID = 'YOUR_NAVER_CLIENT_ID';
+    var NAVER_CALLBACK_URL = window.location.origin + '/naver-callback.html';
+
+    function loginWithNaver() {
+      return new Promise(function(resolve, reject) {
+        var state = Math.random().toString(36).substr(2);
+        var url = 'https://nid.naver.com/oauth2.0/authorize'
+          + '?response_type=token'
+          + '&client_id=' + NAVER_CLIENT_ID
+          + '&redirect_uri=' + encodeURIComponent(NAVER_CALLBACK_URL)
+          + '&state=' + state;
+
+        var popup = window.open(url, 'naverLogin', 'width=500,height=600');
+
+        // 팝업에서 콜백으로 토큰 전달
+        window._naverLoginResolve = resolve;
+        window._naverLoginReject = reject;
+
+        var checkClosed = setInterval(function() {
+          if (popup && popup.closed) {
+            clearInterval(checkClosed);
+            if (window._naverLoginReject) {
+              window._naverLoginReject('로그인 취소');
+            }
+          }
+        }, 500);
+      });
+    }
+  </script>
   <script>
     function openKakaoPostcode() {
       return new Promise(function(resolve) {

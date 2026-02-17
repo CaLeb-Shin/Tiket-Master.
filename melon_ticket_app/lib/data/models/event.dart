@@ -25,8 +25,10 @@ class Event {
   final int? runningTime; // 러닝타임 (분)
   final String? ageLimit; // 관람등급
   final String? cast; // 출연진
-  final String? organizer; // 주최/기획
+  final String? organizer; // 주최
+  final String? planner; // 기획
   final String? notice; // 예매 유의사항
+  final String? discount; // 할인정보
   final Map<String, int>? priceByGrade; // 등급별 가격 (VIP, R, S, A 등)
 
   Event({
@@ -52,7 +54,9 @@ class Event {
     this.ageLimit,
     this.cast,
     this.organizer,
+    this.planner,
     this.notice,
+    this.discount,
     this.priceByGrade,
   });
 
@@ -90,7 +94,9 @@ class Event {
       ageLimit: data['ageLimit'],
       cast: data['cast'],
       organizer: data['organizer'],
+      planner: data['planner'],
       notice: data['notice'],
+      discount: data['discount'],
       priceByGrade: data['priceByGrade'] != null 
           ? Map<String, int>.from(data['priceByGrade']) 
           : null,
@@ -120,7 +126,9 @@ class Event {
       'ageLimit': ageLimit,
       'cast': cast,
       'organizer': organizer,
+      'planner': planner,
       'notice': notice,
+      'discount': discount,
       'priceByGrade': priceByGrade,
     };
   }

@@ -1,8 +1,11 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/app_user.dart';
+import 'social_login_web.dart'
+    if (dart.library.io) 'social_login_stub.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -126,34 +129,40 @@ class AuthService {
     }
   }
 
-  /// 카카오 로그인 (Custom Token 방식 - Cloud Functions 필요)
+  /// 카카오 로그인 (JS SDK → Cloud Functions → Custom Token)
   Future<UserCredential?> signInWithKakao() async {
-    // 카카오 로그인은 다음 단계가 필요합니다:
-    // 1. Kakao Developers에서 앱 등록
-    // 2. kakao_flutter_sdk 패키지 설치 및 초기화
-    // 3. 카카오 로그인 후 토큰 받기
-    // 4. Cloud Functions에서 Firebase Custom Token 발급
-    // 5. Custom Token으로 Firebase 로그인
+    // 1. 카카오 JS SDK로 액세스 토큰 획득
+    final accessToken = await getKakaoAccessToken();
+    if (accessToken == null) return null;
 
-    throw UnimplementedError('카카오 로그인을 사용하려면 다음 설정이 필요합니다:\n'
-        '1. Kakao Developers에서 앱 등록\n'
-        '2. kakao_flutter_sdk 패키지 설치\n'
-        '3. Cloud Functions에서 Custom Token 발급 로직 구현');
+    // 2. Cloud Functions에서 Custom Token 발급
+    final callable = FirebaseFunctions.instance.httpsCallable('signInWithKakao');
+    final result = await callable.call<Map<String, dynamic>>(
+      {'accessToken': accessToken},
+    );
+    final customToken = result.data['customToken'] as String;
+
+    // 3. Firebase Custom Token으로 로그인
+    final credential = await _auth.signInWithCustomToken(customToken);
+    return credential;
   }
 
-  /// 네이버 로그인 (Custom Token 방식 - Cloud Functions 필요)
+  /// 네이버 로그인 (팝업 OAuth → Cloud Functions → Custom Token)
   Future<UserCredential?> signInWithNaver() async {
-    // 네이버 로그인은 다음 단계가 필요합니다:
-    // 1. Naver Developers에서 앱 등록
-    // 2. flutter_naver_login 패키지 설치 및 초기화
-    // 3. 네이버 로그인 후 토큰 받기
-    // 4. Cloud Functions에서 Firebase Custom Token 발급
-    // 5. Custom Token으로 Firebase 로그인
+    // 1. 네이버 팝업 로그인으로 액세스 토큰 획득
+    final accessToken = await getNaverAccessToken();
+    if (accessToken == null) return null;
 
-    throw UnimplementedError('네이버 로그인을 사용하려면 다음 설정이 필요합니다:\n'
-        '1. Naver Developers에서 앱 등록\n'
-        '2. flutter_naver_login 패키지 설치\n'
-        '3. Cloud Functions에서 Custom Token 발급 로직 구현');
+    // 2. Cloud Functions에서 Custom Token 발급
+    final callable = FirebaseFunctions.instance.httpsCallable('signInWithNaver');
+    final result = await callable.call<Map<String, dynamic>>(
+      {'accessToken': accessToken},
+    );
+    final customToken = result.data['customToken'] as String;
+
+    // 3. Firebase Custom Token으로 로그인
+    final credential = await _auth.signInWithCustomToken(customToken);
+    return credential;
   }
 
   /// 로그아웃

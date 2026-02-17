@@ -104,6 +104,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     }
   }
 
+  Future<void> _signInWithKakao() async {
+    setState(() => _isLoading = true);
+    try {
+      final authService = ref.read(authServiceProvider);
+      final result = await authService.signInWithKakao();
+      if (result != null && mounted) {
+        context.go('/');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('카카오 로그인 실패: ${_parseErrorMessage(e.toString())}');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _signInWithNaver() async {
+    setState(() => _isLoading = true);
+    try {
+      final authService = ref.read(authServiceProvider);
+      final result = await authService.signInWithNaver();
+      if (result != null && mounted) {
+        context.go('/');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('네이버 로그인 실패: ${_parseErrorMessage(e.toString())}');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
 
@@ -202,7 +236,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   _buildTitle(),
                   const SizedBox(height: 40),
 
-                  // --- Google Login Button ---
+                  // --- 소셜 로그인 버튼 ---
+                  _buildSocialButton(
+                    label: '카카오로 계속하기',
+                    color: const Color(0xFFFEE500),
+                    textColor: const Color(0xFF191919),
+                    icon: Icons.chat_bubble_rounded,
+                    onTap: _signInWithKakao,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSocialButton(
+                    label: '네이버로 계속하기',
+                    color: const Color(0xFF03C75A),
+                    textColor: Colors.white,
+                    icon: Icons.north_east_rounded,
+                    onTap: _signInWithNaver,
+                  ),
+                  const SizedBox(height: 10),
                   _buildGoogleButton(),
                   const SizedBox(height: 28),
 
@@ -303,6 +353,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           textAlign: TextAlign.center,
         ),
       ],
+    );
+  }
+
+  // ──────────────────────────────────────────────
+  //  소셜 로그인 버튼 (카카오, 네이버)
+  // ──────────────────────────────────────────────
+
+  Widget _buildSocialButton({
+    required String label,
+    required Color color,
+    required Color textColor,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      height: 54,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _isLoading ? null : onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Icon(icon, size: 22, color: textColor),
+                const Spacer(),
+                Text(
+                  label,
+                  style: GoogleFonts.notoSans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                ),
+                const Spacer(),
+                const SizedBox(width: 22),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

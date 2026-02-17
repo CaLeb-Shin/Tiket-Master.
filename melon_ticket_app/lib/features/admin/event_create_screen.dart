@@ -1878,8 +1878,14 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         organizer: _organizerCtrl.text.trim().isEmpty
             ? null
             : _organizerCtrl.text.trim(),
+        planner: _plannerCtrl.text.trim().isEmpty
+            ? null
+            : _plannerCtrl.text.trim(),
         notice:
             _noticeCtrl.text.trim().isEmpty ? null : _noticeCtrl.text.trim(),
+        discount: _discountCtrl.text.trim().isEmpty
+            ? null
+            : _discountCtrl.text.trim(),
         priceByGrade: priceByGrade.isNotEmpty ? priceByGrade : null,
       );
 

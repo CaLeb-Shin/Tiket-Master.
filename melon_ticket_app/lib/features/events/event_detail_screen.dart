@@ -101,6 +101,22 @@ class _DetailBody extends StatelessWidget {
                 if (event.cast != null && event.cast!.isNotEmpty)
                   _ContentSection(title: '출연진', content: event.cast!),
 
+                // ── 주최/기획 ──
+                if (event.organizer != null || event.planner != null)
+                  _ContentSection(
+                    title: '주최/기획',
+                    content: [
+                      if (event.organizer != null && event.organizer!.isNotEmpty)
+                        '주최: ${event.organizer}',
+                      if (event.planner != null && event.planner!.isNotEmpty)
+                        '기획: ${event.planner}',
+                    ].join('\n'),
+                  ),
+
+                // ── 할인정보 ──
+                if (event.discount != null && event.discount!.isNotEmpty)
+                  _ContentSection(title: '할인정보', content: event.discount!),
+
                 // ── 유의사항 ──
                 if (event.notice != null && event.notice!.isNotEmpty)
                   _ContentSection(title: '예매 유의사항', content: event.notice!),

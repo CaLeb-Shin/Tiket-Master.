@@ -1021,3 +1021,132 @@ export const scheduledRevealSeats = functions.pubsub
 
     return null;
   });
+
+// ============================================================
+// 소셜 로그인 - 카카오 (Custom Token 발급)
+// ============================================================
+
+/**
+ * 카카오 액세스 토큰을 받아 사용자 정보 조회 후 Firebase Custom Token 발급
+ * 클라이언트: 카카오 JS SDK로 로그인 → 액세스 토큰 획득 → 이 함수 호출
+ */
+export const signInWithKakao = functions.https.onCall(async (data, context) => {
+  const accessToken = data.accessToken as string | undefined;
+  if (!accessToken) {
+    throw new functions.https.HttpsError("invalid-argument", "카카오 액세스 토큰이 필요합니다");
+  }
+
+  // 카카오 사용자 정보 조회
+  const kakaoRes = await fetch("https://kapi.kakao.com/v2/user/me", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!kakaoRes.ok) {
+    throw new functions.https.HttpsError("unauthenticated", "카카오 인증 실패");
+  }
+
+  const kakaoUser = await kakaoRes.json() as any;
+  const kakaoId = String(kakaoUser.id);
+  const email = kakaoUser.kakao_account?.email ?? `kakao_${kakaoId}@melonticket.app`;
+  const displayName = kakaoUser.kakao_account?.profile?.nickname ?? `카카오${kakaoId.slice(-4)}`;
+  const photoUrl = kakaoUser.kakao_account?.profile?.profile_image_url;
+
+  // Firebase UID = kakao:{kakaoId}
+  const uid = `kakao:${kakaoId}`;
+
+  // Firestore 사용자 문서 생성/업데이트
+  const userRef = db.collection("users").doc(uid);
+  const userDoc = await userRef.get();
+
+  if (!userDoc.exists) {
+    await userRef.set({
+      email,
+      displayName,
+      photoUrl: photoUrl ?? null,
+      provider: "kakao",
+      kakaoId,
+      role: "user",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } else {
+    await userRef.update({
+      lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
+  // Firebase Custom Token 발급
+  const customToken = await admin.auth().createCustomToken(uid, {
+    provider: "kakao",
+    kakaoId,
+  });
+
+  return { customToken, uid, displayName, email };
+});
+
+// ============================================================
+// 소셜 로그인 - 네이버 (Custom Token 발급)
+// ============================================================
+
+/**
+ * 네이버 액세스 토큰을 받아 사용자 정보 조회 후 Firebase Custom Token 발급
+ * 클라이언트: 네이버 로그인 SDK → 액세스 토큰 → 이 함수 호출
+ */
+export const signInWithNaver = functions.https.onCall(async (data, context) => {
+  const accessToken = data.accessToken as string | undefined;
+  if (!accessToken) {
+    throw new functions.https.HttpsError("invalid-argument", "네이버 액세스 토큰이 필요합니다");
+  }
+
+  // 네이버 사용자 정보 조회
+  const naverRes = await fetch("https://openapi.naver.com/v1/nid/me", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!naverRes.ok) {
+    throw new functions.https.HttpsError("unauthenticated", "네이버 인증 실패");
+  }
+
+  const naverData = await naverRes.json() as any;
+  if (naverData.resultcode !== "00") {
+    throw new functions.https.HttpsError("unauthenticated", "네이버 사용자 정보 조회 실패");
+  }
+
+  const profile = naverData.response;
+  const naverId = String(profile.id);
+  const email = profile.email ?? `naver_${naverId}@melonticket.app`;
+  const displayName = profile.nickname ?? profile.name ?? `네이버${naverId.slice(-4)}`;
+  const photoUrl = profile.profile_image;
+
+  // Firebase UID = naver:{naverId}
+  const uid = `naver:${naverId}`;
+
+  // Firestore 사용자 문서 생성/업데이트
+  const userRef = db.collection("users").doc(uid);
+  const userDoc = await userRef.get();
+
+  if (!userDoc.exists) {
+    await userRef.set({
+      email,
+      displayName,
+      photoUrl: photoUrl ?? null,
+      provider: "naver",
+      naverId,
+      role: "user",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } else {
+    await userRef.update({
+      lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
+  // Firebase Custom Token 발급
+  const customToken = await admin.auth().createCustomToken(uid, {
+    provider: "naver",
+    naverId,
+  });
+
+  return { customToken, uid, displayName, email };
+});
