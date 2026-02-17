@@ -1131,6 +1131,10 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
     required VenueBlock block,
     required Map<String, VenueZoneView> existingViews,
   }) {
+    final gradeLabel = (block.grade?.trim().isNotEmpty ?? false)
+        ? block.grade!.trim().toUpperCase()
+        : '미지정';
+    final gradeColor = _gradeColorForBlock(block.grade);
     final rowLabels = _rowLabelsForBlock(block);
     final seatTotal = rowLabels.fold<int>(
       0,
@@ -1167,6 +1171,16 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _buildSelectionMetaChip(floor.name, gradeColor),
+                        _buildSelectionMetaChip('${block.name}구역', gradeColor),
+                        _buildSelectionMetaChip('$gradeLabel 등급', gradeColor),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
                     Text(
                       '${rowLabels.length}행, 총 $seatTotal석 · 좌석 점 클릭 시 해당 좌석 업로드 항목 생성',
                       maxLines: 2,
@@ -1349,6 +1363,26 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
             );
           }),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSelectionMetaChip(String label, Color accentColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: accentColor.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: accentColor.withOpacity(0.55), width: 0.8),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.notoSans(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          color: AppTheme.textPrimary,
+          height: 1.0,
+        ),
       ),
     );
   }
