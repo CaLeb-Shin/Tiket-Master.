@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -46,20 +45,22 @@ class _MobileMainScreenState extends ConsumerState<MobileMainScreen> {
       body: Column(
         children: [
           const AppDownloadBanner(),
-          Expanded(child: IndexedStack(
-        index: _currentIndex,
-        children: [
-          _QuickBookingTab(
-            focusEventId: widget.focusEventId,
-            onOpenDiscover: () => setState(() => _currentIndex = 1),
+          Expanded(
+            child: IndexedStack(
+              index: _currentIndex,
+              children: [
+                _QuickBookingTab(
+                  focusEventId: widget.focusEventId,
+                  onOpenDiscover: () => setState(() => _currentIndex = 1),
+                ),
+                const _HomeTab(),
+                isLoggedIn
+                    ? const MyTicketsScreen()
+                    : _LoginRequiredTab(onLogin: () => context.push('/login')),
+                _ProfileTab(isLoggedIn: isLoggedIn),
+              ],
+            ),
           ),
-          const _HomeTab(),
-          isLoggedIn
-              ? const MyTicketsScreen()
-              : _LoginRequiredTab(onLogin: () => context.push('/login')),
-          _ProfileTab(isLoggedIn: isLoggedIn),
-        ],
-      )),
         ],
       ),
       bottomNavigationBar: Container(
@@ -76,26 +77,30 @@ class _MobileMainScreenState extends ConsumerState<MobileMainScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _NavItem(
-                  icon: Icons.flash_on_rounded,
-                  label: '바로예매',
+                  icon: Icons.bolt_outlined,
+                  activeIcon: Icons.bolt_rounded,
+                  label: 'BOOKING',
                   isSelected: _currentIndex == 0,
                   onTap: () => setState(() => _currentIndex = 0),
                 ),
                 _NavItem(
-                  icon: Icons.view_carousel_rounded,
-                  label: '다른공연',
+                  icon: Icons.grid_view_outlined,
+                  activeIcon: Icons.grid_view_rounded,
+                  label: 'DISCOVER',
                   isSelected: _currentIndex == 1,
                   onTap: () => setState(() => _currentIndex = 1),
                 ),
                 _NavItem(
-                  icon: Icons.confirmation_number_rounded,
-                  label: '내티켓',
+                  icon: Icons.confirmation_number_outlined,
+                  activeIcon: Icons.confirmation_number_rounded,
+                  label: 'TICKETS',
                   isSelected: _currentIndex == 2,
                   onTap: () => setState(() => _currentIndex = 2),
                 ),
                 _NavItem(
-                  icon: Icons.person_rounded,
-                  label: '마이',
+                  icon: Icons.person_outline_rounded,
+                  activeIcon: Icons.person_rounded,
+                  label: 'PROFILE',
                   isSelected: _currentIndex == 3,
                   onTap: () => setState(() => _currentIndex = 3),
                 ),
@@ -108,15 +113,17 @@ class _MobileMainScreenState extends ConsumerState<MobileMainScreen> {
   }
 }
 
-// ─── Bottom Nav Item ───
+// ─── Bottom Nav Item (Editorial) ───
 class _NavItem extends StatelessWidget {
   final IconData icon;
+  final IconData activeIcon;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _NavItem({
     required this.icon,
+    required this.activeIcon,
     required this.label,
     required this.isSelected,
     required this.onTap,
@@ -133,16 +140,15 @@ class _NavItem extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              icon,
-              color: isSelected ? AppTheme.gold : AppTheme.textTertiary,
-              size: 24,
+              isSelected ? activeIcon : icon,
+              color: isSelected ? AppTheme.gold : AppTheme.sage,
+              size: 22,
             ),
             const SizedBox(height: 4),
             Text(
               label,
-              style: GoogleFonts.notoSans(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              style: AppTheme.label(
+                fontSize: 9,
                 color: isSelected ? AppTheme.gold : AppTheme.textTertiary,
               ),
             ),
@@ -228,49 +234,57 @@ class _QuickBookingTab extends ConsumerWidget {
       body: SafeArea(
         child: Column(
           children: [
+            // ── Editorial Header ──
             Container(
               width: double.infinity,
               color: AppTheme.surface,
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+              padding: const EdgeInsets.fromLTRB(24, 18, 20, 18),
               child: Row(
                 children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.goldGradient,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.flash_on_rounded,
-                      color: AppTheme.onAccent,
-                      size: 18,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'PREMIUM SELECTION',
+                          style: AppTheme.label(
+                            fontSize: 10,
+                            color: AppTheme.sage,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '바로 예매',
+                          style: AppTheme.serif(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '바로 예매',
-                        style: GoogleFonts.notoSans(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.textPrimary,
+                  IconButton(
+                    onPressed: () {},
+                    icon: const Icon(
+                      Icons.search_rounded,
+                      color: AppTheme.textPrimary,
+                      size: 24,
+                    ),
+                    style: IconButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        side: BorderSide(
+                          color: AppTheme.border,
+                          width: 0.5,
                         ),
                       ),
-                      Text(
-                        '링크 유입 시 바로 좌석선택으로 연결됩니다',
-                        style: GoogleFonts.notoSans(
-                          fontSize: 11,
-                          color: AppTheme.textTertiary,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),
             ),
+            Container(height: 0.5, color: AppTheme.border),
             Expanded(child: child),
           ],
         ),
@@ -293,16 +307,16 @@ class _QuickBookingTab extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(
-                  Icons.event_busy_rounded,
-                  color: AppTheme.textTertiary,
+                  Icons.event_busy_outlined,
+                  color: AppTheme.sage,
                   size: 44,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text(
                   fromLink ? '링크 공연을 찾을 수 없습니다' : '현재 예매 가능한 공연이 없습니다',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                  style: AppTheme.serif(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                     color: AppTheme.textPrimary,
                   ),
                 ),
@@ -310,12 +324,12 @@ class _QuickBookingTab extends ConsumerWidget {
                 Text(
                   '다른 공연 탭에서 등록된 공연을 확인하세요.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 13,
                     color: AppTheme.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 OutlinedButton(
                   onPressed: onOpenDiscover,
                   child: const Text('다른 공연 보기'),
@@ -330,29 +344,29 @@ class _QuickBookingTab extends ConsumerWidget {
     return _buildQuickBookingScaffold(
       context,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 120),
         children: [
+          // ── Priority badge ──
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: AppTheme.card,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppTheme.border, width: 0.6),
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(2),
+              border: Border.all(color: AppTheme.border, width: 0.5),
             ),
             child: Row(
               children: [
                 Icon(
-                  fromLink ? Icons.link_rounded : Icons.star_rounded,
-                  size: 16,
+                  fromLink ? Icons.link_rounded : Icons.star_outline_rounded,
+                  size: 14,
                   color: AppTheme.gold,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     fromLink ? '링크로 접속한 공연' : '현재 우선 예매 공연',
-                    style: GoogleFonts.notoSans(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                    style: AppTheme.label(
+                      fontSize: 10,
                       color: AppTheme.gold,
                     ),
                   ),
@@ -360,13 +374,21 @@ class _QuickBookingTab extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+
+          // ── Event Card ──
           _QuickBookingEventCard(event: event),
-          const SizedBox(height: 12),
-          _buildEventDetailCarousel(event),
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
+
+          // ── 2x2 Grid info cards ──
+          _buildEventDetailGrid(event),
+          const SizedBox(height: 20),
+
+          // ── CTA Button ──
           _buildBookingButton(context, event, fromLink: fromLink),
           const SizedBox(height: 10),
+
+          // ── Outlined secondary button ──
           OutlinedButton(
             onPressed: () => context.push('/event/${event.id}'),
             child: const Text('공연 상세 보기'),
@@ -374,7 +396,7 @@ class _QuickBookingTab extends ConsumerWidget {
           const SizedBox(height: 6),
           TextButton(
             onPressed: onOpenDiscover,
-            child: const Text('다른 공연 탭으로 이동'),
+            child: const Text('다른 공연 둘러보기'),
           ),
         ],
       ),
@@ -408,98 +430,122 @@ class _QuickBookingTab extends ConsumerWidget {
     }
 
     return ShimmerButton(
-      text: label,
+      text: label.toUpperCase(),
       onPressed: onPressed,
       height: 52,
-      borderRadius: 14,
+      borderRadius: 4,
     );
   }
 
-  Widget _buildEventDetailCarousel(Event event) {
-    final dateText = DateFormat('M/d (E) HH:mm', 'ko_KR').format(event.startAt);
-    final saleText = DateFormat('M/d HH:mm', 'ko_KR').format(event.saleStartAt);
+  Widget _buildEventDetailGrid(Event event) {
+    final dateText =
+        DateFormat('M/d (E) HH:mm', 'ko_KR').format(event.startAt);
+    final saleText =
+        DateFormat('M/d HH:mm', 'ko_KR').format(event.saleStartAt);
     final priceText = NumberFormat('#,###', 'ko_KR').format(event.price);
+
     final cards = <_QuickInfoCard>[
       _QuickInfoCard(
-        title: '공연 일정',
+        title: 'SCHEDULE',
         value: dateText,
-        hint:
-            event.venueName?.isNotEmpty == true ? event.venueName! : '장소 정보 없음',
-        icon: Icons.schedule_rounded,
+        hint: event.venueName?.isNotEmpty == true
+            ? event.venueName!
+            : '장소 정보 없음',
+        icon: Icons.schedule_outlined,
       ),
       _QuickInfoCard(
-        title: event.showRemainingSeats ? '가격 / 잔여' : '가격',
+        title: 'PRICE',
         value: '$priceText원',
         hint: event.showRemainingSeats ? '잔여 ${event.availableSeats}석' : '~부터',
-        icon: Icons.confirmation_number_rounded,
-      ),
-      const _QuickInfoCard(
-        title: 'AI 배치 포인트',
-        value: '예산 + 악기 기준',
-        hint: '좌석 3개 자동 추천',
-        icon: Icons.auto_awesome_rounded,
+        icon: Icons.confirmation_number_outlined,
       ),
       _QuickInfoCard(
-        title: '시야 확인',
+        title: 'CURATION',
+        value: '예산 + 악기 기준',
+        hint: '좌석 3개 자동 추천',
+        icon: Icons.auto_awesome_outlined,
+      ),
+      _QuickInfoCard(
+        title: 'PREVIEW',
         value: '360° 프리뷰',
         hint: event.isOnSale ? '바로 체험 가능' : '오픈 $saleText',
-        icon: Icons.threesixty_rounded,
+        icon: Icons.threesixty_outlined,
       ),
     ];
 
-    return SizedBox(
-      height: 114,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        clipBehavior: Clip.none,
-        itemCount: cards.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (context, index) {
-          final card = cards[index];
-          return SizedBox(
-            width: 148,
-            child: GlowCard(
-              borderRadius: 12,
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(card.icon, size: 16, color: AppTheme.gold),
-                  const SizedBox(height: 8),
-                  Text(
-                    card.title,
-                    style: GoogleFonts.notoSans(
-                      fontSize: 11,
-                      color: AppTheme.textTertiary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    card.value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.notoSans(
-                      fontSize: 14,
-                      color: AppTheme.textPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    card.hint,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.notoSans(
-                      fontSize: 11,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: AppTheme.border, width: 0.5),
+      ),
+      child: Column(
+        children: [
+          // Top row
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(child: _buildGridCell(cards[0])),
+                Container(width: 0.5, color: AppTheme.border),
+                Expanded(child: _buildGridCell(cards[1])),
+              ],
             ),
-          );
-        },
+          ),
+          Container(height: 0.5, color: AppTheme.border),
+          // Bottom row
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(child: _buildGridCell(cards[2])),
+                Container(width: 0.5, color: AppTheme.border),
+                Expanded(child: _buildGridCell(cards[3])),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGridCell(_QuickInfoCard card) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(card.icon, size: 20, color: AppTheme.sage),
+          const SizedBox(height: 10),
+          Text(
+            card.title,
+            style: AppTheme.label(
+              fontSize: 9,
+              color: AppTheme.sage,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            card.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: AppTheme.sans(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            card.hint,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: AppTheme.sans(
+              fontSize: 11,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -540,159 +586,196 @@ class _QuickBookingTab extends ConsumerWidget {
             }
 
             return Padding(
-              padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                      fromLink ? '링크 공연 AI 예매 조건' : 'AI 예매 조건',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.textPrimary,
-                      ),
+                    'CONDITIONS',
+                    style: AppTheme.label(
+                      fontSize: 10,
+                      color: AppTheme.sage,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '세 가지만 고르면 바로 자동 배치됩니다.',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary,
-                      ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    fromLink ? '링크 공연 AI 예매 조건' : 'AI 예매 조건',
+                    style: AppTheme.serif(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
                     ),
-                    const SizedBox(height: 14),
-                    Text(
-                      '인원',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textTertiary,
-                      ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '세 가지만 고르면 바로 자동 배치됩니다.',
+                    style: AppTheme.sans(
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
                     ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: List.generate(maxQty, (i) => i + 1).map((n) {
-                        final selected = n == quantity;
-                        return ChoiceChip(
-                          label: Text('$n명'),
-                          selected: selected,
-                          onSelected: (_) => setSheetState(() => quantity = n),
-                          labelStyle: GoogleFonts.notoSans(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: selected
-                                ? AppTheme.onAccent
-                                : AppTheme.textSecondary,
-                          ),
-                          selectedColor: AppTheme.gold,
-                          backgroundColor: AppTheme.surface,
-                          side: BorderSide(
-                            color: selected ? AppTheme.gold : AppTheme.border,
-                            width: 0.7,
-                          ),
-                        );
-                      }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ── 인원 ──
+                  Text(
+                    'GUESTS',
+                    style: AppTheme.label(
+                      fontSize: 9,
+                      color: AppTheme.sage,
                     ),
-                    const SizedBox(height: 14),
-                    Text(
-                      '총 예산',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textTertiary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: budgetOptions.map((value) {
-                        final selected = value == maxBudget;
-                        return ChoiceChip(
-                          label: Text(budgetLabel(value, quantity)),
-                          selected: selected,
-                          onSelected: (_) =>
-                              setSheetState(() => maxBudget = value),
-                          labelStyle: GoogleFonts.notoSans(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: selected
-                                ? AppTheme.onAccent
-                                : AppTheme.textSecondary,
-                          ),
-                          selectedColor: AppTheme.gold,
-                          backgroundColor: AppTheme.surface,
-                          side: BorderSide(
-                            color: selected ? AppTheme.gold : AppTheme.border,
-                            width: 0.7,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      '보고 싶은 악기',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textTertiary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: const ['상관없음', '현악', '목관', '금관', '관악', '하프', '그랜드피아노', '밴드']
-                          .map((inst) {
-                        final selected = inst == instrument;
-                        return ChoiceChip(
-                          label: Text(inst),
-                          selected: selected,
-                          onSelected: (_) =>
-                              setSheetState(() => instrument = inst),
-                          labelStyle: GoogleFonts.notoSans(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: selected
-                                ? AppTheme.onAccent
-                                : AppTheme.textSecondary,
-                          ),
-                          selectedColor: AppTheme.gold,
-                          backgroundColor: AppTheme.surface,
-                          side: BorderSide(
-                            color: selected ? AppTheme.gold : AppTheme.border,
-                            width: 0.7,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(
-                          _AIQuickCondition(
-                            quantity: quantity,
-                            maxBudget: maxBudget,
-                            instrument: instrument,
-                          ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children:
+                        List.generate(maxQty, (i) => i + 1).map((n) {
+                      final selected = n == quantity;
+                      return ChoiceChip(
+                        label: Text('$n명'),
+                        selected: selected,
+                        onSelected: (_) =>
+                            setSheetState(() => quantity = n),
+                        labelStyle: AppTheme.sans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: selected
+                              ? AppTheme.onAccent
+                              : AppTheme.textSecondary,
                         ),
-                        child: Text(
-                          'AI 배치 + 360 시야 보기',
-                          style: GoogleFonts.notoSans(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                          ),
+                        selectedColor: AppTheme.gold,
+                        backgroundColor: AppTheme.surface,
+                        side: BorderSide(
+                          color:
+                              selected ? AppTheme.gold : AppTheme.border,
+                          width: 0.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // ── 총 예산 ──
+                  Text(
+                    'BUDGET',
+                    style: AppTheme.label(
+                      fontSize: 9,
+                      color: AppTheme.sage,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: budgetOptions.map((value) {
+                      final selected = value == maxBudget;
+                      return ChoiceChip(
+                        label: Text(budgetLabel(value, quantity)),
+                        selected: selected,
+                        onSelected: (_) =>
+                            setSheetState(() => maxBudget = value),
+                        labelStyle: AppTheme.sans(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: selected
+                              ? AppTheme.onAccent
+                              : AppTheme.textSecondary,
+                        ),
+                        selectedColor: AppTheme.gold,
+                        backgroundColor: AppTheme.surface,
+                        side: BorderSide(
+                          color:
+                              selected ? AppTheme.gold : AppTheme.border,
+                          width: 0.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // ── 보고 싶은 악기 ──
+                  Text(
+                    'INSTRUMENT',
+                    style: AppTheme.label(
+                      fontSize: 9,
+                      color: AppTheme.sage,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: const [
+                      '상관없음',
+                      '현악',
+                      '목관',
+                      '금관',
+                      '관악',
+                      '하프',
+                      '그랜드피아노',
+                      '밴드'
+                    ].map((inst) {
+                      final selected = inst == instrument;
+                      return ChoiceChip(
+                        label: Text(inst),
+                        selected: selected,
+                        onSelected: (_) =>
+                            setSheetState(() => instrument = inst),
+                        labelStyle: AppTheme.sans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: selected
+                              ? AppTheme.onAccent
+                              : AppTheme.textSecondary,
+                        ),
+                        selectedColor: AppTheme.gold,
+                        backgroundColor: AppTheme.surface,
+                        side: BorderSide(
+                          color:
+                              selected ? AppTheme.gold : AppTheme.border,
+                          width: 0.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ── Submit button ──
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(
+                        _AIQuickCondition(
+                          quantity: quantity,
+                          maxBudget: maxBudget,
+                          instrument: instrument,
+                        ),
+                      ),
+                      child: Text(
+                        'AI 배치 + 360 시야 보기',
+                        style: AppTheme.sans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.onAccent,
+                          letterSpacing: 1.5,
                         ),
                       ),
                     ),
-                  ],
-                ),
-              );
+                  ),
+                ],
+              ),
+            );
           },
         );
       },
@@ -740,6 +823,7 @@ class _AIQuickCondition {
   });
 }
 
+// ─── Quick Booking Event Card (Editorial) ───
 class _QuickBookingEventCard extends StatelessWidget {
   final Event event;
 
@@ -754,22 +838,27 @@ class _QuickBookingEventCard extends StatelessWidget {
     final priceText = NumberFormat('#,###', 'ko_KR').format(event.price);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.border, width: 0.6),
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: AppTheme.border, width: 0.5),
+        boxShadow: AppShadows.card,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Poster with Priority badge ──
           ClipRRect(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(2),
             child: SizedBox(
               width: 96,
               height: 132,
-              child: event.imageUrl != null && event.imageUrl!.isNotEmpty
-                  ? CachedNetworkImage(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (event.imageUrl != null && event.imageUrl!.isNotEmpty)
+                    CachedNetworkImage(
                       imageUrl: event.imageUrl!,
                       fit: BoxFit.cover,
                       placeholder: (_, __) => Container(
@@ -777,72 +866,97 @@ class _QuickBookingEventCard extends StatelessWidget {
                         child: const Center(
                           child: CircularProgressIndicator(
                             color: AppTheme.gold,
-                            strokeWidth: 2,
+                            strokeWidth: 1.5,
                           ),
                         ),
                       ),
                       errorWidget: (_, __, ___) => _PosterPlaceholder(),
                     )
-                  : _PosterPlaceholder(),
+                  else
+                    _PosterPlaceholder(),
+                  // Priority badge
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      color: AppTheme.gold,
+                      child: Text(
+                        'PRIORITY',
+                        style: AppTheme.label(
+                          fontSize: 8,
+                          color: AppTheme.onAccent,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 16),
+
+          // ── Info ──
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (event.category?.isNotEmpty == true)
-                  Text(
-                    event.category!,
-                    style: GoogleFonts.notoSans(
-                      color: AppTheme.gold,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      event.category!.toUpperCase(),
+                      style: AppTheme.label(
+                        fontSize: 9,
+                        color: AppTheme.sage,
+                      ),
                     ),
                   ),
-                const SizedBox(height: 3),
                 Text(
                   event.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.notoSans(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                  style: AppTheme.serif(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
                     color: AppTheme.textPrimary,
                     height: 1.3,
                   ),
                 ),
-                const SizedBox(height: 8),
-                _metaLine(Icons.schedule_rounded, dateText),
+                const SizedBox(height: 10),
+                _metaLine(Icons.schedule_outlined, dateText),
                 if (event.venueName?.isNotEmpty == true) ...[
                   const SizedBox(height: 3),
-                  _metaLine(Icons.location_on_rounded, event.venueName!),
+                  _metaLine(Icons.location_on_outlined, event.venueName!),
                 ],
                 if (event.showRemainingSeats) ...[
                   const SizedBox(height: 3),
                   _metaLine(
-                    Icons.confirmation_number_rounded,
+                    Icons.confirmation_number_outlined,
                     '잔여 ${event.availableSeats}석',
                   ),
                 ],
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Text(
                   '$priceText원',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                  style: AppTheme.serif(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
                     color: AppTheme.gold,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   event.isOnSale ? '지금 바로 예매 가능' : '오픈: $saleOpenText',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 11,
+                    fontWeight: FontWeight.w500,
                     color: event.isOnSale
                         ? AppTheme.success
                         : AppTheme.textSecondary,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -856,14 +970,14 @@ class _QuickBookingEventCard extends StatelessWidget {
   Widget _metaLine(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 13, color: AppTheme.textTertiary),
+        Icon(icon, size: 13, color: AppTheme.sage),
         const SizedBox(width: 5),
         Expanded(
           child: Text(
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.sans(
               fontSize: 12,
               color: AppTheme.textSecondary,
             ),
@@ -874,7 +988,7 @@ class _QuickBookingEventCard extends StatelessWidget {
   }
 }
 
-// ─── Home Tab ───
+// ─── Home Tab (Editorial) ───
 class _HomeTab extends ConsumerWidget {
   const _HomeTab();
 
@@ -884,108 +998,71 @@ class _HomeTab extends ConsumerWidget {
 
     return CustomScrollView(
       slivers: [
-        // ── 앱바 ──
+        // ── AppBar (Editorial) ──
         SliverToBoxAdapter(
           child: Container(
             color: AppTheme.surface,
             padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top + 12,
-              left: 20,
-              right: 20,
-              bottom: 14,
+              top: MediaQuery.of(context).padding.top + 16,
+              left: 24,
+              right: 24,
+              bottom: 16,
             ),
             child: Row(
               children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFE76282), Color(0xFF8A1632)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: AppTheme.goldLight.withValues(alpha: 0.45),
-                      width: 0.8,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.gold.withValues(alpha: 0.22),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Stack(
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Positioned(
-                        top: 5,
-                        right: 5,
-                        child: Container(
-                          width: 4,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: AppTheme.onAccent.withValues(alpha: 0.45),
-                            shape: BoxShape.circle,
-                          ),
+                      Text(
+                        'MELON TICKET',
+                        style: AppTheme.label(
+                          fontSize: 9,
+                          color: AppTheme.sage,
                         ),
                       ),
-                      Center(
-                        child: Text(
-                          'M',
-                          style: GoogleFonts.poppins(
-                            color: AppTheme.onAccent,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.4,
-                            height: 1,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withValues(alpha: 0.35),
-                                blurRadius: 4,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '다른 공연',
+                        style: AppTheme.serif(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '다른 공연',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.textPrimary,
-                        letterSpacing: -0.4,
-                      ),
+                // Editorial badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.gold,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: Text(
+                    'M',
+                    style: AppTheme.serif(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.onAccent,
+                      fontStyle: FontStyle.italic,
                     ),
-                    Text(
-                      '전체 라인업 보기',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 11,
-                        color: AppTheme.textTertiary,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ),
           ),
         ),
 
-        // ── 세그먼트 메뉴 ──
+        // ── Category chips (editorial minimal) ──
         SliverToBoxAdapter(
           child: Container(
             color: AppTheme.surface,
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
             child: const SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -1005,160 +1082,72 @@ class _HomeTab extends ConsumerWidget {
           ),
         ),
 
-        // ── 구분선 ──
+        // ── Divider ──
         SliverToBoxAdapter(
           child: Container(height: 0.5, color: AppTheme.border),
         ),
 
+        // ── Editorial promo (simplified) ──
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
             child: Container(
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF4A1223),
-                    AppTheme.cardElevated,
-                    Color(0xFF2A1320),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppTheme.gold.withValues(alpha: 0.35),
-                  width: 1,
-                ),
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(2),
+                border: Border.all(color: AppTheme.border, width: 0.5),
               ),
-              clipBehavior: Clip.antiAlias,
-              child: Stack(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Positioned(
-                    top: -30,
-                    right: -20,
-                    child: Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppTheme.gold.withValues(alpha: 0.1),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.gold,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: Text(
+                          'EDITORIAL',
+                          style: AppTheme.label(
+                            fontSize: 8,
+                            color: AppTheme.onAccent,
+                          ),
+                        ),
                       ),
+                      const SizedBox(width: 10),
+                      Text(
+                        '모바일 예매 추천',
+                        style: AppTheme.sans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'AI 좌석 추천 + 360° 시야',
+                    style: AppTheme.serif(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                      height: 1.3,
                     ),
                   ),
-                  Positioned(
-                    bottom: -42,
-                    left: -24,
-                    child: Container(
-                      width: 132,
-                      height: 132,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppTheme.goldDark.withValues(alpha: 0.18),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF7F1932),
-                                    Color(0xFFC42A4D)
-                                  ],
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                ),
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(
-                                  color: AppTheme.goldLight.withValues(alpha: 0.4),
-                                  width: 0.7,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.auto_awesome_rounded,
-                                    size: 12,
-                                    color: AppTheme.onAccent,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '추천 PICK',
-                                    style: GoogleFonts.notoSans(
-                                      color: AppTheme.onAccent,
-                                      fontSize: 10,
-                                      letterSpacing: 0.2,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '모바일 예매 추천',
-                              style: GoogleFonts.notoSans(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.goldLight,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text.rich(
-                          TextSpan(
-                            children: [
-                              const TextSpan(text: 'AI 좌석 추천'),
-                              TextSpan(
-                                text: ' · ',
-                                style: GoogleFonts.notoSans(
-                                  color: AppTheme.textTertiary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              TextSpan(
-                                text: '360° 시야',
-                                style: GoogleFonts.notoSans(
-                                  color: AppTheme.goldLight,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              TextSpan(
-                                text: ' · 모바일티켓',
-                                style: GoogleFonts.notoSans(
-                                  color: AppTheme.textPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                          style: GoogleFonts.notoSans(
-                            fontSize: 17,
-                            height: 1.25,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '좌석 선택 화면에서 구역별 시야를 확인하고\n취소/환불 정책까지 한 번에 확인하세요.',
-                          style: GoogleFonts.notoSans(
-                            fontSize: 12,
-                            color: AppTheme.textSecondary,
-                            height: 1.45,
-                          ),
-                        ),
-                      ],
+                  const SizedBox(height: 6),
+                  Text(
+                    '좌석 선택 화면에서 구역별 시야를 확인하고\n취소/환불 정책까지 한 번에 확인하세요.',
+                    style: AppTheme.sans(
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
+                      height: 1.5,
                     ),
                   ),
                 ],
@@ -1167,31 +1156,40 @@ class _HomeTab extends ConsumerWidget {
           ),
         ),
 
+        // ── Demo button ──
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
             child: OutlinedButton(
               onPressed: () => context.push('/demo-flow'),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: AppTheme.gold.withValues(alpha: 0.55)),
-                foregroundColor: AppTheme.gold,
-                minimumSize: const Size(double.infinity, 44),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
               child: Text(
                 '공연등록부터 스캔까지 데모 실행',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.gold,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),
           ),
         ),
 
-        // ── 공연 목록 ──
+        // ── Section label ──
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+            child: Text(
+              'ALL EVENTS',
+              style: AppTheme.label(
+                fontSize: 10,
+                color: AppTheme.sage,
+              ),
+            ),
+          ),
+        ),
+
+        // ── Event list ──
         eventsAsync.when(
           data: (events) {
             if (events.isEmpty) {
@@ -1225,23 +1223,24 @@ class _HomeTab extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: AppTheme.error.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
+                        color: AppTheme.error.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(2),
                       ),
                       child: Text(
                         'ERROR',
-                        style: GoogleFonts.robotoMono(
+                        style: AppTheme.label(
+                          fontSize: 10,
                           color: AppTheme.error,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
                     const SizedBox(height: 12),
                     Text(
                       '공연 정보를 불러올 수 없습니다',
-                      style:
-                          GoogleFonts.notoSans(color: AppTheme.textSecondary),
+                      style: AppTheme.sans(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -1257,7 +1256,7 @@ class _HomeTab extends ConsumerWidget {
   }
 }
 
-// ─── Category Chip ───
+// ─── Category Chip (Editorial) ───
 class _CategoryChip extends StatelessWidget {
   final String label;
   final bool isSelected;
@@ -1268,26 +1267,26 @@ class _CategoryChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
       decoration: BoxDecoration(
-        color: isSelected ? AppTheme.gold : Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
+        color: isSelected ? Colors.transparent : Colors.transparent,
+        borderRadius: BorderRadius.circular(2),
         border: Border.all(
           color: isSelected ? AppTheme.gold : AppTheme.border,
-          width: 1,
+          width: isSelected ? 1 : 0.5,
         ),
       ),
       child: Text(
         label,
-        style: GoogleFonts.notoSans(
+        style: AppTheme.sans(
           fontSize: 13,
-          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          color: isSelected ? const Color(0xFFFDF3F6) : AppTheme.textSecondary,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          color: isSelected ? AppTheme.gold : AppTheme.textSecondary,
         ),
       ),
     );
   }
 }
 
-// ─── Event Card (NOL 인터파크 스타일 수평 카드) ───
+// ─── Event Card (Editorial horizontal layout) ───
 class _EventCard extends StatelessWidget {
   final Event event;
   const _EventCard({required this.event});
@@ -1305,17 +1304,17 @@ class _EventCard extends StatelessWidget {
             bottom: BorderSide(color: AppTheme.border, width: 0.5),
           ),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── 포스터 썸네일 ──
+            // ── Poster thumbnail ──
             Container(
               width: 100,
               height: 140,
               decoration: BoxDecoration(
-                color: AppTheme.card,
-                borderRadius: BorderRadius.circular(8),
+                color: AppTheme.cardElevated,
+                borderRadius: BorderRadius.circular(2),
                 border: Border.all(color: AppTheme.border, width: 0.5),
               ),
               clipBehavior: Clip.antiAlias,
@@ -1327,13 +1326,13 @@ class _EventCard extends StatelessWidget {
                       imageUrl: event.imageUrl!,
                       fit: BoxFit.cover,
                       placeholder: (_, __) => Container(
-                        color: AppTheme.card,
+                        color: AppTheme.cardElevated,
                         child: const Center(
                           child: SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
-                              strokeWidth: 2,
+                              strokeWidth: 1.5,
                               color: AppTheme.gold,
                             ),
                           ),
@@ -1343,10 +1342,10 @@ class _EventCard extends StatelessWidget {
                     )
                   else
                     _PosterPlaceholder(),
-                  // 상태 뱃지
+                  // Status badge
                   Positioned(
-                    top: 6,
-                    left: 6,
+                    top: 0,
+                    left: 0,
                     child: _StatusBadge(event: event),
                   ),
                 ],
@@ -1354,57 +1353,55 @@ class _EventCard extends StatelessWidget {
             ),
             const SizedBox(width: 16),
 
-            // ── 정보 ──
+            // ── Info ──
             Expanded(
               child: SizedBox(
                 height: 140,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 카테고리
+                    // Category
                     if (event.category != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
-                          event.category!,
-                          style: GoogleFonts.notoSans(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.gold,
+                          event.category!.toUpperCase(),
+                          style: AppTheme.label(
+                            fontSize: 9,
+                            color: AppTheme.sage,
                           ),
                         ),
                       ),
 
-                    // 제목
+                    // Title (serif)
                     Text(
                       event.title,
-                      style: GoogleFonts.notoSans(
-                        fontSize: 15,
+                      style: AppTheme.serif(
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: AppTheme.textPrimary,
                         height: 1.3,
-                        letterSpacing: -0.2,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
 
-                    // 날짜
+                    // Date
                     Text(
                       dateFormat.format(event.startAt),
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.sans(
                         fontSize: 12,
                         color: AppTheme.textSecondary,
                       ),
                     ),
 
-                    // 장소
+                    // Venue
                     if (event.venueName != null) ...[
                       const SizedBox(height: 2),
                       Text(
                         event.venueName!,
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 12,
                           color: AppTheme.textSecondary,
                         ),
@@ -1415,11 +1412,11 @@ class _EventCard extends StatelessWidget {
 
                     const Spacer(),
 
-                    // 가격
+                    // Price
                     Text(
                       '${priceFormat.format(event.price)}원',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 16,
+                      style: AppTheme.serif(
+                        fontSize: 17,
                         fontWeight: FontWeight.w700,
                         color: AppTheme.gold,
                       ),
@@ -1443,11 +1440,9 @@ class _PosterPlaceholder extends StatelessWidget {
       child: Center(
         child: Text(
           'POSTER',
-          style: GoogleFonts.robotoMono(
-            fontSize: 11,
-            letterSpacing: 1.0,
-            color: AppTheme.gold.withValues(alpha: 0.45),
-            fontWeight: FontWeight.w700,
+          style: AppTheme.label(
+            fontSize: 10,
+            color: AppTheme.sage,
           ),
         ),
       ),
@@ -1466,35 +1461,31 @@ class _StatusBadge extends StatelessWidget {
     Color fgColor;
 
     if (event.isOnSale) {
-      label = '예매중';
+      label = 'ON SALE';
       bgColor = AppTheme.success;
       fgColor = Colors.white;
     } else if (event.status == EventStatus.soldOut ||
         event.availableSeats == 0) {
-      label = '매진';
+      label = 'SOLD OUT';
       bgColor = AppTheme.error;
       fgColor = Colors.white;
     } else if (DateTime.now().isBefore(event.saleStartAt)) {
-      label = '예매예정';
+      label = 'UPCOMING';
       bgColor = AppTheme.gold;
-      fgColor = const Color(0xFFFDF3F6);
+      fgColor = AppTheme.onAccent;
     } else {
-      label = '종료';
-      bgColor = AppTheme.textTertiary;
+      label = 'CLOSED';
+      bgColor = AppTheme.sage;
       fgColor = Colors.white;
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(4),
-      ),
+      color: bgColor,
       child: Text(
         label,
-        style: GoogleFonts.notoSans(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
+        style: AppTheme.label(
+          fontSize: 8,
           color: fgColor,
         ),
       ),
@@ -1512,23 +1503,22 @@ class _EmptyState extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AppTheme.goldSubtle,
-              borderRadius: BorderRadius.circular(6),
+              color: AppTheme.cardElevated,
+              borderRadius: BorderRadius.circular(2),
             ),
             child: Text(
               'EMPTY',
-              style: GoogleFonts.robotoMono(
-                fontSize: 11,
-                color: AppTheme.gold,
-                fontWeight: FontWeight.w700,
+              style: AppTheme.label(
+                fontSize: 10,
+                color: AppTheme.sage,
               ),
             ),
           ),
           const SizedBox(height: 16),
           Text(
             '등록된 공연이 없습니다',
-            style: GoogleFonts.notoSans(
-              fontSize: 16,
+            style: AppTheme.serif(
+              fontSize: 18,
               fontWeight: FontWeight.w500,
               color: AppTheme.textSecondary,
             ),
@@ -1539,7 +1529,7 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-// ─── Login Required Tab ───
+// ─── Login Required Tab (Editorial) ───
 class _LoginRequiredTab extends StatelessWidget {
   final VoidCallback onLogin;
   const _LoginRequiredTab({required this.onLogin});
@@ -1559,17 +1549,16 @@ class _LoginRequiredTab extends StatelessWidget {
                   width: 72,
                   height: 72,
                   decoration: BoxDecoration(
-                    color: AppTheme.card,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppTheme.border),
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppTheme.border, width: 0.5),
                   ),
                   child: Center(
                     child: Text(
                       'LOGIN',
-                      style: GoogleFonts.robotoMono(
-                        fontSize: 12,
-                        color: AppTheme.gold.withValues(alpha: 0.75),
-                        fontWeight: FontWeight.w700,
+                      style: AppTheme.label(
+                        fontSize: 11,
+                        color: AppTheme.gold,
                       ),
                     ),
                   ),
@@ -1577,8 +1566,8 @@ class _LoginRequiredTab extends StatelessWidget {
                 const SizedBox(height: 24),
                 Text(
                   '로그인이 필요합니다',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 20,
+                  style: AppTheme.serif(
+                    fontSize: 22,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.textPrimary,
                   ),
@@ -1586,7 +1575,7 @@ class _LoginRequiredTab extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   '티켓을 확인하려면 로그인해주세요',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 14,
                     color: AppTheme.textSecondary,
                   ),
@@ -1608,7 +1597,7 @@ class _LoginRequiredTab extends StatelessWidget {
   }
 }
 
-// ─── Profile Tab ───
+// ─── Profile Tab (Editorial) ───
 class _ProfileTab extends ConsumerWidget {
   final bool isLoggedIn;
   const _ProfileTab({required this.isLoggedIn});
@@ -1630,22 +1619,30 @@ class _ProfileTab extends ConsumerWidget {
           children: [
             const SizedBox(height: 8),
             Text(
+              'PROFILE',
+              style: AppTheme.label(
+                fontSize: 10,
+                color: AppTheme.sage,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
               '마이페이지',
-              style: GoogleFonts.notoSans(
-                fontSize: 24,
+              style: AppTheme.serif(
+                fontSize: 26,
                 fontWeight: FontWeight.w700,
                 color: AppTheme.textPrimary,
               ),
             ),
             const SizedBox(height: 24),
 
-            // 사용자 정보 카드
+            // User info card
             if (isLoggedIn)
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppTheme.card,
-                  borderRadius: BorderRadius.circular(16),
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(2),
                   border: Border.all(color: AppTheme.border, width: 0.5),
                 ),
                 child: Row(
@@ -1654,17 +1651,16 @@ class _ProfileTab extends ConsumerWidget {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        gradient: AppTheme.goldGradient,
-                        borderRadius: BorderRadius.circular(14),
+                        color: AppTheme.gold,
+                        borderRadius: BorderRadius.circular(4),
                       ),
                       child: Center(
                         child: Text(
                           profileInitial,
-                          style: GoogleFonts.poppins(
-                            color: const Color(0xFFFDF3F6),
+                          style: AppTheme.serif(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
-                            height: 1,
+                            color: AppTheme.onAccent,
                           ),
                         ),
                       ),
@@ -1676,7 +1672,7 @@ class _ProfileTab extends ConsumerWidget {
                         children: [
                           Text(
                             profileName,
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.sans(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: AppTheme.textPrimary,
@@ -1689,13 +1685,12 @@ class _ProfileTab extends ConsumerWidget {
                                   horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: AppTheme.goldSubtle,
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(2),
                               ),
                               child: Text(
-                                '관리자',
-                                style: GoogleFonts.notoSans(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
+                                'ADMIN',
+                                style: AppTheme.label(
+                                  fontSize: 9,
                                   color: AppTheme.gold,
                                 ),
                               ),
@@ -1709,7 +1704,7 @@ class _ProfileTab extends ConsumerWidget {
 
             if (!isLoggedIn)
               _MenuItem(
-                icon: Icons.login_rounded,
+                icon: Icons.login_outlined,
                 title: '로그인',
                 subtitle: '계정에 로그인하세요',
                 onTap: () => context.push('/login'),
@@ -1717,10 +1712,10 @@ class _ProfileTab extends ConsumerWidget {
 
             const SizedBox(height: 16),
 
-            // 주문 내역
+            // Order history
             if (isLoggedIn) ...[
               _MenuItem(
-                icon: Icons.receipt_long_rounded,
+                icon: Icons.receipt_long_outlined,
                 title: '주문 내역',
                 subtitle: '결제 및 환불 내역 확인',
                 onTap: () => context.push('/orders'),
@@ -1728,10 +1723,10 @@ class _ProfileTab extends ConsumerWidget {
               const SizedBox(height: 8),
             ],
 
-            // 스태프/관리자 메뉴
+            // Staff/admin menus
             if (currentUser.value?.isStaff == true) ...[
               _MenuItem(
-                icon: Icons.qr_code_scanner_rounded,
+                icon: Icons.qr_code_scanner_outlined,
                 title: '입장 스캐너',
                 subtitle: '티켓 QR 스캔',
                 onTap: () => context.push('/staff/scanner'),
@@ -1751,9 +1746,9 @@ class _ProfileTab extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               _MenuItem(
-                icon: Icons.location_city_rounded,
+                icon: Icons.location_city_outlined,
                 title: '공연장 관리',
-                subtitle: '좌석배치도 · 3D 시야 업로드',
+                subtitle: '좌석배치도 / 3D 시야 업로드',
                 onTap: () => launchUrl(
                   Uri.parse('https://melon-ticket-admin.web.app/venues'),
                   mode: LaunchMode.externalApplication,
@@ -1761,7 +1756,7 @@ class _ProfileTab extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               _MenuItem(
-                icon: Icons.admin_panel_settings_rounded,
+                icon: Icons.admin_panel_settings_outlined,
                 title: '관리자 대시보드',
                 subtitle: '공연 및 좌석 관리',
                 onTap: () => launchUrl(
@@ -1776,7 +1771,7 @@ class _ProfileTab extends ConsumerWidget {
 
             if (isLoggedIn)
               _MenuItem(
-                icon: Icons.logout_rounded,
+                icon: Icons.logout_outlined,
                 title: '로그아웃',
                 subtitle: '계정에서 로그아웃',
                 onTap: () => ref.read(authServiceProvider).signOut(),
@@ -1811,8 +1806,8 @@ class _MenuItem extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppTheme.card,
-          borderRadius: BorderRadius.circular(14),
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(2),
           border: Border.all(color: AppTheme.border, width: 0.5),
         ),
         child: Row(
@@ -1822,13 +1817,13 @@ class _MenuItem extends StatelessWidget {
               height: 40,
               decoration: BoxDecoration(
                 color: isDestructive
-                    ? AppTheme.error.withValues(alpha: 0.15)
+                    ? AppTheme.error.withValues(alpha: 0.08)
                     : AppTheme.cardElevated,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(4),
               ),
               child: Icon(
                 icon,
-                color: isDestructive ? AppTheme.error : AppTheme.textSecondary,
+                color: isDestructive ? AppTheme.error : AppTheme.sage,
                 size: 20,
               ),
             ),
@@ -1839,16 +1834,17 @@ class _MenuItem extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.sans(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color:
-                          isDestructive ? AppTheme.error : AppTheme.textPrimary,
+                      color: isDestructive
+                          ? AppTheme.error
+                          : AppTheme.textPrimary,
                     ),
                   ),
                   Text(
                     subtitle,
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.sans(
                       fontSize: 13,
                       color: AppTheme.textSecondary,
                     ),
@@ -1856,9 +1852,9 @@ class _MenuItem extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
-              color: AppTheme.textTertiary,
+              color: AppTheme.sage.withValues(alpha: 0.5),
               size: 20,
             ),
           ],
