@@ -1131,6 +1131,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
     required VenueBlock block,
     required Map<String, VenueZoneView> existingViews,
   }) {
+    const pendingColor = Color(0xFFFF9F0A); // 주황: 업로드 대기
     final gradeLabel = (block.grade?.trim().isNotEmpty ?? false)
         ? block.grade!.trim().toUpperCase()
         : '미지정';
@@ -1250,7 +1251,9 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
             }).length;
             final statusColor = rowSavedCount > 0
                 ? AppTheme.error
-                : Colors.white.withOpacity(0.84);
+                : (rowPendingCount > 0
+                    ? pendingColor
+                    : Colors.white.withOpacity(0.84));
             final statusLabel = rowSavedCount > 0
                 ? '업로드 $rowSavedCount석'
                 : (rowPendingCount > 0 ? '대기 $rowPendingCount석' : '미업로드');
@@ -1316,11 +1319,14 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                         row: rowLabel,
                         seat: seatNumber,
                       );
-                      final seatColor =
-                          hasSaved ? AppTheme.error : Colors.white;
+                      final seatColor = hasSaved
+                          ? AppTheme.error
+                          : (hasPending ? pendingColor : Colors.white);
                       final seatFillColor = hasSaved
                           ? AppTheme.error.withOpacity(0.28)
-                          : Colors.white.withOpacity(0.12);
+                          : (hasPending
+                              ? pendingColor.withOpacity(0.28)
+                              : Colors.white.withOpacity(0.12));
                       final seatStatus =
                           hasSaved ? '업로드됨' : (hasPending ? '업로드 대기' : '미업로드');
 
