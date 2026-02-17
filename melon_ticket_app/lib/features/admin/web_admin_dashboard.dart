@@ -77,16 +77,31 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () => context.go('/'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.gold,
-                      foregroundColor: const Color(0xFFFDF3F6),
-                    ),
-                    child: Text(
-                      '홈으로 이동',
-                      style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      FilledButton(
+                        onPressed: () => context.push('/admin/setup'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.gold,
+                          foregroundColor: const Color(0xFFFDF3F6),
+                        ),
+                        child: Text(
+                          '승인 요청',
+                          style:
+                              GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      OutlinedButton(
+                        onPressed: () => context.go('/'),
+                        child: Text(
+                          '홈으로 이동',
+                          style:
+                              GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

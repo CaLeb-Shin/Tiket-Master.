@@ -4,7 +4,8 @@ service cloud.firestore {
     
     // 사용자 정보
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null &&
+        (request.auth.uid == userId || isOwner());
       allow create: if request.auth != null &&
         request.auth.uid == userId &&
         (
@@ -15,8 +16,28 @@ service cloud.firestore {
           )
         );
       allow update: if request.auth != null &&
-        request.auth.uid == userId &&
-        request.resource.data.role == resource.data.role;
+        (
+          isOwner() ||
+          (
+            request.auth.uid == userId &&
+            request.resource.data.role == resource.data.role
+          )
+        );
+    }
+
+    // 관리자 승인 요청
+    match /adminApprovalRequests/{requestUserId} {
+      allow read: if request.auth != null &&
+        (request.auth.uid == requestUserId || isOwner());
+
+      // 본인만 관리자 승인 요청 생성/재요청 가능 (status: pending)
+      allow create, update: if request.auth != null &&
+        request.auth.uid == requestUserId &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'pending';
+
+      // 오너만 승인/거절/삭제 가능
+      allow update, delete: if isOwner();
     }
     
     // 공연장 (공개 읽기)
@@ -75,20 +96,26 @@ service cloud.firestore {
       allow write: if false; // Functions에서만
     }
     
+    function isOwner() {
+      return request.auth != null &&
+        request.auth.token.email == 'sinbun001@gmail.com';
+    }
+
     // 헬퍼 함수: 어드민 확인
     function isAdmin() {
       return request.auth != null &&
         (
-          request.auth.token.email == 'sinbun001@gmail.com' ||
+          isOwner() ||
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
         );
     }
     
     // 헬퍼 함수: 스태프 확인
     function isStaff() {
-      return request.auth != null && 
+      return request.auth != null &&
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'staff' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         isOwner());
     }
 
     function isOrderOwner(orderId) {

@@ -23,6 +23,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   bool _isLoading = false;
   bool _isSignUp = false;
   bool _obscurePassword = true;
+  bool _requestAdminApproval = false;
 
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
@@ -60,10 +61,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       final authService = ref.read(authServiceProvider);
 
       if (_isSignUp) {
+        final wantsAdminApproval = _requestAdminApproval;
         await authService.signUpWithEmail(
           _emailController.text.trim(),
           _passwordController.text,
+          requestAdminApproval: wantsAdminApproval,
         );
+        if (wantsAdminApproval && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '티켓 어드민 승인 신청이 접수되었습니다. 오너 승인 후 관리자 권한이 활성화됩니다.',
+                style: GoogleFonts.notoSans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              backgroundColor: AppTheme.info,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       } else {
         await authService.signInWithEmail(
           _emailController.text.trim(),
@@ -201,6 +220,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   _buildLabel('비밀번호'),
                   const SizedBox(height: 8),
                   _buildPasswordField(),
+                  if (_isSignUp) ...[
+                    const SizedBox(height: 14),
+                    _buildAdminApprovalRequestBox(),
+                  ],
                   const SizedBox(height: 28),
 
                   // --- Primary Action Button ---
@@ -231,11 +254,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         decoration: BoxDecoration(
           gradient: AppTheme.goldGradient,
           borderRadius: BorderRadius.circular(24),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
               color: AppTheme.goldSubtle,
               blurRadius: 24,
-              offset: const Offset(0, 8),
+              offset: Offset(0, 8),
             ),
           ],
         ),
@@ -527,11 +550,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         borderRadius: BorderRadius.circular(14),
         boxShadow: _isLoading
             ? null
-            : [
+            : const [
                 BoxShadow(
                   color: AppTheme.goldSubtle,
                   blurRadius: 16,
-                  offset: const Offset(0, 6),
+                  offset: Offset(0, 6),
                 ),
               ],
       ),
@@ -565,6 +588,44 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
   }
 
+  Widget _buildAdminApprovalRequestBox() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border, width: 1),
+      ),
+      child: CheckboxListTile(
+        value: _requestAdminApproval,
+        onChanged: _isLoading
+            ? null
+            : (value) {
+                setState(() => _requestAdminApproval = value ?? false);
+              },
+        activeColor: AppTheme.gold,
+        checkColor: const Color(0xFFFDF3F6),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+        controlAffinity: ListTileControlAffinity.leading,
+        title: Text(
+          '티켓 어드민 승인 신청',
+          style: GoogleFonts.notoSans(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+        subtitle: Text(
+          '가입 시 바로 관리자 권한이 부여되지 않으며 오너 승인 후 활성화됩니다.',
+          style: GoogleFonts.notoSans(
+            fontSize: 11,
+            color: AppTheme.textTertiary,
+            height: 1.4,
+          ),
+        ),
+      ),
+    );
+  }
+
   // ──────────────────────────────────────────────
   //  Toggle Row (Sign Up / Sign In)
   // ──────────────────────────────────────────────
@@ -582,7 +643,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         ),
         TextButton(
           onPressed: () {
-            setState(() => _isSignUp = !_isSignUp);
+            setState(() {
+              _isSignUp = !_isSignUp;
+              _requestAdminApproval = false;
+            });
             _formKey.currentState?.reset();
           },
           style: TextButton.styleFrom(

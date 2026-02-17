@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../data/repositories/event_repository.dart';
 import '../../services/auth_service.dart';
 
@@ -12,18 +13,27 @@ class AdminDashboardScreen extends ConsumerWidget {
     final currentUser = ref.watch(currentUserProvider);
     final eventsAsync = ref.watch(eventsStreamProvider);
 
-    // 권한 체크
     if (currentUser.value?.isAdmin != true) {
       return Scaffold(
         appBar: AppBar(title: const Text('관리자')),
         body: const Center(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.lock, size: 64, color: Colors.grey),
               SizedBox(height: 16),
               Text('관리자 권한이 필요합니다'),
             ],
+          ),
+        ),
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: ElevatedButton(
+              onPressed: () => context.push('/admin/setup'),
+              child: const Text('티켓 어드민 승인 요청'),
+            ),
           ),
         ),
       );
@@ -38,7 +48,6 @@ class AdminDashboardScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 빠른 메뉴
             Text(
               '빠른 메뉴',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -77,8 +86,6 @@ class AdminDashboardScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 24),
-
-            // 공연 목록
             Text(
               '공연 관리',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -126,12 +133,12 @@ class AdminDashboardScreen extends ConsumerWidget {
                                 break;
                             }
                           },
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
                               value: 'seats',
                               child: Text('좌석 관리'),
                             ),
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: 'assignments',
                               child: Text('배정 현황'),
                             ),
