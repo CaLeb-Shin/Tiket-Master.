@@ -11,14 +11,27 @@ import '../../data/models/event.dart';
 import '../tickets/my_tickets_screen.dart';
 
 class MobileMainScreen extends ConsumerStatefulWidget {
-  const MobileMainScreen({super.key});
+  final String? focusEventId;
+  final int initialIndex;
+
+  const MobileMainScreen({
+    super.key,
+    this.focusEventId,
+    this.initialIndex = 0,
+  });
 
   @override
   ConsumerState<MobileMainScreen> createState() => _MobileMainScreenState();
 }
 
 class _MobileMainScreenState extends ConsumerState<MobileMainScreen> {
-  int _currentIndex = 0;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex.clamp(0, 3);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +43,10 @@ class _MobileMainScreenState extends ConsumerState<MobileMainScreen> {
       body: IndexedStack(
         index: _currentIndex,
         children: [
+          _QuickBookingTab(
+            focusEventId: widget.focusEventId,
+            onOpenDiscover: () => setState(() => _currentIndex = 1),
+          ),
           const _HomeTab(),
           isLoggedIn
               ? const MyTicketsScreen()
@@ -51,22 +68,28 @@ class _MobileMainScreenState extends ConsumerState<MobileMainScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _NavItem(
-                  icon: Icons.home_rounded,
-                  label: '홈',
+                  icon: Icons.flash_on_rounded,
+                  label: '바로예매',
                   isSelected: _currentIndex == 0,
                   onTap: () => setState(() => _currentIndex = 0),
                 ),
                 _NavItem(
-                  icon: Icons.confirmation_number_rounded,
-                  label: '내 티켓',
+                  icon: Icons.view_carousel_rounded,
+                  label: '다른공연',
                   isSelected: _currentIndex == 1,
                   onTap: () => setState(() => _currentIndex = 1),
                 ),
                 _NavItem(
-                  icon: Icons.person_rounded,
-                  label: '마이',
+                  icon: Icons.confirmation_number_rounded,
+                  label: '내티켓',
                   isSelected: _currentIndex == 2,
                   onTap: () => setState(() => _currentIndex = 2),
+                ),
+                _NavItem(
+                  icon: Icons.person_rounded,
+                  label: '마이',
+                  isSelected: _currentIndex == 3,
+                  onTap: () => setState(() => _currentIndex = 3),
                 ),
               ],
             ),
@@ -97,7 +120,7 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: 64,
+        width: 74,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -118,6 +141,401 @@ class _NavItem extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── Quick Booking Tab ───
+class _QuickBookingTab extends ConsumerWidget {
+  final String? focusEventId;
+  final VoidCallback onOpenDiscover;
+
+  const _QuickBookingTab({
+    required this.focusEventId,
+    required this.onOpenDiscover,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final normalizedFocusId = focusEventId?.trim();
+    if (normalizedFocusId != null && normalizedFocusId.isNotEmpty) {
+      final focusedEventAsync =
+          ref.watch(eventStreamProvider(normalizedFocusId));
+      return focusedEventAsync.when(
+        data: (event) => _buildQuickBookingContent(
+          context,
+          event,
+          fromLink: true,
+        ),
+        loading: () => _buildQuickBookingScaffold(
+          context,
+          child: const Center(
+            child: CircularProgressIndicator(color: AppTheme.gold),
+          ),
+        ),
+        error: (_, __) => _buildQuickBookingContent(
+          context,
+          null,
+          fromLink: true,
+        ),
+      );
+    }
+
+    final eventsAsync = ref.watch(eventsStreamProvider);
+    return eventsAsync.when(
+      data: (events) => _buildQuickBookingContent(
+        context,
+        _selectPrimaryEvent(events),
+        fromLink: false,
+      ),
+      loading: () => _buildQuickBookingScaffold(
+        context,
+        child: const Center(
+          child: CircularProgressIndicator(color: AppTheme.gold),
+        ),
+      ),
+      error: (_, __) =>
+          _buildQuickBookingContent(context, null, fromLink: false),
+    );
+  }
+
+  Event? _selectPrimaryEvent(List<Event> events) {
+    if (events.isEmpty) return null;
+
+    final sorted = [...events]..sort((a, b) => a.startAt.compareTo(b.startAt));
+    for (final event in sorted) {
+      if (event.isOnSale && event.availableSeats > 0) {
+        return event;
+      }
+    }
+    return sorted.first;
+  }
+
+  Widget _buildQuickBookingScaffold(
+    BuildContext context, {
+    required Widget child,
+  }) {
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              color: AppTheme.surface,
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.goldGradient,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.flash_on_rounded,
+                      color: AppTheme.onAccent,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '바로 예매',
+                        style: GoogleFonts.notoSans(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        '링크 유입 시 바로 좌석선택으로 연결됩니다',
+                        style: GoogleFonts.notoSans(
+                          fontSize: 11,
+                          color: AppTheme.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Expanded(child: child),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickBookingContent(
+    BuildContext context,
+    Event? event, {
+    required bool fromLink,
+  }) {
+    if (event == null) {
+      return _buildQuickBookingScaffold(
+        context,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.event_busy_rounded,
+                  color: AppTheme.textTertiary,
+                  size: 44,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  fromLink ? '링크 공연을 찾을 수 없습니다' : '현재 예매 가능한 공연이 없습니다',
+                  style: GoogleFonts.notoSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '다른 공연 탭에서 등록된 공연을 확인하세요.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.notoSans(
+                    fontSize: 13,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                OutlinedButton(
+                  onPressed: onOpenDiscover,
+                  child: const Text('다른 공연 보기'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return _buildQuickBookingScaffold(
+      context,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.card,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppTheme.border, width: 0.6),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  fromLink ? Icons.link_rounded : Icons.star_rounded,
+                  size: 16,
+                  color: AppTheme.gold,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    fromLink ? '링크로 접속한 공연' : '현재 우선 예매 공연',
+                    style: GoogleFonts.notoSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.gold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _QuickBookingEventCard(event: event),
+          const SizedBox(height: 14),
+          _buildBookingButton(context, event),
+          const SizedBox(height: 10),
+          OutlinedButton(
+            onPressed: () => context.push('/event/${event.id}'),
+            child: const Text('공연 상세 보기'),
+          ),
+          const SizedBox(height: 6),
+          TextButton(
+            onPressed: onOpenDiscover,
+            child: const Text('다른 공연 탭으로 이동'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBookingButton(BuildContext context, Event event) {
+    final now = DateTime.now();
+    final isSoldOut =
+        event.status == EventStatus.soldOut || event.availableSeats <= 0;
+    final saleEnded = now.isAfter(event.saleEndAt);
+
+    String label;
+    VoidCallback? onPressed;
+
+    if (event.isOnSale && !isSoldOut) {
+      label = '좌석 선택하고 예매하기';
+      onPressed = () => context.push('/seats/${event.id}');
+    } else if (isSoldOut) {
+      label = '매진된 공연입니다';
+    } else if (saleEnded) {
+      label = '예매가 종료된 공연입니다';
+    } else {
+      label = '예매 오픈 일정 확인하기';
+      onPressed = () => context.push('/event/${event.id}');
+    }
+
+    return SizedBox(
+      height: 52,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        child: Text(
+          label,
+          style: GoogleFonts.notoSans(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickBookingEventCard extends StatelessWidget {
+  final Event event;
+
+  const _QuickBookingEventCard({required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    final dateText =
+        DateFormat('yyyy.MM.dd (E) HH:mm', 'ko_KR').format(event.startAt);
+    final saleOpenText =
+        DateFormat('M/d HH:mm', 'ko_KR').format(event.saleStartAt);
+    final priceText = NumberFormat('#,###', 'ko_KR').format(event.price);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border, width: 0.6),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 96,
+              height: 132,
+              child: event.imageUrl != null && event.imageUrl!.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: event.imageUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        color: AppTheme.cardElevated,
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            color: AppTheme.gold,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      ),
+                      errorWidget: (_, __, ___) => _PosterPlaceholder(),
+                    )
+                  : _PosterPlaceholder(),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (event.category?.isNotEmpty == true)
+                  Text(
+                    event.category!,
+                    style: GoogleFonts.notoSans(
+                      color: AppTheme.gold,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                const SizedBox(height: 3),
+                Text(
+                  event.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.notoSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _metaLine(Icons.schedule_rounded, dateText),
+                if (event.venueName?.isNotEmpty == true) ...[
+                  const SizedBox(height: 3),
+                  _metaLine(Icons.location_on_rounded, event.venueName!),
+                ],
+                const SizedBox(height: 3),
+                _metaLine(
+                  Icons.confirmation_number_rounded,
+                  '잔여 ${event.availableSeats}석',
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '$priceText원',
+                  style: GoogleFonts.notoSans(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.gold,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  event.isOnSale ? '지금 바로 예매 가능' : '오픈: $saleOpenText',
+                  style: GoogleFonts.notoSans(
+                    fontSize: 11,
+                    color: event.isOnSale
+                        ? AppTheme.success
+                        : AppTheme.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metaLine(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 13, color: AppTheme.textTertiary),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.notoSans(
+              fontSize: 12,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -164,14 +582,26 @@ class _HomeTab extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  '멜론티켓',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.gold,
-                    letterSpacing: -0.5,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '다른 공연',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    Text(
+                      '전체 라인업 보기',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 11,
+                        color: AppTheme.textTertiary,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -183,18 +613,18 @@ class _HomeTab extends ConsumerWidget {
           child: Container(
             color: AppTheme.surface,
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-            child: SingleChildScrollView(
+            child: const SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
                   _CategoryChip(label: '전체', isSelected: true),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   _CategoryChip(label: '콘서트'),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   _CategoryChip(label: '뮤지컬'),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   _CategoryChip(label: '연극'),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   _CategoryChip(label: '클래식'),
                 ],
               ),
@@ -952,7 +1382,7 @@ class _MenuItem extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(
+            const Icon(
               Icons.chevron_right_rounded,
               color: AppTheme.textTertiary,
               size: 20,

@@ -29,6 +29,16 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isLoggedIn = FirebaseAuth.instance.currentUser != null;
       final path = state.matchedLocation;
+      final eventIdFromQuery = state.uri.queryParameters['eventId'] ??
+          state.uri.queryParameters['event'];
+
+      // 링크 유입: /?eventId={id} 또는 /?event={id} -> 바로 예매(좌석선택) 진입
+      if (path == '/' &&
+          eventIdFromQuery != null &&
+          eventIdFromQuery.trim().isNotEmpty) {
+        return '/book/${eventIdFromQuery.trim()}';
+      }
+
       final requiresAuth = path.startsWith('/tickets') ||
           path.startsWith('/checkout') ||
           path.startsWith('/staff') ||
@@ -50,10 +60,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/',
             name: 'home',
-            builder: (context, state) =>
-                (PlatformUtils.isWeb || PlatformUtils.isMobile)
-                    ? const MobileMainScreen()
-                    : const HomeScreen(),
+            builder: (context, state) {
+              final focusEventId = state.uri.queryParameters['focusEventId'] ??
+                  state.uri.queryParameters['eventId'] ??
+                  state.uri.queryParameters['event'];
+              return (PlatformUtils.isWeb || PlatformUtils.isMobile)
+                  ? MobileMainScreen(focusEventId: focusEventId)
+                  : const HomeScreen();
+            },
           ),
 
           GoRoute(
@@ -83,6 +97,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/seats/:eventId',
             name: 'seatSelection',
+            builder: (context, state) {
+              final eventId = state.pathParameters['eventId']!;
+              return SeatSelectionScreen(eventId: eventId);
+            },
+          ),
+
+          // 링크 유입 전용 빠른 예매 진입
+          GoRoute(
+            path: '/book/:eventId',
+            name: 'quickBook',
             builder: (context, state) {
               final eventId = state.pathParameters['eventId']!;
               return SeatSelectionScreen(eventId: eventId);
