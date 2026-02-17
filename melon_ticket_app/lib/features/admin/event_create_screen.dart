@@ -46,6 +46,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   String _ageLimit = '전체관람가';
   DateTime _startAt = DateTime.now().add(const Duration(days: 14));
 
+  // ── 날짜/시간 직접 입력 컨트롤러 ──
+  late final TextEditingController _yearCtrl;
+  late final TextEditingController _monthCtrl;
+  late final TextEditingController _dayCtrl;
+  late final TextEditingController _hourCtrl;
+  late final TextEditingController _minuteCtrl;
+
   // ── 공연장 선택 ──
   Venue? _selectedVenue;
 
@@ -68,7 +75,6 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   String? _posterFileName;
 
   bool _isSubmitting = false;
-  bool _showOptional = false;
 
   static const _categories = [
     '콘서트',
@@ -92,9 +98,15 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   @override
   void initState() {
     super.initState();
+    _yearCtrl = TextEditingController(text: _startAt.year.toString());
+    _monthCtrl = TextEditingController(text: _startAt.month.toString());
+    _dayCtrl = TextEditingController(text: _startAt.day.toString());
+    _hourCtrl = TextEditingController(text: _startAt.hour.toString().padLeft(2, '0'));
+    _minuteCtrl = TextEditingController(text: _startAt.minute.toString().padLeft(2, '0'));
+    final priceFmt = NumberFormat('#,###');
     for (final grade in _allGrades) {
       _gradePriceControllers[grade] = TextEditingController(
-        text: SeatMapParser.getDefaultPrice(grade).toString(),
+        text: priceFmt.format(SeatMapParser.getDefaultPrice(grade)),
       );
     }
   }
@@ -110,6 +122,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     _castCtrl.dispose();
     _organizerCtrl.dispose();
     _noticeCtrl.dispose();
+    _yearCtrl.dispose();
+    _monthCtrl.dispose();
+    _dayCtrl.dispose();
+    _hourCtrl.dispose();
+    _minuteCtrl.dispose();
     for (final c in _gradePriceControllers.values) {
       c.dispose();
     }
@@ -288,12 +305,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
         const SizedBox(height: 28),
 
-        // ── 추가 정보 (선택) ──
-        _buildOptionalToggle(),
-        if (_showOptional) ...[
-          const SizedBox(height: 12),
-          _card(child: _buildOptionalFields()),
-        ],
+        // ── Step 4: 상세 정보 ──
+        _stepHeader(_seatMapData != null ? '4' : '3', '상세 정보'),
+        _card(child: _buildOptionalFields()),
 
         const SizedBox(height: 80),
       ],
@@ -494,36 +508,168 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     );
   }
 
+  static const _weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+
+  void _syncDateTimeFromControllers() {
+    final y = int.tryParse(_yearCtrl.text) ?? _startAt.year;
+    final m = (int.tryParse(_monthCtrl.text) ?? _startAt.month).clamp(1, 12);
+    final d = (int.tryParse(_dayCtrl.text) ?? _startAt.day).clamp(1, 31);
+    final h = (int.tryParse(_hourCtrl.text) ?? _startAt.hour).clamp(0, 23);
+    final min = (int.tryParse(_minuteCtrl.text) ?? _startAt.minute).clamp(0, 59);
+    final dt = DateTime(y, m, d, h, min);
+    if (dt != _startAt) {
+      setState(() => _startAt = dt);
+    }
+  }
+
+  void _syncControllersFromDateTime() {
+    _yearCtrl.text = _startAt.year.toString();
+    _monthCtrl.text = _startAt.month.toString();
+    _dayCtrl.text = _startAt.day.toString();
+    _hourCtrl.text = _startAt.hour.toString().padLeft(2, '0');
+    _minuteCtrl.text = _startAt.minute.toString().padLeft(2, '0');
+  }
+
   Widget _buildDateTimePicker() {
-    final fmt = DateFormat('MM.dd (E) HH:mm', 'ko_KR');
-    return InkWell(
-      onTap: () =>
-          _pickDateTime(_startAt, (dt) => setState(() => _startAt = dt)),
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppTheme.cardElevated,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.border, width: 0.5),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.calendar_today_rounded,
-                size: 16, color: AppTheme.gold),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                fmt.format(_startAt),
-                style: GoogleFonts.notoSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textPrimary,
+    final wd = _weekdays[_startAt.weekday - 1];
+    final amPm = _startAt.hour < 12 ? '오전' : '오후';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardElevated,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.border, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── 한글 요약 표시 + 달력 버튼 ──
+          Row(
+            children: [
+              const Icon(Icons.calendar_today_rounded,
+                  size: 15, color: AppTheme.gold),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${_startAt.year}년 ${_startAt.month}월 ${_startAt.day}일 ($wd) $amPm ${_startAt.hour}시 ${_startAt.minute.toString().padLeft(2, '0')}분',
+                  style: GoogleFonts.notoSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.gold,
+                  ),
                 ),
               ),
-            ),
-          ],
+              InkWell(
+                onTap: () => _pickDateTime(
+                    _startAt,
+                    (dt) => setState(() {
+                          _startAt = dt;
+                          _syncControllersFromDateTime();
+                        })),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.gold.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.edit_calendar_rounded,
+                          size: 13, color: AppTheme.gold),
+                      const SizedBox(width: 4),
+                      Text('달력',
+                          style: GoogleFonts.notoSans(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.gold,
+                          )),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // ── 숫자 직접 입력 필드 ──
+          Row(
+            children: [
+              _dateTimeField(_yearCtrl, 52, '년'),
+              _dtLabel('년'),
+              const SizedBox(width: 6),
+              _dateTimeField(_monthCtrl, 32, '월'),
+              _dtLabel('월'),
+              const SizedBox(width: 6),
+              _dateTimeField(_dayCtrl, 32, '일'),
+              _dtLabel('일'),
+              const SizedBox(width: 14),
+              _dateTimeField(_hourCtrl, 32, '시'),
+              _dtLabel('시'),
+              const SizedBox(width: 4),
+              Text(':', style: GoogleFonts.notoSans(
+                fontSize: 14, fontWeight: FontWeight.w600,
+                color: AppTheme.textTertiary,
+              )),
+              const SizedBox(width: 4),
+              _dateTimeField(_minuteCtrl, 32, '분'),
+              _dtLabel('분'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dateTimeField(TextEditingController ctrl, double width, String label) {
+    return SizedBox(
+      width: width,
+      height: 36,
+      child: TextFormField(
+        controller: ctrl,
+        style: GoogleFonts.notoSans(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.textPrimary,
+        ),
+        textAlign: TextAlign.center,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          filled: true,
+          fillColor: AppTheme.surface,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: AppTheme.gold, width: 1),
+          ),
+        ),
+        onChanged: (_) => _syncDateTimeFromControllers(),
+      ),
+    );
+  }
+
+  Widget _dtLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 2),
+      child: Text(
+        text,
+        style: GoogleFonts.notoSans(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: AppTheme.textTertiary,
         ),
       ),
     );
@@ -1091,7 +1237,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       ),
                     ),
                     keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    inputFormatters: [_ThousandsSeparatorFormatter()],
                     textAlign: TextAlign.end,
                   ),
                 ),
@@ -1106,57 +1252,6 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
   // OPTIONAL FIELDS
   // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildOptionalToggle() {
-    return InkWell(
-      onTap: () => setState(() => _showOptional = !_showOptional),
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppTheme.card,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.border, width: 0.5),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              _showOptional
-                  ? Icons.remove_circle_outline_rounded
-                  : Icons.add_circle_outline_rounded,
-              size: 18,
-              color: AppTheme.textTertiary,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              '추가 정보 입력 (선택)',
-              style: GoogleFonts.notoSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              '포스터, 소개, 출연진, 판매설정',
-              style: GoogleFonts.notoSans(
-                fontSize: 11,
-                color: AppTheme.textTertiary,
-              ),
-            ),
-            const SizedBox(width: 6),
-            AnimatedRotation(
-              turns: _showOptional ? 0.5 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: const Icon(Icons.keyboard_arrow_down_rounded,
-                  color: AppTheme.textTertiary, size: 18),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildOptionalFields() {
     return Column(
@@ -1558,7 +1653,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       for (final grade in data.grades) {
         final key = grade.name.toUpperCase();
         if (_gradePriceControllers.containsKey(key)) {
-          _gradePriceControllers[key]!.text = grade.price.toString();
+          _gradePriceControllers[key]!.text = NumberFormat('#,###').format(grade.price);
         }
       }
 
@@ -1646,7 +1741,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         final ctrl = _gradePriceControllers[grade];
         if (ctrl != null) {
           priceByGrade[grade] =
-              int.tryParse(ctrl.text) ?? SeatMapParser.getDefaultPrice(grade);
+              int.tryParse(ctrl.text.replaceAll(',', '')) ?? SeatMapParser.getDefaultPrice(grade);
         }
       }
 
@@ -1995,5 +2090,29 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     hex = hex.replaceFirst('#', '');
     if (hex.length == 6) hex = 'FF$hex';
     return Color(int.parse(hex, radix: 16));
+  }
+}
+
+/// 천 단위 콤마 자동 포맷터 (110000 → 110,000)
+class _ThousandsSeparatorFormatter extends TextInputFormatter {
+  static final _fmt = NumberFormat('#,###');
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digitsOnly = newValue.text.replaceAll(',', '');
+    if (digitsOnly.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+    final number = int.tryParse(digitsOnly);
+    if (number == null) return oldValue;
+
+    final formatted = _fmt.format(number);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
   }
 }
