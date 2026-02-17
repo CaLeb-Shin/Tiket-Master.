@@ -8,6 +8,7 @@ import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/models/event.dart';
 import 'package:melon_core/services/auth_service.dart';
+import 'package:melon_core/widgets/premium_effects.dart';
 
 const _deckBgTop = Color(0xFF080C14);
 const _deckBgBottom = Color(0xFF0E1626);
@@ -685,10 +686,21 @@ class _DashboardContent extends ConsumerWidget {
                     ],
                   );
                 },
-                loading: () => const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(80),
-                    child: CircularProgressIndicator(color: _deckBrand),
+                loading: () => Padding(
+                  padding: const EdgeInsets.all(40),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: List.generate(4, (_) => const Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 6),
+                            child: ShimmerLoading(height: 120, borderRadius: 16),
+                          ),
+                        )),
+                      ),
+                      const SizedBox(height: 22),
+                      const ShimmerLoading(height: 300, borderRadius: 16),
+                    ],
                   ),
                 ),
                 error: (e, _) => Center(
@@ -887,7 +899,7 @@ class _DarkCard extends StatelessWidget {
 }
 
 // ─── 골드 버튼 ───
-class _GoldButton extends StatefulWidget {
+class _GoldButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
@@ -897,22 +909,12 @@ class _GoldButton extends StatefulWidget {
   });
 
   @override
-  State<_GoldButton> createState() => _GoldButtonState();
-}
-
-class _GoldButtonState extends State<_GoldButton> {
-  bool _isHovered = false;
-
-  @override
   Widget build(BuildContext context) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+      child: PressableScale(
+        onTap: onTap,
+        child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
@@ -922,21 +924,12 @@ class _GoldButtonState extends State<_GoldButton> {
             ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0xFF9A7A2C), width: 1),
-            boxShadow: _isHovered
-                ? [
-                    BoxShadow(
-                      color: _deckBrand.withValues(alpha: 0.28),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : [],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                widget.label,
+                label,
                 style: GoogleFonts.notoSans(
                   color: const Color(0xFFFDF3F6),
                   fontWeight: FontWeight.w700,
@@ -1062,7 +1055,7 @@ class _EventsTable extends StatelessWidget {
         Container(height: 1, color: _deckBorder),
 
         // 행
-        ...events.map((event) => _EventRow(event: event)),
+        ...events.map((event) => PressableScale(onTap: null, child: _EventRow(event: event))),
       ],
     );
   }
@@ -1385,10 +1378,17 @@ class _EventsContent extends ConsumerWidget {
               _DarkCard(
                 child: eventsAsync.when(
                   data: (events) => _EventsTable(events: events),
-                  loading: () => const Padding(
-                    padding: EdgeInsets.all(80),
-                    child: Center(
-                      child: CircularProgressIndicator(color: _deckBrand),
+                  loading: () => Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Column(
+                      children: [
+                        const ShimmerLoading(height: 48, borderRadius: 10),
+                        const SizedBox(height: 12),
+                        ...List.generate(5, (_) => const Padding(
+                          padding: EdgeInsets.only(bottom: 10),
+                          child: ShimmerLoading(height: 64, borderRadius: 10),
+                        )),
+                      ],
                     ),
                   ),
                   error: (e, _) => Padding(

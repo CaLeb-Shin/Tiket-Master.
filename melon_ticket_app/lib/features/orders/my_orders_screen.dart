@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/widgets/premium_effects.dart';
 import 'package:melon_core/data/models/order.dart';
 import 'package:melon_core/data/repositories/order_repository.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
@@ -96,11 +97,16 @@ class _OrderList extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           itemCount: orders.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (_, i) => _OrderCard(order: orders[i]),
+          itemBuilder: (_, i) => PressableScale(
+            child: _OrderCard(order: orders[i]),
+          ),
         );
       },
-      loading: () => const Center(
-        child: CircularProgressIndicator(color: AppTheme.gold),
+      loading: () => Column(
+        children: List.generate(5, (_) => const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: ShimmerLoading(height: 80, borderRadius: 14),
+        )),
       ),
       error: (e, _) => const _CenteredMessage(
         icon: Icons.error_outline_rounded,

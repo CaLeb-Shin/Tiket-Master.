@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/services/auth_service.dart';
+import 'package:melon_core/widgets/premium_effects.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -368,34 +369,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     required IconData icon,
     required VoidCallback onTap,
   }) {
-    return Container(
-      height: 54,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _isLoading ? null : onTap,
+    return PressableScale(
+      child: Container(
+        height: 54,
+        decoration: BoxDecoration(
+          color: color,
           borderRadius: BorderRadius.circular(14),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Icon(icon, size: 22, color: textColor),
-                const Spacer(),
-                Text(
-                  label,
-                  style: GoogleFonts.notoSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: textColor,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _isLoading ? null : onTap,
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Icon(icon, size: 22, color: textColor),
+                  const Spacer(),
+                  Text(
+                    label,
+                    style: GoogleFonts.notoSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
                   ),
-                ),
-                const Spacer(),
-                const SizedBox(width: 22),
-              ],
+                  const Spacer(),
+                  const SizedBox(width: 22),
+                ],
+              ),
             ),
           ),
         ),
@@ -408,55 +411,57 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   // ──────────────────────────────────────────────
 
   Widget _buildGoogleButton() {
-    return Container(
-      height: 54,
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.border, width: 1),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _isLoading ? null : _signInWithGoogle,
+    return PressableScale(
+      child: Container(
+        height: 54,
+        decoration: BoxDecoration(
+          color: AppTheme.card,
           borderRadius: BorderRadius.circular(14),
-          splashColor: AppTheme.goldSubtle,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                // Google "G" icon using Material icon
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'G',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF4285F4),
-                        height: 1,
+          border: Border.all(color: AppTheme.border, width: 1),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _isLoading ? null : _signInWithGoogle,
+            borderRadius: BorderRadius.circular(14),
+            splashColor: AppTheme.goldSubtle,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  // Google "G" icon using Material icon
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'G',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF4285F4),
+                          height: 1,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const Spacer(),
-                Text(
-                  'Google로 계속하기',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
+                  const Spacer(),
+                  Text(
+                    'Google로 계속하기',
+                    style: GoogleFonts.notoSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
                   ),
-                ),
-                const Spacer(),
-                const SizedBox(width: 28),
-              ],
+                  const Spacer(),
+                  const SizedBox(width: 28),
+                ],
+              ),
             ),
           ),
         ),
@@ -639,49 +644,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   // ──────────────────────────────────────────────
 
   Widget _buildPrimaryButton() {
-    return Container(
+    return ShimmerButton(
+      text: _isSignUp ? '회원가입' : '이메일로 로그인',
+      onPressed: _isLoading ? null : _submit,
       height: 56,
-      decoration: BoxDecoration(
-        gradient: _isLoading ? null : AppTheme.goldGradient,
-        color: _isLoading ? AppTheme.border : null,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: _isLoading
-            ? null
-            : const [
-                BoxShadow(
-                  color: AppTheme.goldSubtle,
-                  blurRadius: 16,
-                  offset: Offset(0, 6),
-                ),
-              ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _isLoading ? null : _submit,
-          borderRadius: BorderRadius.circular(14),
-          child: Center(
-            child: _isLoading
-                ? const SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: AppTheme.textTertiary,
-                    ),
-                  )
-                : Text(
-                    _isSignUp ? '회원가입' : '이메일로 로그인',
-                    style: GoogleFonts.notoSans(
-                      color: const Color(0xFFFDF3F6),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-          ),
-        ),
-      ),
+      borderRadius: 14,
     );
   }
 

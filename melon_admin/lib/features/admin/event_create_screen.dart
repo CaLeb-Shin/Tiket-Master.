@@ -18,6 +18,7 @@ import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/data/repositories/venue_repository.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/services/storage_service.dart';
+import 'package:melon_core/widgets/premium_effects.dart';
 import 'widgets/seat_map_picker.dart';
 
 // =============================================================================
@@ -384,39 +385,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       child: Row(
         children: [
           Expanded(
-            child: Container(
-              height: 52,
-              decoration: BoxDecoration(
-                gradient: _isSubmitting ? null : AppTheme.goldGradient,
-                color: _isSubmitting ? AppTheme.border : null,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _isSubmitting ? null : _submitEvent,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Center(
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: AppTheme.textPrimary,
-                            ),
-                          )
-                        : Text(
-                            '등록하기',
-                            style: GoogleFonts.notoSans(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFFFDF3F6),
-                            ),
-                          ),
-                  ),
-                ),
-              ),
+            child: ShimmerButton(
+              text: '등록하기',
+              onPressed: _isSubmitting ? null : _submitEvent,
+              height: 56,
+              borderRadius: 14,
             ),
           ),
         ],
@@ -1646,7 +1619,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     final qtyCtrl = TextEditingController(text: '2');
     final descCtrl = TextEditingController();
 
-    showDialog(
+    showAnimatedDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
@@ -2343,19 +2316,14 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     final fullUrl = kIsWeb ? '${Uri.base.origin}$eventPath' : eventPath;
     final fmt = NumberFormat('#,###');
 
-    showDialog(
+    showAnimatedDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => Dialog(
-        backgroundColor: AppTheme.card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+      builder: (ctx) => AnimatedDialogContent(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
                 // ── 체크 아이콘 ──
                 Container(
                   width: 72,
@@ -2531,8 +2499,6 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               ],
             ),
           ),
-        ),
-      ),
     );
   }
 

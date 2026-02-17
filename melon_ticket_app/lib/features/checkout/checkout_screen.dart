@@ -8,6 +8,7 @@ import 'package:melon_core/data/models/discount_policy.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/services/functions_service.dart';
+import 'package:melon_core/widgets/premium_effects.dart';
 
 enum PaymentMethod { naverPay, tossPay, kakaoPay }
 
@@ -715,9 +716,8 @@ class _PaymentChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return PressableScale(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
       child: Container(
         width: (MediaQuery.of(context).size.width - 44) / 2,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -1184,33 +1184,35 @@ class _BottomPayBar extends StatelessWidget {
         color: _softBlue,
         border: Border(top: BorderSide(color: _cardBorder)),
       ),
-      child: SizedBox(
-        height: 54,
-        child: FilledButton(
-          onPressed: canPay ? onPay : null,
-          style: FilledButton.styleFrom(
-            backgroundColor: canPay ? _lineBlue : const Color(0xFFBFCAD6),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+      child: PressableScale(
+        child: SizedBox(
+          height: 54,
+          child: FilledButton(
+            onPressed: canPay ? onPay : null,
+            style: FilledButton.styleFrom(
+              backgroundColor: canPay ? _lineBlue : const Color(0xFFBFCAD6),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
+            child: isProcessing
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(
+                    '${priceFormat.format(totalPrice)}원 결제/발권',
+                    style: GoogleFonts.notoSans(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
           ),
-          child: isProcessing
-              ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.4,
-                    color: Colors.white,
-                  ),
-                )
-              : Text(
-                  '${priceFormat.format(totalPrice)}원 결제/발권',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
         ),
       ),
     );

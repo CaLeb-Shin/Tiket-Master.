@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/widgets/premium_effects.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/models/event.dart';
@@ -406,18 +407,11 @@ class _QuickBookingTab extends ConsumerWidget {
       onPressed = () => context.push('/event/${event.id}');
     }
 
-    return SizedBox(
+    return ShimmerButton(
+      text: label,
+      onPressed: onPressed,
       height: 52,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        child: Text(
-          label,
-          style: GoogleFonts.notoSans(
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
+      borderRadius: 14,
     );
   }
 
@@ -461,49 +455,47 @@ class _QuickBookingTab extends ConsumerWidget {
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           final card = cards[index];
-          return Container(
+          return SizedBox(
             width: 170,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.card,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.border, width: 0.5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(card.icon, size: 16, color: AppTheme.gold),
-                const SizedBox(height: 8),
-                Text(
-                  card.title,
-                  style: GoogleFonts.notoSans(
-                    fontSize: 11,
-                    color: AppTheme.textTertiary,
-                    fontWeight: FontWeight.w600,
+            child: GlowCard(
+              borderRadius: 12,
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(card.icon, size: 16, color: AppTheme.gold),
+                  const SizedBox(height: 8),
+                  Text(
+                    card.title,
+                    style: GoogleFonts.notoSans(
+                      fontSize: 11,
+                      color: AppTheme.textTertiary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  card.value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.notoSans(
-                    fontSize: 14,
-                    color: AppTheme.textPrimary,
-                    fontWeight: FontWeight.w800,
+                  const SizedBox(height: 2),
+                  Text(
+                    card.value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.notoSans(
+                      fontSize: 14,
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  card.hint,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.notoSans(
-                    fontSize: 11,
-                    color: AppTheme.textSecondary,
+                  const SizedBox(height: 2),
+                  Text(
+                    card.hint,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.notoSans(
+                      fontSize: 11,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },
@@ -536,12 +528,8 @@ class _QuickBookingTab extends ConsumerWidget {
       return '프리미엄 (${fmt.format(value)}원)';
     }
 
-    final result = await showModalBottomSheet<_AIQuickCondition>(
+    final result = await showSlideUpSheet<_AIQuickCondition>(
       context: context,
-      backgroundColor: AppTheme.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -550,26 +538,13 @@ class _QuickBookingTab extends ConsumerWidget {
               maxBudget = budgetOptions.first;
             }
 
-            return SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 42,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: AppTheme.borderLight,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
                       fromLink ? '링크 공연 AI 예매 조건' : 'AI 예매 조건',
                       style: GoogleFonts.notoSans(
                         fontSize: 16,
@@ -716,8 +691,7 @@ class _QuickBookingTab extends ConsumerWidget {
                     ),
                   ],
                 ),
-              ),
-            );
+              );
           },
         );
       },
@@ -1320,7 +1294,7 @@ class _EventCard extends StatelessWidget {
     final dateFormat = DateFormat('yyyy.MM.dd (E)', 'ko_KR');
     final priceFormat = NumberFormat('#,###');
 
-    return GestureDetector(
+    return PressableScale(
       onTap: () => context.push('/event/${event.id}'),
       child: Container(
         decoration: const BoxDecoration(
@@ -1829,7 +1803,7 @@ class _MenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressableScale(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),

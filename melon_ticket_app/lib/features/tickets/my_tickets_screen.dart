@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/widgets/premium_effects.dart';
 import 'package:melon_core/data/models/ticket.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/ticket_repository.dart';
@@ -90,8 +91,11 @@ class _TicketBody extends ConsumerWidget {
           ],
         );
       },
-      loading: () => const Center(
-        child: CircularProgressIndicator(color: _lineBlue),
+      loading: () => Column(
+        children: List.generate(5, (_) => const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: ShimmerLoading(height: 80, borderRadius: 14),
+        )),
       ),
       error: (error, _) => Center(
         child: Padding(
@@ -165,16 +169,9 @@ class _TicketCard extends ConsumerWidget {
     final eventAsync = ref.watch(eventStreamProvider(ticket.eventId));
 
     return eventAsync.when(
-      loading: () => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppTheme.card,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _cardBorder),
-        ),
-        child: const Center(
-          child: CircularProgressIndicator(color: _lineBlue),
-        ),
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 6),
+        child: ShimmerLoading(height: 80, borderRadius: 14),
       ),
       error: (_, __) => const SizedBox.shrink(),
       data: (event) {
@@ -190,7 +187,9 @@ class _TicketCard extends ConsumerWidget {
             ? '공연장 정보 없음'
             : event.venueName!;
 
-        return Container(
+        return PressableScale(
+          onTap: () => context.push('/tickets/${ticket.id}'),
+          child: Container(
           decoration: BoxDecoration(
             color: AppTheme.card,
             borderRadius: BorderRadius.circular(14),
@@ -205,7 +204,6 @@ class _TicketCard extends ConsumerWidget {
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(14),
-            onTap: () => context.push('/tickets/${ticket.id}'),
             child: Column(
               children: [
                 Container(
@@ -373,6 +371,7 @@ class _TicketCard extends ConsumerWidget {
               ],
             ),
           ),
+        ),
         );
       },
     );

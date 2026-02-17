@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/widgets/premium_effects.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/review_repository.dart';
 import 'package:melon_core/data/models/event.dart';
@@ -216,10 +217,8 @@ class _AppBar extends StatelessWidget {
   }
 
   void _shareEvent(BuildContext context, Event event) {
-    showModalBottomSheet(
+    showSlideUpSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
       builder: (_) => _ShareSheet(event: event),
     );
   }
@@ -657,13 +656,11 @@ class _BenefitBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      child: Container(
+      child: GlowCard(
+        borderRadius: 10,
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppTheme.goldSubtle,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.gold.withValues(alpha: 0.15)),
-        ),
+        backgroundColor: AppTheme.goldSubtle,
+        borderColor: AppTheme.gold.withValues(alpha: 0.15),
         child: Row(
           children: [
             Container(
@@ -945,43 +942,17 @@ class _BottomCTA extends StatelessWidget {
         border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
       ),
       child: canBuy
-          ? Container(
-              width: double.infinity,
+          ? ShimmerButton(
+              text: isLoggedIn ? '예매하기' : '로그인 후 예매',
+              onPressed: () {
+                if (isLoggedIn) {
+                  context.push('/seats/${event.id}');
+                } else {
+                  context.push('/login');
+                }
+              },
               height: 54,
-              decoration: BoxDecoration(
-                gradient: AppTheme.goldGradient,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.gold.withValues(alpha: 0.25),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    if (isLoggedIn) {
-                      context.push('/seats/${event.id}');
-                    } else {
-                      context.push('/login');
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Center(
-                    child: Text(
-                      isLoggedIn ? '예매하기' : '로그인 후 예매',
-                      style: GoogleFonts.notoSans(
-                        color: const Color(0xFFFDF3F6),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              borderRadius: 12,
             )
           : Container(
               width: double.infinity,
@@ -1025,36 +996,9 @@ class _ShareSheet extends ConsumerWidget {
     final reviewsAsync = ref.watch(eventReviewsProvider(event.id));
     final hasDiscount = event.discount != null && event.discount!.isNotEmpty;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.border, width: 0.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Column(
+    return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── 드래그 핸들 ──
-          Padding(
-            padding: const EdgeInsets.only(top: 10, bottom: 6),
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppTheme.textTertiary.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-
           // ── 헤더 ──
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
@@ -1430,7 +1374,6 @@ class _ShareSheet extends ConsumerWidget {
 
           SizedBox(height: MediaQuery.of(context).padding.bottom + 12),
         ],
-      ),
     );
   }
 }

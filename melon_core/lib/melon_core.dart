@@ -28,5 +28,8 @@ export 'services/kakao_postcode_service.dart';
 // ─── App ───
 export 'app/theme.dart';
 
+// ─── Widgets ───
+export 'widgets/premium_effects.dart';
+
 // ─── Utils ───
 export 'utils/platform_utils.dart';

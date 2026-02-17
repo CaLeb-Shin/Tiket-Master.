@@ -15,6 +15,7 @@ import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/data/repositories/ticket_repository.dart';
 import 'package:melon_core/services/functions_service.dart';
+import 'package:melon_core/widgets/premium_effects.dart';
 
 const _navy = AppTheme.goldDark;
 const _lineBlue = AppTheme.gold;
@@ -191,38 +192,52 @@ class _TicketDetailBody extends ConsumerWidget {
             ? '현재 취소 시 70% 환불됩니다.'
             : '공연 3시간 이내로 취소가 제한됩니다.';
 
-    final confirm = await showDialog<bool>(
+    final confirm = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(
-            '승차권 반환',
-            style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
-          ),
-          content: Text(
-            '해당 티켓을 반환하고 환불을 진행할까요?\n$policyText',
-            style: GoogleFonts.notoSans(height: 1.5),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(
-                '닫기',
-                style: GoogleFonts.notoSans(),
-              ),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: FilledButton.styleFrom(backgroundColor: _lineBlue),
-              child: Text(
-                '반환 진행',
+        return AnimatedDialogContent(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '승차권 반환',
                 style: GoogleFonts.notoSans(
-                  color: AppTheme.onAccent,
                   fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  color: AppTheme.textPrimary,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                '해당 티켓을 반환하고 환불을 진행할까요?\n$policyText',
+                style: GoogleFonts.notoSans(
+                  height: 1.5,
+                  fontSize: 14,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      child: Text('닫기', style: GoogleFonts.notoSans()),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ShimmerButton(
+                      text: '반환 진행',
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
+                      height: 48,
+                      borderRadius: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         );
       },
     );
@@ -277,13 +292,11 @@ class _TicketTopCard extends StatelessWidget {
     final issuedAtText =
         DateFormat('yyyy.MM.dd HH:mm', 'ko_KR').format(ticket.issuedAt);
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _cardBorder),
-      ),
+    return GlowCard(
+      borderRadius: 14,
+      padding: EdgeInsets.zero,
+      backgroundColor: AppTheme.card.withValues(alpha: 0.85),
+      borderColor: _cardBorder,
       child: Column(
         children: [
           Container(
