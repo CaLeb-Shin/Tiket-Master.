@@ -177,9 +177,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               }
             }
           }
-          final specialPolicies =
-              policies.where((p) => p.type == 'special').toList();
-
           // 적용 할인 결정: 수량 할인 vs 대상 할인 (더 큰 할인 적용)
           final activeDiscount = _selectedDiscount ?? autoBulkDiscount;
           final unitPrice = activeDiscount != null

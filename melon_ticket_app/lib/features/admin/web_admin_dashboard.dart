@@ -1219,6 +1219,9 @@ class _EventRowState extends State<_EventRow> {
                   if (value == 'assignments') {
                     context.push('/admin/events/${event.id}/assignments');
                   }
+                  if (value == 'bookers') {
+                    context.push('/admin/events/${event.id}/bookers');
+                  }
                 },
                 itemBuilder: (context) => [
                   PopupMenuItem(
@@ -1233,6 +1236,14 @@ class _EventRowState extends State<_EventRow> {
                     value: 'assignments',
                     child: Text(
                       '배정 현황',
+                      style:
+                          GoogleFonts.notoSans(fontSize: 13, color: _deckText),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'bookers',
+                    child: Text(
+                      '예매자 목록',
                       style:
                           GoogleFonts.notoSans(fontSize: 13, color: _deckText),
                     ),

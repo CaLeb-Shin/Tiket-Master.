@@ -24,6 +24,7 @@ import '../features/mobile/mobile_main_screen.dart';
 import '../features/demo/demo_flow_screen.dart';
 import '../features/orders/my_orders_screen.dart';
 import '../features/admin/admin_orders_screen.dart';
+import '../features/admin/admin_bookers_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -221,6 +222,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final eventId = state.pathParameters['eventId']!;
               return AdminOrdersScreen(eventId: eventId);
+            },
+          ),
+          GoRoute(
+            path: 'events/:eventId/bookers',
+            name: 'adminBookers',
+            builder: (context, state) {
+              final eventId = state.pathParameters['eventId']!;
+              return AdminBookersScreen(eventId: eventId);
             },
           ),
           GoRoute(
