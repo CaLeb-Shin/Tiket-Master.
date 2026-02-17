@@ -354,8 +354,10 @@ class _QuickBookingTab extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _QuickBookingEventCard(event: event),
+          const SizedBox(height: 12),
+          _buildEventDetailCarousel(event),
           const SizedBox(height: 14),
-          _buildBookingButton(context, event),
+          _buildBookingButton(context, event, fromLink: fromLink),
           const SizedBox(height: 10),
           OutlinedButton(
             onPressed: () => context.push('/event/${event.id}'),
@@ -371,7 +373,11 @@ class _QuickBookingTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildBookingButton(BuildContext context, Event event) {
+  Widget _buildBookingButton(
+    BuildContext context,
+    Event event, {
+    required bool fromLink,
+  }) {
     final now = DateTime.now();
     final isSoldOut =
         event.status == EventStatus.soldOut || event.availableSeats <= 0;
@@ -381,8 +387,9 @@ class _QuickBookingTab extends ConsumerWidget {
     VoidCallback? onPressed;
 
     if (event.isOnSale && !isSoldOut) {
-      label = '좌석 선택하고 예매하기';
-      onPressed = () => context.push('/seats/${event.id}');
+      label = '실제로 보면서 예매!';
+      onPressed =
+          () => _openAIQuickConditions(context, event, fromLink: fromLink);
     } else if (isSoldOut) {
       label = '매진된 공연입니다';
     } else if (saleEnded) {
@@ -406,6 +413,349 @@ class _QuickBookingTab extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _buildEventDetailCarousel(Event event) {
+    final dateText = DateFormat('M/d (E) HH:mm', 'ko_KR').format(event.startAt);
+    final saleText = DateFormat('M/d HH:mm', 'ko_KR').format(event.saleStartAt);
+    final priceText = NumberFormat('#,###', 'ko_KR').format(event.price);
+    final cards = <_QuickInfoCard>[
+      _QuickInfoCard(
+        title: '공연 일정',
+        value: dateText,
+        hint:
+            event.venueName?.isNotEmpty == true ? event.venueName! : '장소 정보 없음',
+        icon: Icons.schedule_rounded,
+      ),
+      _QuickInfoCard(
+        title: '가격 / 잔여',
+        value: '$priceText원',
+        hint: '잔여 ${event.availableSeats}석',
+        icon: Icons.confirmation_number_rounded,
+      ),
+      const _QuickInfoCard(
+        title: 'AI 배치 포인트',
+        value: '예산 + 악기 기준',
+        hint: '좌석 3개 자동 추천',
+        icon: Icons.auto_awesome_rounded,
+      ),
+      _QuickInfoCard(
+        title: '시야 확인',
+        value: '360° 프리뷰',
+        hint: event.isOnSale ? '바로 체험 가능' : '오픈 $saleText',
+        icon: Icons.threesixty_rounded,
+      ),
+    ];
+
+    return SizedBox(
+      height: 114,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: cards.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final card = cards[index];
+          return Container(
+            width: 170,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.card,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.border, width: 0.5),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(card.icon, size: 16, color: AppTheme.gold),
+                const SizedBox(height: 8),
+                Text(
+                  card.title,
+                  style: GoogleFonts.notoSans(
+                    fontSize: 11,
+                    color: AppTheme.textTertiary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  card.value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.notoSans(
+                    fontSize: 14,
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  card.hint,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.notoSans(
+                    fontSize: 11,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _openAIQuickConditions(
+    BuildContext context,
+    Event event, {
+    required bool fromLink,
+  }) async {
+    int quantity = 2;
+    final maxQty = event.maxTicketsPerOrder.clamp(1, 4);
+    if (quantity > maxQty) quantity = maxQty;
+    int maxBudget = 0;
+    String instrument = '상관없음';
+
+    budgetOptionsForQty(int qty) {
+      final base = event.price * qty;
+      return <int>[0, base, (base * 1.4).round(), base * 2];
+    }
+
+    String budgetLabel(int value, int qty) {
+      if (value <= 0) return '예산 상관없음';
+      final fmt = NumberFormat('#,###', 'ko_KR');
+      final base = event.price * qty;
+      if (value <= base) return '가성비 (${fmt.format(value)}원)';
+      if (value <= (base * 1.4).round()) return '표준 (${fmt.format(value)}원)';
+      return '프리미엄 (${fmt.format(value)}원)';
+    }
+
+    final result = await showModalBottomSheet<_AIQuickCondition>(
+      context: context,
+      backgroundColor: AppTheme.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final budgetOptions = budgetOptionsForQty(quantity);
+            if (!budgetOptions.contains(maxBudget)) {
+              maxBudget = budgetOptions.first;
+            }
+
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 42,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppTheme.borderLight,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      fromLink ? '링크 공연 AI 예매 조건' : 'AI 예매 조건',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '세 가지만 고르면 바로 자동 배치됩니다.',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      '인원',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textTertiary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: List.generate(maxQty, (i) => i + 1).map((n) {
+                        final selected = n == quantity;
+                        return ChoiceChip(
+                          label: Text('$n명'),
+                          selected: selected,
+                          onSelected: (_) => setSheetState(() => quantity = n),
+                          labelStyle: GoogleFonts.notoSans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: selected
+                                ? AppTheme.onAccent
+                                : AppTheme.textSecondary,
+                          ),
+                          selectedColor: AppTheme.gold,
+                          backgroundColor: AppTheme.surface,
+                          side: BorderSide(
+                            color: selected ? AppTheme.gold : AppTheme.border,
+                            width: 0.7,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      '총 예산',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textTertiary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: budgetOptions.map((value) {
+                        final selected = value == maxBudget;
+                        return ChoiceChip(
+                          label: Text(budgetLabel(value, quantity)),
+                          selected: selected,
+                          onSelected: (_) =>
+                              setSheetState(() => maxBudget = value),
+                          labelStyle: GoogleFonts.notoSans(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: selected
+                                ? AppTheme.onAccent
+                                : AppTheme.textSecondary,
+                          ),
+                          selectedColor: AppTheme.gold,
+                          backgroundColor: AppTheme.surface,
+                          side: BorderSide(
+                            color: selected ? AppTheme.gold : AppTheme.border,
+                            width: 0.7,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      '보고 싶은 악기',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textTertiary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: const ['상관없음', '보컬', '피아노', '기타', '드럼', '관악']
+                          .map((inst) {
+                        final selected = inst == instrument;
+                        return ChoiceChip(
+                          label: Text(inst),
+                          selected: selected,
+                          onSelected: (_) =>
+                              setSheetState(() => instrument = inst),
+                          labelStyle: GoogleFonts.notoSans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: selected
+                                ? AppTheme.onAccent
+                                : AppTheme.textSecondary,
+                          ),
+                          selectedColor: AppTheme.gold,
+                          backgroundColor: AppTheme.surface,
+                          side: BorderSide(
+                            color: selected ? AppTheme.gold : AppTheme.border,
+                            width: 0.7,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(
+                          _AIQuickCondition(
+                            quantity: quantity,
+                            maxBudget: maxBudget,
+                            instrument: instrument,
+                          ),
+                        ),
+                        child: Text(
+                          'AI 배치 + 360 시야 보기',
+                          style: GoogleFonts.notoSans(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (result == null || !context.mounted) return;
+
+    final query = <String, String>{
+      'ai': '1',
+      'qty': '${result.quantity}',
+      'inst': result.instrument,
+    };
+    if (result.maxBudget > 0) {
+      query['budget'] = '${result.maxBudget}';
+    }
+
+    context.push(
+        Uri(path: '/seats/${event.id}', queryParameters: query).toString());
+  }
+}
+
+class _QuickInfoCard {
+  final String title;
+  final String value;
+  final String hint;
+  final IconData icon;
+
+  const _QuickInfoCard({
+    required this.title,
+    required this.value,
+    required this.hint,
+    required this.icon,
+  });
+}
+
+class _AIQuickCondition {
+  final int quantity;
+  final int maxBudget;
+  final String instrument;
+
+  const _AIQuickCondition({
+    required this.quantity,
+    required this.maxBudget,
+    required this.instrument,
+  });
 }
 
 class _QuickBookingEventCard extends StatelessWidget {

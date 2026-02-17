@@ -29,15 +29,6 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isLoggedIn = FirebaseAuth.instance.currentUser != null;
       final path = state.matchedLocation;
-      final eventIdFromQuery = state.uri.queryParameters['eventId'] ??
-          state.uri.queryParameters['event'];
-
-      // 링크 유입: /?eventId={id} 또는 /?event={id} -> 바로 예매(좌석선택) 진입
-      if (path == '/' &&
-          eventIdFromQuery != null &&
-          eventIdFromQuery.trim().isNotEmpty) {
-        return '/book/${eventIdFromQuery.trim()}';
-      }
 
       final requiresAuth = path.startsWith('/tickets') ||
           path.startsWith('/checkout') ||
@@ -99,7 +90,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'seatSelection',
             builder: (context, state) {
               final eventId = state.pathParameters['eventId']!;
-              return SeatSelectionScreen(eventId: eventId);
+              final qty = int.tryParse(state.uri.queryParameters['qty'] ?? '');
+              final budget =
+                  int.tryParse(state.uri.queryParameters['budget'] ?? '');
+              final instrument = state.uri.queryParameters['inst'];
+              final aiFromQuick = state.uri.queryParameters['ai'] == '1';
+              return SeatSelectionScreen(
+                eventId: eventId,
+                openAIFirst: aiFromQuick,
+                initialAIQuantity: qty,
+                initialAIMaxBudget: budget,
+                initialAIInstrument: instrument,
+              );
             },
           ),
 

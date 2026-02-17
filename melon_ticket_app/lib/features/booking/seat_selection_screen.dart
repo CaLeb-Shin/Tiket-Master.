@@ -40,7 +40,19 @@ class _SeatRecommendation {
 
 class SeatSelectionScreen extends ConsumerStatefulWidget {
   final String eventId;
-  const SeatSelectionScreen({super.key, required this.eventId});
+  final bool openAIFirst;
+  final int? initialAIQuantity;
+  final int? initialAIMaxBudget;
+  final String? initialAIInstrument;
+
+  const SeatSelectionScreen({
+    super.key,
+    required this.eventId,
+    this.openAIFirst = false,
+    this.initialAIQuantity,
+    this.initialAIMaxBudget,
+    this.initialAIInstrument,
+  });
 
   @override
   ConsumerState<SeatSelectionScreen> createState() =>
@@ -59,6 +71,8 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   int _aiQuantity = 2;
   String _aiGrade = '상관없음';
   String _aiPosition = '가운데';
+  int _aiMaxBudget = 0; // 0이면 제한 없음
+  String _aiInstrument = '상관없음';
   List<_SeatRecommendation>? _aiResults;
   String? _lastAISignature;
   bool _isAIRefreshQueued = false;
@@ -106,6 +120,31 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         return (event.price * 0.5).round();
       default:
         return event.price;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.openAIFirst) {
+      _mode = _SeatMode.ai;
+    }
+
+    final qty = widget.initialAIQuantity;
+    if (qty != null && qty > 0) {
+      _aiQuantity = qty.clamp(1, 10);
+    }
+
+    final budget = widget.initialAIMaxBudget;
+    if (budget != null && budget > 0) {
+      _aiMaxBudget = budget;
+    }
+
+    final instrument = _normalizeInstrument(widget.initialAIInstrument);
+    if (instrument != null) {
+      _aiInstrument = instrument;
+      _aiPosition = _suggestPositionForInstrument(instrument);
     }
   }
 
@@ -367,7 +406,8 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       Map<String, VenueZoneView> venueViews,
       bool isLoggedIn,
       bool isStageBottom) {
-    final signature = '${_aiQuantity}_${_aiGrade}_${_aiPosition}_'
+    final signature =
+        '${_aiQuantity}_${_aiGrade}_${_aiPosition}_${_aiMaxBudget}_${_aiInstrument}_'
         '${seats.where((s) => s.status == SeatStatus.available).length}';
     if ((_aiResults == null || _lastAISignature != signature) &&
         !_isAIRefreshQueued) {
@@ -415,6 +455,8 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          _buildAIConditionSummary(event),
           const SizedBox(height: 16),
 
           // ── 인원 ──
@@ -622,6 +664,64 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     );
   }
 
+  Widget _buildAIConditionSummary(Event event) {
+    final fmt = NumberFormat('#,###');
+    final budgetText =
+        _aiMaxBudget > 0 ? '${fmt.format(_aiMaxBudget)}원 이하' : '제한 없음';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.border, width: 0.5),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _buildConditionChip('인원', '$_aiQuantity명'),
+          _buildConditionChip('예산', budgetText),
+          _buildConditionChip('악기', _aiInstrument),
+          _buildConditionChip('선호', _aiPosition),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConditionChip(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppTheme.borderLight, width: 0.5),
+      ),
+      child: RichText(
+        text: TextSpan(
+          style: GoogleFonts.notoSans(fontSize: 11),
+          children: [
+            TextSpan(
+              text: '$label ',
+              style: const TextStyle(
+                color: AppTheme.textTertiary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            TextSpan(
+              text: value,
+              style: const TextStyle(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildNoResults() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -754,6 +854,15 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                             color: AppTheme.textPrimary,
                           ),
                         ),
+                        if (_aiInstrument != '상관없음')
+                          Text(
+                            '악기 선호 반영: $_aiInstrument',
+                            style: GoogleFonts.notoSans(
+                              fontSize: 11,
+                              color: AppTheme.goldLight,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -954,9 +1063,13 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         }
         if (!consecutive) continue;
 
-        final score = _scoreSequence(seq, seats, _aiPosition, isStageBottom);
         final totalPrice =
             seq.fold<int>(0, (sum, s) => sum + _getGradePrice(s.grade, event));
+        if (_aiMaxBudget > 0 && totalPrice > _aiMaxBudget) {
+          continue;
+        }
+        final score = _scoreSequence(seq, seats, _aiPosition, isStageBottom) +
+            _instrumentZoneBonus(seq.first.block, filtered, _aiInstrument);
         final firstNum = seq.first.number;
         final lastNum = seq.last.number;
 
@@ -1074,6 +1187,44 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     }
 
     return score / sequence.length + 5;
+  }
+
+  double _instrumentZoneBonus(
+    String zone,
+    List<Seat> seats,
+    String instrument,
+  ) {
+    if (instrument == '상관없음') return 0;
+
+    final zones =
+        seats.map((s) => s.block.trim().toUpperCase()).toSet().toList()..sort();
+    if (zones.length <= 1) return 0;
+
+    final currentIndex = zones.indexOf(zone.trim().toUpperCase());
+    if (currentIndex < 0) return 0;
+
+    final centerIndex = (zones.length - 1) / 2;
+    final maxDistance = max(1.0, centerIndex);
+    final distance = (currentIndex - centerIndex).abs();
+    final centerAffinity = (1 - (distance / maxDistance)).clamp(0.0, 1.0);
+    final sideAffinity = (distance / maxDistance).clamp(0.0, 1.0);
+
+    switch (instrument) {
+      case '보컬':
+      case '피아노':
+        return centerAffinity * 18;
+      case '드럼':
+      case '타악':
+      case '기타':
+      case '베이스':
+        return sideAffinity * 18;
+      case '바이올린':
+      case '첼로':
+      case '관악':
+        return (centerAffinity * 0.6 + sideAffinity * 0.4) * 14;
+      default:
+        return centerAffinity * 10;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2210,6 +2361,47 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
   // SHARED WIDGETS
   // ═══════════════════════════════════════════════════════════════════════════
+
+  String? _normalizeInstrument(String? raw) {
+    final normalized = (raw ?? '').trim();
+    if (normalized.isEmpty) return null;
+
+    const allowed = {
+      '상관없음',
+      '보컬',
+      '피아노',
+      '기타',
+      '베이스',
+      '드럼',
+      '타악',
+      '바이올린',
+      '첼로',
+      '관악',
+    };
+    if (allowed.contains(normalized)) {
+      return normalized;
+    }
+    return '상관없음';
+  }
+
+  String _suggestPositionForInstrument(String instrument) {
+    switch (instrument) {
+      case '보컬':
+      case '피아노':
+      case '바이올린':
+      case '첼로':
+      case '관악':
+        return '가운데';
+      case '드럼':
+      case '타악':
+        return '앞쪽';
+      case '기타':
+      case '베이스':
+        return '통로';
+      default:
+        return '가운데';
+    }
+  }
 
   Widget _sectionLabel(String label) {
     return Text(
