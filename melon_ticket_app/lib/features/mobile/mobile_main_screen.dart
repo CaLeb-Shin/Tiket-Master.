@@ -913,22 +913,61 @@ class _HomeTab extends ConsumerWidget {
             child: Row(
               children: [
                 Container(
-                  width: 30,
-                  height: 30,
+                  width: 34,
+                  height: 34,
                   decoration: BoxDecoration(
-                    gradient: AppTheme.goldGradient,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'M',
-                      style: GoogleFonts.poppins(
-                        color: const Color(0xFFFDF3F6),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        height: 1,
-                      ),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFE76282), Color(0xFF8A1632)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppTheme.goldLight.withOpacity(0.45),
+                      width: 0.8,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.gold.withOpacity(0.22),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        top: 5,
+                        right: 5,
+                        child: Container(
+                          width: 4,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppTheme.onAccent.withOpacity(0.45),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                      Center(
+                        child: Text(
+                          'M',
+                          style: GoogleFonts.poppins(
+                            color: AppTheme.onAccent,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                            height: 1,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withOpacity(0.35),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -991,70 +1030,151 @@ class _HomeTab extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
             child: Container(
-              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   colors: [
-                    AppTheme.gold.withOpacity(0.18),
+                    Color(0xFF4A1223),
                     AppTheme.cardElevated,
+                    Color(0xFF2A1320),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: AppTheme.gold.withOpacity(0.25),
-                  width: 0.8,
+                  color: AppTheme.gold.withOpacity(0.35),
+                  width: 1,
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppTheme.goldSubtle,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          '추천',
-                          style: GoogleFonts.notoSans(
-                            color: AppTheme.gold,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                  Positioned(
+                    top: -30,
+                    right: -20,
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppTheme.gold.withOpacity(0.1),
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '모바일 예매 추천',
-                        style: GoogleFonts.notoSans(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.gold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'AI 좌석 추천 + 360° 시야 + 모바일티켓',
-                    style: GoogleFonts.notoSans(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '좌석 선택 화면에서 구역별 시야를 확인하고 취소/환불 정책까지 한 번에 확인하세요.',
-                    style: GoogleFonts.notoSans(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                      height: 1.45,
+                  Positioned(
+                    bottom: -42,
+                    left: -24,
+                    child: Container(
+                      width: 132,
+                      height: 132,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppTheme.goldDark.withOpacity(0.18),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF7F1932),
+                                    Color(0xFFC42A4D)
+                                  ],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                ),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: AppTheme.goldLight.withOpacity(0.4),
+                                  width: 0.7,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.auto_awesome_rounded,
+                                    size: 12,
+                                    color: AppTheme.onAccent,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '추천 PICK',
+                                    style: GoogleFonts.notoSans(
+                                      color: AppTheme.onAccent,
+                                      fontSize: 10,
+                                      letterSpacing: 0.2,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '모바일 예매 추천',
+                              style: GoogleFonts.notoSans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.goldLight,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              const TextSpan(text: 'AI 좌석 추천'),
+                              TextSpan(
+                                text: ' · ',
+                                style: GoogleFonts.notoSans(
+                                  color: AppTheme.textTertiary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              TextSpan(
+                                text: '360° 시야',
+                                style: GoogleFonts.notoSans(
+                                  color: AppTheme.goldLight,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              TextSpan(
+                                text: ' · 모바일티켓',
+                                style: GoogleFonts.notoSans(
+                                  color: AppTheme.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          style: GoogleFonts.notoSans(
+                            fontSize: 17,
+                            height: 1.25,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '좌석 선택 화면에서 구역별 시야를 확인하고\n취소/환불 정책까지 한 번에 확인하세요.',
+                          style: GoogleFonts.notoSans(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                            height: 1.45,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
