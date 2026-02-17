@@ -1428,28 +1428,29 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 onTap: _searchAddress,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             InkWell(
               onTap: _searchAddress,
               borderRadius: BorderRadius.circular(10),
               child: Container(
                 height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  gradient: AppTheme.goldGradient,
+                  color: AppTheme.gold.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.gold.withOpacity(0.4)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.search_rounded,
-                        size: 16, color: Color(0xFFFDF3F6)),
-                    const SizedBox(width: 4),
+                    Icon(Icons.search_rounded,
+                        size: 16, color: AppTheme.gold),
+                    const SizedBox(width: 6),
                     Text('주소 찾기',
                         style: GoogleFonts.notoSans(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFFFDF3F6),
+                          color: AppTheme.gold,
                         )),
                   ],
                 ),
