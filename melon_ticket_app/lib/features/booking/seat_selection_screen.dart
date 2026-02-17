@@ -443,7 +443,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             decoration: BoxDecoration(
               color: AppTheme.goldSubtle,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.gold.withOpacity(0.28)),
+              border: Border.all(color: AppTheme.gold.withValues(alpha: 0.28)),
             ),
             child: Text(
               '추천 카드에서 좌석을 고르고, 시야를 확인한 뒤 바로 결제할 수 있습니다.',
@@ -521,7 +521,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isActive ? color.withOpacity(0.2) : AppTheme.card,
+                    color: isActive ? color.withValues(alpha: 0.2) : AppTheme.card,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isActive ? color : AppTheme.border,
@@ -733,7 +733,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       child: Column(
         children: [
           Icon(Icons.search_off_rounded,
-              size: 40, color: AppTheme.textTertiary.withOpacity(0.3)),
+              size: 40, color: AppTheme.textTertiary.withValues(alpha: 0.3)),
           const SizedBox(height: 12),
           Text('조건에 맞는 연석 좌석이 없습니다',
               style: GoogleFonts.notoSans(
@@ -797,7 +797,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: colors[index.clamp(0, 2)].withOpacity(0.15),
+                      color: colors[index.clamp(0, 2)].withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -820,7 +820,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                               size: 14,
                               color: i < stars
                                   ? AppTheme.gold
-                                  : AppTheme.textTertiary.withOpacity(0.3),
+                                  : AppTheme.textTertiary.withValues(alpha: 0.3),
                             )),
                   ),
                 ],
@@ -892,7 +892,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: AppTheme.gold.withOpacity(0.35),
+                        color: AppTheme.gold.withValues(alpha: 0.35),
                         width: 0.7,
                       ),
                     ),
@@ -921,7 +921,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 3),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
+                              color: Colors.black.withValues(alpha: 0.6),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(
@@ -1334,10 +1334,10 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: available > 0 ? AppTheme.card : AppTheme.card.withOpacity(0.5),
+          color: available > 0 ? AppTheme.card : AppTheme.card.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: available > 0 ? color.withOpacity(0.4) : AppTheme.border,
+            color: available > 0 ? color.withValues(alpha: 0.4) : AppTheme.border,
             width: 1,
           ),
         ),
@@ -1376,7 +1376,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: AppTheme.gold.withOpacity(0.15),
+                        color: AppTheme.gold.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
@@ -1400,7 +1400,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                        color: AppTheme.gold.withOpacity(0.3), width: 0.5),
+                        color: AppTheme.gold.withValues(alpha: 0.3), width: 0.5),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Stack(
@@ -1422,7 +1422,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 4, vertical: 1),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
+                            color: Colors.black.withValues(alpha: 0.6),
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: Row(
@@ -1598,10 +1598,10 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
           padding: const EdgeInsets.symmetric(vertical: 8),
           margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           decoration: BoxDecoration(
-            color: AppTheme.gold.withOpacity(0.1),
+            color: AppTheme.gold.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(6),
             border:
-                Border.all(color: AppTheme.gold.withOpacity(0.3), width: 0.5),
+                Border.all(color: AppTheme.gold.withValues(alpha: 0.3), width: 0.5),
           ),
           child: Text(
             '← STAGE →',
@@ -1663,7 +1663,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _legendItem(color.withOpacity(0.15), color, '선택 가능'),
+              _legendItem(color.withValues(alpha: 0.15), color, '선택 가능'),
               const SizedBox(width: 16),
               _legendItem(AppTheme.gold, AppTheme.gold, '선택됨'),
               const SizedBox(width: 16),
@@ -1816,8 +1816,8 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       bg = AppTheme.border;
       borderColor = AppTheme.border;
     } else {
-      bg = color.withOpacity(0.15);
-      borderColor = color.withOpacity(0.5);
+      bg = color.withValues(alpha: 0.15);
+      borderColor = color.withValues(alpha: 0.5);
     }
 
     return GestureDetector(
@@ -1845,7 +1845,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                         fontWeight: FontWeight.w500,
                         color: isAvailable
                             ? color
-                            : AppTheme.textTertiary.withOpacity(0.3),
+                            : AppTheme.textTertiary.withValues(alpha: 0.3),
                       ),
                     ),
             ),
@@ -1910,7 +1910,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: AppTheme.gold.withOpacity(0.1),
+                    color: AppTheme.gold.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.bolt_rounded,
@@ -1952,7 +1952,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isActive ? color.withOpacity(0.2) : AppTheme.card,
+                    color: isActive ? color.withValues(alpha: 0.2) : AppTheme.card,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isActive ? color : AppTheme.border,
@@ -2014,7 +2014,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               decoration: BoxDecoration(
                 color: AppTheme.goldSubtle,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.gold.withOpacity(0.3)),
+                border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2069,7 +2069,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Container(height: 0.5, color: AppTheme.gold.withOpacity(0.2)),
+                  Container(height: 0.5, color: AppTheme.gold.withValues(alpha: 0.2)),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2624,7 +2624,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       backgroundColor = AppTheme.border;
       borderColor = AppTheme.border;
     } else {
-      backgroundColor = gradeColor.withOpacity(0.2);
+      backgroundColor = gradeColor.withValues(alpha: 0.2);
       borderColor = gradeColor;
     }
 
@@ -2674,7 +2674,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                         width: 14,
                         height: 14,
                         decoration: BoxDecoration(
-                          color: _getGradeColor(grade).withOpacity(0.2),
+                          color: _getGradeColor(grade).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(3),
                           border: Border.all(
                               color: _getGradeColor(grade), width: 1.5),
@@ -2731,8 +2731,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             onPressed: () {
               setState(() {
                 _currentScale = (_currentScale * 1.3).clamp(0.5, 3.0);
-                _transformController.value = Matrix4.identity()
-                  ..scale(_currentScale);
+                _transformController.value = Matrix4.diagonal3Values(_currentScale, _currentScale, 1.0);
               });
             },
             icon: const Icon(Icons.add, size: 18, color: AppTheme.textPrimary),
@@ -2743,8 +2742,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             onPressed: () {
               setState(() {
                 _currentScale = (_currentScale / 1.3).clamp(0.5, 3.0);
-                _transformController.value = Matrix4.identity()
-                  ..scale(_currentScale);
+                _transformController.value = Matrix4.diagonal3Values(_currentScale, _currentScale, 1.0);
               });
             },
             icon:
@@ -2803,7 +2801,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.event_seat_outlined,
-                          size: 40, color: AppTheme.gold.withOpacity(0.2)),
+                          size: 40, color: AppTheme.gold.withValues(alpha: 0.2)),
                       const SizedBox(height: 12),
                       Text('좌석을 선택해주세요',
                           style: GoogleFonts.notoSans(
@@ -3060,10 +3058,10 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: widget.color.withOpacity(0.15),
+                                color: widget.color.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                    color: widget.color.withOpacity(0.4),
+                                    color: widget.color.withValues(alpha: 0.4),
                                     width: 0.5),
                               ),
                               child: Text(
@@ -3081,7 +3079,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppTheme.gold.withOpacity(0.15),
+                                color: AppTheme.gold.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -3147,7 +3145,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
               child: Row(
                 children: [
                   Icon(Icons.info_outline_rounded,
-                      size: 16, color: AppTheme.gold.withOpacity(0.7)),
+                      size: 16, color: AppTheme.gold.withValues(alpha: 0.7)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -3255,7 +3253,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -3363,7 +3361,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -3443,7 +3441,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.7),
+                    Colors.black.withValues(alpha: 0.7),
                     Colors.transparent,
                   ],
                 ),
@@ -3454,10 +3452,10 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: widget.color.withOpacity(0.2),
+                      color: widget.color.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                          color: widget.color.withOpacity(0.5), width: 0.5),
+                          color: widget.color.withValues(alpha: 0.5), width: 0.5),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -3483,7 +3481,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 5, vertical: 1),
                             decoration: BoxDecoration(
-                              color: AppTheme.gold.withOpacity(0.3),
+                              color: AppTheme.gold.withValues(alpha: 0.3),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -3505,7 +3503,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
+                        color: Colors.white.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.fullscreen_exit_rounded,
@@ -3528,7 +3526,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
+                  color: Colors.black.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(

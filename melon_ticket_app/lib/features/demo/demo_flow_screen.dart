@@ -77,7 +77,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
             decoration: BoxDecoration(
               color: AppTheme.goldSubtle,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.gold.withOpacity(0.4)),
+              border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4)),
             ),
             child: Text(
               '실서비스 연동 없이, 공연등록 → 공유 → 구매(가상결제) → QR스캔 → 입장확인까지 혼자 테스트하는 모드입니다.',
@@ -200,7 +200,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (_event == null)
-                  _DisabledHint(text: '먼저 공연을 등록하면 공유 링크가 생성됩니다.')
+                  const _DisabledHint(text: '먼저 공연을 등록하면 공유 링크가 생성됩니다.')
                 else ...[
                   _InfoBox(
                     lines: [
@@ -318,7 +318,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
             step: '4',
             title: '티켓 확인 (QR)',
             child: _ticket == null
-                ? _DisabledHint(text: '구매를 완료하면 QR 티켓이 표시됩니다.')
+                ? const _DisabledHint(text: '구매를 완료하면 QR 티켓이 표시됩니다.')
                 : Column(
                     children: [
                       Container(
@@ -374,7 +374,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: _ticketStatusColor(_ticket!).withOpacity(0.12),
+                      color: _ticketStatusColor(_ticket!).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: _ticketStatusColor(_ticket!)),
                     ),
@@ -424,8 +424,8 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
                         horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
                       color: _scanSuccess
-                          ? AppTheme.success.withOpacity(0.18)
-                          : AppTheme.error.withOpacity(0.18),
+                          ? AppTheme.success.withValues(alpha: 0.18)
+                          : AppTheme.error.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: _scanSuccess ? AppTheme.success : AppTheme.error,
@@ -449,10 +449,10 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
             step: '6',
             title: '취소/환불 시뮬레이션',
             child: _ticket == null
-                ? _DisabledHint(text: '티켓 발권 후 취소/환불 시나리오를 실행할 수 있습니다.')
+                ? const _DisabledHint(text: '티켓 발권 후 취소/환불 시나리오를 실행할 수 있습니다.')
                 : Column(
                     children: [
-                      _InfoBox(
+                      const _InfoBox(
                         lines: [
                           '정책: 입장 전에는 전액 환불, 입장 후에는 환불 불가',
                           '환불 시 좌석은 즉시 재판매 가능 상태로 복원',
@@ -465,7 +465,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
                           onPressed: _ticket!.isRefunded ? null : _refundTicket,
                           icon: const Icon(Icons.undo_rounded, size: 18),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.error.withOpacity(0.16),
+                            backgroundColor: AppTheme.error.withValues(alpha: 0.16),
                             foregroundColor: AppTheme.error,
                           ),
                           label: Text(

@@ -184,7 +184,7 @@ class AppTheme {
         labelStyle: GoogleFonts.notoSans(fontSize: 15, color: textSecondary),
         errorStyle: GoogleFonts.notoSans(fontSize: 12, color: error),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 0,
         color: card,
         surfaceTintColor: Colors.transparent,
@@ -194,7 +194,7 @@ class AppTheme {
         ),
         margin: EdgeInsets.zero,
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: card,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
@@ -379,21 +379,21 @@ class AppSpacing {
 class AppShadows {
   static List<BoxShadow> get small => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.1),
+          color: Colors.black.withValues(alpha: 0.1),
           blurRadius: 8,
           offset: const Offset(0, 2),
         ),
       ];
   static List<BoxShadow> get card => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.15),
+          color: Colors.black.withValues(alpha: 0.15),
           blurRadius: 12,
           offset: const Offset(0, 4),
         ),
       ];
   static List<BoxShadow> get elevated => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.25),
+          color: Colors.black.withValues(alpha: 0.25),
           blurRadius: 20,
           offset: const Offset(0, 8),
         ),

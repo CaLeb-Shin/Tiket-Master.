@@ -142,7 +142,7 @@ class _BackdropShapes extends StatelessWidget {
               height: 280,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFBFD7EE).withOpacity(0.32),
+                color: const Color(0xFFBFD7EE).withValues(alpha: 0.32),
               ),
             ),
           ),
@@ -154,7 +154,7 @@ class _BackdropShapes extends StatelessWidget {
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFCFE3F8).withOpacity(0.4),
+                color: const Color(0xFFCFE3F8).withValues(alpha: 0.4),
               ),
             ),
           ),
@@ -166,7 +166,7 @@ class _BackdropShapes extends StatelessWidget {
               height: 260,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFE4EEF9).withOpacity(0.7),
+                color: const Color(0xFFE4EEF9).withValues(alpha: 0.7),
               ),
             ),
           ),
@@ -201,7 +201,7 @@ class _TopBar extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: _heroBlue.withOpacity(0.2),
+                color: _heroBlue.withValues(alpha: 0.2),
                 blurRadius: 14,
                 offset: const Offset(0, 6),
               ),
@@ -316,10 +316,10 @@ class _HeroSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.14),
+                color: Colors.white.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                 ),
               ),
               child: Text(
@@ -354,7 +354,7 @@ class _HeroSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
-            Wrap(
+            const Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
@@ -433,7 +433,7 @@ class _HeroSection extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: _heroBlue.withOpacity(0.25),
+            color: _heroBlue.withValues(alpha: 0.25),
             blurRadius: 26,
             offset: const Offset(0, 14),
           ),
@@ -600,7 +600,7 @@ class _FeatureRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = const [
+    const items = [
       _FeatureCard(
         icon: Icons.auto_awesome_rounded,
         title: 'AI 좌석 추천',
@@ -630,8 +630,8 @@ class _FeatureRow extends StatelessWidget {
       );
     }
 
-    return Column(
-      children: const [
+    return const Column(
+      children: [
         _FeatureCard(
           icon: Icons.auto_awesome_rounded,
           title: 'AI 좌석 추천',
@@ -830,7 +830,7 @@ class _EventCard extends StatelessWidget {
           border: Border.all(color: _cardBorder),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 10,
               offset: const Offset(0, 5),
             ),
@@ -987,7 +987,7 @@ class _PosterFallback extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(

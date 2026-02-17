@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 import 'package:melon_core/services/auth_service.dart';
 
@@ -130,7 +131,7 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
                     const SizedBox(height: 12),
                     const Text('로그인 후 이용할 수 있습니다.'),
                     const SizedBox(height: 16),
-                    ElevatedButton(
+                    shad.Button.primary(
                       onPressed: () => context.push('/login'),
                       child: const Text('로그인하기'),
                     ),
@@ -200,13 +201,9 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            Container(
+            shad.Card(
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.blueGrey.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blueGrey.withOpacity(0.25)),
-              ),
+              borderRadius: BorderRadius.circular(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -217,7 +214,7 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
+            shad.Button.primary(
               onPressed: (isAlreadyAdmin || isPending || _isSubmitting)
                   ? null
                   : _submitApprovalRequest,
@@ -231,7 +228,7 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
             ),
             if (isApproved && !isAlreadyAdmin) ...[
               const SizedBox(height: 12),
-              OutlinedButton(
+              shad.Button.outline(
                 onPressed: () async {
                   await ref.read(authServiceProvider).signOut();
                   if (!context.mounted) return;
@@ -285,12 +282,9 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
             ),
             const SizedBox(height: 16),
             if (docs.isEmpty)
-              Container(
+              shad.Card(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                borderRadius: BorderRadius.circular(12),
                 child: const Text('현재 승인 대기 요청이 없습니다.'),
               )
             else
@@ -305,9 +299,9 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
                     : requestedAt.toDate().toLocal().toString();
                 final isActing = _actionTargetUid == uid;
 
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Padding(
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: shad.Card(
                     padding: const EdgeInsets.all(14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,12 +342,12 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: OutlinedButton(
+                              child: shad.Button.outline(
                                 onPressed: isActing ? null : () => _reject(uid),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.red,
+                                child: const Text(
+                                  '거절',
+                                  style: TextStyle(color: Colors.red),
                                 ),
-                                child: const Text('거절'),
                               ),
                             ),
                           ],

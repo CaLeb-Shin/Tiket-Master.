@@ -232,7 +232,7 @@ class _EmptyReviews extends StatelessWidget {
       child: Column(
         children: [
           Icon(Icons.rate_review_outlined,
-              size: 36, color: AppTheme.textTertiary.withOpacity(0.5)),
+              size: 36, color: AppTheme.textTertiary.withValues(alpha: 0.5)),
           const SizedBox(height: 12),
           Text(
             '아직 후기가 없습니다',
@@ -248,7 +248,7 @@ class _EmptyReviews extends StatelessWidget {
               '첫 번째 후기를 남겨보세요!',
               style: GoogleFonts.notoSans(
                 fontSize: 12,
-                color: AppTheme.textTertiary.withOpacity(0.7),
+                color: AppTheme.textTertiary.withValues(alpha: 0.7),
               ),
             ),
           ],
@@ -343,7 +343,7 @@ class _ReviewCard extends StatelessWidget {
                     size: 16,
                     color: filled
                         ? const Color(0xFFFFD700)
-                        : AppTheme.textTertiary.withOpacity(0.3),
+                        : AppTheme.textTertiary.withValues(alpha: 0.3),
                   );
                 }),
               ),
@@ -528,7 +528,7 @@ class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
                     size: 40,
                     color: i < _rating.round()
                         ? const Color(0xFFFFD700)
-                        : AppTheme.textTertiary.withOpacity(0.3),
+                        : AppTheme.textTertiary.withValues(alpha: 0.3),
                   ),
                 ),
               );

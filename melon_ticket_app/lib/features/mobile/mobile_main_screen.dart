@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
@@ -929,12 +930,12 @@ class _HomeTab extends ConsumerWidget {
                     ),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: AppTheme.goldLight.withOpacity(0.45),
+                      color: AppTheme.goldLight.withValues(alpha: 0.45),
                       width: 0.8,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: AppTheme.gold.withOpacity(0.22),
+                        color: AppTheme.gold.withValues(alpha: 0.22),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -949,7 +950,7 @@ class _HomeTab extends ConsumerWidget {
                           width: 4,
                           height: 4,
                           decoration: BoxDecoration(
-                            color: AppTheme.onAccent.withOpacity(0.45),
+                            color: AppTheme.onAccent.withValues(alpha: 0.45),
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -965,7 +966,7 @@ class _HomeTab extends ConsumerWidget {
                             height: 1,
                             shadows: [
                               Shadow(
-                                color: Colors.black.withOpacity(0.35),
+                                color: Colors.black.withValues(alpha: 0.35),
                                 blurRadius: 4,
                                 offset: const Offset(0, 1),
                               ),
@@ -1048,7 +1049,7 @@ class _HomeTab extends ConsumerWidget {
                 ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: AppTheme.gold.withOpacity(0.35),
+                  color: AppTheme.gold.withValues(alpha: 0.35),
                   width: 1,
                 ),
               ),
@@ -1063,7 +1064,7 @@ class _HomeTab extends ConsumerWidget {
                       height: 120,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppTheme.gold.withOpacity(0.1),
+                        color: AppTheme.gold.withValues(alpha: 0.1),
                       ),
                     ),
                   ),
@@ -1075,7 +1076,7 @@ class _HomeTab extends ConsumerWidget {
                       height: 132,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppTheme.goldDark.withOpacity(0.18),
+                        color: AppTheme.goldDark.withValues(alpha: 0.18),
                       ),
                     ),
                   ),
@@ -1100,7 +1101,7 @@ class _HomeTab extends ConsumerWidget {
                                 ),
                                 borderRadius: BorderRadius.circular(999),
                                 border: Border.all(
-                                  color: AppTheme.goldLight.withOpacity(0.4),
+                                  color: AppTheme.goldLight.withValues(alpha: 0.4),
                                   width: 0.7,
                                 ),
                               ),
@@ -1195,7 +1196,7 @@ class _HomeTab extends ConsumerWidget {
             child: OutlinedButton(
               onPressed: () => context.push('/demo-flow'),
               style: OutlinedButton.styleFrom(
-                side: BorderSide(color: AppTheme.gold.withOpacity(0.55)),
+                side: BorderSide(color: AppTheme.gold.withValues(alpha: 0.55)),
                 foregroundColor: AppTheme.gold,
                 minimumSize: const Size(double.infinity, 44),
                 shape: RoundedRectangleBorder(
@@ -1247,7 +1248,7 @@ class _HomeTab extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: AppTheme.error.withOpacity(0.15),
+                        color: AppTheme.error.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -1468,7 +1469,7 @@ class _PosterPlaceholder extends StatelessWidget {
           style: GoogleFonts.robotoMono(
             fontSize: 11,
             letterSpacing: 1.0,
-            color: AppTheme.gold.withOpacity(0.45),
+            color: AppTheme.gold.withValues(alpha: 0.45),
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -1590,7 +1591,7 @@ class _LoginRequiredTab extends StatelessWidget {
                       'LOGIN',
                       style: GoogleFonts.robotoMono(
                         fontSize: 12,
-                        color: AppTheme.gold.withOpacity(0.75),
+                        color: AppTheme.gold.withValues(alpha: 0.75),
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1766,21 +1767,30 @@ class _ProfileTab extends ConsumerWidget {
                 icon: Icons.add_circle_outline_rounded,
                 title: '공연 등록',
                 subtitle: '새 공연을 등록합니다',
-                onTap: () => context.push('/admin/events/create'),
+                onTap: () => launchUrl(
+                  Uri.parse('https://melon-ticket-admin.web.app/events/create'),
+                  mode: LaunchMode.externalApplication,
+                ),
               ),
               const SizedBox(height: 8),
               _MenuItem(
                 icon: Icons.location_city_rounded,
                 title: '공연장 관리',
                 subtitle: '좌석배치도 · 3D 시야 업로드',
-                onTap: () => context.push('/admin/venues'),
+                onTap: () => launchUrl(
+                  Uri.parse('https://melon-ticket-admin.web.app/venues'),
+                  mode: LaunchMode.externalApplication,
+                ),
               ),
               const SizedBox(height: 8),
               _MenuItem(
                 icon: Icons.admin_panel_settings_rounded,
                 title: '관리자 대시보드',
                 subtitle: '공연 및 좌석 관리',
-                onTap: () => context.push('/admin'),
+                onTap: () => launchUrl(
+                  Uri.parse('https://melon-ticket-admin.web.app'),
+                  mode: LaunchMode.externalApplication,
+                ),
               ),
               const SizedBox(height: 8),
             ],
@@ -1835,7 +1845,7 @@ class _MenuItem extends StatelessWidget {
               height: 40,
               decoration: BoxDecoration(
                 color: isDestructive
-                    ? AppTheme.error.withOpacity(0.15)
+                    ? AppTheme.error.withValues(alpha: 0.15)
                     : AppTheme.cardElevated,
                 borderRadius: BorderRadius.circular(10),
               ),

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/app_user.dart';
@@ -64,7 +65,7 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
                       children: [
                         Icon(Icons.people_outline_rounded,
                             size: 48,
-                            color: AppTheme.textTertiary.withOpacity(0.4)),
+                            color: AppTheme.textTertiary.withValues(alpha: 0.4)),
                         const SizedBox(height: 12),
                         Text(
                           '예매자가 없습니다',
@@ -231,7 +232,7 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
           final row = data['row'] ?? '';
           final number = data['number'] ?? '';
           final grade = data['grade'] ?? '';
-          seatInfoMap[seatId] = '$grade ${block}구역 ${floor}층 ${row}열 $number번';
+          seatInfoMap[seatId] = '$grade $block구역 $floor층 $row열 $number번';
         }
       }
 
@@ -370,39 +371,31 @@ class _SummaryBar extends StatelessWidget {
           _SummaryChip(
               label: '매출', value: '${priceFormat.format(totalRevenue)}원'),
           const Spacer(),
-          GestureDetector(
-            onTap: isExporting ? null : onExport,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.gold.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.gold.withOpacity(0.3)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (isExporting)
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: AppTheme.gold),
-                    )
-                  else
-                    const Icon(Icons.download_rounded,
-                        size: 16, color: AppTheme.gold),
-                  const SizedBox(width: 6),
-                  Text(
-                    '엑셀 다운로드',
-                    style: GoogleFonts.notoSans(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.gold,
-                    ),
+          shad.Button.outline(
+            onPressed: isExporting ? null : onExport,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isExporting)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: AppTheme.gold),
+                  )
+                else
+                  const Icon(Icons.download_rounded,
+                      size: 16, color: AppTheme.gold),
+                const SizedBox(width: 6),
+                Text(
+                  '엑셀 다운로드',
+                  style: GoogleFonts.notoSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.gold,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -521,13 +514,10 @@ class _BookerCardState extends ConsumerState<_BookerCard> {
     final priceFormat = NumberFormat('#,###');
     final dateFormat = DateFormat('MM.dd HH:mm');
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border, width: 0.5),
-      ),
+    return shad.Card(
       padding: const EdgeInsets.all(14),
+      borderRadius: BorderRadius.circular(12),
+      borderWidth: 0.5,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -538,7 +528,7 @@ class _BookerCardState extends ConsumerState<_BookerCard> {
                 width: 26,
                 height: 26,
                 decoration: BoxDecoration(
-                  color: AppTheme.gold.withOpacity(0.12),
+                  color: AppTheme.gold.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(7),
                 ),
                 child: Center(

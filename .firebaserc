@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "melon-ticket-mvp-2026"
+  },
+  "targets": {
+    "melon-ticket-mvp-2026": {
+      "hosting": {
+        "admin": [
+          "melon-ticket-admin"
+        ]
+      }
+    }
+  }
+}

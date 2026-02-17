@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/venue.dart';
 import 'package:melon_core/data/repositories/venue_repository.dart';
@@ -136,7 +137,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: AppTheme.gold.withOpacity(0.1),
+                color: AppTheme.gold.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.location_city_rounded,
@@ -186,16 +187,13 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
         final venue = venues[index];
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
-          decoration: BoxDecoration(
-            color: AppTheme.card,
+          child: shad.Card(
+            padding: const EdgeInsets.all(16),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.border, width: 0.5),
-          ),
-          child: InkWell(
-            onTap: () => _showVenueDetail(venue),
-            borderRadius: BorderRadius.circular(14),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+            borderWidth: 0.5,
+            child: InkWell(
+              onTap: () => _showVenueDetail(venue),
+              borderRadius: BorderRadius.circular(14),
               child: Row(
                 children: [
                   // 아이콘
@@ -203,7 +201,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: AppTheme.gold.withOpacity(0.1),
+                      color: AppTheme.gold.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(Icons.location_city_rounded,
@@ -236,7 +234,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.info.withOpacity(0.15),
+                                      color: AppTheme.info.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text('배치도',
@@ -251,7 +249,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.gold.withOpacity(0.15),
+                                      color: AppTheme.gold.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text('3D 시야',
@@ -707,7 +705,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     ],
                   ),
                 ),
-                TextButton(
+                shad.Button.ghost(
                   onPressed: () => Navigator.pop(context),
                   child: Text(
                     '닫기',
@@ -727,14 +725,10 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: double.infinity,
+                  shad.Card(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.card,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.border),
-                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    borderWidth: 1,
                     child: Row(
                       children: [
                         Expanded(child: _metric('층', '${_drafts.length}')),
@@ -746,14 +740,10 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
+                  shad.Card(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.card,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.border),
-                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    borderWidth: 1,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -791,13 +781,19 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
+                    child: shad.Button.outline(
                       onPressed: _addFloor,
-                      icon: const Icon(Icons.add_rounded, size: 18),
-                      label: Text(
-                        '층 추가',
-                        style:
-                            GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.add_rounded, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            '층 추가',
+                            style:
+                                GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -816,7 +812,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
             child: Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
+                  child: shad.Button.outline(
                     onPressed: () => Navigator.pop(context),
                     child: Text(
                       '취소',
@@ -878,13 +874,11 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
+      child: shad.Card(
+        padding: const EdgeInsets.all(12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
+        borderWidth: 1,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -958,19 +952,26 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
           _buildBlockDragCanvas(floor),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton.icon(
+            child: shad.Button.ghost(
               onPressed: () => _addBlock(floor),
-              icon: const Icon(Icons.add_rounded, size: 16),
-              label: Text(
-                '구역 추가',
-                style: GoogleFonts.notoSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.add_rounded, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    '구역 추가',
+                    style: GoogleFonts.notoSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -1087,7 +1088,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                             Expanded(
                               child: Container(
                                 height: 1,
-                                color: AppTheme.border.withOpacity(0.45),
+                                color: AppTheme.border.withValues(alpha: 0.45),
                               ),
                             ),
                           ],
@@ -1154,12 +1155,12 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                             onPanCancel: () => _endBlockDrag(block),
                             child: Container(
                               decoration: BoxDecoration(
-                                color: gradeColor.withOpacity(0.22),
+                                color: gradeColor.withValues(alpha: 0.22),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: gradeColor, width: 1),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
+                                    color: Colors.black.withValues(alpha: 0.2),
                                     blurRadius: 5,
                                     offset: const Offset(0, 2),
                                   ),
@@ -1327,20 +1328,16 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
               Switch(
                 value: block.useCustomRows,
                 onChanged: (enabled) => _toggleCustomRowMode(block, enabled),
-                activeColor: AppTheme.gold,
+                activeThumbColor: AppTheme.gold,
               ),
             ],
           ),
           const SizedBox(height: 4),
           if (block.useCustomRows) ...[
-            Container(
-              width: double.infinity,
+            shad.Card(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.card,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.border, width: 0.5),
-              ),
+              borderRadius: BorderRadius.circular(8),
+              borderWidth: 0.5,
               child: Column(
                 children: [
                   Row(
@@ -1363,13 +1360,19 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   const SizedBox(height: 4),
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
+                    child: shad.Button.outline(
                       onPressed: () => _addCustomRow(block),
-                      icon: const Icon(Icons.add_rounded, size: 16),
-                      label: Text(
-                        '행 추가',
-                        style:
-                            GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.add_rounded, size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            '행 추가',
+                            style:
+                                GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1998,8 +2001,8 @@ class _GeneratedSeatBlock extends StatelessWidget {
     final rowVisualWidth = math.max(slotWidth, totalSlots * slotWidth);
     final width =
         math.max(baseWidth, rowVisualWidth + 10).clamp(70.0, 260.0).toDouble();
-    final seatFill = gradeColor.withOpacity(compact ? 0.6 : 0.72);
-    final seatBorder = gradeColor.withOpacity(0.95);
+    final seatFill = gradeColor.withValues(alpha: compact ? 0.6 : 0.72);
+    final seatBorder = gradeColor.withValues(alpha: 0.95);
     final summaryText = isCustom
         ? '${rows.length}행 · 최대 $maxSeatCount석/행 · 자유 편집'
         : '${block.rows}열 x ${block.seatsPerRow} · ${_layoutDirectionLabel(layoutDirection)}';
@@ -2194,14 +2197,10 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                       )),
                   const SizedBox(height: 8),
                   if (_floors.isEmpty)
-                    Container(
-                      width: double.infinity,
+                    shad.Card(
                       padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppTheme.card,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.border),
-                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      borderWidth: 1,
                       child: Text(
                         '등록된 좌석 구조가 없습니다. 좌석 구조 편집에서 추가해주세요.',
                         style: GoogleFonts.notoSans(
@@ -2244,7 +2243,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                                               horizontal: 6, vertical: 1),
                                           decoration: BoxDecoration(
                                             color:
-                                                AppTheme.gold.withOpacity(0.15),
+                                                AppTheme.gold.withValues(alpha: 0.15),
                                             borderRadius:
                                                 BorderRadius.circular(4),
                                           ),
@@ -2299,7 +2298,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
+                      child: shad.Button.outline(
                         onPressed: _isSavingLayout
                             ? null
                             : () => _editSeatStructure(venue),
@@ -2319,7 +2318,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: OutlinedButton(
+                      child: shad.Button.outline(
                         onPressed: () {
                           Navigator.pop(context);
                           context.push(
@@ -2342,7 +2341,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                       _deleteVenue(context, ref, venue);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.error.withOpacity(0.15),
+                      backgroundColor: AppTheme.error.withValues(alpha: 0.15),
                       foregroundColor: AppTheme.error,
                       elevation: 0,
                     ),
@@ -2454,7 +2453,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                   ),
                 ),
               ),
-              TextButton(
+              shad.Button.ghost(
                 onPressed:
                     _isSavingLayout ? null : () => _editSeatStructure(venue),
                 child: _isSavingLayout
@@ -2474,7 +2473,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                         ),
                       ),
               ),
-              TextButton(
+              shad.Button.ghost(
                 onPressed: _isUploadingSeatMap
                     ? null
                     : () => _uploadSeatMapImage(venue),
@@ -2660,12 +2659,12 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
             style: GoogleFonts.notoSans(
                 fontSize: 14, color: AppTheme.textSecondary)),
         actions: [
-          TextButton(
+          shad.Button.ghost(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text('취소',
                 style: GoogleFonts.notoSans(color: AppTheme.textTertiary)),
           ),
-          TextButton(
+          shad.Button.ghost(
             onPressed: () => Navigator.pop(ctx, true),
             child:
                 Text('삭제', style: GoogleFonts.notoSans(color: AppTheme.error)),
@@ -2832,7 +2831,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               height: 40,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? AppTheme.gold.withOpacity(0.2)
+                    ? AppTheme.gold.withValues(alpha: 0.2)
                     : AppTheme.surface,
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -2934,9 +2933,9 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.success.withOpacity(0.08),
+        color: AppTheme.success.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.success.withOpacity(0.3)),
+        border: Border.all(color: AppTheme.success.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2990,14 +2989,10 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               color: AppTheme.textSecondary,
             )),
         const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
+        shad.Card(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppTheme.card,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppTheme.border, width: 0.5),
-          ),
+          borderRadius: BorderRadius.circular(10),
+          borderWidth: 0.5,
           child: Row(
             children: [
               Expanded(
@@ -3013,7 +3008,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                 ),
               ),
               const SizedBox(width: 8),
-              TextButton(
+              shad.Button.ghost(
                 onPressed: _pickSeatMapImage,
                 child: Text(
                   hasFile ? '교체' : '업로드',
@@ -3031,9 +3026,9 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
           width: double.infinity,
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: AppTheme.info.withOpacity(0.08),
+            color: AppTheme.info.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.info.withOpacity(0.28)),
+            border: Border.all(color: AppTheme.info.withValues(alpha: 0.28)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3050,15 +3045,21 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
-                child: OutlinedButton.icon(
+                child: shad.Button.outline(
                   onPressed: _openSeatLayoutEditor,
-                  icon: const Icon(Icons.construction_rounded, size: 16),
-                  label: Text(
-                    hasLayout ? '직접 만든 좌석 구조 편집' : '좌석배치도 직접 만들기',
-                    style: GoogleFonts.notoSans(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.construction_rounded, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        hasLayout ? '직접 만든 좌석 구조 편집' : '좌석배치도 직접 만들기',
+                        style: GoogleFonts.notoSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -3085,14 +3086,10 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               color: AppTheme.textSecondary,
             )),
         const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
+        shad.Card(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppTheme.card,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppTheme.border, width: 0.5),
-          ),
+          borderRadius: BorderRadius.circular(10),
+          borderWidth: 0.5,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -3166,12 +3163,18 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
-                child: OutlinedButton.icon(
+                child: shad.Button.outline(
                   onPressed: _openSeatLayoutEditor,
-                  icon: const Icon(Icons.grid_view_rounded, size: 17),
-                  label: Text(
-                    _layoutFloors.isEmpty ? '좌석배치도 직접 만들기' : '좌석 구조 편집',
-                    style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.grid_view_rounded, size: 17),
+                      const SizedBox(width: 8),
+                      Text(
+                        _layoutFloors.isEmpty ? '좌석배치도 직접 만들기' : '좌석 구조 편집',
+                        style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                      ),
+                    ],
                   ),
                 ),
               ),

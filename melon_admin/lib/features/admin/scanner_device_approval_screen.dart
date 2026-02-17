@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/scanner_device.dart';
 import 'package:melon_core/data/repositories/scanner_device_repository.dart';
@@ -91,20 +92,19 @@ class _ScannerDeviceApprovalScreenState
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Container(
-                  width: double.infinity,
+                child: shad.Card(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.card,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.border),
-                  ),
-                  child: Text(
-                    '총 ${all.length}대 · 표시 ${filtered.length}대',
-                    style: GoogleFonts.notoSans(
-                      color: AppTheme.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                  borderRadius: BorderRadius.circular(10),
+                  borderWidth: 1,
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Text(
+                      '총 ${all.length}대 · 표시 ${filtered.length}대',
+                      style: GoogleFonts.notoSans(
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -238,13 +238,10 @@ class _DeviceCard extends StatelessWidget {
       stateLabel = '대기';
     }
 
-    return Container(
+    return shad.Card(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border),
-      ),
+      borderRadius: BorderRadius.circular(12),
+      borderWidth: 1,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -263,7 +260,7 @@ class _DeviceCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: stateColor.withOpacity(0.14),
+                  color: stateColor.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
@@ -293,55 +290,63 @@ class _DeviceCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               if (!device.approved && !device.blocked)
-                FilledButton(
+                ElevatedButton(
                   onPressed: onApprove,
-                  style: FilledButton.styleFrom(
+                  style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.success,
                     foregroundColor: Colors.white,
-                    minimumSize: const Size(86, 34),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: Text(
                     '승인',
-                    style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                    style: GoogleFonts.notoSans(fontWeight: FontWeight.w700, fontSize: 12),
                   ),
                 ),
               if (device.approved)
                 OutlinedButton(
                   onPressed: onRevoke,
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(86, 34),
-                    side: const BorderSide(color: AppTheme.warning),
                     foregroundColor: AppTheme.warning,
+                    side: const BorderSide(color: AppTheme.warning),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: Text(
                     '승인해제',
-                    style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                    style: GoogleFonts.notoSans(fontWeight: FontWeight.w700, fontSize: 12),
                   ),
                 ),
               if (!device.blocked)
                 OutlinedButton(
                   onPressed: onBlock,
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(86, 34),
-                    side: const BorderSide(color: AppTheme.error),
                     foregroundColor: AppTheme.error,
+                    side: const BorderSide(color: AppTheme.error),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: Text(
                     '차단',
-                    style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                    style: GoogleFonts.notoSans(fontWeight: FontWeight.w700, fontSize: 12),
                   ),
                 ),
               if (device.blocked)
-                FilledButton(
+                ElevatedButton(
                   onPressed: onUnblock,
-                  style: FilledButton.styleFrom(
+                  style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.warning,
                     foregroundColor: const Color(0xFF1A1119),
-                    minimumSize: const Size(86, 34),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: Text(
                     '차단해제',
-                    style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                    style: GoogleFonts.notoSans(fontWeight: FontWeight.w700, fontSize: 12),
                   ),
                 ),
             ],

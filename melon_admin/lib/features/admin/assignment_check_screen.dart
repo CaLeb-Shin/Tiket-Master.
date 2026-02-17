@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/order_repository.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
@@ -43,36 +44,34 @@ class AssignmentCheckScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 공연 정보 카드
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          event.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
+                shad.Card(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        event.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
                         ),
-                        const SizedBox(height: 12),
-                        _InfoRow(
-                          label: '총 좌석',
-                          value: '${event.totalSeats}석',
-                        ),
-                        _InfoRow(
-                          label: '잔여 좌석',
-                          value: '${event.availableSeats}석',
-                        ),
-                        _InfoRow(
-                          label: '좌석 공개',
-                          value: event.isSeatsRevealed ? '공개됨' : '비공개',
-                          valueColor:
-                              event.isSeatsRevealed ? Colors.green : Colors.orange,
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 12),
+                      _InfoRow(
+                        label: '총 좌석',
+                        value: '${event.totalSeats}석',
+                      ),
+                      _InfoRow(
+                        label: '잔여 좌석',
+                        value: '${event.availableSeats}석',
+                      ),
+                      _InfoRow(
+                        label: '좌석 공개',
+                        value: event.isSeatsRevealed ? '공개됨' : '비공개',
+                        valueColor:
+                            event.isSeatsRevealed ? Colors.green : Colors.orange,
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -95,11 +94,9 @@ class AssignmentCheckScreen extends ConsumerWidget {
 
                     final orders = orderSnapshot.data ?? [];
                     if (orders.isEmpty) {
-                      return const Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Center(child: Text('결제 완료된 주문이 없습니다')),
-                        ),
+                      return const shad.Card(
+                        padding: EdgeInsets.all(32),
+                        child: Center(child: Text('결제 완료된 주문이 없습니다')),
                       );
                     }
 
@@ -154,11 +151,11 @@ class AssignmentCheckScreen extends ConsumerWidget {
         title: const Text('좌석 공개'),
         content: const Text('모든 좌석을 공개하시겠습니까?\n(테스트용 - 실제로는 자동 실행됩니다)'),
         actions: [
-          TextButton(
+          shad.Button.ghost(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('취소'),
           ),
-          ElevatedButton(
+          shad.Button.primary(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('공개'),
           ),

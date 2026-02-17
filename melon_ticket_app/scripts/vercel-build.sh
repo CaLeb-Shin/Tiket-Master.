@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-FLUTTER_VERSION="${FLUTTER_VERSION:-3.24.5}"
+FLUTTER_VERSION="${FLUTTER_VERSION:-3.41.1}"
 FLUTTER_ROOT="${FLUTTER_ROOT:-$HOME/flutter-sdk-$FLUTTER_VERSION}"
 
 if [[ -x "$FLUTTER_ROOT/bin/flutter" ]]; then

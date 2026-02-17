@@ -197,7 +197,7 @@ class _TicketCard extends ConsumerWidget {
             border: Border.all(color: _cardBorder),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.gold.withOpacity(0.12),
+                color: AppTheme.gold.withValues(alpha: 0.12),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),

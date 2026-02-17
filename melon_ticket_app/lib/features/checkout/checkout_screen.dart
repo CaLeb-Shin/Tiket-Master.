@@ -980,7 +980,7 @@ class _DiscountOption extends StatelessWidget {
           color: isSelected ? _softBlue : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? _lineBlue.withOpacity(0.4) : _cardBorder,
+            color: isSelected ? _lineBlue.withValues(alpha: 0.4) : _cardBorder,
           ),
         ),
         child: Row(
@@ -1032,7 +1032,7 @@ class _DiscountOption extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: _success.withOpacity(0.1),
+                            color: _success.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(

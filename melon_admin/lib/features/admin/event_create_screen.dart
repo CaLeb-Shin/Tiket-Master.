@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/services/kakao_postcode_service.dart'
     if (dart.library.io) 'package:melon_core/services/kakao_postcode_stub.dart';
@@ -152,7 +153,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     final currentUser = ref.watch(currentUserProvider);
 
     if (currentUser.isLoading) {
-      return Scaffold(
+      return const Scaffold(
         backgroundColor: AppTheme.background,
         body: Center(
           child: CircularProgressIndicator(color: AppTheme.gold),
@@ -177,7 +178,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
+                const Icon(
                   Icons.lock_outline_rounded,
                   size: 44,
                   color: AppTheme.textTertiary,
@@ -201,12 +202,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                FilledButton(
+                shad.Button.primary(
                   onPressed: () => context.go('/'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.gold,
-                    foregroundColor: const Color(0xFFFDF3F6),
-                  ),
                   child: Text(
                     '홈으로 이동',
                     style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
@@ -468,7 +465,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: AppTheme.gold.withOpacity(0.15),
+                color: AppTheme.gold.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
@@ -487,14 +484,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   }
 
   Widget _card({required Widget child}) {
-    return Container(
-      width: double.infinity,
+    return shad.Card(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.border, width: 0.5),
-      ),
+      borderRadius: BorderRadius.circular(14),
+      borderWidth: 0.5,
       child: child,
     );
   }
@@ -505,7 +498,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
   Widget _buildCategoryDropdown() {
     return DropdownButtonFormField<String>(
-      value: _category,
+      initialValue: _category,
       items: _categories
           .map((c) => DropdownMenuItem(
                 value: c,
@@ -583,7 +576,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppTheme.gold.withOpacity(0.12),
+                    color: AppTheme.gold.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Row(
@@ -744,9 +737,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppTheme.error.withOpacity(0.1),
+                color: AppTheme.error.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.error.withOpacity(0.3)),
+                border: Border.all(color: AppTheme.error.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -782,7 +775,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         decoration: BoxDecoration(
           color: AppTheme.card,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.gold.withOpacity(0.3), width: 1),
+          border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3), width: 1),
         ),
         child: Row(
           children: [
@@ -790,7 +783,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: AppTheme.gold.withOpacity(0.1),
+                color: AppTheme.gold.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(Icons.add_location_alt_rounded,
@@ -847,7 +840,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               height: 40,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? AppTheme.gold.withOpacity(0.2)
+                    ? AppTheme.gold.withValues(alpha: 0.2)
                     : AppTheme.surface,
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -874,7 +867,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
-                            color: AppTheme.gold.withOpacity(0.15),
+                            color: AppTheme.gold.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: Text('시야',
@@ -959,7 +952,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       strokeWidth: 2, color: AppTheme.gold))
             else
               Icon(Icons.cloud_upload_outlined,
-                  size: 32, color: AppTheme.textTertiary.withOpacity(0.6)),
+                  size: 32, color: AppTheme.textTertiary.withValues(alpha: 0.6)),
             const SizedBox(height: 10),
             Text(
               _isLoadingSeatMap ? '엑셀 분석 중...' : '엑셀 파일 업로드',
@@ -990,9 +983,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.success.withOpacity(0.08),
+        color: AppTheme.success.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.success.withOpacity(0.3)),
+        border: Border.all(color: AppTheme.success.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1018,7 +1011,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppTheme.error.withOpacity(0.12),
+                    color: AppTheme.error.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text('초기화',
@@ -1127,7 +1120,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               color: isEnabled ? AppTheme.cardElevated : AppTheme.card,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: isEnabled ? color.withOpacity(0.4) : AppTheme.border,
+                color: isEnabled ? color.withValues(alpha: 0.4) : AppTheme.border,
                 width: isEnabled ? 1 : 0.5,
               ),
             ),
@@ -1164,12 +1157,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   width: 10,
                   height: 10,
                   decoration: BoxDecoration(
-                    color: isEnabled ? color : color.withOpacity(0.3),
+                    color: isEnabled ? color : color.withValues(alpha: 0.3),
                     shape: BoxShape.circle,
                     boxShadow: isEnabled
                         ? [
                             BoxShadow(
-                                color: color.withOpacity(0.3), blurRadius: 4)
+                                color: color.withValues(alpha: 0.3), blurRadius: 4)
                           ]
                         : null,
                   ),
@@ -1197,7 +1190,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                         fontSize: 12,
                         color: isEnabled
                             ? AppTheme.textTertiary
-                            : AppTheme.textTertiary.withOpacity(0.5),
+                            : AppTheme.textTertiary.withValues(alpha: 0.5),
                       ),
                     ),
                   ),
@@ -1237,7 +1230,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       disabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(
-                            color: AppTheme.border.withOpacity(0.3),
+                            color: AppTheme.border.withValues(alpha: 0.3),
                             width: 0.5),
                       ),
                       focusedBorder: OutlineInputBorder(
@@ -1286,7 +1279,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             final isWide = constraints.maxWidth >= 460;
             final ageLimitField = _field('관람등급',
                 child: DropdownButtonFormField<String>(
-                  value: _ageLimit,
+                  initialValue: _ageLimit,
                   items: _ageLimits
                       .map((a) => DropdownMenuItem(
                             value: a,
@@ -1417,8 +1410,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                           height: 32,
                           decoration: BoxDecoration(
                             color: p.type == 'bulk'
-                                ? AppTheme.gold.withOpacity(0.12)
-                                : AppTheme.success.withOpacity(0.12),
+                                ? AppTheme.gold.withValues(alpha: 0.12)
+                                : AppTheme.success.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Center(
@@ -1506,17 +1499,17 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: AppTheme.gold.withOpacity(0.06),
+                      color: AppTheme.gold.withValues(alpha: 0.06),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: AppTheme.gold.withOpacity(0.25),
+                        color: AppTheme.gold.withValues(alpha: 0.25),
                         width: 1,
                       ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.add_rounded,
+                        const Icon(Icons.add_rounded,
                             size: 16, color: AppTheme.gold),
                         const SizedBox(width: 6),
                         Text(
@@ -1580,14 +1573,14 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 height: 48,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: AppTheme.gold.withOpacity(0.1),
+                  color: AppTheme.gold.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppTheme.gold.withOpacity(0.4)),
+                  border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.search_rounded,
+                    const Icon(Icons.search_rounded,
                         size: 16, color: AppTheme.gold),
                     const SizedBox(width: 6),
                     Text('주소 찾기',
@@ -1808,12 +1801,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: selected
-                ? AppTheme.gold.withOpacity(0.12)
+                ? AppTheme.gold.withValues(alpha: 0.12)
                 : AppTheme.cardElevated,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: selected
-                  ? AppTheme.gold.withOpacity(0.4)
+                  ? AppTheme.gold.withValues(alpha: 0.4)
                   : AppTheme.border,
             ),
           ),
@@ -1894,7 +1887,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.add_photo_alternate_outlined,
-                size: 28, color: AppTheme.textTertiary.withOpacity(0.6)),
+                size: 28, color: AppTheme.textTertiary.withValues(alpha: 0.6)),
             const SizedBox(height: 6),
             Text(
               '포스터 이미지 선택 (JPG, PNG)',
@@ -1916,7 +1909,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.6),
+          color: Colors.black.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(6),
         ),
         child: Row(
@@ -2354,7 +2347,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                     gradient: AppTheme.goldGradient,
                     boxShadow: [
                       BoxShadow(
-                        color: AppTheme.gold.withOpacity(0.3),
+                        color: AppTheme.gold.withValues(alpha: 0.3),
                         blurRadius: 20,
                         spreadRadius: 2,
                       ),
@@ -2439,7 +2432,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: AppTheme.gold.withOpacity(0.15),
+                            color: AppTheme.gold.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(

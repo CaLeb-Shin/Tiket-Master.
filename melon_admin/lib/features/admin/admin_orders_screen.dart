@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/order.dart';
 import 'package:melon_core/data/repositories/order_repository.dart';
@@ -97,7 +98,7 @@ class AdminOrdersScreen extends ConsumerWidget {
                       children: [
                         Icon(Icons.receipt_long_rounded,
                             size: 40,
-                            color: AppTheme.textTertiary.withOpacity(0.4)),
+                            color: AppTheme.textTertiary.withValues(alpha: 0.4)),
                         const SizedBox(height: 12),
                         Text(
                           '주문이 없습니다',
@@ -195,20 +196,20 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Container(
+      child: shad.Card(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.15)),
-        ),
+        borderRadius: BorderRadius.circular(10),
+        borderWidth: 1.0,
+        filled: true,
+        fillColor: color.withValues(alpha: 0.08),
+        borderColor: color.withValues(alpha: 0.15),
         child: Column(
           children: [
             Text(
               label,
               style: GoogleFonts.notoSans(
                 fontSize: 11,
-                color: color.withOpacity(0.8),
+                color: color.withValues(alpha: 0.8),
               ),
             ),
             const SizedBox(height: 4),
@@ -249,16 +250,13 @@ class _AdminOrderRow extends StatelessWidget {
       case OrderStatus.canceled:
         statusColor = AppTheme.textTertiary;
       case OrderStatus.failed:
-        statusColor = AppTheme.error.withOpacity(0.6);
+        statusColor = AppTheme.error.withValues(alpha: 0.6);
     }
 
-    return Container(
+    return shad.Card(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.border, width: 0.5),
-      ),
+      borderRadius: BorderRadius.circular(10),
+      borderWidth: 0.5,
       child: Row(
         children: [
           // Status dot
@@ -314,7 +312,7 @@ class _AdminOrderRow extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
+                  color: statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(

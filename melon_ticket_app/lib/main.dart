@@ -223,13 +223,12 @@ class _BootNoteSplashState extends State<_BootNoteSplash>
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 120),
                         margin: const EdgeInsets.symmetric(horizontal: 7),
-                        transform: Matrix4.identity()
-                          ..translate(0.0, isActive ? -4.0 : 0.0),
+                        transform: Matrix4.translationValues(0.0, isActive ? -4.0 : 0.0, 0.0),
                         child: _RhythmGlyph(
                           stage: _stages[idx],
                           color: isActive
                               ? AppTheme.gold
-                              : AppTheme.textTertiary.withOpacity(0.35),
+                              : AppTheme.textTertiary.withValues(alpha: 0.35),
                         ),
                       );
                     }),

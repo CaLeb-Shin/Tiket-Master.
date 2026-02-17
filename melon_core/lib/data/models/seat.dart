@@ -31,7 +31,7 @@ class Seat {
   /// 좌석 표시 문자열
   String get displayName {
     if (row != null && row!.isNotEmpty) {
-      return '$block구역 $floor ${row}열 $number번';
+      return '$block구역 $floor $row열 $number번';
     }
     return '$block구역 $floor $number번';
   }

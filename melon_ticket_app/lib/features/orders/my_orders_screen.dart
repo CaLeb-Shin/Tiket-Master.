@@ -24,7 +24,7 @@ class MyOrdersScreen extends ConsumerWidget {
           _buildAppBar(context),
           Expanded(
             child: userId == null
-                ? _CenteredMessage(
+                ? const _CenteredMessage(
                     icon: Icons.login_rounded,
                     text: '로그인이 필요합니다',
                   )
@@ -87,7 +87,7 @@ class _OrderList extends ConsumerWidget {
     return ordersAsync.when(
       data: (orders) {
         if (orders.isEmpty) {
-          return _CenteredMessage(
+          return const _CenteredMessage(
             icon: Icons.receipt_long_rounded,
             text: '주문 내역이 없습니다',
           );
@@ -102,7 +102,7 @@ class _OrderList extends ConsumerWidget {
       loading: () => const Center(
         child: CircularProgressIndicator(color: AppTheme.gold),
       ),
-      error: (e, _) => _CenteredMessage(
+      error: (e, _) => const _CenteredMessage(
         icon: Icons.error_outline_rounded,
         text: '오류가 발생했습니다',
       ),
@@ -221,21 +221,21 @@ class _OrderCard extends ConsumerWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppTheme.error.withOpacity(0.08),
+                      color: AppTheme.error.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                       border:
-                          Border.all(color: AppTheme.error.withOpacity(0.15)),
+                          Border.all(color: AppTheme.error.withValues(alpha: 0.15)),
                     ),
                     child: Row(
                       children: [
                         Icon(Icons.replay_rounded,
-                            size: 14, color: AppTheme.error.withOpacity(0.8)),
+                            size: 14, color: AppTheme.error.withValues(alpha: 0.8)),
                         const SizedBox(width: 6),
                         Text(
                           '환불완료 ${dateFormat.format(order.refundedAt!)}',
                           style: GoogleFonts.notoSans(
                             fontSize: 12,
-                            color: AppTheme.error.withOpacity(0.9),
+                            color: AppTheme.error.withValues(alpha: 0.9),
                           ),
                         ),
                       ],
@@ -251,7 +251,7 @@ class _OrderCard extends ConsumerWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppTheme.warning.withOpacity(0.08),
+                      color: AppTheme.warning.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -311,20 +311,20 @@ class _StatusBadge extends StatelessWidget {
 
     switch (status) {
       case OrderStatus.paid:
-        bgColor = AppTheme.success.withOpacity(0.15);
+        bgColor = AppTheme.success.withValues(alpha: 0.15);
         fgColor = AppTheme.success;
       case OrderStatus.pending:
-        bgColor = AppTheme.warning.withOpacity(0.15);
+        bgColor = AppTheme.warning.withValues(alpha: 0.15);
         fgColor = AppTheme.warning;
       case OrderStatus.refunded:
-        bgColor = AppTheme.error.withOpacity(0.15);
+        bgColor = AppTheme.error.withValues(alpha: 0.15);
         fgColor = AppTheme.error;
       case OrderStatus.canceled:
-        bgColor = AppTheme.textTertiary.withOpacity(0.15);
+        bgColor = AppTheme.textTertiary.withValues(alpha: 0.15);
         fgColor = AppTheme.textTertiary;
       case OrderStatus.failed:
-        bgColor = AppTheme.error.withOpacity(0.1);
-        fgColor = AppTheme.error.withOpacity(0.7);
+        bgColor = AppTheme.error.withValues(alpha: 0.1);
+        fgColor = AppTheme.error.withValues(alpha: 0.7);
     }
 
     return Container(
@@ -393,7 +393,7 @@ class _CenteredMessage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 40, color: AppTheme.textTertiary.withOpacity(0.4)),
+          Icon(icon, size: 40, color: AppTheme.textTertiary.withValues(alpha: 0.4)),
           const SizedBox(height: 12),
           Text(
             text,

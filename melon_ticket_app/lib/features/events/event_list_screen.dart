@@ -29,7 +29,7 @@ class EventListScreen extends ConsumerWidget {
                 color: AppTheme.primaryLight,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.confirmation_number_rounded,
                 color: AppTheme.primaryColor,
                 size: 18,
@@ -79,7 +79,7 @@ class EventListScreen extends ConsumerWidget {
                   value: 'scanner',
                   child: Row(
                     children: [
-                      Icon(Icons.qr_code_scanner_rounded,
+                      const Icon(Icons.qr_code_scanner_rounded,
                           color: AppTheme.textSecondary, size: 20),
                       const SizedBox(width: 12),
                       Text('입장 스캐너', style: GoogleFonts.notoSans()),
@@ -91,7 +91,7 @@ class EventListScreen extends ConsumerWidget {
                     value: 'admin',
                     child: Row(
                       children: [
-                        Icon(Icons.admin_panel_settings_rounded,
+                        const Icon(Icons.admin_panel_settings_rounded,
                             color: AppTheme.textSecondary, size: 20),
                         const SizedBox(width: 12),
                         Text('관리자', style: GoogleFonts.notoSans()),
@@ -132,10 +132,10 @@ class EventListScreen extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: AppTheme.dividerColor.withOpacity(0.5),
+                      color: AppTheme.dividerColor.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.event_busy_rounded,
                       size: 48,
                       color: AppTheme.textTertiary,
@@ -199,10 +199,10 @@ class EventListScreen extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: AppTheme.errorColor.withOpacity(0.1),
+                    color: AppTheme.errorColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.error_outline_rounded,
                     size: 48,
                     color: AppTheme.errorColor,
@@ -301,7 +301,7 @@ class _EventCard extends StatelessWidget {
                               end: Alignment.bottomCenter,
                               colors: [
                                 Colors.transparent,
-                                Colors.black.withOpacity(0.6),
+                                Colors.black.withValues(alpha: 0.6),
                               ],
                             ),
                           ),
@@ -325,7 +325,7 @@ class _EventCard extends StatelessWidget {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
+                            color: Colors.black.withValues(alpha: 0.6),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -371,7 +371,7 @@ class _EventCard extends StatelessWidget {
                         Expanded(
                           child: Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.calendar_today_rounded,
                                 size: 15,
                                 color: AppTheme.textTertiary,
@@ -428,7 +428,7 @@ class _ImagePlaceholder extends StatelessWidget {
         child: Icon(
           Icons.music_note_rounded,
           size: 48,
-          color: AppTheme.textTertiary.withOpacity(0.5),
+          color: AppTheme.textTertiary.withValues(alpha: 0.5),
         ),
       ),
     );
@@ -476,7 +476,7 @@ class _StatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
-            color: bgColor.withOpacity(0.4),
+            color: bgColor.withValues(alpha: 0.4),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 
@@ -141,35 +142,34 @@ B,1층,1,5''';
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 안내
-            Card(
-              color: Colors.blue[50],
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.info_outline, color: Colors.blue[700]),
-                        const SizedBox(width: 8),
-                        Text(
-                          'CSV 형식 안내',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue[700],
-                          ),
+            shad.Card(
+              padding: const EdgeInsets.all(16),
+              filled: true,
+              fillColor: Colors.blue[50],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue[700]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'CSV 형식 안내',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[700],
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '첫 줄: block,floor,row,number (헤더)\n'
-                      '데이터: A,1층,1,1 (구역,층,열,번호)\n'
-                      'row는 생략 가능 (A,1층,,1)',
-                      style: TextStyle(color: Colors.blue[700], fontSize: 13),
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '첫 줄: block,floor,row,number (헤더)\n'
+                    '데이터: A,1층,1,1 (구역,층,열,번호)\n'
+                    'row는 생략 가능 (A,1층,,1)',
+                    style: TextStyle(color: Colors.blue[700], fontSize: 13),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -200,14 +200,14 @@ B,1층,1,5''';
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
+                  child: shad.Button.outline(
                     onPressed: _preview,
                     child: const Text('미리보기'),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: ElevatedButton(
+                  child: shad.Button.primary(
                     onPressed: _isLoading ? null : _uploadSeats,
                     child: _isLoading
                         ? const SizedBox(
@@ -224,20 +224,18 @@ B,1층,1,5''';
 
             // 미리보기 결과
             if (_previewText != null)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '미리보기',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(_previewText!),
-                    ],
-                  ),
+              shad.Card(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '미리보기',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(_previewText!),
+                  ],
                 ),
               ),
           ],

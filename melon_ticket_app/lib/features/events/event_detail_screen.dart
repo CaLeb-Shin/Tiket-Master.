@@ -31,7 +31,7 @@ class EventDetailScreen extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.event_busy_rounded,
-                      size: 48, color: AppTheme.gold.withOpacity(0.3)),
+                      size: 48, color: AppTheme.gold.withValues(alpha: 0.3)),
                   const SizedBox(height: 16),
                   Text('공연을 찾을 수 없습니다',
                       style:
@@ -237,11 +237,11 @@ class _StatusChip extends StatelessWidget {
 
     if (event.status == EventStatus.soldOut || event.availableSeats == 0) {
       text = '매진';
-      bgColor = AppTheme.error.withOpacity(0.15);
+      bgColor = AppTheme.error.withValues(alpha: 0.15);
       fgColor = AppTheme.error;
     } else if (event.isOnSale) {
       text = '예매중';
-      bgColor = AppTheme.success.withOpacity(0.15);
+      bgColor = AppTheme.success.withValues(alpha: 0.15);
       fgColor = AppTheme.success;
     } else if (DateTime.now().isBefore(event.saleStartAt)) {
       text = '예매예정';
@@ -249,7 +249,7 @@ class _StatusChip extends StatelessWidget {
       fgColor = AppTheme.gold;
     } else {
       text = '종료';
-      bgColor = AppTheme.textTertiary.withOpacity(0.15);
+      bgColor = AppTheme.textTertiary.withValues(alpha: 0.15);
       fgColor = AppTheme.textTertiary;
     }
 
@@ -594,7 +594,7 @@ class _PriceSection extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: _gradeColor(entry.key).withOpacity(0.15),
+                              color: _gradeColor(entry.key).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -662,7 +662,7 @@ class _BenefitBanner extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.goldSubtle,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.gold.withOpacity(0.15)),
+          border: Border.all(color: AppTheme.gold.withValues(alpha: 0.15)),
         ),
         child: Row(
           children: [
@@ -692,7 +692,7 @@ class _BenefitBanner extends StatelessWidget {
                     '모바일티켓 발급 후 공연 24시간/3시간 전 취소 정책이 적용됩니다',
                     style: GoogleFonts.notoSans(
                       fontSize: 12,
-                      color: AppTheme.gold.withOpacity(0.7),
+                      color: AppTheme.gold.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -953,7 +953,7 @@ class _BottomCTA extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.gold.withOpacity(0.25),
+                    color: AppTheme.gold.withValues(alpha: 0.25),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -1033,7 +1033,7 @@ class _ShareSheet extends ConsumerWidget {
         border: Border.all(color: AppTheme.border, width: 0.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -1049,7 +1049,7 @@ class _ShareSheet extends ConsumerWidget {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: AppTheme.textTertiary.withOpacity(0.3),
+                color: AppTheme.textTertiary.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1110,7 +1110,7 @@ class _ShareSheet extends ConsumerWidget {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            AppTheme.gold.withOpacity(0.15),
+                            AppTheme.gold.withValues(alpha: 0.15),
                             AppTheme.surface,
                           ],
                           begin: Alignment.topCenter,
@@ -1153,7 +1153,7 @@ class _ShareSheet extends ConsumerWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: AppTheme.gold.withOpacity(0.12),
+                              color: AppTheme.gold.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -1244,7 +1244,7 @@ class _ShareSheet extends ConsumerWidget {
                                 }
                                 return Icon(Icons.star_outline_rounded,
                                     size: 14,
-                                    color: AppTheme.textTertiary.withOpacity(0.4));
+                                    color: AppTheme.textTertiary.withValues(alpha: 0.4));
                               }),
                               const SizedBox(width: 4),
                               Text(
@@ -1277,7 +1277,7 @@ class _ShareSheet extends ConsumerWidget {
                         children: [
                           Icon(Icons.calendar_today_rounded,
                               size: 13,
-                              color: AppTheme.textTertiary.withOpacity(0.7)),
+                              color: AppTheme.textTertiary.withValues(alpha: 0.7)),
                           const SizedBox(width: 5),
                           Expanded(
                             child: Text(
@@ -1298,10 +1298,10 @@ class _ShareSheet extends ConsumerWidget {
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 11),
                         decoration: BoxDecoration(
-                          color: AppTheme.gold.withOpacity(0.08),
+                          color: AppTheme.gold.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                              color: AppTheme.gold.withOpacity(0.3)),
+                              color: AppTheme.gold.withValues(alpha: 0.3)),
                         ),
                         child: Center(
                           child: Text(
@@ -1361,12 +1361,12 @@ class _ShareSheet extends ConsumerWidget {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Row(
+                    content: const Row(
                       children: [
-                        const Icon(Icons.check_circle_rounded,
+                        Icon(Icons.check_circle_rounded,
                             size: 18, color: Colors.white),
-                        const SizedBox(width: 8),
-                        const Expanded(
+                        SizedBox(width: 8),
+                        Expanded(
                           child: Text('링크가 복사되었습니다'),
                         ),
                       ],

@@ -4,7 +4,9 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:melon_core/melon_core.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
+import 'app/admin_theme.dart';
 import 'app/router.dart';
 import 'firebase_options.dart';
 
@@ -68,10 +70,11 @@ class _MelonAdminAppState extends ConsumerState<MelonAdminApp> {
     }
 
     final router = ref.watch(routerProvider);
-    return MaterialApp.router(
+    return shad.ShadcnApp.router(
       title: '멜론티켓 관리자',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.theme,
+      theme: AdminShadcnTheme.theme,
+      materialTheme: AppTheme.theme,
       locale: const Locale('ko', 'KR'),
       supportedLocales: const [Locale('ko', 'KR')],
       localizationsDelegates: const [

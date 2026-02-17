@@ -30,8 +30,8 @@ class _AppDownloadBannerState extends State<AppDownloadBanner> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppTheme.gold.withOpacity(0.12),
-            AppTheme.goldDark.withOpacity(0.08),
+            AppTheme.gold.withValues(alpha: 0.12),
+            AppTheme.goldDark.withValues(alpha: 0.08),
           ],
         ),
         border: const Border(
@@ -126,16 +126,16 @@ class _AppDownloadBannerState extends State<AppDownloadBanner> {
             color: AppTheme.textPrimary,
           ),
         ),
-        content: Column(
+        content: const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             _StoreButton(
               icon: Icons.android_rounded,
               label: 'Google Play',
-              color: const Color(0xFF34A853),
+              color: Color(0xFF34A853),
               url: _playStoreUrl,
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             _StoreButton(
               icon: Icons.apple_rounded,
               label: 'App Store',
@@ -176,9 +176,9 @@ class _StoreButton extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,

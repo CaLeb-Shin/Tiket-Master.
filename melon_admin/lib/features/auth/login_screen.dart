@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/services/auth_service.dart';
 
@@ -737,7 +738,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             fontSize: 14,
           ),
         ),
-        TextButton(
+        shad.Button.link(
           onPressed: () {
             setState(() {
               _isSignUp = !_isSignUp;
@@ -745,10 +746,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             });
             _formKey.currentState?.reset();
           },
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            foregroundColor: AppTheme.gold,
-          ),
           child: Text(
             _isSignUp ? '로그인' : '회원가입',
             style: GoogleFonts.notoSans(

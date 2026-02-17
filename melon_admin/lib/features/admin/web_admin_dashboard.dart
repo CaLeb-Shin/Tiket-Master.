@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/models/event.dart';
@@ -80,12 +81,8 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      FilledButton(
+                      shad.Button.primary(
                         onPressed: () => context.push('/setup'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.gold,
-                          foregroundColor: const Color(0xFFFDF3F6),
-                        ),
                         child: Text(
                           '승인 요청',
                           style:
@@ -93,7 +90,7 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      OutlinedButton(
+                      shad.Button.outline(
                         onPressed: () => context.go('/'),
                         child: Text(
                           '홈으로 이동',
@@ -241,7 +238,7 @@ class _SidebarState extends State<_Sidebar> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: _deckBrand.withOpacity(0.25),
+                        color: _deckBrand.withValues(alpha: 0.25),
                         blurRadius: 12,
                         offset: const Offset(0, 6),
                       ),
@@ -405,7 +402,7 @@ class _SidebarState extends State<_Sidebar> {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: _deckBrand.withOpacity(0.12),
+                      color: _deckBrand.withValues(alpha: 0.12),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -455,7 +452,7 @@ class _SidebarState extends State<_Sidebar> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: _deckMint.withOpacity(0.55),
+                        color: _deckMint.withValues(alpha: 0.55),
                         blurRadius: 8,
                       ),
                     ],
@@ -500,7 +497,7 @@ class _DashboardContent extends ConsumerWidget {
                   border: Border.all(color: _deckBorder),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Colors.black.withValues(alpha: 0.2),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -781,13 +778,13 @@ class _StatCardState extends State<_StatCard> {
           ),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: _isHovered ? accent.withOpacity(0.45) : _deckBorder,
+            color: _isHovered ? accent.withValues(alpha: 0.45) : _deckBorder,
             width: 1,
           ),
           boxShadow: _isHovered
               ? [
                   BoxShadow(
-                    color: accent.withOpacity(0.12),
+                    color: accent.withValues(alpha: 0.12),
                     blurRadius: 16,
                     offset: const Offset(0, 8),
                   ),
@@ -803,7 +800,7 @@ class _StatCardState extends State<_StatCard> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: accent.withOpacity(0.12),
+                    color: accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -850,7 +847,7 @@ class _StatCardState extends State<_StatCard> {
                 widget.footnote!,
                 style: GoogleFonts.notoSans(
                   fontSize: 11,
-                  color: _deckTextDim.withOpacity(0.85),
+                  color: _deckTextDim.withValues(alpha: 0.85),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -862,7 +859,7 @@ class _StatCardState extends State<_StatCard> {
   }
 }
 
-// ─── 다크 카드 ───
+// ─── 다크 카드 (ShadCN) ───
 class _DarkCard extends StatelessWidget {
   final Widget child;
 
@@ -870,19 +867,20 @@ class _DarkCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: _deckPanel,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _deckBorder, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.18),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    return shad.Card(
+      filled: true,
+      fillColor: _deckPanel,
+      borderColor: _deckBorder,
+      borderWidth: 1,
+      borderRadius: BorderRadius.circular(16),
+      padding: EdgeInsets.zero,
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.18),
+          blurRadius: 16,
+          offset: const Offset(0, 8),
+        ),
+      ],
       child: child,
     );
   }
@@ -927,7 +925,7 @@ class _GoldButtonState extends State<_GoldButton> {
             boxShadow: _isHovered
                 ? [
                     BoxShadow(
-                      color: _deckBrand.withOpacity(0.28),
+                      color: _deckBrand.withValues(alpha: 0.28),
                       blurRadius: 18,
                       offset: const Offset(0, 8),
                     ),
@@ -949,7 +947,7 @@ class _GoldButtonState extends State<_GoldButton> {
               Container(
                 width: 10,
                 height: 1.5,
-                color: const Color(0xFFFDF3F6).withOpacity(0.8),
+                color: const Color(0xFFFDF3F6).withValues(alpha: 0.8),
               ),
             ],
           ),
@@ -985,7 +983,7 @@ class _EventsTable extends StatelessWidget {
                   'NO EVENTS',
                   style: GoogleFonts.robotoMono(
                     fontSize: 12,
-                    color: _deckBrand.withOpacity(0.8),
+                    color: _deckBrand.withValues(alpha: 0.8),
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.1,
                   ),
@@ -1005,7 +1003,7 @@ class _EventsTable extends StatelessWidget {
                 '새 공연을 등록해보세요',
                 style: GoogleFonts.notoSans(
                   fontSize: 13,
-                  color: _deckTextDim.withOpacity(0.8),
+                  color: _deckTextDim.withValues(alpha: 0.8),
                 ),
               ),
             ],
@@ -1178,19 +1176,16 @@ class _EventRowState extends State<_EventRow> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: ratio,
-                      minHeight: 3,
+                  SizedBox(
+                    height: 3,
+                    child: shad.Progress(
+                      progress: ratio,
                       backgroundColor: _deckBorder,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        ratio > 0.8
-                            ? const Color(0xFFE3606D)
-                            : ratio > 0.5
-                                ? _deckBrand
-                                : _deckMint,
-                      ),
+                      color: ratio > 0.8
+                          ? const Color(0xFFE3606D)
+                          : ratio > 0.5
+                              ? _deckBrand
+                              : _deckMint,
                     ),
                   ),
                 ],
@@ -1203,60 +1198,54 @@ class _EventRowState extends State<_EventRow> {
               child: _StatusBadge(event: event),
             ),
 
-            // 메뉴
+            // 메뉴 (ShadCN DropdownMenu)
             SizedBox(
               width: 48,
-              child: PopupMenuButton<String>(
-                color: _deckPanelSoft,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: const BorderSide(color: _deckBorder, width: 1),
-                ),
-                onSelected: (value) {
-                  if (value == 'seats') {
-                    context.push('/events/${event.id}/seats');
-                  }
-                  if (value == 'assignments') {
-                    context.push('/events/${event.id}/assignments');
-                  }
-                  if (value == 'bookers') {
-                    context.push('/events/${event.id}/bookers');
-                  }
-                },
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: 'seats',
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    shad.showDropdown(
+                      context: context,
+                      builder: (_) => shad.DropdownMenu(
+                        children: [
+                          shad.MenuButton(
+                            child: Text(
+                              '좌석 관리',
+                              style: GoogleFonts.notoSans(fontSize: 13),
+                            ),
+                            onPressed: (_) =>
+                                context.push('/events/${event.id}/seats'),
+                          ),
+                          shad.MenuButton(
+                            child: Text(
+                              '배정 현황',
+                              style: GoogleFonts.notoSans(fontSize: 13),
+                            ),
+                            onPressed: (_) =>
+                                context.push('/events/${event.id}/assignments'),
+                          ),
+                          shad.MenuButton(
+                            child: Text(
+                              '예매자 목록',
+                              style: GoogleFonts.notoSans(fontSize: 13),
+                            ),
+                            onPressed: (_) =>
+                                context.push('/events/${event.id}/bookers'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  child: Container(
+                    alignment: Alignment.centerRight,
                     child: Text(
-                      '좌석 관리',
-                      style:
-                          GoogleFonts.notoSans(fontSize: 13, color: _deckText),
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'assignments',
-                    child: Text(
-                      '배정 현황',
-                      style:
-                          GoogleFonts.notoSans(fontSize: 13, color: _deckText),
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'bookers',
-                    child: Text(
-                      '예매자 목록',
-                      style:
-                          GoogleFonts.notoSans(fontSize: 13, color: _deckText),
-                    ),
-                  ),
-                ],
-                child: Container(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    '옵션',
-                    style: GoogleFonts.notoSans(
-                      color: _deckTextDim,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      '옵션',
+                      style: GoogleFonts.notoSans(
+                        color: _deckTextDim,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -1291,7 +1280,7 @@ class _PosterFallback extends StatelessWidget {
         child: Text(
           initial,
           style: GoogleFonts.robotoMono(
-            color: _deckBrand.withOpacity(0.85),
+            color: _deckBrand.withValues(alpha: 0.85),
             fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
@@ -1337,7 +1326,7 @@ class _StatusBadge extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.4),
+                color: color.withValues(alpha: 0.4),
                 blurRadius: 6,
               ),
             ],
@@ -1578,7 +1567,7 @@ class _StatsBody extends StatelessWidget {
                       decoration: BoxDecoration(
                         border: Border(
                           bottom: BorderSide(
-                              color: _deckBorder.withOpacity(0.5), width: 0.5),
+                              color: _deckBorder.withValues(alpha: 0.5), width: 0.5),
                         ),
                       ),
                       child: Row(
@@ -1691,7 +1680,7 @@ class _KpiCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, size: 22, color: color),
@@ -1721,7 +1710,7 @@ class _KpiCard extends StatelessWidget {
                       subtext,
                       style: GoogleFonts.notoSans(
                         fontSize: 11,
-                        color: color.withOpacity(0.8),
+                        color: color.withValues(alpha: 0.8),
                       ),
                     ),
                   ],
@@ -1785,17 +1774,14 @@ class _OccupancyBar extends StatelessWidget {
         const SizedBox(height: 4),
         SizedBox(
           height: 4,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: clampedRate / 100,
-              backgroundColor: _deckBorder,
-              color: clampedRate >= 80
-                  ? _deckMint
-                  : clampedRate >= 50
-                      ? _deckBrand
-                      : _deckTextDim,
-            ),
+          child: shad.Progress(
+            progress: clampedRate / 100,
+            backgroundColor: _deckBorder,
+            color: clampedRate >= 80
+                ? _deckMint
+                : clampedRate >= 50
+                    ? _deckBrand
+                    : _deckTextDim,
           ),
         ),
       ],
