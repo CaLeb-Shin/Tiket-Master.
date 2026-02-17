@@ -4,19 +4,19 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../app/theme.dart';
 import '../../data/models/ticket.dart';
 import '../../data/repositories/event_repository.dart';
 import '../../data/repositories/ticket_repository.dart';
 import '../../services/auth_service.dart';
 
-const _navy = Color(0xFF0D3E67);
-const _lineBlue = Color(0xFF2F6FB2);
-const _softBlue = Color(0xFFE7F0FA);
-const _surface = Color(0xFFF3F5F8);
-const _cardBorder = Color(0xFFD7DFE8);
-const _textPrimary = Color(0xFF111827);
-const _textSecondary = Color(0xFF6B7280);
-const _textMuted = Color(0xFF94A3B8);
+const _lineBlue = AppTheme.gold;
+const _softBlue = AppTheme.surface;
+const _surface = AppTheme.background;
+const _cardBorder = AppTheme.border;
+const _textPrimary = AppTheme.textPrimary;
+const _textSecondary = AppTheme.textSecondary;
+const _textMuted = AppTheme.textTertiary;
 
 class MyTicketsScreen extends ConsumerWidget {
   const MyTicketsScreen({super.key});
@@ -29,12 +29,12 @@ class MyTicketsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: _surface,
       appBar: AppBar(
-        backgroundColor: _navy,
-        foregroundColor: Colors.white,
+        backgroundColor: AppTheme.surface,
+        foregroundColor: AppTheme.textPrimary,
         title: Text(
           '나의 티켓',
           style: GoogleFonts.notoSans(
-            color: Colors.white,
+            color: AppTheme.textPrimary,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.2,
           ),
@@ -100,7 +100,7 @@ class _TicketBody extends ConsumerWidget {
             '티켓을 불러오지 못했습니다\n$error',
             textAlign: TextAlign.center,
             style: GoogleFonts.notoSans(
-              color: const Color(0xFFB42318),
+              color: AppTheme.error,
               fontSize: 13,
             ),
           ),
@@ -124,7 +124,7 @@ class _TicketSummary extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.card,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: _cardBorder),
         ),
@@ -168,7 +168,7 @@ class _TicketCard extends ConsumerWidget {
       loading: () => Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.card,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: _cardBorder),
         ),
@@ -192,12 +192,12 @@ class _TicketCard extends ConsumerWidget {
 
         return Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.card,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: _cardBorder),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: AppTheme.gold.withOpacity(0.12),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -213,7 +213,7 @@ class _TicketCard extends ConsumerWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: const BoxDecoration(
-                    color: _lineBlue,
+                    gradient: AppTheme.goldGradient,
                     borderRadius:
                         BorderRadius.vertical(top: Radius.circular(13)),
                   ),
@@ -223,7 +223,7 @@ class _TicketCard extends ConsumerWidget {
                         child: Text(
                           dateText,
                           style: GoogleFonts.notoSans(
-                            color: Colors.white,
+                            color: AppTheme.onAccent,
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                           ),
@@ -278,7 +278,7 @@ class _TicketCard extends ConsumerWidget {
                           const Icon(
                             Icons.arrow_forward_rounded,
                             size: 22,
-                            color: _lineBlue,
+                            color: AppTheme.goldLight,
                           ),
                           Expanded(
                             child: _stationBlock(
@@ -326,7 +326,7 @@ class _TicketCard extends ConsumerWidget {
                           onPressed: () =>
                               context.push('/tickets/${ticket.id}'),
                           style: TextButton.styleFrom(
-                            foregroundColor: _navy,
+                            foregroundColor: AppTheme.textPrimary,
                             shape: const RoundedRectangleBorder(
                               borderRadius: BorderRadius.only(
                                 bottomLeft: Radius.circular(13),
@@ -345,13 +345,13 @@ class _TicketCard extends ConsumerWidget {
                       Container(
                         width: 1,
                         height: 44,
-                        color: const Color(0xFFB8C9D9),
+                        color: AppTheme.border,
                       ),
                       Expanded(
                         child: TextButton(
                           onPressed: () => context.push('/event/${event.id}'),
                           style: TextButton.styleFrom(
-                            foregroundColor: _navy,
+                            foregroundColor: AppTheme.textPrimary,
                             shape: const RoundedRectangleBorder(
                               borderRadius: BorderRadius.only(
                                 bottomRight: Radius.circular(13),
@@ -389,9 +389,9 @@ class _TicketCard extends ConsumerWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFDDE3EA)),
+          border: Border.all(color: AppTheme.borderLight),
         ),
         child: Row(
           children: [
@@ -466,20 +466,20 @@ class _TicketCard extends ConsumerWidget {
       case TicketStatus.issued:
         return const _TicketStatusMeta(
           label: '스마트티켓',
-          foreground: Color(0xFF065F46),
-          background: Color(0xFFD1FAE5),
+          foreground: AppTheme.onAccent,
+          background: AppTheme.gold,
         );
       case TicketStatus.used:
         return const _TicketStatusMeta(
           label: '이용완료',
-          foreground: Color(0xFF1D4ED8),
-          background: Color(0xFFDBEAFE),
+          foreground: AppTheme.success,
+          background: Color(0x1A30D158),
         );
       case TicketStatus.canceled:
         return const _TicketStatusMeta(
           label: '반환완료',
-          foreground: Color(0xFFB91C1C),
-          background: Color(0xFFFEE2E2),
+          foreground: AppTheme.error,
+          background: Color(0x1AFF5A5F),
         );
     }
   }
@@ -514,13 +514,13 @@ class _LoginRequired extends StatelessWidget {
               width: 84,
               height: 84,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.card,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: _cardBorder),
               ),
               child: const Icon(
                 Icons.lock_outline_rounded,
-                color: _lineBlue,
+                color: AppTheme.gold,
                 size: 38,
               ),
             ),
@@ -540,8 +540,8 @@ class _LoginRequired extends StatelessWidget {
               child: FilledButton(
                 onPressed: onLogin,
                 style: FilledButton.styleFrom(
-                  backgroundColor: _lineBlue,
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppTheme.gold,
+                  foregroundColor: AppTheme.onAccent,
                   minimumSize: const Size.fromHeight(48),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -577,13 +577,13 @@ class _EmptyTicketState extends StatelessWidget {
               width: 84,
               height: 84,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.card,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: _cardBorder),
               ),
               child: const Icon(
                 Icons.confirmation_number_outlined,
-                color: _lineBlue,
+                color: AppTheme.gold,
                 size: 38,
               ),
             ),

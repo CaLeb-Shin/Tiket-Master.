@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../app/theme.dart';
 import '../../data/models/event.dart';
 import '../../data/models/seat.dart';
 import '../../data/models/ticket.dart';
@@ -15,16 +16,16 @@ import '../../data/repositories/seat_repository.dart';
 import '../../data/repositories/ticket_repository.dart';
 import '../../services/functions_service.dart';
 
-const _navy = Color(0xFF0D3E67);
-const _lineBlue = Color(0xFF2F6FB2);
-const _surface = Color(0xFFF3F5F8);
-const _softBlue = Color(0xFFE7F0FA);
-const _cardBorder = Color(0xFFD7DFE8);
-const _textPrimary = Color(0xFF111827);
-const _textSecondary = Color(0xFF6B7280);
-const _danger = Color(0xFFB42318);
-const _success = Color(0xFF027A48);
-const _warning = Color(0xFFF59E0B);
+const _navy = AppTheme.goldDark;
+const _lineBlue = AppTheme.gold;
+const _surface = AppTheme.background;
+const _softBlue = AppTheme.surface;
+const _cardBorder = AppTheme.border;
+const _textPrimary = AppTheme.textPrimary;
+const _textSecondary = AppTheme.textSecondary;
+const _danger = AppTheme.error;
+const _success = AppTheme.success;
+const _warning = AppTheme.warning;
 
 final _ticketStreamProvider =
     StreamProvider.family<Ticket?, String>((ref, ticketId) {
@@ -53,12 +54,12 @@ class TicketDetailScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: _surface,
       appBar: AppBar(
-        backgroundColor: _navy,
-        foregroundColor: Colors.white,
+        backgroundColor: AppTheme.surface,
+        foregroundColor: AppTheme.textPrimary,
         title: Text(
           '승차권 정보',
           style: GoogleFonts.notoSans(
-            color: Colors.white,
+            color: AppTheme.textPrimary,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.2,
           ),
@@ -216,7 +217,7 @@ class _TicketDetailBody extends ConsumerWidget {
               child: Text(
                 '반환 진행',
                 style: GoogleFonts.notoSans(
-                  color: Colors.white,
+                  color: AppTheme.onAccent,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -279,7 +280,7 @@ class _TicketTopCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _cardBorder),
       ),
@@ -289,7 +290,7 @@ class _TicketTopCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: const BoxDecoration(
-              color: _lineBlue,
+              gradient: AppTheme.goldGradient,
               borderRadius: BorderRadius.vertical(top: Radius.circular(13)),
             ),
             child: Row(
@@ -298,7 +299,7 @@ class _TicketTopCard extends StatelessWidget {
                   child: Text(
                     eventDate,
                     style: GoogleFonts.notoSans(
-                      color: Colors.white,
+                      color: AppTheme.onAccent,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                     ),
@@ -369,9 +370,9 @@ class _TicketTopCard extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: AppTheme.surface,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFDDE3EA)),
+                    border: Border.all(color: AppTheme.borderLight),
                   ),
                   child: ticket.status == TicketStatus.issued
                       ? _QrSection(ticket: ticket)
@@ -406,7 +407,7 @@ class _TicketReceiptCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _cardBorder),
       ),
@@ -477,7 +478,7 @@ class _TicketPolicyCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _cardBorder),
       ),
@@ -509,9 +510,9 @@ class _TicketPolicyCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF7ED),
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFFED7AA)),
+              border: Border.all(color: AppTheme.borderLight),
             ),
             child: Row(
               children: [
@@ -522,7 +523,7 @@ class _TicketPolicyCard extends StatelessWidget {
                   child: Text(
                     refundHint,
                     style: GoogleFonts.notoSans(
-                      color: const Color(0xFF9A3412),
+                      color: AppTheme.warning,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -591,7 +592,7 @@ class _BottomActionBar extends StatelessWidget {
                 ),
               ),
             ),
-            Container(width: 1, color: const Color(0xFFB7CADA)),
+            Container(width: 1, color: AppTheme.border),
             Expanded(
               child: TextButton(
                 onPressed: onOpenEvent,
@@ -762,7 +763,7 @@ class _QrSectionState extends ConsumerState<_QrSection> {
           height: 220,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.card,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: _cardBorder),
           ),
@@ -798,17 +799,17 @@ class _QrSectionState extends ConsumerState<_QrSection> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: isLow ? const Color(0xFFFFF7ED) : _softBlue,
+            color: isLow ? AppTheme.cardElevated : _softBlue,
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
-              color: isLow ? const Color(0xFFFED7AA) : const Color(0xFFC8DBEE),
+              color: isLow ? AppTheme.warning : AppTheme.borderLight,
             ),
           ),
           child: Text(
             '유효시간 ${_formatRemaining(_remainingSeconds)}',
             style: GoogleFonts.robotoMono(
               fontSize: 12,
-              color: isLow ? const Color(0xFF9A3412) : _navy,
+              color: isLow ? AppTheme.warning : AppTheme.goldLight,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -909,9 +910,9 @@ class _TopDataRow extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFDDE3EA)),
+          border: Border.all(color: AppTheme.borderLight),
         ),
         child: Row(
           children: [
@@ -1059,21 +1060,21 @@ String _statusLabel(TicketStatus status) {
 Color _statusTextColor(TicketStatus status) {
   switch (status) {
     case TicketStatus.issued:
-      return const Color(0xFF065F46);
+      return AppTheme.onAccent;
     case TicketStatus.used:
-      return const Color(0xFF1D4ED8);
+      return AppTheme.success;
     case TicketStatus.canceled:
-      return const Color(0xFFB91C1C);
+      return AppTheme.error;
   }
 }
 
 Color _statusBackground(TicketStatus status) {
   switch (status) {
     case TicketStatus.issued:
-      return const Color(0xFFD1FAE5);
+      return AppTheme.gold;
     case TicketStatus.used:
-      return const Color(0xFFDBEAFE);
+      return const Color(0x1A30D158);
     case TicketStatus.canceled:
-      return const Color(0xFFFEE2E2);
+      return const Color(0x1AFF5A5F);
   }
 }
