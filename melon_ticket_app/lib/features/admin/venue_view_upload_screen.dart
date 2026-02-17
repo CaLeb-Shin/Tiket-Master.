@@ -1132,9 +1132,6 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
     required Map<String, VenueZoneView> existingViews,
   }) {
     final rowLabels = _rowLabelsForBlock(block);
-    final gradeLabel = (block.grade?.trim().isNotEmpty ?? false)
-        ? block.grade!.trim().toUpperCase()
-        : '미지정';
     final seatTotal = rowLabels.fold<int>(
       0,
       (sum, row) => sum + _seatCountForRow(block, row),
@@ -1151,53 +1148,66 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '선택 구역: ${floor.name} ${block.name}구역',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            softWrap: false,
-            style: GoogleFonts.notoSans(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerRight,
-            child: SizedBox(
-              width: 170,
-              child: OutlinedButton.icon(
-                onPressed: () =>
-                    _addEntryFromMapBlock(floor: floor, block: block),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(132, 34),
-                  maximumSize: const Size(170, 34),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '선택 구역: ${floor.name} ${block.name}구역',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: GoogleFonts.notoSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${rowLabels.length}행, 총 $seatTotal석 · 좌석 점 클릭 시 해당 좌석 업로드 항목 생성',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.notoSans(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
                 ),
-                icon: const Icon(Icons.crop_square_rounded, size: 14),
-                label: Text(
-                  '구역 대표 업로드',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.notoSans(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                width: 170,
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      _addEntryFromMapBlock(floor: floor, block: block),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(132, 34),
+                    maximumSize: const Size(170, 34),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: const Icon(Icons.crop_square_rounded, size: 14),
+                  label: Text(
+                    '구역 대표 업로드',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.notoSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '$gradeLabel · 총 $seatTotal석 · 좌석 점 클릭 시 해당 좌석 업로드 항목 생성',
-            style: GoogleFonts.notoSans(
-              fontSize: 11,
-              color: AppTheme.textTertiary,
-            ),
+            ],
           ),
           const SizedBox(height: 8),
           ...rowLabels.map((rowLabel) {
@@ -1224,14 +1234,12 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                 seat: seatNumber,
               );
             }).length;
-            final statusColor = rowPendingCount > 0
-                ? AppTheme.gold
-                : (rowSavedCount > 0
-                    ? AppTheme.success
-                    : AppTheme.textTertiary);
-            final statusLabel = rowPendingCount > 0
-                ? '대기 $rowPendingCount석'
-                : (rowSavedCount > 0 ? '등록 $rowSavedCount석' : '미등록');
+            final statusColor = rowSavedCount > 0
+                ? AppTheme.error
+                : Colors.white.withOpacity(0.84);
+            final statusLabel = rowSavedCount > 0
+                ? '업로드 $rowSavedCount석'
+                : (rowPendingCount > 0 ? '대기 $rowPendingCount석' : '미업로드');
 
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
@@ -1294,13 +1302,13 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                         row: rowLabel,
                         seat: seatNumber,
                       );
-                      final seatColor = hasPending
-                          ? AppTheme.gold
-                          : (hasSaved
-                              ? AppTheme.success
-                              : _gradeColorForBlock(block.grade));
+                      final seatColor =
+                          hasSaved ? AppTheme.error : Colors.white;
+                      final seatFillColor = hasSaved
+                          ? AppTheme.error.withOpacity(0.28)
+                          : Colors.white.withOpacity(0.12);
                       final seatStatus =
-                          hasPending ? '업로드 대기' : (hasSaved ? '등록됨' : '미등록');
+                          hasSaved ? '업로드됨' : (hasPending ? '업로드 대기' : '미업로드');
 
                       return Tooltip(
                         waitDuration: const Duration(milliseconds: 250),
@@ -1319,8 +1327,8 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: seatColor.withOpacity(0.22),
-                              border: Border.all(color: seatColor, width: 1),
+                              color: seatFillColor,
+                              border: Border.all(color: seatColor, width: 1.1),
                             ),
                             child: Text(
                               '$seatNumber',
