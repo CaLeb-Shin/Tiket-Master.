@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../data/models/discount_policy.dart';
 import '../../data/repositories/event_repository.dart';
 import '../../services/auth_service.dart';
 import '../../services/functions_service.dart';
@@ -87,6 +88,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _isProcessing = false;
   PaymentMethod? _selectedPayment;
   bool _agreedToTerms = false;
+  DiscountPolicy? _selectedDiscount;
 
   @override
   void initState() {
@@ -162,10 +164,33 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           }
 
           final quantity = _quantity.clamp(1, maxQty);
-          final totalPrice = event.price * quantity;
+          final priceFormat = NumberFormat('#,###', 'ko_KR');
+          final policies = event.discountPolicies ?? [];
+
+          // 수량 할인: 조건 충족하는 최대 할인 자동 적용
+          DiscountPolicy? autoBulkDiscount;
+          for (final p in policies.where((p) => p.type == 'bulk')) {
+            if (quantity >= p.minQuantity) {
+              if (autoBulkDiscount == null ||
+                  p.discountRate > autoBulkDiscount.discountRate) {
+                autoBulkDiscount = p;
+              }
+            }
+          }
+          final specialPolicies =
+              policies.where((p) => p.type == 'special').toList();
+
+          // 적용 할인 결정: 수량 할인 vs 대상 할인 (더 큰 할인 적용)
+          final activeDiscount = _selectedDiscount ?? autoBulkDiscount;
+          final unitPrice = activeDiscount != null
+              ? activeDiscount.discountedPrice(event.price)
+              : event.price;
+          final totalPrice = unitPrice * quantity;
+          final originalTotal = event.price * quantity;
+          final savedAmount = originalTotal - totalPrice;
+
           final canPay =
               _selectedPayment != null && _agreedToTerms && !_isProcessing;
-          final priceFormat = NumberFormat('#,###', 'ko_KR');
 
           return Stack(
             children: [
@@ -193,10 +218,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       quantity: quantity,
                       maxQty: maxQty,
                       onMinus: quantity > 1
-                          ? () => setState(() => _quantity--)
+                          ? () => setState(() {
+                                _quantity--;
+                                // 수량 변경 시 대상 할인만 유지, 수량할인은 자동 재계산
+                                if (_selectedDiscount?.type == 'bulk') {
+                                  _selectedDiscount = null;
+                                }
+                              })
                           : null,
                       onPlus: quantity < maxQty
-                          ? () => setState(() => _quantity++)
+                          ? () => setState(() {
+                                _quantity++;
+                                if (_selectedDiscount?.type == 'bulk') {
+                                  _selectedDiscount = null;
+                                }
+                              })
                           : null,
                     ),
                     if (quantity >= 2) ...[
@@ -234,6 +270,25 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         ),
                       ),
                     ],
+
+                    // ── 할인 정책 선택 ──
+                    if (policies.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      const _SectionTitle('할인 선택'),
+                      const SizedBox(height: 8),
+                      _DiscountSelector(
+                        policies: policies,
+                        quantity: quantity,
+                        basePrice: event.price,
+                        autoBulkDiscount: autoBulkDiscount,
+                        selectedDiscount: _selectedDiscount,
+                        onSelect: (p) => setState(() => _selectedDiscount = p),
+                        onClear: () =>
+                            setState(() => _selectedDiscount = null),
+                        priceFormat: priceFormat,
+                      ),
+                    ],
+
                     const SizedBox(height: 14),
                     const _SectionTitle('간편결제 선택'),
                     const SizedBox(height: 8),
@@ -246,9 +301,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     const SizedBox(height: 14),
                     _AmountCard(
                       quantity: quantity,
-                      unitPrice: event.price,
+                      unitPrice: unitPrice,
                       totalPrice: totalPrice,
                       priceFormat: priceFormat,
+                      originalUnitPrice:
+                          activeDiscount != null ? event.price : null,
+                      savedAmount: savedAmount > 0 ? savedAmount : null,
+                      discountName: activeDiscount?.name,
                     ),
                     const SizedBox(height: 14),
                     _TermsCard(
@@ -303,6 +362,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         eventId: widget.eventId,
         quantity: quantity,
         preferredSeatIds: preferredSeatIds,
+        discountPolicyName: _selectedDiscount?.name,
       );
       final orderId = orderResult['orderId'] as String;
 
@@ -713,16 +773,24 @@ class _AmountCard extends StatelessWidget {
   final int unitPrice;
   final int totalPrice;
   final NumberFormat priceFormat;
+  final int? originalUnitPrice;
+  final int? savedAmount;
+  final String? discountName;
 
   const _AmountCard({
     required this.quantity,
     required this.unitPrice,
     required this.totalPrice,
     required this.priceFormat,
+    this.originalUnitPrice,
+    this.savedAmount,
+    this.discountName,
   });
 
   @override
   Widget build(BuildContext context) {
+    final hasDiscount = originalUnitPrice != null && savedAmount != null && savedAmount! > 0;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
@@ -733,6 +801,21 @@ class _AmountCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          if (hasDiscount) ...[
+            _AmountRow(
+              label: '정가',
+              value: '${priceFormat.format(originalUnitPrice!)}원 x $quantity',
+              valueColor: _textMuted,
+              strikethrough: true,
+            ),
+            const SizedBox(height: 4),
+            _AmountRow(
+              label: discountName ?? '할인 적용',
+              value: '-${priceFormat.format(savedAmount!)}원',
+              valueColor: _danger,
+            ),
+            const SizedBox(height: 4),
+          ],
           _AmountRow(
             label: '티켓 금액',
             value: '${priceFormat.format(unitPrice)}원 x $quantity',
@@ -756,12 +839,14 @@ class _AmountRow extends StatelessWidget {
   final String value;
   final bool emphasize;
   final Color? valueColor;
+  final bool strikethrough;
 
   const _AmountRow({
     required this.label,
     required this.value,
     this.emphasize = false,
     this.valueColor,
+    this.strikethrough = false,
   });
 
   @override
@@ -784,9 +869,212 @@ class _AmountRow extends StatelessWidget {
             fontSize: emphasize ? 24 : 14,
             fontWeight: emphasize ? FontWeight.w800 : FontWeight.w700,
             letterSpacing: emphasize ? -0.3 : 0,
+            decoration: strikethrough ? TextDecoration.lineThrough : null,
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── 할인 선택기 ───
+class _DiscountSelector extends StatelessWidget {
+  final List<DiscountPolicy> policies;
+  final int quantity;
+  final int basePrice;
+  final DiscountPolicy? autoBulkDiscount;
+  final DiscountPolicy? selectedDiscount;
+  final ValueChanged<DiscountPolicy?> onSelect;
+  final VoidCallback onClear;
+  final NumberFormat priceFormat;
+
+  const _DiscountSelector({
+    required this.policies,
+    required this.quantity,
+    required this.basePrice,
+    required this.autoBulkDiscount,
+    required this.selectedDiscount,
+    required this.onSelect,
+    required this.onClear,
+    required this.priceFormat,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 할인 없음 옵션
+          _DiscountOption(
+            name: '일반 (할인 없음)',
+            price: '${priceFormat.format(basePrice)}원',
+            isSelected: selectedDiscount == null && autoBulkDiscount == null,
+            onTap: onClear,
+          ),
+
+          // 수량 할인 (자동)
+          if (autoBulkDiscount != null)
+            _DiscountOption(
+              name: autoBulkDiscount!.name,
+              price:
+                  '${priceFormat.format(autoBulkDiscount!.discountedPrice(basePrice))}원',
+              discountRate:
+                  '${(autoBulkDiscount!.discountRate * 100).toInt()}%',
+              description: autoBulkDiscount!.description,
+              isSelected: selectedDiscount == null ||
+                  selectedDiscount?.name == autoBulkDiscount!.name,
+              isAuto: true,
+              onTap: onClear,
+            ),
+
+          // 대상 할인
+          ...policies.where((p) => p.type == 'special').map((p) {
+            return _DiscountOption(
+              name: p.name,
+              price: '${priceFormat.format(p.discountedPrice(basePrice))}원',
+              discountRate: '${(p.discountRate * 100).toInt()}%',
+              description: p.description,
+              isSelected: selectedDiscount?.name == p.name,
+              onTap: () => onSelect(p),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiscountOption extends StatelessWidget {
+  final String name;
+  final String price;
+  final String? discountRate;
+  final String? description;
+  final bool isSelected;
+  final bool isAuto;
+  final VoidCallback onTap;
+
+  const _DiscountOption({
+    required this.name,
+    required this.price,
+    this.discountRate,
+    this.description,
+    required this.isSelected,
+    this.isAuto = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? _softBlue : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? _lineBlue.withOpacity(0.4) : _cardBorder,
+          ),
+        ),
+        child: Row(
+          children: [
+            // 라디오 인디케이터
+            Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? _lineBlue : _textMuted,
+                  width: isSelected ? 5 : 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            // 내용
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      if (discountRate != null)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: Text(
+                            discountRate!,
+                            style: GoogleFonts.notoSans(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: _danger,
+                            ),
+                          ),
+                        ),
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: GoogleFonts.notoSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: _textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (isAuto)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _success.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '자동적용',
+                            style: GoogleFonts.notoSans(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: _success,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (description != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        description!,
+                        style: GoogleFonts.notoSans(
+                          fontSize: 11,
+                          color: _textMuted,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              price,
+              style: GoogleFonts.notoSans(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: _textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -117,8 +117,14 @@ class _DetailBody extends StatelessWidget {
                     ].join('\n'),
                   ),
 
-                // ── 할인정보 ──
-                if (event.discount != null && event.discount!.isNotEmpty)
+                // ── 할인 정책 (놀티켓 스타일) ──
+                if (event.discountPolicies != null &&
+                    event.discountPolicies!.isNotEmpty)
+                  _DiscountPoliciesSection(
+                    policies: event.discountPolicies!,
+                    basePrice: event.price,
+                  )
+                else if (event.discount != null && event.discount!.isNotEmpty)
                   _ContentSection(title: '할인정보', content: event.discount!),
 
                 // ── 유의사항 ──
@@ -735,6 +741,173 @@ class _ContentSection extends StatelessWidget {
               height: 1.7,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── 할인 정책 섹션 (놀티켓 스타일) ───
+class _DiscountPoliciesSection extends StatelessWidget {
+  final List<dynamic> policies;
+  final int basePrice;
+
+  const _DiscountPoliciesSection({
+    required this.policies,
+    required this.basePrice,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final priceFormat = NumberFormat('#,###');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(height: 0.5, color: AppTheme.border),
+          const SizedBox(height: 20),
+          Text(
+            '할인 정책',
+            style: GoogleFonts.notoSans(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 일반가 (기본)
+          _DiscountTile(
+            name: '일반',
+            price: '${priceFormat.format(basePrice)}원',
+            isBase: true,
+          ),
+
+          // 할인 정책 카드
+          ...policies.map((p) {
+            final name = p.name as String;
+            final rate = p.discountRate as double;
+            final discounted = p.discountedPrice(basePrice) as int;
+            final desc = p.description as String?;
+            final minQty = p.minQuantity as int;
+            final type = p.type as String;
+
+            return _DiscountTile(
+              name: name,
+              price: '${priceFormat.format(discounted)}원',
+              description: desc ??
+                  (type == 'bulk'
+                      ? '$minQty매 이상만 예매 가능. 전체취소만 가능.'
+                      : null),
+              discountRate: '${(rate * 100).toInt()}%',
+              originalPrice: '${priceFormat.format(basePrice)}원',
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiscountTile extends StatelessWidget {
+  final String name;
+  final String price;
+  final bool isBase;
+  final String? description;
+  final String? discountRate;
+  final String? originalPrice;
+
+  const _DiscountTile({
+    required this.name,
+    required this.price,
+    this.isBase = false,
+    this.description,
+    this.discountRate,
+    this.originalPrice,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isBase ? AppTheme.cardElevated : AppTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 이름 + 할인율
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (discountRate != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(
+                          discountRate!,
+                          style: GoogleFonts.notoSans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.error,
+                          ),
+                        ),
+                      ),
+                    Text(
+                      name,
+                      style: GoogleFonts.notoSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // 가격
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (originalPrice != null && !isBase)
+                    Text(
+                      originalPrice!,
+                      style: GoogleFonts.notoSans(
+                        fontSize: 11,
+                        color: AppTheme.textTertiary,
+                        decoration: TextDecoration.lineThrough,
+                      ),
+                    ),
+                  Text(
+                    price,
+                    style: GoogleFonts.notoSans(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (description != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              description!,
+              style: GoogleFonts.notoSans(
+                fontSize: 11,
+                color: AppTheme.textTertiary,
+                height: 1.4,
+              ),
+            ),
+          ],
         ],
       ),
     );

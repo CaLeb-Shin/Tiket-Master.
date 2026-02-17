@@ -1,6 +1,7 @@
 // 모델 배럴 파일
 export 'app_user.dart';
 export 'checkin.dart';
+export 'discount_policy.dart';
 export 'event.dart';
 export 'order.dart';
 export 'seat.dart';

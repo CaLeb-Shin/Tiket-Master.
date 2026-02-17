@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../../app/theme.dart';
 import '../../services/kakao_postcode_service.dart'
     if (dart.library.io) '../../services/kakao_postcode_stub.dart';
+import '../../data/models/discount_policy.dart';
 import '../../data/models/event.dart';
 import '../../data/models/venue.dart';
 import '../../data/repositories/event_repository.dart';
@@ -43,7 +44,6 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   final _organizerCtrl = TextEditingController(); // 주최
   final _plannerCtrl = TextEditingController(); // 기획
   final _noticeCtrl = TextEditingController();
-  final _discountCtrl = TextEditingController(); // 할인정보
 
   // ── State ──
   String _category = '콘서트';
@@ -77,6 +77,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
   Uint8List? _posterBytes;
   String? _posterFileName;
+
+  // ── 할인 정책 ──
+  final List<DiscountPolicy> _discountPolicies = [];
 
   bool _isSubmitting = false;
 
@@ -128,7 +131,6 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     _castCtrl.dispose();
     _organizerCtrl.dispose();
     _plannerCtrl.dispose();
-    _discountCtrl.dispose();
     _noticeCtrl.dispose();
     _yearCtrl.dispose();
     _monthCtrl.dispose();
@@ -1381,13 +1383,155 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         ),
         const SizedBox(height: 14),
 
-        // 할인정보
-        _field('할인정보',
-            child: TextFormField(
-              controller: _discountCtrl,
-              style: _inputStyle(),
-              decoration: _inputDecoration('예: 학생 20% 할인, 단체 10명 이상 30% 할인'),
-              maxLines: 3,
+        // 할인 정책
+        _field('할인 정책',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 추가된 정책 카드 리스트
+                ..._discountPolicies.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final p = entry.value;
+                  final priceFormat = NumberFormat('#,###');
+                  // 기본가격 기준 할인가 표시용
+                  final basePrice = int.tryParse(
+                          _gradePriceControllers.values.firstOrNull?.text
+                                  .replaceAll(',', '') ??
+                              '55000') ??
+                      55000;
+                  final discounted = p.discountedPrice(basePrice);
+
+                  return Container(
+                    margin: EdgeInsets.only(bottom: i < _discountPolicies.length - 1 ? 8 : 0),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardElevated,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.border, width: 0.5),
+                    ),
+                    child: Row(
+                      children: [
+                        // 할인 아이콘
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: p.type == 'bulk'
+                                ? AppTheme.gold.withOpacity(0.12)
+                                : AppTheme.success.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              p.type == 'bulk'
+                                  ? Icons.groups_rounded
+                                  : Icons.verified_user_rounded,
+                              size: 16,
+                              color: p.type == 'bulk'
+                                  ? AppTheme.gold
+                                  : AppTheme.success,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // 정보
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                p.name,
+                                style: GoogleFonts.notoSans(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  Text(
+                                    '${(p.discountRate * 100).toInt()}%',
+                                    style: GoogleFonts.notoSans(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.error,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${priceFormat.format(discounted)}원',
+                                    style: GoogleFonts.notoSans(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                  if (p.description != null) ...[
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        p.description!,
+                                        style: GoogleFonts.notoSans(
+                                          fontSize: 10,
+                                          color: AppTheme.textTertiary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        // 삭제
+                        IconButton(
+                          onPressed: () => setState(() => _discountPolicies.removeAt(i)),
+                          icon: const Icon(Icons.close_rounded,
+                              size: 16, color: AppTheme.textTertiary),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                if (_discountPolicies.isNotEmpty) const SizedBox(height: 8),
+                // 추가 버튼
+                GestureDetector(
+                  onTap: () => _showAddDiscountDialog(),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.gold.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppTheme.gold.withOpacity(0.25),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_rounded,
+                            size: 16, color: AppTheme.gold),
+                        const SizedBox(width: 6),
+                        Text(
+                          '할인 정책 추가',
+                          style: GoogleFonts.notoSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.gold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             )),
         const SizedBox(height: 14),
 
@@ -1487,6 +1631,212 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         }
       });
     }
+  }
+
+  void _showAddDiscountDialog() {
+    String type = 'bulk';
+    final nameCtrl = TextEditingController();
+    final rateCtrl = TextEditingController();
+    final qtyCtrl = TextEditingController(text: '2');
+    final descCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            backgroundColor: AppTheme.card,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
+            title: Text(
+              '할인 정책 추가',
+              style: GoogleFonts.notoSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 유형 선택
+                  Text('할인 유형',
+                      style: GoogleFonts.notoSans(
+                          fontSize: 12, color: AppTheme.textTertiary)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      _dialogChip(
+                        label: '수량 할인',
+                        icon: Icons.groups_rounded,
+                        selected: type == 'bulk',
+                        onTap: () => setDialogState(() => type = 'bulk'),
+                      ),
+                      const SizedBox(width: 8),
+                      _dialogChip(
+                        label: '대상 할인',
+                        icon: Icons.verified_user_rounded,
+                        selected: type == 'special',
+                        onTap: () => setDialogState(() => type = 'special'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 이름
+                  Text(type == 'bulk' ? '조건명' : '대상명',
+                      style: GoogleFonts.notoSans(
+                          fontSize: 12, color: AppTheme.textTertiary)),
+                  const SizedBox(height: 4),
+                  TextFormField(
+                    controller: nameCtrl,
+                    style: _inputStyle(),
+                    decoration: _inputDecoration(
+                      type == 'bulk'
+                          ? '예: 2매 이상 구매시'
+                          : '예: 국가유공자(동반1인)',
+                    ),
+                  ),
+
+                  if (type == 'bulk') ...[
+                    const SizedBox(height: 12),
+                    Text('최소 수량',
+                        style: GoogleFonts.notoSans(
+                            fontSize: 12, color: AppTheme.textTertiary)),
+                    const SizedBox(height: 4),
+                    TextFormField(
+                      controller: qtyCtrl,
+                      style: _inputStyle(),
+                      decoration: _inputDecoration('2'),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    ),
+                  ],
+
+                  const SizedBox(height: 12),
+                  Text('할인율 (%)',
+                      style: GoogleFonts.notoSans(
+                          fontSize: 12, color: AppTheme.textTertiary)),
+                  const SizedBox(height: 4),
+                  TextFormField(
+                    controller: rateCtrl,
+                    style: _inputStyle(),
+                    decoration: _inputDecoration('20'),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+
+                  const SizedBox(height: 12),
+                  Text('설명 (선택)',
+                      style: GoogleFonts.notoSans(
+                          fontSize: 12, color: AppTheme.textTertiary)),
+                  const SizedBox(height: 4),
+                  TextFormField(
+                    controller: descCtrl,
+                    style: _inputStyle(),
+                    decoration: _inputDecoration(
+                      type == 'bulk'
+                          ? '예: 2매 이상만 예매 가능. 전체취소만 가능.'
+                          : '예: 증빙서류 지참 필수',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('취소',
+                    style: GoogleFonts.notoSans(color: AppTheme.textTertiary)),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final rate = int.tryParse(rateCtrl.text) ?? 0;
+                  if (nameCtrl.text.trim().isEmpty || rate <= 0 || rate > 100) {
+                    return;
+                  }
+                  final name = nameCtrl.text.trim();
+                  final qty = type == 'bulk'
+                      ? (int.tryParse(qtyCtrl.text) ?? 2)
+                      : 1;
+                  final desc = descCtrl.text.trim().isEmpty
+                      ? null
+                      : descCtrl.text.trim();
+
+                  // 자동 이름 생성
+                  final fullName = type == 'bulk'
+                      ? '$name $rate%'
+                      : '$name $rate%';
+
+                  setState(() {
+                    _discountPolicies.add(DiscountPolicy(
+                      name: fullName,
+                      type: type,
+                      minQuantity: qty,
+                      discountRate: rate / 100.0,
+                      description: desc,
+                    ));
+                  });
+                  Navigator.pop(ctx);
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.gold,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text('추가',
+                    style: GoogleFonts.notoSans(fontWeight: FontWeight.w700)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _dialogChip({
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppTheme.gold.withOpacity(0.12)
+                : AppTheme.cardElevated,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected
+                  ? AppTheme.gold.withOpacity(0.4)
+                  : AppTheme.border,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 15,
+                  color: selected ? AppTheme.gold : AppTheme.textTertiary),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: GoogleFonts.notoSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? AppTheme.gold : AppTheme.textTertiary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildPosterPicker() {
@@ -1886,10 +2236,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             : _plannerCtrl.text.trim(),
         notice:
             _noticeCtrl.text.trim().isEmpty ? null : _noticeCtrl.text.trim(),
-        discount: _discountCtrl.text.trim().isEmpty
-            ? null
-            : _discountCtrl.text.trim(),
+        discount: _discountPolicies.isNotEmpty
+            ? _discountPolicies.map((p) => p.name).join(', ')
+            : null,
         priceByGrade: priceByGrade.isNotEmpty ? priceByGrade : null,
+        discountPolicies:
+            _discountPolicies.isNotEmpty ? _discountPolicies : null,
       );
 
       // 이벤트 생성

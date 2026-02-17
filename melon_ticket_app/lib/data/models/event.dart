@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'discount_policy.dart';
 
 /// 공연 이벤트 모델
 class Event {
@@ -28,8 +29,9 @@ class Event {
   final String? organizer; // 주최
   final String? planner; // 기획
   final String? notice; // 예매 유의사항
-  final String? discount; // 할인정보
+  final String? discount; // 할인정보 (레거시 텍스트)
   final Map<String, int>? priceByGrade; // 등급별 가격 (VIP, R, S, A 등)
+  final List<DiscountPolicy>? discountPolicies; // 구조화된 할인 정책
 
   Event({
     required this.id,
@@ -58,6 +60,7 @@ class Event {
     this.notice,
     this.discount,
     this.priceByGrade,
+    this.discountPolicies,
   });
 
   /// 좌석 공개 여부
@@ -97,8 +100,13 @@ class Event {
       planner: data['planner'],
       notice: data['notice'],
       discount: data['discount'],
-      priceByGrade: data['priceByGrade'] != null 
-          ? Map<String, int>.from(data['priceByGrade']) 
+      priceByGrade: data['priceByGrade'] != null
+          ? Map<String, int>.from(data['priceByGrade'])
+          : null,
+      discountPolicies: data['discountPolicies'] != null
+          ? (data['discountPolicies'] as List)
+              .map((e) => DiscountPolicy.fromMap(Map<String, dynamic>.from(e)))
+              .toList()
           : null,
     );
   }
@@ -130,6 +138,7 @@ class Event {
       'notice': notice,
       'discount': discount,
       'priceByGrade': priceByGrade,
+      'discountPolicies': discountPolicies?.map((e) => e.toMap()).toList(),
     };
   }
 }

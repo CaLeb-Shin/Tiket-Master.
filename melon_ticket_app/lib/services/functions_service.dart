@@ -12,6 +12,7 @@ class FunctionsService {
     required String eventId,
     required int quantity,
     List<String>? preferredSeatIds,
+    String? discountPolicyName,
   }) async {
     final callable = _functions.httpsCallable('createOrder');
     final result = await callable.call({
@@ -19,6 +20,8 @@ class FunctionsService {
       'quantity': quantity,
       if (preferredSeatIds != null && preferredSeatIds.isNotEmpty)
         'preferredSeatIds': preferredSeatIds,
+      if (discountPolicyName != null)
+        'discountPolicyName': discountPolicyName,
     });
     return Map<String, dynamic>.from(result.data);
   }

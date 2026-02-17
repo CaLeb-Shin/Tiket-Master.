@@ -190,6 +190,7 @@ async function sendPushToEventUsers(
 // ============================================================
 export const createOrder = functions.https.onCall(async (request) => {
   const { eventId, quantity } = request.data;
+  const discountPolicyName: string | undefined = request.data?.discountPolicyName;
   const userId = request.auth?.uid;
   const preferredSeatIds = Array.isArray(request.data?.preferredSeatIds)
     ? [...new Set(request.data.preferredSeatIds.filter((v: unknown) => typeof v === "string"))]
@@ -223,24 +224,62 @@ export const createOrder = functions.https.onCall(async (request) => {
     throw new functions.https.HttpsError("resource-exhausted", "잔여 좌석이 부족합니다");
   }
 
+  // ── 할인 정책 검증 및 적용 ──
+  let unitPrice: number = event.price;
+  let appliedDiscount: string | null = null;
+
+  if (discountPolicyName && Array.isArray(event.discountPolicies)) {
+    const policy = event.discountPolicies.find(
+      (p: { name: string }) => p.name === discountPolicyName
+    );
+    if (policy) {
+      // 수량 할인: 최소 수량 충족 확인
+      if (policy.type === "bulk" && quantity < policy.minQuantity) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          `이 할인은 최소 ${policy.minQuantity}매 이상 구매 시 적용됩니다`
+        );
+      }
+      const rate = typeof policy.discountRate === "number" ? policy.discountRate : 0;
+      unitPrice = Math.round(event.price * (1 - rate));
+      appliedDiscount = policy.name;
+    }
+  } else if (!discountPolicyName && Array.isArray(event.discountPolicies)) {
+    // 할인 미선택 시 수량 할인 자동 적용 (최대 할인율)
+    let bestRate = 0;
+    for (const p of event.discountPolicies) {
+      if (p.type === "bulk" && quantity >= p.minQuantity && p.discountRate > bestRate) {
+        bestRate = p.discountRate;
+        appliedDiscount = p.name;
+      }
+    }
+    if (bestRate > 0) {
+      unitPrice = Math.round(event.price * (1 - bestRate));
+    }
+  }
+
   const normalizedPreferred = preferredSeatIds.slice(0, quantity);
 
   // 주문 생성
   const orderRef = db.collection("orders").doc();
-  const order = {
+  const order: Record<string, unknown> = {
     eventId,
     userId,
     quantity,
-    unitPrice: event.price,
-    totalAmount: event.price * quantity,
+    unitPrice,
+    totalAmount: unitPrice * quantity,
     preferredSeatIds: normalizedPreferred,
     status: "pending",
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    ...(appliedDiscount ? { appliedDiscount } : {}),
   };
 
   await orderRef.set(order);
 
-  functions.logger.info(`주문 생성: ${orderRef.id}, 수량: ${quantity}`);
+  functions.logger.info(
+    `주문 생성: ${orderRef.id}, 수량: ${quantity}, 단가: ${unitPrice}` +
+    (appliedDiscount ? `, 할인: ${appliedDiscount}` : "")
+  );
 
   return {
     success: true,
