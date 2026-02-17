@@ -17,10 +17,23 @@ final eventStreamProvider = StreamProvider.family<Event?, String>((ref, eventId)
   return ref.watch(eventRepositoryProvider).getEventStream(eventId);
 });
 
+/// 전체 공연 스트림 (통계용 – 상태 무관)
+final allEventsStreamProvider = StreamProvider<List<Event>>((ref) {
+  return ref.watch(eventRepositoryProvider).getAllEvents();
+});
+
 class EventRepository {
   final FirestoreService _firestoreService;
 
   EventRepository(this._firestoreService);
+
+  /// 전체 공연 목록 (상태 무관, 통계용)
+  Stream<List<Event>> getAllEvents() {
+    return _firestoreService.events
+        .orderBy('startAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => Event.fromFirestore(doc)).toList());
+  }
 
   /// 활성 공연 목록 (판매중/예정)
   Stream<List<Event>> getActiveEvents() {
