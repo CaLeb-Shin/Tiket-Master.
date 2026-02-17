@@ -67,6 +67,62 @@ function toDate(value: any): Date | null {
 }
 
 // ============================================================
+// 동적 OG 태그 (소셜 미디어 공유 미리보기)
+// ============================================================
+export const ogMeta = functions.https.onRequest(async (req, res) => {
+  const match = req.path.match(/^\/event\/([a-zA-Z0-9]+)/);
+  if (!match) {
+    res.redirect("/");
+    return;
+  }
+
+  const eventId = match[1];
+  const eventDoc = await db.collection("events").doc(eventId).get();
+
+  if (!eventDoc.exists) {
+    res.redirect("/");
+    return;
+  }
+
+  const event = eventDoc.data()!;
+  const title = event.title ?? "멜론티켓 공연";
+  const description = event.description
+    ? (event.description as string).substring(0, 150)
+    : "AI 좌석 추천 · 360° 시야 보기 · 모바일 스마트 티켓";
+  const imageUrl = event.imageUrl ?? "";
+  const siteUrl = `https://melonticket-web-20260216.vercel.app/event/${eventId}`;
+  const dateStr = event.startAt
+    ? new Date((event.startAt as admin.firestore.Timestamp).toDate()).toLocaleDateString("ko-KR")
+    : "";
+  const venue = event.venueName ?? "";
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${title} - 멜론티켓</title>
+  <meta name="description" content="${description}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="${title}">
+  <meta property="og:description" content="${dateStr ? dateStr + " · " : ""}${venue ? venue + " · " : ""}${description}">
+  <meta property="og:image" content="${imageUrl}">
+  <meta property="og:url" content="${siteUrl}">
+  <meta property="og:site_name" content="멜론티켓">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${title}">
+  <meta name="twitter:description" content="${description}">
+  <meta name="twitter:image" content="${imageUrl}">
+  <meta http-equiv="refresh" content="0;url=${siteUrl}">
+</head>
+<body>
+  <p>리디렉션 중... <a href="${siteUrl}">${title}</a></p>
+</body>
+</html>`;
+
+  res.status(200).set("Content-Type", "text/html").send(html);
+});
+
+// ============================================================
 // FCM 푸시 알림 발송 헬퍼
 // ============================================================
 

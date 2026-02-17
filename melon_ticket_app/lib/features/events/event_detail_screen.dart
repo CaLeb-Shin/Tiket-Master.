@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -194,7 +195,28 @@ class _AppBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _StatusChip(event: event),
+          const SizedBox(width: 4),
+          IconButton(
+            onPressed: () => _shareEvent(context, event),
+            icon: const Icon(Icons.share_rounded,
+                color: AppTheme.textSecondary, size: 20),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
         ],
+      ),
+    );
+  }
+
+  void _shareEvent(BuildContext context, Event event) {
+    final url = Uri.base.origin.isNotEmpty
+        ? '${Uri.base.origin}/event/${event.id}'
+        : 'https://melonticket-web-20260216.vercel.app/event/${event.id}';
+    Clipboard.setData(ClipboardData(text: url));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('공유 링크가 복사되었습니다\n$url'),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
