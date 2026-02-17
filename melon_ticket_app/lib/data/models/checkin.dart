@@ -6,7 +6,10 @@ class Checkin {
   final String eventId;
   final String ticketId;
   final String staffId;
+  final String scannerDeviceId;
+  final CheckinStage stage;
   final CheckinResult result;
+  final String? seatInfo;
   final String? errorMessage;
   final DateTime scannedAt;
 
@@ -15,7 +18,10 @@ class Checkin {
     required this.eventId,
     required this.ticketId,
     required this.staffId,
+    required this.scannerDeviceId,
+    required this.stage,
     required this.result,
+    this.seatInfo,
     this.errorMessage,
     required this.scannedAt,
   });
@@ -27,7 +33,10 @@ class Checkin {
       eventId: data['eventId'] ?? '',
       ticketId: data['ticketId'] ?? '',
       staffId: data['staffId'] ?? '',
+      scannerDeviceId: data['scannerDeviceId'] ?? '',
+      stage: CheckinStage.fromString(data['stage']),
       result: CheckinResult.fromString(data['result']),
+      seatInfo: data['seatInfo'],
       errorMessage: data['errorMessage'],
       scannedAt: (data['scannedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -38,10 +47,37 @@ class Checkin {
       'eventId': eventId,
       'ticketId': ticketId,
       'staffId': staffId,
+      'scannerDeviceId': scannerDeviceId,
+      'stage': stage.name,
       'result': result.name,
+      'seatInfo': seatInfo,
       'errorMessage': errorMessage,
       'scannedAt': Timestamp.fromDate(scannedAt),
     };
+  }
+}
+
+enum CheckinStage {
+  entry,
+  intermission,
+  unknown;
+
+  static CheckinStage fromString(String? value) {
+    return CheckinStage.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => CheckinStage.unknown,
+    );
+  }
+
+  String get displayName {
+    switch (this) {
+      case CheckinStage.entry:
+        return '초기 입장';
+      case CheckinStage.intermission:
+        return '인터미션 재입장';
+      case CheckinStage.unknown:
+        return '단계 미지정';
+    }
   }
 }
 
@@ -51,7 +87,9 @@ enum CheckinResult {
   canceled, // 취소된 티켓
   invalidTicket, // 잘못된 티켓
   expired, // 만료된 QR
-  invalidSignature; // 서명 오류
+  invalidSignature, // 서명 오류
+  notAllowedDevice, // 승인되지 않은 기기
+  missingEntryCheckin; // 1차 입장 미완료
 
   static CheckinResult fromString(String? value) {
     return CheckinResult.values.firstWhere(
@@ -74,6 +112,10 @@ enum CheckinResult {
         return '만료된 QR';
       case CheckinResult.invalidSignature:
         return '서명 오류';
+      case CheckinResult.notAllowedDevice:
+        return '승인되지 않은 기기';
+      case CheckinResult.missingEntryCheckin:
+        return '1차 입장 미완료';
     }
   }
 

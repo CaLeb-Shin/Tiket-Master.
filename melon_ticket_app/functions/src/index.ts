@@ -48,6 +48,12 @@ async function assertStaffOrAdmin(uid?: string): Promise<string> {
   return uid;
 }
 
+type CheckinStage = "entry" | "intermission";
+
+function normalizeCheckinStage(value: unknown): CheckinStage {
+  return value === "intermission" ? "intermission" : "entry";
+}
+
 function toDate(value: any): Date | null {
   if (!value) return null;
   if (value instanceof admin.firestore.Timestamp) {
@@ -434,6 +440,12 @@ export const requestTicketCancellation = functions.https.onCall(async (request) 
     if (ticket.status !== "issued") {
       throw new functions.https.HttpsError("failed-precondition", "취소 가능한 티켓이 아닙니다");
     }
+    if (ticket.entryCheckedInAt || ticket.intermissionCheckedInAt) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "입장 체크가 진행된 티켓은 취소할 수 없습니다"
+      );
+    }
 
     const eventRef = db.collection("events").doc(ticket.eventId);
     const eventDoc = await transaction.get(eventRef);
@@ -519,7 +531,116 @@ export const requestTicketCancellation = functions.https.onCall(async (request) 
 });
 
 // ============================================================
-// 5. issueQrToken - QR 토큰 발급 (60~120초 유효)
+// 5. registerScannerDevice - 스캐너 기기 등록/승인 상태 조회
+// ============================================================
+export const registerScannerDevice = functions.https.onCall(async (request) => {
+  const scannerUid = await assertStaffOrAdmin(request.auth?.uid);
+  const { deviceId, label, platform } = request.data ?? {};
+
+  if (!deviceId || typeof deviceId !== "string") {
+    throw new functions.https.HttpsError("invalid-argument", "기기 ID가 필요합니다");
+  }
+
+  const trimmedId = deviceId.trim();
+  if (trimmedId.length < 8 || trimmedId.length > 128) {
+    throw new functions.https.HttpsError("invalid-argument", "유효하지 않은 기기 ID입니다");
+  }
+
+  const userDoc = await db.collection("users").doc(scannerUid).get();
+  const user = userDoc.data() ?? {};
+  const ownerEmail = (request.auth?.token?.email as string | undefined) ?? (user.email as string | undefined) ?? "";
+  const ownerDisplayName =
+    (user.displayName as string | undefined) ||
+    (request.auth?.token?.name as string | undefined) ||
+    ownerEmail.split("@")[0] ||
+    "scanner-user";
+
+  const deviceRef = db.collection("scannerDevices").doc(trimmedId);
+  const existingDoc = await deviceRef.get();
+  const existing = existingDoc.data() ?? {};
+
+  if (existingDoc.exists && existing.ownerUid && existing.ownerUid !== scannerUid) {
+    throw new functions.https.HttpsError("permission-denied", "다른 계정에 등록된 기기입니다");
+  }
+
+  const approved = existingDoc.exists ? existing.approved === true : false;
+  const blocked = existingDoc.exists ? existing.blocked === true : false;
+
+  const payload: Record<string, unknown> = {
+    ownerUid: scannerUid,
+    ownerEmail,
+    ownerDisplayName,
+    label:
+      typeof label === "string" && label.trim().length > 0 ? label.trim() : "Scanner Device",
+    platform:
+      typeof platform === "string" && platform.trim().length > 0 ? platform.trim() : "unknown",
+    approved,
+    blocked,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  if (!existingDoc.exists) {
+    payload.requestedAt = admin.firestore.FieldValue.serverTimestamp();
+  }
+
+  await deviceRef.set(payload, { merge: true });
+
+  return {
+    success: true,
+    deviceId: trimmedId,
+    approved,
+    blocked,
+    message: blocked
+      ? "차단된 기기입니다"
+      : approved
+          ? "승인된 기기입니다"
+          : "승인 대기 중입니다",
+  };
+});
+
+// ============================================================
+// 6. setScannerDeviceApproval - 스캐너 기기 승인/해제/차단 (관리자)
+// ============================================================
+export const setScannerDeviceApproval = functions.https.onCall(async (request) => {
+  const approverUid = await assertAdmin(request.auth?.uid);
+  const { deviceId, approved, blocked } = request.data ?? {};
+
+  if (!deviceId || typeof deviceId !== "string") {
+    throw new functions.https.HttpsError("invalid-argument", "기기 ID가 필요합니다");
+  }
+  if (typeof approved !== "boolean") {
+    throw new functions.https.HttpsError("invalid-argument", "approved 값이 필요합니다");
+  }
+
+  const approverDoc = await db.collection("users").doc(approverUid).get();
+  const approverEmail =
+    (request.auth?.token?.email as string | undefined) ||
+    (approverDoc.data()?.email as string | undefined) ||
+    "";
+
+  await db.collection("scannerDevices").doc(deviceId.trim()).set(
+    {
+      approved,
+      blocked: blocked === true,
+      approvedAt: approved ? admin.firestore.FieldValue.serverTimestamp() : admin.firestore.FieldValue.delete(),
+      approvedByUid: approved ? approverUid : admin.firestore.FieldValue.delete(),
+      approvedByEmail: approved ? approverEmail : admin.firestore.FieldValue.delete(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return {
+    success: true,
+    deviceId: deviceId.trim(),
+    approved,
+    blocked: blocked === true,
+  };
+});
+
+// ============================================================
+// 7. issueQrToken - QR 토큰 발급 (60~120초 유효)
 // ============================================================
 export const issueQrToken = functions.https.onCall(async (request) => {
   const { ticketId } = request.data;
@@ -569,16 +690,73 @@ export const issueQrToken = functions.https.onCall(async (request) => {
 });
 
 // ============================================================
-// 6. verifyAndCheckIn - 입장 검증 및 체크인
+// 8. verifyAndCheckIn - 입장 검증 및 체크인(1차/2차)
 // ============================================================
 export const verifyAndCheckIn = functions.https.onCall(async (request) => {
   const { ticketId, qrToken } = request.data;
+  const scannerDeviceId = (request.data?.scannerDeviceId as string | undefined)?.trim();
+  const checkinStage = normalizeCheckinStage(request.data?.checkinStage);
   const scannerUid = await assertStaffOrAdmin(request.auth?.uid);
   const actorStaffId = scannerUid;
 
   if (!ticketId || !qrToken) {
     throw new functions.https.HttpsError("invalid-argument", "잘못된 요청입니다");
   }
+
+  if (!scannerDeviceId) {
+    await logCheckin(ticketId, actorStaffId, "notAllowedDevice", "기기 ID 누락", {
+      stage: checkinStage,
+    });
+    return {
+      success: false,
+      result: "notAllowedDevice",
+      message: "승인된 스캐너 기기에서만 입장 체크가 가능합니다",
+    };
+  }
+
+  const scannerDeviceDoc = await db.collection("scannerDevices").doc(scannerDeviceId).get();
+  const scannerDevice = scannerDeviceDoc.data();
+  if (!scannerDeviceDoc.exists || !scannerDevice) {
+    await logCheckin(ticketId, actorStaffId, "notAllowedDevice", "등록되지 않은 기기", {
+      stage: checkinStage,
+      scannerDeviceId,
+    });
+    return {
+      success: false,
+      result: "notAllowedDevice",
+      message: "등록되지 않은 스캐너 기기입니다. 관리자 승인 후 사용해 주세요",
+    };
+  }
+  if (scannerDevice.ownerUid !== scannerUid) {
+    await logCheckin(ticketId, actorStaffId, "notAllowedDevice", "기기 소유자 불일치", {
+      stage: checkinStage,
+      scannerDeviceId,
+    });
+    return {
+      success: false,
+      result: "notAllowedDevice",
+      message: "현재 계정으로 승인된 스캐너 기기가 아닙니다",
+    };
+  }
+  if (scannerDevice.blocked === true || scannerDevice.approved !== true) {
+    await logCheckin(ticketId, actorStaffId, "notAllowedDevice", "미승인/차단 기기", {
+      stage: checkinStage,
+      scannerDeviceId,
+    });
+    return {
+      success: false,
+      result: "notAllowedDevice",
+      message: scannerDevice.blocked === true ? "차단된 스캐너 기기입니다" : "승인 대기 중인 스캐너 기기입니다",
+    };
+  }
+
+  await db.collection("scannerDevices").doc(scannerDeviceId).set(
+    {
+      lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
 
   // 토큰에서 실제 JWT 추출 (ticketId:token 형식)
   const tokenParts = qrToken.split(":");
@@ -590,7 +768,10 @@ export const verifyAndCheckIn = functions.https.onCall(async (request) => {
     decoded = jwt.verify(actualToken, JWT_SECRET);
   } catch (error: any) {
     const result = error.name === "TokenExpiredError" ? "expired" : "invalidSignature";
-    await logCheckin(ticketId, actorStaffId, result, error.message);
+    await logCheckin(ticketId, actorStaffId, result, error.message, {
+      stage: checkinStage,
+      scannerDeviceId,
+    });
     return {
       success: false,
       result,
@@ -600,7 +781,11 @@ export const verifyAndCheckIn = functions.https.onCall(async (request) => {
 
   // 티켓 ID 일치 확인
   if (decoded.ticketId !== ticketId) {
-    await logCheckin(ticketId, actorStaffId, "invalidTicket", "티켓 ID 불일치");
+    await logCheckin(ticketId, actorStaffId, "invalidTicket", "티켓 ID 불일치", {
+      stage: checkinStage,
+      scannerDeviceId,
+      eventId: decoded?.eventId,
+    });
     return {
       success: false,
       result: "invalidTicket",
@@ -614,7 +799,10 @@ export const verifyAndCheckIn = functions.https.onCall(async (request) => {
     const ticketDoc = await transaction.get(ticketRef);
 
     if (!ticketDoc.exists) {
-      await logCheckin(ticketId, actorStaffId, "invalidTicket", "티켓 없음");
+      await logCheckin(ticketId, actorStaffId, "invalidTicket", "티켓 없음", {
+        stage: checkinStage,
+        scannerDeviceId,
+      });
       return {
         success: false,
         result: "invalidTicket",
@@ -623,10 +811,15 @@ export const verifyAndCheckIn = functions.https.onCall(async (request) => {
     }
 
     const ticket = ticketDoc.data()!;
+    const eventId = ticket.eventId as string;
 
     // QR 버전 확인 (재발급 시 이전 QR 무효화)
     if (decoded.qrVersion !== ticket.qrVersion) {
-      await logCheckin(ticketId, actorStaffId, "invalidTicket", "QR 버전 불일치");
+      await logCheckin(ticketId, actorStaffId, "invalidTicket", "QR 버전 불일치", {
+        stage: checkinStage,
+        scannerDeviceId,
+        eventId,
+      });
       return {
         success: false,
         result: "invalidTicket",
@@ -634,23 +827,60 @@ export const verifyAndCheckIn = functions.https.onCall(async (request) => {
       };
     }
 
-    // 상태 확인
-    if (ticket.status === "used") {
-      await logCheckin(ticketId, actorStaffId, "alreadyUsed", "이미 사용됨");
-      return {
-        success: false,
-        result: "alreadyUsed",
-        message: "이미 사용된 티켓입니다",
-      };
-    }
-
     if (ticket.status === "canceled") {
-      await logCheckin(ticketId, actorStaffId, "canceled", "취소된 티켓");
+      await logCheckin(ticketId, actorStaffId, "canceled", "취소된 티켓", {
+        stage: checkinStage,
+        scannerDeviceId,
+        eventId,
+      });
       return {
         success: false,
         result: "canceled",
         message: "취소된 티켓입니다",
       };
+    }
+
+    const entryCheckedInAt = ticket.entryCheckedInAt;
+    const intermissionCheckedInAt = ticket.intermissionCheckedInAt;
+
+    if (checkinStage === "entry") {
+      if (entryCheckedInAt || ticket.status === "used" || intermissionCheckedInAt) {
+        await logCheckin(ticketId, actorStaffId, "alreadyUsed", "1차 입장 이미 완료", {
+          stage: checkinStage,
+          scannerDeviceId,
+          eventId,
+        });
+        return {
+          success: false,
+          result: "alreadyUsed",
+          message: "이미 1차 입장이 완료된 티켓입니다",
+        };
+      }
+    } else {
+      if (!entryCheckedInAt) {
+        await logCheckin(ticketId, actorStaffId, "missingEntryCheckin", "1차 입장 미완료", {
+          stage: checkinStage,
+          scannerDeviceId,
+          eventId,
+        });
+        return {
+          success: false,
+          result: "missingEntryCheckin",
+          message: "1차 입장 체크 후 인터미션 재입장을 처리할 수 있습니다",
+        };
+      }
+      if (intermissionCheckedInAt || ticket.status === "used") {
+        await logCheckin(ticketId, actorStaffId, "alreadyUsed", "2차 입장 이미 완료", {
+          stage: checkinStage,
+          scannerDeviceId,
+          eventId,
+        });
+        return {
+          success: false,
+          result: "alreadyUsed",
+          message: "이미 2차 입장까지 완료된 티켓입니다",
+        };
+      }
     }
 
     // 좌석 정보 조회
@@ -660,34 +890,52 @@ export const verifyAndCheckIn = functions.https.onCall(async (request) => {
       ? `${seat.block}구역 ${seat.floor} ${seat.row || ""}열 ${seat.number}번`
       : "좌석 정보 없음";
 
-    // 체크인 처리
-    transaction.update(ticketRef, {
-      status: "used",
-      usedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    if (checkinStage === "entry") {
+      transaction.update(ticketRef, {
+        entryCheckedInAt: admin.firestore.FieldValue.serverTimestamp(),
+        entryCheckinStaffId: actorStaffId,
+        lastCheckInStage: "entry",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      transaction.update(ticketRef, {
+        intermissionCheckedInAt: admin.firestore.FieldValue.serverTimestamp(),
+        intermissionCheckinStaffId: actorStaffId,
+        lastCheckInStage: "intermission",
+        status: "used",
+        usedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
 
-    // 좌석 상태도 업데이트
     if (seatDoc.exists) {
       transaction.update(seatDoc.ref, { status: "used" });
     }
 
-    // 체크인 기록
     const checkinRef = db.collection("checkins").doc();
     transaction.set(checkinRef, {
-      eventId: ticket.eventId,
+      eventId,
       ticketId,
       staffId: actorStaffId,
+      scannerDeviceId,
+      stage: checkinStage,
       result: "success",
+      seatInfo,
       scannedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    functions.logger.info(`체크인 성공: 티켓 ${ticketId}, 좌석 ${seatInfo}`);
+    functions.logger.info(
+      `체크인 성공: 티켓 ${ticketId}, 단계=${checkinStage}, 좌석=${seatInfo}, device=${scannerDeviceId}`
+    );
 
     return {
       success: true,
       result: "success",
-      message: "입장 확인",
+      title: checkinStage === "entry" ? "1차 입장 확인" : "2차 재입장 확인",
+      message: checkinStage === "entry" ? "초기 입장 체크 완료" : "인터미션 재입장 체크 완료",
       seatInfo,
+      stage: checkinStage,
+      ticketStatus: checkinStage === "entry" ? "entryCheckedIn" : "used",
     };
   });
 });
@@ -699,13 +947,23 @@ async function logCheckin(
   ticketId: string,
   staffId: string,
   result: string,
-  errorMessage: string
+  errorMessage: string,
+  options: {
+    eventId?: string;
+    stage?: CheckinStage;
+    scannerDeviceId?: string;
+    seatInfo?: string;
+  } = {}
 ): Promise<void> {
   try {
     await db.collection("checkins").add({
+      eventId: options.eventId ?? "",
       ticketId,
       staffId: staffId || "unknown",
+      scannerDeviceId: options.scannerDeviceId ?? "",
+      stage: options.stage ?? "entry",
       result,
+      seatInfo: options.seatInfo ?? null,
       errorMessage,
       scannedAt: admin.firestore.FieldValue.serverTimestamp(),
     });

@@ -11,8 +11,11 @@ class Ticket {
   final TicketStatus status;
   final int qrVersion; // QR 버전 (재발급 시 증가)
   final DateTime issuedAt;
+  final DateTime? entryCheckedInAt;
+  final DateTime? intermissionCheckedInAt;
   final DateTime? usedAt;
   final DateTime? canceledAt;
+  final String? lastCheckInStage;
 
   Ticket({
     required this.id,
@@ -24,8 +27,11 @@ class Ticket {
     required this.status,
     required this.qrVersion,
     required this.issuedAt,
+    this.entryCheckedInAt,
+    this.intermissionCheckedInAt,
     this.usedAt,
     this.canceledAt,
+    this.lastCheckInStage,
   });
 
   factory Ticket.fromFirestore(DocumentSnapshot doc) {
@@ -40,8 +46,12 @@ class Ticket {
       status: TicketStatus.fromString(data['status']),
       qrVersion: data['qrVersion'] ?? 1,
       issuedAt: (data['issuedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      entryCheckedInAt: (data['entryCheckedInAt'] as Timestamp?)?.toDate(),
+      intermissionCheckedInAt:
+          (data['intermissionCheckedInAt'] as Timestamp?)?.toDate(),
       usedAt: (data['usedAt'] as Timestamp?)?.toDate(),
       canceledAt: (data['canceledAt'] as Timestamp?)?.toDate(),
+      lastCheckInStage: data['lastCheckInStage'] as String?,
     );
   }
 
@@ -55,10 +65,21 @@ class Ticket {
       'status': status.name,
       'qrVersion': qrVersion,
       'issuedAt': Timestamp.fromDate(issuedAt),
+      'entryCheckedInAt': entryCheckedInAt != null
+          ? Timestamp.fromDate(entryCheckedInAt!)
+          : null,
+      'intermissionCheckedInAt': intermissionCheckedInAt != null
+          ? Timestamp.fromDate(intermissionCheckedInAt!)
+          : null,
       'usedAt': usedAt != null ? Timestamp.fromDate(usedAt!) : null,
       'canceledAt': canceledAt != null ? Timestamp.fromDate(canceledAt!) : null,
+      'lastCheckInStage': lastCheckInStage,
     };
   }
+
+  bool get isEntryCheckedIn => entryCheckedInAt != null;
+  bool get isIntermissionCheckedIn => intermissionCheckedInAt != null;
+  bool get hasAnyCheckin => isEntryCheckedIn || isIntermissionCheckedIn;
 }
 
 enum TicketStatus {

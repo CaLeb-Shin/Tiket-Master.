@@ -662,7 +662,7 @@ class _QuickBookingTab extends ConsumerWidget {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: const ['상관없음', '보컬', '피아노', '기타', '드럼', '관악']
+                      children: const ['상관없음', '현악', '목관', '금관', '관악', '하프', '그랜드피아노', '밴드']
                           .map((inst) {
                         final selected = inst == instrument;
                         return ChoiceChip(

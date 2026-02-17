@@ -16,6 +16,7 @@ class FirestoreService {
   CollectionReference get seatBlocks => _firestore.collection('seatBlocks');
   CollectionReference get tickets => _firestore.collection('tickets');
   CollectionReference get checkins => _firestore.collection('checkins');
+  CollectionReference get scannerDevices => _firestore.collection('scannerDevices');
   CollectionReference get users => _firestore.collection('users');
   CollectionReference get venueViews => _firestore.collection('venueViews');
 

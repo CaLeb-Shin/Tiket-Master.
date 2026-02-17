@@ -7,6 +7,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../app/theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/functions_service.dart';
+import '../../services/scanner_device_service.dart';
 
 class ScannerScreen extends ConsumerStatefulWidget {
   const ScannerScreen({super.key});
@@ -17,9 +18,16 @@ class ScannerScreen extends ConsumerStatefulWidget {
 
 class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   late final MobileScannerController _controller;
+  String _checkinStage = 'entry';
   bool _isProcessing = false;
   _ScanResultData? _lastResult;
   Timer? _resultDismissTimer;
+  bool _isDeviceLoading = true;
+  bool _isDeviceApproved = false;
+  bool _isDeviceBlocked = false;
+  String? _scannerDeviceId;
+  String _scannerDeviceLabel = '';
+  String? _deviceStatusMessage;
 
   @override
   void initState() {
@@ -28,6 +36,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       detectionSpeed: DetectionSpeed.normal,
       facing: CameraFacing.back,
     );
+    unawaited(_registerCurrentDevice());
   }
 
   @override
@@ -35,6 +44,68 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     _resultDismissTimer?.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _registerCurrentDevice({bool silent = false}) async {
+    if (!mounted) return;
+    setState(() => _isDeviceLoading = true);
+
+    try {
+      final authUser = ref.read(authStateProvider).valueOrNull;
+      if (authUser == null) {
+        throw const FormatException('스캐너 사용 전 로그인이 필요합니다');
+      }
+
+      final scannerDeviceService = ref.read(scannerDeviceServiceProvider);
+      final deviceId = await scannerDeviceService.getOrCreateInstallationId();
+      final label = scannerDeviceService.defaultLabel();
+      final platform = scannerDeviceService.platformName();
+
+      final result = await ref.read(functionsServiceProvider).registerScannerDevice(
+            deviceId: deviceId,
+            label: label,
+            platform: platform,
+          );
+
+      if (!mounted) return;
+      final approved = result['approved'] == true;
+      final blocked = result['blocked'] == true;
+      final message = result['message'] as String?;
+
+      setState(() {
+        _scannerDeviceId = deviceId;
+        _scannerDeviceLabel = label;
+        _isDeviceApproved = approved;
+        _isDeviceBlocked = blocked;
+        _deviceStatusMessage = blocked
+            ? '차단된 기기입니다. 관리자에게 해제를 요청하세요.'
+            : approved
+                ? '승인된 기기'
+                : (message ?? '승인 대기 중입니다.');
+      });
+
+      if (!approved || blocked) {
+        _controller.stop();
+      } else {
+        _controller.start();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isDeviceApproved = false;
+        _deviceStatusMessage = '기기 등록 실패: $e';
+      });
+      _controller.stop();
+    } finally {
+      if (mounted) {
+        setState(() => _isDeviceLoading = false);
+      }
+      if (!silent && mounted && _deviceStatusMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_deviceStatusMessage!)),
+        );
+      }
+    }
   }
 
   // ──────────────────────────────────────────────
@@ -55,6 +126,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       if (authUser == null) {
         throw const FormatException('스캐너 사용 전 로그인이 필요합니다');
       }
+      if (_scannerDeviceId == null || !_isDeviceApproved || _isDeviceBlocked) {
+        throw const FormatException('승인된 스캐너 기기에서만 입장 체크가 가능합니다');
+      }
 
       // 권장 형식: ticketId:jwtToken
       final sepIndex = raw.indexOf(':');
@@ -74,6 +148,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         ticketId: ticketId,
         qrToken: qrToken,
         staffId: authUser.uid,
+        scannerDeviceId: _scannerDeviceId!,
+        checkinStage: _checkinStage,
       );
 
       final success = result['success'] == true;
@@ -84,7 +160,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       setState(() {
         _lastResult = _ScanResultData(
           isSuccess: success,
-          title: success ? '입장 확인' : '입장 불가',
+          title: success ? (result['title'] as String? ?? '입장 확인') : '입장 불가',
           message: message,
           seatInfo: seatInfo,
         );
@@ -114,7 +190,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         _resultDismissTimer = Timer(const Duration(seconds: 3), () {
           if (mounted) {
             setState(() => _lastResult = null);
-            _controller.start();
+            if (_isDeviceApproved && !_isDeviceBlocked) {
+              _controller.start();
+            }
           }
         });
       }
@@ -146,6 +224,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
                 // Processing indicator
                 if (_isProcessing) _buildProcessingOverlay(),
+
+                // Device approval guard
+                if (_isDeviceLoading || !_isDeviceApproved || _isDeviceBlocked)
+                  _buildDeviceGuardOverlay(),
 
                 // Result overlay
                 if (_lastResult != null && !_isProcessing)
@@ -285,7 +367,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         },
         onDetect: (capture) {
           final barcode = capture.barcodes.firstOrNull;
-          if (barcode?.rawValue != null && !_isProcessing) {
+          if (barcode?.rawValue != null &&
+              !_isProcessing &&
+              _isDeviceApproved &&
+              !_isDeviceBlocked) {
             _controller.stop();
             _processQrCode(barcode!.rawValue!);
           }
@@ -336,7 +421,11 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               ),
               const SizedBox(height: 24),
               OutlinedButton.icon(
-                onPressed: () => _controller.start(),
+                onPressed: () {
+                  if (_isDeviceApproved && !_isDeviceBlocked) {
+                    _controller.start();
+                  }
+                },
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: Text(
                   '다시 시도',
@@ -385,6 +474,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   // ──────────────────────────────────────────────
 
   Widget _buildInstructionBadge() {
+    final stageLabel = _checkinStage == 'intermission' ? '2차(인터미션)' : '1차(초기입장)';
     return Positioned(
       top: 24,
       left: 0,
@@ -410,7 +500,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                'QR 코드를 영역 안에 맞춰주세요',
+                '$stageLabel QR을 영역 안에 맞춰주세요',
                 style: GoogleFonts.notoSans(
                   color: AppTheme.textPrimary,
                   fontSize: 13,
@@ -466,6 +556,89 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     );
   }
 
+  Widget _buildDeviceGuardOverlay() {
+    final title = _isDeviceLoading
+        ? '스캐너 기기 확인 중'
+        : _isDeviceBlocked
+            ? '기기 사용이 차단되었습니다'
+            : '승인 대기 중인 스캐너';
+    final description = _isDeviceLoading
+        ? '잠시만 기다려주세요.'
+        : (_deviceStatusMessage ??
+            '관리자 승인 후 스캔이 활성화됩니다. 승인 요청은 자동으로 접수됩니다.');
+
+    return Container(
+      color: const Color(0xCC0B0B0F),
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 26),
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: AppTheme.card,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppTheme.borderLight, width: 0.8),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _isDeviceLoading
+                    ? Icons.hourglass_top_rounded
+                    : (_isDeviceBlocked
+                        ? Icons.block_rounded
+                        : Icons.admin_panel_settings_rounded),
+                color: _isDeviceBlocked ? AppTheme.error : AppTheme.gold,
+                size: 34,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: GoogleFonts.notoSans(
+                  color: AppTheme.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                description,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.notoSans(
+                  color: AppTheme.textSecondary,
+                  fontSize: 12,
+                  height: 1.5,
+                ),
+              ),
+              if (_scannerDeviceId != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '기기 ID: ${_scannerDeviceId!.substring(0, 8)}...',
+                  style: GoogleFonts.robotoMono(
+                    color: AppTheme.textTertiary,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isDeviceLoading
+                      ? null
+                      : () => _registerCurrentDevice(silent: true),
+                  child: Text(
+                    _isDeviceLoading ? '확인 중...' : '승인 상태 새로고침',
+                    style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ──────────────────────────────────────────────
   //  Result Overlay
   // ──────────────────────────────────────────────
@@ -477,7 +650,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       onTap: () {
         _resultDismissTimer?.cancel();
         setState(() => _lastResult = null);
-        _controller.start();
+        if (_isDeviceApproved && !_isDeviceBlocked) {
+          _controller.start();
+        }
       },
       child: Container(
         color: Color.lerp(const Color(0xFF0B0B0F), color, 0.08),
@@ -590,7 +765,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                         onTap: () {
                           _resultDismissTimer?.cancel();
                           setState(() => _lastResult = null);
-                          _controller.start();
+                          if (_isDeviceApproved && !_isDeviceBlocked) {
+                            _controller.start();
+                          }
                         },
                         borderRadius: BorderRadius.circular(12),
                         child: Center(
@@ -622,11 +799,17 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   // ──────────────────────────────────────────────
 
   Widget _buildBottomPanel() {
+    final statusColor = _isProcessing
+        ? AppTheme.gold
+        : (_lastResult != null
+            ? (_lastResult!.isSuccess ? AppTheme.success : AppTheme.error)
+            : (_isDeviceApproved ? AppTheme.success : AppTheme.warning));
+
     return Container(
       padding: EdgeInsets.only(
         left: 24,
         right: 24,
-        top: 16,
+        top: 14,
         bottom: MediaQuery.of(context).padding.bottom + 16,
       ),
       decoration: const BoxDecoration(
@@ -635,73 +818,147 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
           top: BorderSide(color: AppTheme.border, width: 0.5),
         ),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppTheme.goldSubtle,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.confirmation_number_rounded,
-              color: AppTheme.gold,
-              size: 20,
-            ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.goldSubtle,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.confirmation_number_rounded,
+                  color: AppTheme.gold,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '티켓 QR을 스캔하세요',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _checkinStage == 'intermission'
+                          ? '인터미션 재입장 체크 모드'
+                          : '초기 입장 체크 모드',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 12,
+                        color: AppTheme.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: statusColor.withAlpha(100),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '티켓 QR을 스캔하세요',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: SegmentedButton<String>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment<String>(value: 'entry', label: Text('1차 입장')),
+                    ButtonSegment<String>(
+                        value: 'intermission', label: Text('인터미션')),
+                  ],
+                  selected: {_checkinStage},
+                  onSelectionChanged: (value) {
+                    setState(() => _checkinStage = value.first);
+                  },
+                  style: ButtonStyle(
+                    backgroundColor:
+                        WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return AppTheme.goldSubtle;
+                      }
+                      return AppTheme.card;
+                    }),
+                    foregroundColor:
+                        WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return AppTheme.gold;
+                      }
+                      return AppTheme.textSecondary;
+                    }),
+                    side: WidgetStateProperty.resolveWith((states) {
+                      return BorderSide(
+                        color: states.contains(WidgetState.selected)
+                            ? AppTheme.gold
+                            : AppTheme.border,
+                        width: 0.8,
+                      );
+                    }),
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '입장객의 QR 코드를 카메라에 비춰주세요',
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () => _registerCurrentDevice(silent: true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.cardElevated,
+                  foregroundColor: AppTheme.textPrimary,
+                  minimumSize: const Size(92, 40),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: const BorderSide(color: AppTheme.border),
+                  ),
+                ),
+                child: Text(
+                  '기기 확인',
                   style: GoogleFonts.notoSans(
                     fontSize: 12,
-                    color: AppTheme.textTertiary,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          // Status indicator
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: _isProcessing
-                  ? AppTheme.gold
-                  : (_lastResult != null
-                      ? (_lastResult!.isSuccess
+          if (_scannerDeviceId != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '${_scannerDeviceLabel.isEmpty ? 'Scanner' : _scannerDeviceLabel} · '
+                '${_isDeviceBlocked ? '차단됨' : (_isDeviceApproved ? '승인됨' : '승인대기')}',
+                style: GoogleFonts.robotoMono(
+                  fontSize: 11,
+                  color: _isDeviceBlocked
+                      ? AppTheme.error
+                      : (_isDeviceApproved
                           ? AppTheme.success
-                          : AppTheme.error)
-                      : AppTheme.success),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: (_isProcessing
-                          ? AppTheme.gold
-                          : (_lastResult != null
-                              ? (_lastResult!.isSuccess
-                                  ? AppTheme.success
-                                  : AppTheme.error)
-                              : AppTheme.success))
-                      .withAlpha(100),
-                  blurRadius: 8,
+                          : AppTheme.warning),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

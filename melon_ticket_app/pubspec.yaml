@@ -47,6 +47,7 @@ dependencies:
   json_annotation: ^4.9.0
   uuid: ^4.5.1
   image: ^4.2.0
+  shared_preferences: ^2.3.2
   
   # Fonts
   google_fonts: ^6.2.1

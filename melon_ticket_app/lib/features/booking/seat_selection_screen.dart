@@ -1210,16 +1210,17 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     final sideAffinity = (distance / maxDistance).clamp(0.0, 1.0);
 
     switch (instrument) {
-      case '보컬':
-      case '피아노':
+      case '현악':
+      case '그랜드피아노':
         return centerAffinity * 18;
-      case '드럼':
-      case '타악':
-      case '기타':
-      case '베이스':
+      case '하프':
+        return sideAffinity * 16;
+      case '밴드':
         return sideAffinity * 18;
-      case '바이올린':
-      case '첼로':
+      case '목관':
+        return (centerAffinity * 0.7 + sideAffinity * 0.3) * 14;
+      case '금관':
+        return (centerAffinity * 0.4 + sideAffinity * 0.6) * 14;
       case '관악':
         return (centerAffinity * 0.6 + sideAffinity * 0.4) * 14;
       default:
@@ -1314,8 +1315,19 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     final fmt = NumberFormat('#,###');
     final ratio = total > 0 ? available / total : 0.0;
     final floor = _selectedFloor ?? '1층';
-    final viewKey = '${zone}_$floor';
-    final hasView = venueViews.containsKey(viewKey);
+    // 구역 대표 시야 찾기 (buildKey 정규화 사용)
+    final viewKey = VenueSeatView.buildKey(zone: zone, floor: floor);
+    final zoneView = venueViews[viewKey] ??
+        venueViews.values.cast<VenueSeatView?>().firstWhere(
+              (v) =>
+                  v != null &&
+                  v.zone.trim().toUpperCase() == zone.trim().toUpperCase() &&
+                  v.floor.trim() == floor.trim() &&
+                  (v.row ?? '').trim().isEmpty &&
+                  v.seat == null,
+              orElse: () => null,
+            );
+    final hasView = zoneView != null;
 
     return GestureDetector(
       onTap: available > 0 ? () => setState(() => _selectedZone = zone) : null,
@@ -1360,7 +1372,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                 if (hasView)
                   GestureDetector(
                     onTap: () =>
-                        _showSeatView(venueViews[viewKey]!, zone, grade, color),
+                        _showSeatView(zoneView, zone, grade, color),
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
@@ -1381,7 +1393,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             if (hasView)
               GestureDetector(
                 onTap: () =>
-                    _showSeatView(venueViews[viewKey]!, zone, grade, color),
+                    _showSeatView(zoneView, zone, grade, color),
                 child: Container(
                   width: double.infinity,
                   height: 48,
@@ -1395,7 +1407,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     fit: StackFit.expand,
                     children: [
                       Image.network(
-                        venueViews[viewKey]!.imageUrl,
+                        zoneView.imageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
                           color: AppTheme.surface,
@@ -1485,8 +1497,18 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         .grade;
     final color = _getGradeColor(grade);
     final floor = _selectedFloor ?? '1층';
-    final viewKey = '${zone}_$floor';
-    final hasView = venueViews.containsKey(viewKey);
+    final detailViewKey = VenueSeatView.buildKey(zone: zone, floor: floor);
+    final zoneView = venueViews[detailViewKey] ??
+        venueViews.values.cast<VenueSeatView?>().firstWhere(
+              (v) =>
+                  v != null &&
+                  v.zone.trim().toUpperCase() == zone.trim().toUpperCase() &&
+                  v.floor.trim() == floor.trim() &&
+                  (v.row ?? '').trim().isEmpty &&
+                  v.seat == null,
+              orElse: () => null,
+            );
+    final hasView = zoneView != null;
 
     return Column(
       children: [
@@ -1542,7 +1564,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               if (hasView)
                 GestureDetector(
                   onTap: () =>
-                      _showSeatView(venueViews[viewKey]!, zone, grade, color),
+                      _showSeatView(zoneView, zone, grade, color),
                   child: Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -2368,15 +2390,13 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
 
     const allowed = {
       '상관없음',
-      '보컬',
-      '피아노',
-      '기타',
-      '베이스',
-      '드럼',
-      '타악',
-      '바이올린',
-      '첼로',
+      '현악',
+      '목관',
+      '금관',
       '관악',
+      '하프',
+      '그랜드피아노',
+      '밴드',
     };
     if (allowed.contains(normalized)) {
       return normalized;
@@ -2386,17 +2406,14 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
 
   String _suggestPositionForInstrument(String instrument) {
     switch (instrument) {
-      case '보컬':
-      case '피아노':
-      case '바이올린':
-      case '첼로':
+      case '현악':
+      case '그랜드피아노':
+      case '목관':
       case '관악':
         return '가운데';
-      case '드럼':
-      case '타악':
-        return '앞쪽';
-      case '기타':
-      case '베이스':
+      case '하프':
+      case '금관':
+      case '밴드':
         return '통로';
       default:
         return '가운데';

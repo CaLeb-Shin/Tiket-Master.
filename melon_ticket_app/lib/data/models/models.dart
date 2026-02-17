@@ -5,5 +5,6 @@ export 'event.dart';
 export 'order.dart';
 export 'seat.dart';
 export 'seat_block.dart';
+export 'scanner_device.dart';
 export 'ticket.dart';
 export 'venue.dart';

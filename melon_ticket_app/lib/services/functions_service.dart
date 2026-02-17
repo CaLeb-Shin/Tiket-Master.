@@ -61,12 +61,46 @@ class FunctionsService {
     required String ticketId,
     required String qrToken,
     required String staffId,
+    required String scannerDeviceId,
+    required String checkinStage,
   }) async {
     final callable = _functions.httpsCallable('verifyAndCheckIn');
     final result = await callable.call({
       'ticketId': ticketId,
       'qrToken': qrToken,
       'staffId': staffId,
+      'scannerDeviceId': scannerDeviceId,
+      'checkinStage': checkinStage,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 스캐너 기기 등록/승인상태 조회
+  Future<Map<String, dynamic>> registerScannerDevice({
+    required String deviceId,
+    required String label,
+    required String platform,
+  }) async {
+    final callable = _functions.httpsCallable('registerScannerDevice');
+    final result = await callable.call({
+      'deviceId': deviceId,
+      'label': label,
+      'platform': platform,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 스캐너 기기 승인/차단 상태 변경 (관리자)
+  Future<Map<String, dynamic>> setScannerDeviceApproval({
+    required String deviceId,
+    required bool approved,
+    bool blocked = false,
+  }) async {
+    final callable = _functions.httpsCallable('setScannerDeviceApproval');
+    final result = await callable.call({
+      'deviceId': deviceId,
+      'approved': approved,
+      'blocked': blocked,
     });
     return Map<String, dynamic>.from(result.data);
   }
