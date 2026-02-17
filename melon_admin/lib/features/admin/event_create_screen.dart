@@ -39,7 +39,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   final _venueNameCtrl = TextEditingController();
   final _venueAddressCtrl = TextEditingController();
   final _runningTimeCtrl = TextEditingController(text: '120');
-  final _maxTicketsCtrl = TextEditingController(text: '4');
+  final _maxTicketsCtrl = TextEditingController(text: '0');
   final _descriptionCtrl = TextEditingController();
   final _castCtrl = TextEditingController();
   final _organizerCtrl = TextEditingController(); // 주최
@@ -258,11 +258,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         _card(
           child: Column(
             children: [
-              _field('공연명',
+              _field('공연명', isRequired: true,
                   child: TextFormField(
                     controller: _titleCtrl,
                     style: _inputStyle(),
-                    decoration: _inputDecoration('공연 제목을 입력하세요'),
+                    decoration: _inputDecoration(null),
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? '공연명을 입력해주세요' : null,
                   )),
@@ -275,20 +275,20 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       children: [
                         Expanded(
                           child:
-                              _field('카테고리', child: _buildCategoryDropdown()),
+                              _field('카테고리', isRequired: true, child: _buildCategoryDropdown()),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: _field('공연일시', child: _buildDateTimePicker()),
+                          child: _field('공연일시', isRequired: true, child: _buildDateTimePicker()),
                         ),
                       ],
                     );
                   }
                   return Column(
                     children: [
-                      _field('카테고리', child: _buildCategoryDropdown()),
+                      _field('카테고리', isRequired: true, child: _buildCategoryDropdown()),
                       const SizedBox(height: 14),
-                      _field('공연일시', child: _buildDateTimePicker()),
+                      _field('공연일시', isRequired: true, child: _buildDateTimePicker()),
                     ],
                   );
                 },
@@ -1268,7 +1268,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             child: TextFormField(
               controller: _descriptionCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration('공연 소개를 입력하세요'),
+              decoration: _inputDecoration(null),
               maxLines: 4,
             )),
         const SizedBox(height: 14),
@@ -1277,7 +1277,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         LayoutBuilder(
           builder: (context, constraints) {
             final isWide = constraints.maxWidth >= 460;
-            final ageLimitField = _field('관람등급',
+            final ageLimitField = _field('관람등급', isRequired: true,
                 child: DropdownButtonFormField<String>(
                   initialValue: _ageLimit,
                   items: _ageLimits
@@ -1290,11 +1290,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   decoration: _inputDecoration(null),
                   dropdownColor: AppTheme.cardElevated,
                 ));
-            final runningTimeField = _field('공연시간 (분)',
+            final runningTimeField = _field('공연시간 (분)', isRequired: true,
                 child: TextFormField(
                   controller: _runningTimeCtrl,
                   style: _inputStyle(),
-                  decoration: _inputDecoration('120'),
+                  decoration: _inputDecoration(null),
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 ));
@@ -1319,16 +1319,16 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         const SizedBox(height: 14),
 
         // 공연장명
-        _field('공연장명',
+        _field('공연장명', isRequired: true,
             child: TextFormField(
               controller: _venueNameCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration('공연장 이름'),
+              decoration: _inputDecoration(null),
             )),
         const SizedBox(height: 14),
 
         // 공연장 주소 (카카오 주소 검색)
-        _field('공연장 주소', child: _buildAddressField()),
+        _field('공연장 주소', isRequired: true, child: _buildAddressField()),
         const SizedBox(height: 14),
 
         // 출연진
@@ -1336,7 +1336,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             child: TextFormField(
               controller: _castCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration('홍길동, 김철수'),
+              decoration: _inputDecoration(null),
             )),
         const SizedBox(height: 14),
 
@@ -1348,13 +1348,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 child: TextFormField(
                   controller: _organizerCtrl,
                   style: _inputStyle(),
-                  decoration: _inputDecoration('(주)멜론엔터테인먼트'),
+                  decoration: _inputDecoration(null),
                 ));
             final plannerField = _field('기획',
                 child: TextFormField(
                   controller: _plannerCtrl,
                   style: _inputStyle(),
-                  decoration: _inputDecoration('기획사명'),
+                  decoration: _inputDecoration(null),
                 ));
             if (isWide) {
               return Row(
@@ -1533,19 +1533,32 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             child: TextFormField(
               controller: _noticeCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration('유의사항 입력'),
+              decoration: _inputDecoration(null),
               maxLines: 3,
             )),
         const SizedBox(height: 14),
 
         // 최대 구매 수량
         _field('1인 최대 구매 수량',
-            child: TextFormField(
-              controller: _maxTicketsCtrl,
-              style: _inputStyle(),
-              decoration: _inputDecoration('4 (0 입력시 무제한)'),
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: _maxTicketsCtrl,
+                  style: _inputStyle(),
+                  decoration: _inputDecoration(null),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '0 입력 시 무제한',
+                  style: GoogleFonts.notoSans(
+                    fontSize: 11,
+                    color: AppTheme.textTertiary,
+                  ),
+                ),
+              ],
             )),
       ],
     );
@@ -1560,7 +1573,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               child: TextFormField(
                 controller: _venueAddressCtrl,
                 style: _inputStyle(),
-                decoration: _inputDecoration('주소 검색 버튼을 눌러주세요'),
+                decoration: _inputDecoration(null),
                 readOnly: true,
                 onTap: _searchAddress,
               ),
@@ -1686,11 +1699,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   TextFormField(
                     controller: nameCtrl,
                     style: _inputStyle(),
-                    decoration: _inputDecoration(
-                      type == 'bulk'
-                          ? '예: 2매 이상 구매시'
-                          : '예: 국가유공자(동반1인)',
-                    ),
+                    decoration: _inputDecoration(null),
                   ),
 
                   if (type == 'bulk') ...[
@@ -1702,7 +1711,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                     TextFormField(
                       controller: qtyCtrl,
                       style: _inputStyle(),
-                      decoration: _inputDecoration('2'),
+                      decoration: _inputDecoration(null),
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     ),
@@ -1716,7 +1725,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   TextFormField(
                     controller: rateCtrl,
                     style: _inputStyle(),
-                    decoration: _inputDecoration('20'),
+                    decoration: _inputDecoration(null),
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   ),
@@ -1729,11 +1738,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   TextFormField(
                     controller: descCtrl,
                     style: _inputStyle(),
-                    decoration: _inputDecoration(
-                      type == 'bulk'
-                          ? '예: 2매 이상만 예매 가능. 전체취소만 가능.'
-                          : '예: 증빙서류 지참 필수',
-                    ),
+                    decoration: _inputDecoration(null),
                   ),
                 ],
               ),
@@ -1933,17 +1938,30 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   // SHARED WIDGETS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _field(String label, {required Widget child}) {
+  Widget _field(String label, {required Widget child, bool isRequired = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: GoogleFonts.notoSans(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textSecondary,
-          ),
+        Row(
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.notoSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            if (isRequired)
+              Text(
+                ' *',
+                style: GoogleFonts.notoSans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.error,
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         child,
@@ -2206,7 +2224,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         saleStartAt: saleStartAt,
         saleEndAt: saleEndAt,
         price: basePrice,
-        maxTicketsPerOrder: int.tryParse(_maxTicketsCtrl.text) ?? 4,
+        maxTicketsPerOrder: int.tryParse(_maxTicketsCtrl.text) ?? 0,
         totalSeats: totalSeats,
         availableSeats: totalSeats,
         status: EventStatus.active,
