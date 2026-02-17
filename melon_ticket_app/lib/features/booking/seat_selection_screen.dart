@@ -5,14 +5,14 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:panorama_viewer/panorama_viewer.dart';
-import '../../app/theme.dart';
-import '../../data/models/event.dart';
-import '../../data/models/seat.dart';
-import '../../data/repositories/event_repository.dart';
-import '../../data/repositories/seat_repository.dart';
-import '../../data/repositories/venue_repository.dart';
-import '../../data/repositories/venue_view_repository.dart';
-import '../../services/auth_service.dart';
+import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/data/models/event.dart';
+import 'package:melon_core/data/models/seat.dart';
+import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/data/repositories/seat_repository.dart';
+import 'package:melon_core/data/repositories/venue_repository.dart';
+import 'package:melon_core/data/repositories/venue_view_repository.dart';
+import 'package:melon_core/services/auth_service.dart';
 
 // =============================================================================
 // 좌석 선택 화면 (모바일 최적화 - AI추천 / 구역선택 / 빠른예매)

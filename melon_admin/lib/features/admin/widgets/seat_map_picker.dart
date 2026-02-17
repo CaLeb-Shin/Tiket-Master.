@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:excel/excel.dart' as excel_pkg;
-import '../../../data/models/venue.dart';
+import 'package:melon_core/data/models/venue.dart';
 
 /// 엑셀에서 파싱된 좌석 데이터
 class ParsedSeatData {

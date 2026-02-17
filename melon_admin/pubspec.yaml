@@ -1,5 +1,5 @@
-name: melon_ticket_app
-description: "멜론티켓 사용자 앱 - 모바일 티켓팅"
+name: melon_admin
+description: "멜론티켓 관리자 웹 대시보드"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -19,7 +19,7 @@ dependencies:
   # Firebase (direct usage in app)
   firebase_core: ^3.8.0
   firebase_auth: ^5.3.3
-  firebase_messaging: ^15.1.5
+  cloud_firestore: ^5.5.0
 
   # State Management
   flutter_riverpod: ^2.6.1
@@ -27,29 +27,25 @@ dependencies:
   # Routing
   go_router: ^14.6.2
 
-  # UI/UX
+  # UI
   cupertino_icons: ^1.0.8
   qr_flutter: ^4.1.0
-  mobile_scanner: ^6.0.2
   flutter_svg: ^2.0.10+1
   google_fonts: ^6.2.1
-  cached_network_image: ^3.4.1
+  panorama_viewer: ^2.0.7
 
   # Utils
   intl: ^0.19.0
-  panorama_viewer: ^2.0.7
+
+  # File & Excel (admin-specific)
+  file_picker: ^8.1.6
+  image_picker: ^1.1.2
+  excel: ^4.0.6
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
-  build_runner: ^2.4.13
-  freezed: ^2.5.7
-  json_serializable: ^6.8.0
-  riverpod_generator: ^2.6.2
 
 flutter:
   uses-material-design: true
-
-  assets:
-    - assets/images/

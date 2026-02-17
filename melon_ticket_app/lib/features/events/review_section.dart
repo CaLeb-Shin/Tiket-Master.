@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../../app/theme.dart';
-import '../../data/models/review.dart';
-import '../../data/repositories/review_repository.dart';
-import '../../services/auth_service.dart';
+import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/data/models/review.dart';
+import 'package:melon_core/data/repositories/review_repository.dart';
+import 'package:melon_core/services/auth_service.dart';
 
 // =============================================================================
 // Review Section (이벤트 상세 화면 내 리뷰 영역)

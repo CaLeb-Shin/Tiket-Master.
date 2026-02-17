@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../../app/theme.dart';
-import '../../data/repositories/event_repository.dart';
-import '../../data/models/event.dart';
-import '../../services/auth_service.dart';
+import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/data/models/event.dart';
+import 'package:melon_core/services/auth_service.dart';
 
 class EventListScreen extends ConsumerWidget {
   const EventListScreen({super.key});

@@ -6,17 +6,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../../app/theme.dart';
-import '../../services/kakao_postcode_service.dart'
-    if (dart.library.io) '../../services/kakao_postcode_stub.dart';
-import '../../data/models/discount_policy.dart';
-import '../../data/models/event.dart';
-import '../../data/models/venue.dart';
-import '../../data/repositories/event_repository.dart';
-import '../../data/repositories/seat_repository.dart';
-import '../../data/repositories/venue_repository.dart';
-import '../../services/auth_service.dart';
-import '../../services/storage_service.dart';
+import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/services/kakao_postcode_service.dart'
+    if (dart.library.io) 'package:melon_core/services/kakao_postcode_stub.dart';
+import 'package:melon_core/data/models/discount_policy.dart';
+import 'package:melon_core/data/models/event.dart';
+import 'package:melon_core/data/models/venue.dart';
+import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/data/repositories/seat_repository.dart';
+import 'package:melon_core/data/repositories/venue_repository.dart';
+import 'package:melon_core/services/auth_service.dart';
+import 'package:melon_core/services/storage_service.dart';
 import 'widgets/seat_map_picker.dart';
 
 // =============================================================================
@@ -347,7 +347,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               if (Navigator.of(context).canPop()) {
                 Navigator.of(context).pop();
               } else {
-                context.go('/admin');
+                context.go('/');
               }
             },
             icon: const Icon(Icons.arrow_back_ios_new_rounded,
@@ -775,7 +775,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
   Widget _buildNoVenueCard() {
     return InkWell(
-      onTap: () => context.push('/admin/venues'),
+      onTap: () => context.push('/venues'),
       borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -2498,7 +2498,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   child: OutlinedButton(
                     onPressed: () {
                       Navigator.of(ctx).pop();
-                      context.go('/admin');
+                      context.go('/');
                     },
                     style: OutlinedButton.styleFrom(
                       side:

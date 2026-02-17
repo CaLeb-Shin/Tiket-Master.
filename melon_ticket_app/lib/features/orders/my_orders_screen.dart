@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../../app/theme.dart';
-import '../../data/models/order.dart';
-import '../../data/repositories/order_repository.dart';
-import '../../data/repositories/event_repository.dart';
-import '../../services/auth_service.dart';
+import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/data/models/order.dart';
+import 'package:melon_core/data/repositories/order_repository.dart';
+import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/services/auth_service.dart';
 
 class MyOrdersScreen extends ConsumerWidget {
   const MyOrdersScreen({super.key});

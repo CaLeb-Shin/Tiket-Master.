@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../app/theme.dart';
+import 'package:melon_core/app/theme.dart';
 
 /// 웹에서만 표시되는 앱 다운로드 유도 배너
 class AppDownloadBanner extends StatefulWidget {

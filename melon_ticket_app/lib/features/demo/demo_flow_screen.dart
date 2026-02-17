@@ -7,7 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-import '../../app/theme.dart';
+import 'package:melon_core/app/theme.dart';
 
 class DemoFlowScreen extends StatefulWidget {
   const DemoFlowScreen({super.key});

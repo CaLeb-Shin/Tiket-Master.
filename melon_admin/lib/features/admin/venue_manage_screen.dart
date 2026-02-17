@@ -7,10 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../../app/theme.dart';
-import '../../data/models/venue.dart';
-import '../../data/repositories/venue_repository.dart';
-import '../../services/storage_service.dart';
+import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/data/models/venue.dart';
+import 'package:melon_core/data/repositories/venue_repository.dart';
+import 'package:melon_core/services/storage_service.dart';
 
 /// 공연장 관리 화면 (목록 + 등록)
 class VenueManageScreen extends ConsumerStatefulWidget {
@@ -77,7 +77,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
               } else if (Navigator.of(context).canPop()) {
                 Navigator.of(context).pop();
               } else {
-                context.go('/admin');
+                context.go('/');
               }
             },
             icon: const Icon(Icons.arrow_back_ios_new_rounded,
@@ -2323,7 +2323,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                         onPressed: () {
                           Navigator.pop(context);
                           context.push(
-                            '/admin/venues/${venue.id}/views?name=${Uri.encodeComponent(venue.name)}',
+                            '/venues/${venue.id}/views?name=${Uri.encodeComponent(venue.name)}',
                           );
                         },
                         child: Text('3D 시야 업로드',

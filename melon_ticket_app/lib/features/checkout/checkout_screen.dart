@@ -4,10 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import '../../data/models/discount_policy.dart';
-import '../../data/repositories/event_repository.dart';
-import '../../services/auth_service.dart';
-import '../../services/functions_service.dart';
+import 'package:melon_core/data/models/discount_policy.dart';
+import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/services/auth_service.dart';
+import 'package:melon_core/services/functions_service.dart';
 
 enum PaymentMethod { naverPay, tossPay, kakaoPay }
 

@@ -7,14 +7,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-import '../../app/theme.dart';
-import '../../data/models/event.dart';
-import '../../data/models/seat.dart';
-import '../../data/models/ticket.dart';
-import '../../data/repositories/event_repository.dart';
-import '../../data/repositories/seat_repository.dart';
-import '../../data/repositories/ticket_repository.dart';
-import '../../services/functions_service.dart';
+import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/data/models/event.dart';
+import 'package:melon_core/data/models/seat.dart';
+import 'package:melon_core/data/models/ticket.dart';
+import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/data/repositories/seat_repository.dart';
+import 'package:melon_core/data/repositories/ticket_repository.dart';
+import 'package:melon_core/services/functions_service.dart';
 
 const _navy = AppTheme.goldDark;
 const _lineBlue = AppTheme.gold;

@@ -5,11 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../app/theme.dart';
-import '../../data/repositories/event_repository.dart';
-import '../../data/repositories/review_repository.dart';
-import '../../data/models/event.dart';
-import '../../services/auth_service.dart';
+import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/data/repositories/review_repository.dart';
+import 'package:melon_core/data/models/event.dart';
+import 'package:melon_core/services/auth_service.dart';
 import 'review_section.dart';
 
 class EventDetailScreen extends ConsumerWidget {

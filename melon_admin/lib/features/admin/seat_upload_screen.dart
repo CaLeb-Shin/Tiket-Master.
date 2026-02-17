@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../data/repositories/seat_repository.dart';
-import '../../data/repositories/event_repository.dart';
+import 'package:melon_core/data/repositories/seat_repository.dart';
+import 'package:melon_core/data/repositories/event_repository.dart';
 
 class SeatUploadScreen extends ConsumerStatefulWidget {
   final String eventId;
@@ -114,7 +114,7 @@ B,1층,1,5''';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('$count개 좌석이 등록되었습니다')),
         );
-        context.go('/admin');
+        context.go('/');
       }
     } catch (e) {
       if (mounted) {

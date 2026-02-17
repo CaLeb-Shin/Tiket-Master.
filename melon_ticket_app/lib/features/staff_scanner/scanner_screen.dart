@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import '../../app/theme.dart';
-import '../../services/auth_service.dart';
-import '../../services/functions_service.dart';
-import '../../services/scanner_device_service.dart';
+import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/services/auth_service.dart';
+import 'package:melon_core/services/functions_service.dart';
+import 'package:melon_core/services/scanner_device_service.dart';
 
 class ScannerScreen extends ConsumerStatefulWidget {
   const ScannerScreen({super.key});

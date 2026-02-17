@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import '../../data/models/event.dart';
-import '../../data/repositories/event_repository.dart';
-import '../../services/auth_service.dart';
+import 'package:melon_core/data/models/event.dart';
+import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/services/auth_service.dart';
 
 const _bgTop = Color(0xFFF6FBFF);
 const _bgBottom = Color(0xFFEAF2FB);

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../data/repositories/event_repository.dart';
-import '../../services/auth_service.dart';
+import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/services/auth_service.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -31,7 +31,7 @@ class AdminDashboardScreen extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: ElevatedButton(
-              onPressed: () => context.push('/admin/setup'),
+              onPressed: () => context.push('/setup'),
               child: const Text('티켓 어드민 승인 요청'),
             ),
           ),
@@ -64,7 +64,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   child: _QuickMenuCard(
                     icon: Icons.add_circle_outline,
                     title: '공연 등록',
-                    onTap: () => context.push('/admin/events/create'),
+                    onTap: () => context.push('/events/create'),
                   ),
                 ),
                 SizedBox(
@@ -72,7 +72,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   child: _QuickMenuCard(
                     icon: Icons.location_city_outlined,
                     title: '공연장 관리',
-                    onTap: () => context.push('/admin/venues'),
+                    onTap: () => context.push('/venues'),
                   ),
                 ),
                 SizedBox(
@@ -125,11 +125,11 @@ class AdminDashboardScreen extends ConsumerWidget {
                           onSelected: (value) {
                             switch (value) {
                               case 'seats':
-                                context.push('/admin/events/${event.id}/seats');
+                                context.push('/events/${event.id}/seats');
                                 break;
                               case 'assignments':
                                 context.push(
-                                    '/admin/events/${event.id}/assignments');
+                                    '/events/${event.id}/assignments');
                                 break;
                             }
                           },

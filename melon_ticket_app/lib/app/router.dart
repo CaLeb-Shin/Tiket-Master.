@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../utils/platform_utils.dart';
+import 'package:melon_core/melon_core.dart';
+
 import '../features/auth/login_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/events/event_detail_screen.dart';
@@ -11,20 +12,9 @@ import '../features/booking/seat_selection_screen.dart';
 import '../features/tickets/my_tickets_screen.dart';
 import '../features/tickets/ticket_detail_screen.dart';
 import '../features/staff_scanner/scanner_screen.dart';
-import '../features/admin/admin_dashboard_screen.dart';
-import '../features/admin/admin_setup_screen.dart';
-import '../features/admin/event_create_screen.dart';
-import '../features/admin/web_admin_dashboard.dart';
-// web_event_create_screen.dart removed - unified into event_create_screen.dart
-import '../features/admin/seat_upload_screen.dart';
-import '../features/admin/assignment_check_screen.dart';
-import '../features/admin/venue_view_upload_screen.dart';
-import '../features/admin/venue_manage_screen.dart';
 import '../features/mobile/mobile_main_screen.dart';
 import '../features/demo/demo_flow_screen.dart';
 import '../features/orders/my_orders_screen.dart';
-import '../features/admin/admin_orders_screen.dart';
-import '../features/admin/admin_bookers_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -36,8 +26,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final requiresAuth = path.startsWith('/tickets') ||
           path.startsWith('/orders') ||
           path.startsWith('/checkout') ||
-          path.startsWith('/staff') ||
-          path.startsWith('/admin');
+          path.startsWith('/staff');
 
       if (!isLoggedIn && requiresAuth) {
         return '/login';
@@ -176,81 +165,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
-
-      // 어드민
-      GoRoute(
-        path: '/admin',
-        name: 'admin',
-        builder: (context, state) {
-          final width = MediaQuery.sizeOf(context).width;
-          final compactWeb = PlatformUtils.isWeb && width < 1100;
-          if (compactWeb) return const AdminDashboardScreen();
-          return PlatformUtils.isWeb
-              ? const WebAdminDashboard()
-              : const AdminDashboardScreen();
-        },
-        routes: [
-          GoRoute(
-            path: 'setup',
-            name: 'adminSetup',
-            builder: (context, state) => const AdminSetupScreen(),
-          ),
-          GoRoute(
-            path: 'events/create',
-            name: 'adminEventCreate',
-            builder: (context, state) => const EventCreateScreen(),
-          ),
-          GoRoute(
-            path: 'events/:eventId/seats',
-            name: 'adminSeatUpload',
-            builder: (context, state) {
-              final eventId = state.pathParameters['eventId']!;
-              return SeatUploadScreen(eventId: eventId);
-            },
-          ),
-          GoRoute(
-            path: 'events/:eventId/assignments',
-            name: 'adminAssignments',
-            builder: (context, state) {
-              final eventId = state.pathParameters['eventId']!;
-              return AssignmentCheckScreen(eventId: eventId);
-            },
-          ),
-          GoRoute(
-            path: 'events/:eventId/orders',
-            name: 'adminOrders',
-            builder: (context, state) {
-              final eventId = state.pathParameters['eventId']!;
-              return AdminOrdersScreen(eventId: eventId);
-            },
-          ),
-          GoRoute(
-            path: 'events/:eventId/bookers',
-            name: 'adminBookers',
-            builder: (context, state) {
-              final eventId = state.pathParameters['eventId']!;
-              return AdminBookersScreen(eventId: eventId);
-            },
-          ),
-          GoRoute(
-            path: 'venues',
-            name: 'adminVenues',
-            builder: (context, state) => const VenueManageScreen(),
-          ),
-          GoRoute(
-            path: 'venues/:venueId/views',
-            name: 'adminVenueViews',
-            builder: (context, state) {
-              final venueId = state.pathParameters['venueId']!;
-              final venueName = state.uri.queryParameters['name'] ?? '공연장';
-              return VenueViewUploadScreen(
-                venueId: venueId,
-                venueName: venueName,
-              );
-            },
-          ),
-        ],
-      ),
     ],
     errorBuilder: (context, state) => Scaffold(
       backgroundColor: const Color(0xFF0B0B0F),
@@ -259,7 +173,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.error_outline_rounded,
-                color: Color(0xFFC9A84C), size: 48),
+                color: Color(0xFFC42A4D), size: 48),
             const SizedBox(height: 16),
             Text(
               '페이지를 찾을 수 없습니다',

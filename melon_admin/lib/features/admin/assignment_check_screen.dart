@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../../data/repositories/event_repository.dart';
-import '../../data/repositories/order_repository.dart';
-import '../../data/repositories/seat_repository.dart';
-import '../../data/models/order.dart';
-import '../../data/models/seat_block.dart';
-import '../../services/functions_service.dart';
+import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/data/repositories/order_repository.dart';
+import 'package:melon_core/data/repositories/seat_repository.dart';
+import 'package:melon_core/data/models/order.dart';
+import 'package:melon_core/data/models/seat_block.dart';
+import 'package:melon_core/services/functions_service.dart';
 
 class AssignmentCheckScreen extends ConsumerWidget {
   final String eventId;

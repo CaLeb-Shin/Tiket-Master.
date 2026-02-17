@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../../app/theme.dart';
-import '../../data/repositories/event_repository.dart';
-import '../../data/models/event.dart';
-import '../../services/auth_service.dart';
+import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/data/models/event.dart';
+import 'package:melon_core/services/auth_service.dart';
 
 const _deckBgTop = Color(0xFF080C14);
 const _deckBgBottom = Color(0xFF0E1626);
@@ -81,7 +81,7 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       FilledButton(
-                        onPressed: () => context.push('/admin/setup'),
+                        onPressed: () => context.push('/setup'),
                         style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.gold,
                           foregroundColor: const Color(0xFFFDF3F6),
@@ -328,7 +328,7 @@ class _SidebarState extends State<_Sidebar> {
                     '04',
                     '공연장 관리',
                     selectable: false,
-                    onTap: () => context.push('/admin/venues'),
+                    onTap: () => context.push('/venues'),
                   ),
                 ],
               ),
@@ -562,12 +562,12 @@ class _DashboardContent extends ConsumerWidget {
                               children: [
                                 _GoldButton(
                                   label: '공연장 관리',
-                                  onTap: () => context.push('/admin/venues'),
+                                  onTap: () => context.push('/venues'),
                                 ),
                                 _GoldButton(
                                   label: '새 공연 등록',
                                   onTap: () =>
-                                      context.push('/admin/events/create'),
+                                      context.push('/events/create'),
                                 ),
                               ],
                             ),
@@ -1214,13 +1214,13 @@ class _EventRowState extends State<_EventRow> {
                 ),
                 onSelected: (value) {
                   if (value == 'seats') {
-                    context.push('/admin/events/${event.id}/seats');
+                    context.push('/events/${event.id}/seats');
                   }
                   if (value == 'assignments') {
-                    context.push('/admin/events/${event.id}/assignments');
+                    context.push('/events/${event.id}/assignments');
                   }
                   if (value == 'bookers') {
-                    context.push('/admin/events/${event.id}/bookers');
+                    context.push('/events/${event.id}/bookers');
                   }
                 },
                 itemBuilder: (context) => [
@@ -1388,7 +1388,7 @@ class _EventsContent extends ConsumerWidget {
                   ),
                   _GoldButton(
                     label: '새 공연 등록',
-                    onTap: () => context.push('/admin/events/create'),
+                    onTap: () => context.push('/events/create'),
                   ),
                 ],
               ),

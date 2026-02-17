@@ -7,14 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import '../../app/theme.dart';
-import '../../data/models/app_user.dart';
-import '../../data/models/order.dart' as app;
-import '../../data/models/ticket.dart';
-import '../../data/repositories/event_repository.dart';
-import '../../data/repositories/order_repository.dart';
-import '../../data/repositories/ticket_repository.dart';
-import '../../services/firestore_service.dart';
+import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/data/models/app_user.dart';
+import 'package:melon_core/data/models/order.dart' as app;
+import 'package:melon_core/data/models/ticket.dart';
+import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/data/repositories/order_repository.dart';
+import 'package:melon_core/data/repositories/ticket_repository.dart';
+import 'package:melon_core/services/firestore_service.dart';
 
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:html' if (dart.library.io) 'admin_bookers_stub.dart' as html;

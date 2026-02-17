@@ -4,10 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
-import '../../app/theme.dart';
-import '../../services/auth_service.dart';
-import '../../data/repositories/event_repository.dart';
-import '../../data/models/event.dart';
+import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/services/auth_service.dart';
+import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/data/models/event.dart';
 import '../tickets/my_tickets_screen.dart';
 import '../widgets/app_download_banner.dart';
 

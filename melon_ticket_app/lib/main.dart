@@ -9,10 +9,10 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 
+import 'package:melon_core/melon_core.dart';
+
 import 'app/router.dart';
-import 'app/theme.dart';
 import 'firebase_options.dart';
-import 'services/fcm_service.dart';
 
 /// 백그라운드 메시지 핸들러 (앱 종료 상태)
 @pragma('vm:entry-point')

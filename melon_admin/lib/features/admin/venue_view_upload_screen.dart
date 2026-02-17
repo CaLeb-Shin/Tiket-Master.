@@ -4,11 +4,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../app/theme.dart';
-import '../../data/models/venue.dart';
-import '../../data/repositories/venue_repository.dart';
-import '../../data/repositories/venue_view_repository.dart';
-import '../../services/storage_service.dart';
+import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/data/models/venue.dart';
+import 'package:melon_core/data/repositories/venue_repository.dart';
+import 'package:melon_core/data/repositories/venue_view_repository.dart';
+import 'package:melon_core/services/storage_service.dart';
 
 /// 공연장 시점 이미지 업로드 화면
 class VenueViewUploadScreen extends ConsumerStatefulWidget {
