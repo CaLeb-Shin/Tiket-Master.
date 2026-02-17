@@ -9,6 +9,7 @@ import '../../services/auth_service.dart';
 import '../../data/repositories/event_repository.dart';
 import '../../data/models/event.dart';
 import '../tickets/my_tickets_screen.dart';
+import '../widgets/app_download_banner.dart';
 
 class MobileMainScreen extends ConsumerStatefulWidget {
   final String? focusEventId;
@@ -40,7 +41,10 @@ class _MobileMainScreenState extends ConsumerState<MobileMainScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: IndexedStack(
+      body: Column(
+        children: [
+          const AppDownloadBanner(),
+          Expanded(child: IndexedStack(
         index: _currentIndex,
         children: [
           _QuickBookingTab(
@@ -52,6 +56,8 @@ class _MobileMainScreenState extends ConsumerState<MobileMainScreen> {
               ? const MyTicketsScreen()
               : _LoginRequiredTab(onLogin: () => context.push('/login')),
           _ProfileTab(isLoggedIn: isLoggedIn),
+        ],
+      )),
         ],
       ),
       bottomNavigationBar: Container(
