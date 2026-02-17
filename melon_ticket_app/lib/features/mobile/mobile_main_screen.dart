@@ -428,9 +428,9 @@ class _QuickBookingTab extends ConsumerWidget {
         icon: Icons.schedule_rounded,
       ),
       _QuickInfoCard(
-        title: '가격 / 잔여',
+        title: event.showRemainingSeats ? '가격 / 잔여' : '가격',
         value: '$priceText원',
-        hint: '잔여 ${event.availableSeats}석',
+        hint: event.showRemainingSeats ? '잔여 ${event.availableSeats}석' : '~부터',
         icon: Icons.confirmation_number_rounded,
       ),
       const _QuickInfoCard(
@@ -818,11 +818,13 @@ class _QuickBookingEventCard extends StatelessWidget {
                   const SizedBox(height: 3),
                   _metaLine(Icons.location_on_rounded, event.venueName!),
                 ],
-                const SizedBox(height: 3),
-                _metaLine(
-                  Icons.confirmation_number_rounded,
-                  '잔여 ${event.availableSeats}석',
-                ),
+                if (event.showRemainingSeats) ...[
+                  const SizedBox(height: 3),
+                  _metaLine(
+                    Icons.confirmation_number_rounded,
+                    '잔여 ${event.availableSeats}석',
+                  ),
+                ],
                 const SizedBox(height: 10),
                 Text(
                   '$priceText원',

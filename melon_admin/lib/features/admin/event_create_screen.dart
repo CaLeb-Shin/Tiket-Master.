@@ -83,6 +83,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   // ── 할인 정책 ──
   final List<DiscountPolicy> _discountPolicies = [];
 
+  bool _showRemainingSeats = true;
   bool _isSubmitting = false;
 
   static const _categories = [
@@ -1533,6 +1534,50 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 ),
               ],
             )),
+
+        // 잔여석 표시 토글
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppTheme.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppTheme.border, width: 0.5),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '잔여석 표시',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '예매 화면에 남은 좌석 수를 표시합니다',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 11,
+                        color: AppTheme.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: _showRemainingSeats,
+                onChanged: (v) => setState(() => _showRemainingSeats = v),
+                activeTrackColor: AppTheme.gold,
+                activeThumbColor: AppTheme.onAccent,
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -2226,6 +2271,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         priceByGrade: priceByGrade.isNotEmpty ? priceByGrade : null,
         discountPolicies:
             _discountPolicies.isNotEmpty ? _discountPolicies : null,
+        showRemainingSeats: _showRemainingSeats,
       );
 
       // 이벤트 생성

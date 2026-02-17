@@ -372,13 +372,14 @@ class _PosterSection extends StatelessWidget {
                 ],
 
                 // 잔여좌석
-                _MiniInfo(
-                  icon: Icons.event_seat_outlined,
-                  text: '잔여 ${event.availableSeats}석',
-                  color: event.availableSeats > 0
-                      ? AppTheme.success
-                      : AppTheme.error,
-                ),
+                if (event.showRemainingSeats)
+                  _MiniInfo(
+                    icon: Icons.event_seat_outlined,
+                    text: '잔여 ${event.availableSeats}석',
+                    color: event.availableSeats > 0
+                        ? AppTheme.success
+                        : AppTheme.error,
+                  ),
               ],
             ),
           ),

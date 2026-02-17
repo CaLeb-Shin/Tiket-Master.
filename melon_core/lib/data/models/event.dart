@@ -32,6 +32,7 @@ class Event {
   final String? discount; // 할인정보 (레거시 텍스트)
   final Map<String, int>? priceByGrade; // 등급별 가격 (VIP, R, S, A 등)
   final List<DiscountPolicy>? discountPolicies; // 구조화된 할인 정책
+  final bool showRemainingSeats; // 잔여석 표시 여부
 
   Event({
     required this.id,
@@ -61,6 +62,7 @@ class Event {
     this.discount,
     this.priceByGrade,
     this.discountPolicies,
+    this.showRemainingSeats = true,
   });
 
   /// 좌석 공개 여부
@@ -108,6 +110,7 @@ class Event {
               .map((e) => DiscountPolicy.fromMap(Map<String, dynamic>.from(e)))
               .toList()
           : null,
+      showRemainingSeats: data['showRemainingSeats'] ?? true,
     );
   }
 
@@ -139,6 +142,7 @@ class Event {
       'discount': discount,
       'priceByGrade': priceByGrade,
       'discountPolicies': discountPolicies?.map((e) => e.toMap()).toList(),
+      'showRemainingSeats': showRemainingSeats,
     };
   }
 }
