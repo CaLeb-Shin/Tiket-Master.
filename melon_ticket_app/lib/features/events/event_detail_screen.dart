@@ -1,8 +1,9 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:melon_core/app/theme.dart';
@@ -32,11 +33,10 @@ class EventDetailScreen extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.event_busy_rounded,
-                      size: 48, color: AppTheme.gold.withValues(alpha: 0.3)),
+                      size: 48, color: AppTheme.sage.withValues(alpha: 0.3)),
                   const SizedBox(height: 16),
                   Text('공연을 찾을 수 없습니다',
-                      style:
-                          GoogleFonts.notoSans(color: AppTheme.textSecondary)),
+                      style: AppTheme.sans(color: AppTheme.textSecondary)),
                 ],
               ),
             );
@@ -51,7 +51,7 @@ class EventDetailScreen extends ConsumerWidget {
         ),
         error: (e, _) => Center(
           child: Text('오류가 발생했습니다',
-              style: GoogleFonts.notoSans(color: AppTheme.error)),
+              style: AppTheme.sans(color: AppTheme.error)),
         ),
       ),
     );
@@ -67,86 +67,104 @@ class _DetailBody extends StatelessWidget {
   final bool isLoggedIn;
   const _DetailBody({required this.event, required this.isLoggedIn});
 
-
   @override
   Widget build(BuildContext context) {
     final canBuy = event.isOnSale && event.availableSeats > 0;
     final priceFormat = NumberFormat('#,###');
 
-    return Column(
+    return Stack(
       children: [
-        // ─── App Bar ───
-        _AppBar(event: event),
-
         // ─── Scrollable Content ───
-        Expanded(
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Poster + Title + Status ──
-                _PosterSection(event: event),
+        SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Hero Poster Section ──
+              _HeroPosterSection(event: event),
 
-                const SizedBox(height: 20),
+              // ── Info Row (3-column) ──
+              _InfoRow(event: event),
 
-                // ── 공연 정보 테이블 ──
-                _InfoTable(event: event),
+              // ── Admission (가격 정보) ──
+              _AdmissionSection(event: event, priceFormat: priceFormat),
 
-                // ── 가격 정보 ──
-                _PriceSection(event: event, priceFormat: priceFormat),
+              // ── Performance Details ──
+              _PerformanceDetailsSection(event: event),
 
-                // ── 혜택 배너 ──
-                _BenefitBanner(),
+              // ── 공연 소개 ──
+              if (event.description.isNotEmpty)
+                _EditorialContentSection(
+                    title: '소개', content: event.description),
 
-                // ── 공연 소개 ──
-                if (event.description.isNotEmpty)
-                  _ContentSection(title: '공연 소개', content: event.description),
+              // ── 출연진 ──
+              if (event.cast != null && event.cast!.isNotEmpty)
+                _EditorialContentSection(title: '출연진', content: event.cast!),
 
-                // ── 출연진 ──
-                if (event.cast != null && event.cast!.isNotEmpty)
-                  _ContentSection(title: '출연진', content: event.cast!),
+              // ── 주최/기획 ──
+              if (event.organizer != null || event.planner != null)
+                _EditorialContentSection(
+                  title: '주최/기획',
+                  content: [
+                    if (event.organizer != null && event.organizer!.isNotEmpty)
+                      '주최: ${event.organizer}',
+                    if (event.planner != null && event.planner!.isNotEmpty)
+                      '기획: ${event.planner}',
+                  ].join('\n'),
+                ),
 
-                // ── 주최/기획 ──
-                if (event.organizer != null || event.planner != null)
-                  _ContentSection(
-                    title: '주최/기획',
-                    content: [
-                      if (event.organizer != null && event.organizer!.isNotEmpty)
-                        '주최: ${event.organizer}',
-                      if (event.planner != null && event.planner!.isNotEmpty)
-                        '기획: ${event.planner}',
-                    ].join('\n'),
-                  ),
-
-                // ── 할인 정책 (놀티켓 스타일) ──
-                if (event.discountPolicies != null &&
-                    event.discountPolicies!.isNotEmpty)
-                  _DiscountPoliciesSection(
+              // ── 할인 / 환불 정책 (Expandable) ──
+              if (event.discountPolicies != null &&
+                  event.discountPolicies!.isNotEmpty)
+                _ExpandablePolicy(
+                  title: '할인 정책',
+                  child: _DiscountPoliciesContent(
                     policies: event.discountPolicies!,
                     basePrice: event.price,
-                  )
-                else if (event.discount != null && event.discount!.isNotEmpty)
-                  _ContentSection(title: '할인정보', content: event.discount!),
+                  ),
+                )
+              else if (event.discount != null && event.discount!.isNotEmpty)
+                _ExpandablePolicy(
+                  title: '할인 정책',
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 16),
+                    child: Text(
+                      event.discount!,
+                      style: AppTheme.sans(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                        height: 1.7,
+                      ),
+                    ),
+                  ),
+                ),
 
-                // ── 유의사항 ──
-                if (event.notice != null && event.notice!.isNotEmpty)
-                  _ContentSection(title: '예매 유의사항', content: event.notice!),
+              // ── 유의사항 (Notice with accent border) ──
+              if (event.notice != null && event.notice!.isNotEmpty)
+                _NoticeSection(notice: event.notice!),
 
-                // ── 관람 후기 ──
-                ReviewSection(eventId: event.id),
+              // ── 관람 후기 ──
+              ReviewSection(eventId: event.id),
 
-                const SizedBox(height: 120),
-              ],
-            ),
+              const SizedBox(height: 120),
+            ],
           ),
         ),
 
+        // ─── Floating Header ───
+        _FloatingHeader(event: event),
+
         // ─── Bottom CTA ───
-        _BottomCTA(
-          event: event,
-          canBuy: canBuy,
-          isLoggedIn: isLoggedIn,
-          priceFormat: priceFormat,
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _BottomCTA(
+            event: event,
+            canBuy: canBuy,
+            isLoggedIn: isLoggedIn,
+            priceFormat: priceFormat,
+          ),
         ),
       ],
     );
@@ -154,64 +172,62 @@ class _DetailBody extends StatelessWidget {
 }
 
 // =============================================================================
-// App Bar
+// Floating Header (overlaid on hero)
 // =============================================================================
 
-class _AppBar extends StatelessWidget {
+class _FloatingHeader extends StatelessWidget {
   final Event event;
-  const _AppBar({required this.event});
+  const _FloatingHeader({required this.event});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 8,
-        left: 4,
-        right: 16,
-        bottom: 12,
-      ),
-      decoration: const BoxDecoration(
-        color: AppTheme.surface,
-        border: Border(
-          bottom: BorderSide(color: AppTheme.border, width: 0.5),
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + 4,
+          left: 4,
+          right: 8,
+          bottom: 8,
         ),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () {
-              if (Navigator.of(context).canPop()) {
-                Navigator.of(context).pop();
-              } else {
-                context.go('/');
-              }
-            },
-            icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                color: AppTheme.textPrimary, size: 20),
-          ),
-          Expanded(
-            child: Text(
-              event.title,
-              style: GoogleFonts.notoSans(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+        decoration: const BoxDecoration(
+          gradient: AppTheme.topOverlay,
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              onPressed: () {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                } else {
+                  context.go('/');
+                }
+              },
+              icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                  color: AppTheme.textPrimary, size: 18),
             ),
-          ),
-          const SizedBox(width: 8),
-          _StatusChip(event: event),
-          const SizedBox(width: 4),
-          IconButton(
-            onPressed: () => _shareEvent(context, event),
-            icon: const Icon(Icons.share_rounded,
-                color: AppTheme.textSecondary, size: 20),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-        ],
+            const Spacer(),
+            IconButton(
+              onPressed: () => _shareEvent(context, event),
+              icon: const Icon(Icons.ios_share_outlined,
+                  color: AppTheme.textPrimary, size: 18),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 12),
+            IconButton(
+              onPressed: () {
+                // favorite placeholder
+              },
+              icon: const Icon(Icons.favorite_border_rounded,
+                  color: AppTheme.textPrimary, size: 18),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -224,161 +240,116 @@ class _AppBar extends StatelessWidget {
   }
 }
 
-class _StatusChip extends StatelessWidget {
+// =============================================================================
+// Hero Poster Section (full-width, 70vh, ivory fade)
+// =============================================================================
+
+class _HeroPosterSection extends StatelessWidget {
   final Event event;
-  const _StatusChip({required this.event});
+  const _HeroPosterSection({required this.event});
 
   @override
   Widget build(BuildContext context) {
-    String text;
-    Color bgColor;
-    Color fgColor;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final heroHeight = screenHeight * 0.7;
 
-    if (event.status == EventStatus.soldOut || event.availableSeats == 0) {
-      text = '매진';
-      bgColor = AppTheme.error.withValues(alpha: 0.15);
-      fgColor = AppTheme.error;
-    } else if (event.isOnSale) {
-      text = '예매중';
-      bgColor = AppTheme.success.withValues(alpha: 0.15);
-      fgColor = AppTheme.success;
-    } else if (DateTime.now().isBefore(event.saleStartAt)) {
-      text = '예매예정';
-      bgColor = AppTheme.goldSubtle;
-      fgColor = AppTheme.gold;
-    } else {
-      text = '종료';
-      bgColor = AppTheme.textTertiary.withValues(alpha: 0.15);
-      fgColor = AppTheme.textTertiary;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        text,
-        style: GoogleFonts.notoSans(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: fgColor,
-        ),
-      ),
-    );
-  }
-}
-
-// =============================================================================
-// Poster Section
-// =============================================================================
-
-class _PosterSection extends StatelessWidget {
-  final Event event;
-  const _PosterSection({required this.event});
-
-  @override
-  Widget build(BuildContext context) {
-    final dateFormat = DateFormat('yyyy.MM.dd (E)', 'ko_KR');
-
-    return Container(
-      color: AppTheme.surface,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SizedBox(
+      height: heroHeight,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          // ── 포스터 이미지 ──
-          Container(
-            width: 140,
-            height: 196,
-            decoration: BoxDecoration(
-              color: AppTheme.card,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.border, width: 0.5),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: (event.imageUrl != null && event.imageUrl!.isNotEmpty)
-                ? CachedNetworkImage(
-                    imageUrl: event.imageUrl!,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      color: AppTheme.card,
-                      child: const Center(
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppTheme.gold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    errorWidget: (_, __, ___) => _posterPlaceholder(),
-                  )
-                : _posterPlaceholder(),
-          ),
-          const SizedBox(width: 18),
-
-          // ── 기본 정보 ──
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 카테고리
-                if (event.category != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(
-                      event.category!,
-                      style: GoogleFonts.notoSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.gold,
-                      ),
+          // ── Background poster image ──
+          if (event.imageUrl != null && event.imageUrl!.isNotEmpty)
+            CachedNetworkImage(
+              imageUrl: event.imageUrl!,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => Container(
+                color: AppTheme.cardElevated,
+                child: const Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.gold,
                     ),
                   ),
+                ),
+              ),
+              errorWidget: (_, __, ___) => _heroPosterPlaceholder(),
+            )
+          else
+            _heroPosterPlaceholder(),
 
-                // 제목
+          // ── Ivory fade overlay at bottom ──
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            top: 0,
+            child: DecoratedBox(
+              decoration: BoxDecoration(gradient: AppTheme.posterOverlay),
+            ),
+          ),
+
+          // ── Floating title at bottom of poster ──
+          Positioned(
+            left: 24,
+            right: 24,
+            bottom: 24,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // NOW BOOKING label with dot
+                Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: event.isOnSale
+                            ? AppTheme.success
+                            : AppTheme.sage,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _statusLabel(event),
+                      style: AppTheme.label(
+                        fontSize: 10,
+                        color: AppTheme.sage,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Large serif title
                 Text(
                   event.title,
-                  style: GoogleFonts.notoSans(
-                    fontSize: 18,
+                  style: AppTheme.serif(
+                    fontSize: 36,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.textPrimary,
-                    height: 1.3,
-                    letterSpacing: -0.3,
+                    height: 1.15,
+                    letterSpacing: -0.5,
                   ),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
 
-                // 날짜
-                _MiniInfo(
-                  icon: Icons.calendar_today_rounded,
-                  text: dateFormat.format(event.startAt),
-                ),
-                const SizedBox(height: 6),
-
-                // 장소
-                if (event.venueName != null) ...[
-                  _MiniInfo(
-                    icon: Icons.location_on_outlined,
-                    text: event.venueName!,
-                  ),
-                  const SizedBox(height: 6),
-                ],
-
-                // 잔여좌석
-                if (event.showRemainingSeats)
-                  _MiniInfo(
-                    icon: Icons.event_seat_outlined,
-                    text: '잔여 ${event.availableSeats}석',
-                    color: event.availableSeats > 0
-                        ? AppTheme.success
-                        : AppTheme.error,
+                // Subtitle (category or venue) in sage uppercase
+                if (event.category != null || event.venueName != null)
+                  Text(
+                    (event.category ?? event.venueName ?? '').toUpperCase(),
+                    style: AppTheme.label(
+                      fontSize: 11,
+                      color: AppTheme.sage,
+                    ),
                   ),
               ],
             ),
@@ -388,136 +359,167 @@ class _PosterSection extends StatelessWidget {
     );
   }
 
-  Widget _posterPlaceholder() {
+  String _statusLabel(Event event) {
+    if (event.status == EventStatus.soldOut || event.availableSeats == 0) {
+      return 'SOLD OUT';
+    } else if (event.isOnSale) {
+      return 'NOW BOOKING';
+    } else if (DateTime.now().isBefore(event.saleStartAt)) {
+      return 'COMING SOON';
+    } else {
+      return 'ENDED';
+    }
+  }
+
+  Widget _heroPosterPlaceholder() {
     return Container(
-      color: AppTheme.card,
-      child: Center(
-        child: ShaderMask(
-          shaderCallback: (b) => AppTheme.goldGradient.createShader(b),
-          child: const Icon(Icons.music_note_rounded,
-              size: 40, color: Colors.white),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppTheme.cardElevated,
+            AppTheme.sage.withValues(alpha: 0.08),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
         ),
+      ),
+      child: Center(
+        child: Icon(Icons.music_note_rounded,
+            size: 64, color: AppTheme.sage.withValues(alpha: 0.3)),
       ),
     );
   }
 }
 
-class _MiniInfo extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  final Color? color;
-  const _MiniInfo({required this.icon, required this.text, this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: color ?? AppTheme.textTertiary),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            style: GoogleFonts.notoSans(
-              fontSize: 13,
-              color: color ?? AppTheme.textSecondary,
-              fontWeight: color != null ? FontWeight.w600 : FontWeight.w400,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // =============================================================================
-// Info Table (NOL 인터파크 스타일 테이블)
+// Info Row (3-column grid with vertical dividers)
 // =============================================================================
 
-class _InfoTable extends StatelessWidget {
+class _InfoRow extends StatelessWidget {
   final Event event;
-  const _InfoTable({required this.event});
+  const _InfoRow({required this.event});
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('yyyy.MM.dd (E) HH:mm', 'ko_KR');
+    final dateFormat = DateFormat('yyyy.MM.dd', 'ko_KR');
+    final timeFormat = DateFormat('HH:mm', 'ko_KR');
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.border, width: 0.5),
+    String statusText;
+    if (event.status == EventStatus.soldOut || event.availableSeats == 0) {
+      statusText = '매진';
+    } else if (event.isOnSale) {
+      statusText = event.showRemainingSeats
+          ? '잔여 ${event.availableSeats}석'
+          : '예매중';
+    } else if (DateTime.now().isBefore(event.saleStartAt)) {
+      statusText = '예매예정';
+    } else {
+      statusText = '종료';
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: const BoxDecoration(
+        border: Border(
+          top: BorderSide(color: AppTheme.border, width: 0.5),
+          bottom: BorderSide(color: AppTheme.border, width: 0.5),
         ),
-        child: Column(
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: IntrinsicHeight(
+        child: Row(
           children: [
-            _TableRow(label: '장소', value: event.venueName ?? '-'),
-            _tableDivider(),
-            _TableRow(
-              label: '공연기간',
-              value: dateFormat.format(event.startAt),
-            ),
-            if (event.runningTime != null) ...[
-              _tableDivider(),
-              _TableRow(
-                label: '공연시간',
-                value: '${event.runningTime}분',
+            // Date column
+            Expanded(
+              child: _InfoColumn(
+                label: 'DATE',
+                value: dateFormat.format(event.startAt),
+                subValue: timeFormat.format(event.startAt),
               ),
-            ],
-            if (event.ageLimit != null) ...[
-              _tableDivider(),
-              _TableRow(label: '관람연령', value: event.ageLimit!),
-            ],
+            ),
+            // Divider
+            Container(
+              width: 0.5,
+              color: AppTheme.sage.withValues(alpha: 0.3),
+            ),
+            // Location column
+            Expanded(
+              child: _InfoColumn(
+                label: 'LOCATION',
+                value: event.venueName ?? '-',
+              ),
+            ),
+            // Divider
+            Container(
+              width: 0.5,
+              color: AppTheme.sage.withValues(alpha: 0.3),
+            ),
+            // Status column
+            Expanded(
+              child: _InfoColumn(
+                label: 'STATUS',
+                value: statusText,
+                valueColor: event.isOnSale && event.availableSeats > 0
+                    ? AppTheme.success
+                    : (event.availableSeats == 0
+                        ? AppTheme.error
+                        : AppTheme.textPrimary),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
-
-  Widget _tableDivider() {
-    return Container(
-      height: 0.5,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      color: AppTheme.border,
-    );
-  }
 }
 
-class _TableRow extends StatelessWidget {
+class _InfoColumn extends StatelessWidget {
   final String label;
   final String value;
-  const _TableRow({required this.label, required this.value});
+  final String? subValue;
+  final Color? valueColor;
+
+  const _InfoColumn({
+    required this.label,
+    required this.value,
+    this.subValue,
+    this.valueColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(
-            width: 72,
-            child: Text(
-              label,
-              style: GoogleFonts.notoSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textTertiary,
-              ),
-            ),
+          Text(
+            label,
+            style: AppTheme.label(fontSize: 9, color: AppTheme.sage),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.notoSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textPrimary,
-              ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: AppTheme.sans(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: valueColor ?? AppTheme.textPrimary,
             ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
+          if (subValue != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              subValue!,
+              style: AppTheme.sans(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ],
       ),
     );
@@ -525,13 +527,13 @@ class _TableRow extends StatelessWidget {
 }
 
 // =============================================================================
-// Price Section (등급별 가격)
+// Admission Section (Price tiers - editorial minimal rows)
 // =============================================================================
 
-class _PriceSection extends StatelessWidget {
+class _AdmissionSection extends StatelessWidget {
   final Event event;
   final NumberFormat priceFormat;
-  const _PriceSection({required this.event, required this.priceFormat});
+  const _AdmissionSection({required this.event, required this.priceFormat});
 
   @override
   Widget build(BuildContext context) {
@@ -539,93 +541,37 @@ class _PriceSection extends StatelessWidget {
     final hasGrades = grades != null && grades.isNotEmpty;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.border, width: 0.5),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 헤더
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 72,
-                    child: Text(
-                      '가격',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textTertiary,
-                      ),
-                    ),
-                  ),
-                  if (!hasGrades)
-                    Text(
-                      '${priceFormat.format(event.price)}원',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.gold,
-                      ),
-                    ),
-                ],
-              ),
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section heading - italic serif
+          Text(
+            'Admission',
+            style: AppTheme.serif(
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              fontStyle: FontStyle.italic,
+              color: AppTheme.textPrimary,
             ),
+          ),
+          const SizedBox(height: 20),
 
-            // 등급별 가격 리스트
-            if (hasGrades)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-                child: Column(
-                  children: grades.entries.map((entry) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        children: [
-                          // 등급 뱃지
-                          Container(
-                            width: 44,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: _gradeColor(entry.key).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '${entry.key}석',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.notoSans(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: _gradeColor(entry.key),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            '${priceFormat.format(entry.value)}원',
-                            style: GoogleFonts.notoSans(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-              )
-            else
-              const SizedBox(height: 14),
-          ],
-        ),
+          if (hasGrades)
+            ...grades.entries.map((entry) {
+              return _AdmissionRow(
+                grade: entry.key,
+                price: '${priceFormat.format(entry.value)}원',
+                color: _gradeColor(entry.key),
+              );
+            })
+          else
+            _AdmissionRow(
+              grade: '전석',
+              price: '${priceFormat.format(event.price)}원',
+              color: AppTheme.gold,
+            ),
+        ],
       ),
     );
   }
@@ -635,66 +581,271 @@ class _PriceSection extends StatelessWidget {
       case 'VIP':
         return AppTheme.gold;
       case 'R':
-        return const Color(0xFF30D158);
+        return const Color(0xFF2D6A4F);
       case 'S':
-        return const Color(0xFF0A84FF);
+        return const Color(0xFF3A6B9F);
       case 'A':
-        return const Color(0xFFFF9F0A);
+        return const Color(0xFFC08B5C);
       case 'B':
-        return AppTheme.textSecondary;
+        return AppTheme.sage;
       default:
-        return AppTheme.textSecondary;
+        return AppTheme.sage;
     }
   }
 }
 
+class _AdmissionRow extends StatelessWidget {
+  final String grade;
+  final String price;
+  final Color color;
+  const _AdmissionRow(
+      {required this.grade, required this.price, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AppTheme.border, width: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Colored dot
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Grade name
+          Text(
+            '${grade}석',
+            style: AppTheme.sans(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const Spacer(),
+          // Price
+          Text(
+            price,
+            style: AppTheme.sans(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // =============================================================================
-// Benefit Banner
+// Performance Details Section (grid: label + value)
 // =============================================================================
 
-class _BenefitBanner extends StatelessWidget {
+class _PerformanceDetailsSection extends StatelessWidget {
+  final Event event;
+  const _PerformanceDetailsSection({required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    final dateFormat = DateFormat('yyyy.MM.dd (E) HH:mm', 'ko_KR');
+    final details = <_DetailItem>[];
+
+    details.add(_DetailItem('공연일시', dateFormat.format(event.startAt)));
+    if (event.venueName != null) {
+      details.add(_DetailItem('공연장', event.venueName!));
+    }
+    if (event.runningTime != null) {
+      details.add(_DetailItem('공연시간', '${event.runningTime}분'));
+    }
+    if (event.ageLimit != null) {
+      details.add(_DetailItem('관람등급', event.ageLimit!));
+    }
+    if (event.cast != null && event.cast!.isNotEmpty) {
+      details.add(_DetailItem('출연진', event.cast!));
+    }
+
+    if (details.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Performance Details',
+            style: AppTheme.serif(
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              fontStyle: FontStyle.italic,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 20),
+          ...details.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 72,
+                      child: Text(
+                        item.label.toUpperCase(),
+                        style: AppTheme.label(
+                          fontSize: 9,
+                          color: AppTheme.sage,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        item.value,
+                        style: AppTheme.sans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: AppTheme.textPrimary,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailItem {
+  final String label;
+  final String value;
+  const _DetailItem(this.label, this.value);
+}
+
+// =============================================================================
+// Editorial Content Section (description, cast, etc.)
+// =============================================================================
+
+class _EditorialContentSection extends StatelessWidget {
+  final String title;
+  final String content;
+  const _EditorialContentSection(
+      {required this.title, required this.content});
+
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      child: GlowCard(
-        borderRadius: 10,
-        padding: const EdgeInsets.all(14),
-        backgroundColor: AppTheme.goldSubtle,
-        borderColor: AppTheme.gold.withValues(alpha: 0.15),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                gradient: AppTheme.goldGradient,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Icon(Icons.local_offer_rounded,
-                  size: 14, color: Color(0xFFFDF3F6)),
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Thin divider
+          Container(height: 0.5, color: AppTheme.border),
+          const SizedBox(height: 24),
+          Text(
+            title,
+            style: AppTheme.serif(
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              fontStyle: FontStyle.italic,
+              color: AppTheme.textPrimary,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'AI 좌석 추천 · 360° 시야 보기',
-                    style: GoogleFonts.notoSans(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.gold,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            content,
+            style: AppTheme.sans(
+              fontSize: 14,
+              color: AppTheme.textSecondary,
+              height: 1.8,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Expandable Policy Section
+// =============================================================================
+
+class _ExpandablePolicy extends StatefulWidget {
+  final String title;
+  final Widget child;
+  const _ExpandablePolicy({required this.title, required this.child});
+
+  @override
+  State<_ExpandablePolicy> createState() => _ExpandablePolicyState();
+}
+
+class _ExpandablePolicyState extends State<_ExpandablePolicy> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      child: Container(
+        decoration: const BoxDecoration(
+          border: Border(
+            top: BorderSide(color: AppTheme.border, width: 0.5),
+            bottom: BorderSide(color: AppTheme.border, width: 0.5),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row
+            GestureDetector(
+              onTap: () => setState(() => _expanded = !_expanded),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Row(
+                  children: [
+                    Text(
+                      widget.title,
+                      style: AppTheme.sans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textPrimary,
+                      ),
                     ),
-                  ),
-                  Text(
-                    '모바일티켓 발급 후 공연 24시간/3시간 전 취소 정책이 적용됩니다',
-                    style: GoogleFonts.notoSans(
-                      fontSize: 12,
-                      color: AppTheme.gold.withValues(alpha: 0.7),
+                    const Spacer(),
+                    AnimatedRotation(
+                      turns: _expanded ? 0.5 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: const Icon(Icons.keyboard_arrow_down_rounded,
+                          size: 20, color: AppTheme.sage),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+            ),
+            // Expandable content
+            AnimatedCrossFade(
+              firstChild: const SizedBox.shrink(),
+              secondChild: Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: widget.child,
+              ),
+              crossFadeState: _expanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 250),
             ),
           ],
         ),
@@ -704,53 +855,14 @@ class _BenefitBanner extends StatelessWidget {
 }
 
 // =============================================================================
-// Content Section (설명, 출연진, 유의사항)
+// Discount Policies Content (used inside expandable)
 // =============================================================================
 
-class _ContentSection extends StatelessWidget {
-  final String title;
-  final String content;
-  const _ContentSection({required this.title, required this.content});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 섹션 구분선
-          Container(height: 0.5, color: AppTheme.border),
-          const SizedBox(height: 20),
-          Text(
-            title,
-            style: GoogleFonts.notoSans(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            content,
-            style: GoogleFonts.notoSans(
-              fontSize: 14,
-              color: AppTheme.textSecondary,
-              height: 1.7,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── 할인 정책 섹션 (놀티켓 스타일) ───
-class _DiscountPoliciesSection extends StatelessWidget {
+class _DiscountPoliciesContent extends StatelessWidget {
   final List<dynamic> policies;
   final int basePrice;
 
-  const _DiscountPoliciesSection({
+  const _DiscountPoliciesContent({
     required this.policies,
     required this.basePrice,
   });
@@ -759,57 +871,41 @@ class _DiscountPoliciesSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final priceFormat = NumberFormat('#,###');
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(height: 0.5, color: AppTheme.border),
-          const SizedBox(height: 20),
-          Text(
-            '할인 정책',
-            style: GoogleFonts.notoSans(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 12),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Base price row
+        _DiscountRow(
+          name: '일반',
+          price: '${priceFormat.format(basePrice)}원',
+          isBase: true,
+        ),
+        // Policy rows
+        ...policies.map((p) {
+          final name = p.name as String;
+          final rate = p.discountRate as double;
+          final discounted = p.discountedPrice(basePrice) as int;
+          final desc = p.description as String?;
+          final minQty = p.minQuantity as int;
+          final type = p.type as String;
 
-          // 일반가 (기본)
-          _DiscountTile(
-            name: '일반',
-            price: '${priceFormat.format(basePrice)}원',
-            isBase: true,
-          ),
-
-          // 할인 정책 카드
-          ...policies.map((p) {
-            final name = p.name as String;
-            final rate = p.discountRate as double;
-            final discounted = p.discountedPrice(basePrice) as int;
-            final desc = p.description as String?;
-            final minQty = p.minQuantity as int;
-            final type = p.type as String;
-
-            return _DiscountTile(
-              name: name,
-              price: '${priceFormat.format(discounted)}원',
-              description: desc ??
-                  (type == 'bulk'
-                      ? '$minQty매 이상만 예매 가능. 전체취소만 가능.'
-                      : null),
-              discountRate: '${(rate * 100).toInt()}%',
-              originalPrice: '${priceFormat.format(basePrice)}원',
-            );
-          }),
-        ],
-      ),
+          return _DiscountRow(
+            name: name,
+            price: '${priceFormat.format(discounted)}원',
+            description: desc ??
+                (type == 'bulk'
+                    ? '$minQty매 이상만 예매 가능. 전체취소만 가능.'
+                    : null),
+            discountRate: '${(rate * 100).toInt()}%',
+            originalPrice: '${priceFormat.format(basePrice)}원',
+          );
+        }),
+      ],
     );
   }
 }
 
-class _DiscountTile extends StatelessWidget {
+class _DiscountRow extends StatelessWidget {
   final String name;
   final String price;
   final bool isBase;
@@ -817,7 +913,7 @@ class _DiscountTile extends StatelessWidget {
   final String? discountRate;
   final String? originalPrice;
 
-  const _DiscountTile({
+  const _DiscountRow({
     required this.name,
     required this.price,
     this.isBase = false,
@@ -829,65 +925,66 @@ class _DiscountTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isBase ? AppTheme.cardElevated : AppTheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border, width: 0.5),
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AppTheme.border, width: 0.5),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 이름 + 할인율
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    if (discountRate != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
+                    Text(
+                      name,
+                      style: AppTheme.sans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    if (discountRate != null) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                         child: Text(
                           discountRate!,
-                          style: GoogleFonts.notoSans(
-                            fontSize: 12,
+                          style: AppTheme.sans(
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: AppTheme.error,
                           ),
                         ),
                       ),
-                    Text(
-                      name,
-                      style: GoogleFonts.notoSans(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
+                    ],
                   ],
                 ),
               ),
-              // 가격
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   if (originalPrice != null && !isBase)
                     Text(
                       originalPrice!,
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.sans(
                         fontSize: 11,
                         color: AppTheme.textTertiary,
-                        decoration: TextDecoration.lineThrough,
-                      ),
+                      ).copyWith(decoration: TextDecoration.lineThrough),
                     ),
                   Text(
                     price,
-                    style: GoogleFonts.notoSans(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
+                    style: AppTheme.sans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                       color: AppTheme.textPrimary,
                     ),
                   ),
@@ -896,10 +993,10 @@ class _DiscountTile extends StatelessWidget {
             ],
           ),
           if (description != null) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               description!,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.sans(
                 fontSize: 11,
                 color: AppTheme.textTertiary,
                 height: 1.4,
@@ -913,7 +1010,53 @@ class _DiscountTile extends StatelessWidget {
 }
 
 // =============================================================================
-// Bottom CTA
+// Notice Section (left burgundy border accent)
+// =============================================================================
+
+class _NoticeSection extends StatelessWidget {
+  final String notice;
+  const _NoticeSection({required this.notice});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      child: Container(
+        decoration: const BoxDecoration(
+          border: Border(
+            left: BorderSide(color: AppTheme.gold, width: 2),
+          ),
+          color: AppTheme.cardElevated,
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '예매 유의사항',
+              style: AppTheme.label(
+                fontSize: 10,
+                color: AppTheme.gold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              notice,
+              style: AppTheme.sans(
+                fontSize: 13,
+                color: AppTheme.textSecondary,
+                height: 1.7,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Bottom CTA (fixed, ivory bg + backdrop blur)
 // =============================================================================
 
 class _BottomCTA extends StatelessWidget {
@@ -931,53 +1074,89 @@ class _BottomCTA extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        12,
-        20,
-        12 + MediaQuery.of(context).padding.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: AppTheme.surface,
-        border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
-      ),
-      child: canBuy
-          ? ShimmerButton(
-              text: isLoggedIn ? '예매하기' : '로그인 후 예매',
-              onPressed: () {
-                if (isLoggedIn) {
-                  context.push('/seats/${event.id}');
-                } else {
-                  context.push('/login');
-                }
-              },
-              height: 54,
-              borderRadius: 12,
-            )
-          : Container(
-              width: double.infinity,
-              height: 54,
-              decoration: BoxDecoration(
-                color: AppTheme.border,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Text(
-                  event.availableSeats == 0 ? '매진' : '판매 종료',
-                  style: GoogleFonts.notoSans(
-                    color: AppTheme.textTertiary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            12,
+            20,
+            12 + MediaQuery.of(context).padding.bottom,
+          ),
+          decoration: BoxDecoration(
+            color: AppTheme.surface.withValues(alpha: 0.92),
+            border: const Border(
+                top: BorderSide(color: AppTheme.border, width: 0.5)),
+          ),
+          child: canBuy
+              ? Row(
+                  children: [
+                    // Calendar icon button
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                            color: AppTheme.sage.withValues(alpha: 0.3),
+                            width: 0.5),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: IconButton(
+                        onPressed: () {
+                          // calendar add placeholder
+                        },
+                        icon: const Icon(Icons.calendar_today_outlined,
+                            size: 20, color: AppTheme.textPrimary),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Book Tickets button
+                    Expanded(
+                      child: ShimmerButton(
+                        text: isLoggedIn ? 'BOOK TICKETS' : 'LOGIN TO BOOK',
+                        onPressed: () {
+                          if (isLoggedIn) {
+                            context.push('/seats/${event.id}');
+                          } else {
+                            context.push('/login');
+                          }
+                        },
+                        height: 54,
+                        borderRadius: 4,
+                      ),
+                    ),
+                  ],
+                )
+              : Container(
+                  width: double.infinity,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardElevated,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Center(
+                    child: Text(
+                      event.availableSeats == 0
+                          ? 'SOLD OUT'
+                          : 'SALE ENDED',
+                      style: AppTheme.label(
+                        fontSize: 13,
+                        color: AppTheme.textTertiary,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
+        ),
+      ),
     );
   }
 }
 
-// ─── 공유 시트 (네이버 쇼핑 카드 스타일) ───
+// =============================================================================
+// Share Sheet (kept functional, restyled editorial)
+// =============================================================================
+
 class _ShareSheet extends ConsumerWidget {
   final Event event;
   const _ShareSheet({required this.event});
@@ -998,383 +1177,371 @@ class _ShareSheet extends ConsumerWidget {
     final hasDiscount = event.discount != null && event.discount!.isNotEmpty;
 
     return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ── 헤더 ──
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
-            child: Row(
-              children: [
-                const Icon(Icons.share_rounded,
-                    size: 18, color: AppTheme.gold),
-                const SizedBox(width: 8),
-                Text(
-                  '공연 공유하기',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
-                  ),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // ── 헤더 ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
+          child: Row(
+            children: [
+              const Icon(Icons.ios_share_outlined,
+                  size: 18, color: AppTheme.gold),
+              const SizedBox(width: 8),
+              Text(
+                '공연 공유하기',
+                style: AppTheme.serif(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+        ),
 
-          // ── 미리보기 카드 ──
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppTheme.border, width: 0.5),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 포스터 이미지
-                if (event.imageUrl != null && event.imageUrl!.isNotEmpty)
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: CachedNetworkImage(
-                      imageUrl: event.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => Container(
-                        color: AppTheme.cardElevated,
-                        child: const Center(
-                          child: Icon(Icons.image_rounded,
-                              size: 40, color: AppTheme.textTertiary),
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppTheme.gold.withValues(alpha: 0.15),
-                            AppTheme.surface,
-                          ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
-                      ),
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.music_note_rounded,
-                                size: 36, color: AppTheme.gold),
-                            const SizedBox(height: 6),
-                            Text(
-                              '멜론티켓',
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.gold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
+        // ── 미리보기 카드 ──
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: AppTheme.border, width: 0.5),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 포스터 이미지
+              if (event.imageUrl != null && event.imageUrl!.isNotEmpty)
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: CachedNetworkImage(
+                    imageUrl: event.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => Container(
+                      color: AppTheme.cardElevated,
+                      child: const Center(
+                        child: Icon(Icons.image_rounded,
+                            size: 40, color: AppTheme.textTertiary),
                       ),
                     ),
                   ),
-
-                // 공연 정보
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 장소 태그
-                      if (event.venueName != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppTheme.gold.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              event.venueName!,
-                              style: GoogleFonts.notoSans(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.gold,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                      // 공연명
-                      Text(
-                        event.title,
-                        style: GoogleFonts.notoSans(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
-                          height: 1.3,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                )
+              else
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppTheme.gold.withValues(alpha: 0.15),
+                          AppTheme.surface,
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                       ),
-
-                      const SizedBox(height: 8),
-
-                      // 가격 정보
-                      if (hasDiscount) ...[
-                        Text(
-                          '${priceFormat.format(event.price)}원',
-                          style: GoogleFonts.notoSans(
-                            fontSize: 12,
-                            color: AppTheme.textTertiary,
-                            decoration: TextDecoration.lineThrough,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Text(
-                              event.discount!,
-                              style: GoogleFonts.notoSans(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: AppTheme.error,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${priceFormat.format(event.price)}원',
-                              style: GoogleFonts.notoSans(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ] else
-                        Text(
-                          '${priceFormat.format(event.price)}원',
-                          style: GoogleFonts.notoSans(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-
-                      const SizedBox(height: 8),
-
-                      // 별점 + 리뷰 수
-                      ratingAsync.when(
-                        data: (rating) {
-                          if (rating <= 0) return const SizedBox.shrink();
-                          final reviewCount = reviewsAsync.valueOrNull?.length ?? 0;
-                          return Row(
-                            children: [
-                              ...List.generate(5, (i) {
-                                if (i < rating.floor()) {
-                                  return const Icon(Icons.star_rounded,
-                                      size: 14, color: AppTheme.gold);
-                                } else if (i < rating.ceil() &&
-                                    rating - rating.floor() >= 0.5) {
-                                  return const Icon(Icons.star_half_rounded,
-                                      size: 14, color: AppTheme.gold);
-                                }
-                                return Icon(Icons.star_outline_rounded,
-                                    size: 14,
-                                    color: AppTheme.textTertiary.withValues(alpha: 0.4));
-                              }),
-                              const SizedBox(width: 4),
-                              Text(
-                                rating.toStringAsFixed(1),
-                                style: GoogleFonts.notoSans(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.gold,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '$reviewCount개 리뷰',
-                                style: GoogleFonts.notoSans(
-                                  fontSize: 11,
-                                  color: AppTheme.textTertiary,
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                        loading: () => const SizedBox.shrink(),
-                        error: (_, __) => const SizedBox.shrink(),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      // 일시 정보
-                      Row(
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.calendar_today_rounded,
-                              size: 13,
-                              color: AppTheme.textTertiary.withValues(alpha: 0.7)),
-                          const SizedBox(width: 5),
-                          Expanded(
-                            child: Text(
-                              dateFormat.format(event.startAt),
-                              style: GoogleFonts.notoSans(
-                                fontSize: 12,
-                                color: AppTheme.textSecondary,
-                              ),
+                          const Icon(Icons.music_note_rounded,
+                              size: 36, color: AppTheme.gold),
+                          const SizedBox(height: 6),
+                          Text(
+                            'MELON TICKET',
+                            style: AppTheme.label(
+                              fontSize: 10,
+                              color: AppTheme.gold,
                             ),
                           ),
                         ],
                       ),
+                    ),
+                  ),
+                ),
 
-                      const SizedBox(height: 12),
-
-                      // 공연 보러가기 버튼
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 11),
-                        decoration: BoxDecoration(
-                          color: AppTheme.gold.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                              color: AppTheme.gold.withValues(alpha: 0.3)),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '공연 보러가기',
-                            style: GoogleFonts.notoSans(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.gold,
-                            ),
+              // 공연 정보
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 장소 태그
+                    if (event.venueName != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          event.venueName!.toUpperCase(),
+                          style: AppTheme.label(
+                            fontSize: 9,
+                            color: AppTheme.sage,
                           ),
                         ),
                       ),
 
-                      const SizedBox(height: 8),
+                    // 공연명
+                    Text(
+                      event.title,
+                      style: AppTheme.serif(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
 
-                      // 멜론티켓 브랜딩
+                    const SizedBox(height: 8),
+
+                    // 가격 정보
+                    if (hasDiscount) ...[
+                      Text(
+                        '${priceFormat.format(event.price)}원',
+                        style: AppTheme.sans(
+                          fontSize: 12,
+                          color: AppTheme.textTertiary,
+                        ).copyWith(decoration: TextDecoration.lineThrough),
+                      ),
+                      const SizedBox(height: 2),
                       Row(
                         children: [
-                          Container(
-                            width: 18,
-                            height: 18,
-                            decoration: BoxDecoration(
-                              gradient: AppTheme.goldGradient,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Center(
-                              child: Icon(Icons.music_note_rounded,
-                                  size: 11, color: Colors.white),
+                          Text(
+                            event.discount!,
+                            style: AppTheme.sans(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.error,
                             ),
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            '멜론티켓',
-                            style: GoogleFonts.notoSans(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textTertiary,
+                            '${priceFormat.format(event.price)}원',
+                            style: AppTheme.sans(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textPrimary,
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+                    ] else
+                      Text(
+                        '${priceFormat.format(event.price)}원',
+                        style: AppTheme.sans(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
 
-          const SizedBox(height: 16),
+                    const SizedBox(height: 8),
 
-          // ── URL 복사 버튼 ──
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: GestureDetector(
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: _shareUrl));
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Row(
+                    // 별점 + 리뷰 수
+                    ratingAsync.when(
+                      data: (rating) {
+                        if (rating <= 0) return const SizedBox.shrink();
+                        final reviewCount =
+                            reviewsAsync.valueOrNull?.length ?? 0;
+                        return Row(
+                          children: [
+                            ...List.generate(5, (i) {
+                              if (i < rating.floor()) {
+                                return const Icon(Icons.star_rounded,
+                                    size: 14, color: AppTheme.gold);
+                              } else if (i < rating.ceil() &&
+                                  rating - rating.floor() >= 0.5) {
+                                return const Icon(Icons.star_half_rounded,
+                                    size: 14, color: AppTheme.gold);
+                              }
+                              return Icon(Icons.star_outline_rounded,
+                                  size: 14,
+                                  color: AppTheme.textTertiary
+                                      .withValues(alpha: 0.4));
+                            }),
+                            const SizedBox(width: 4),
+                            Text(
+                              rating.toStringAsFixed(1),
+                              style: AppTheme.sans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.gold,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '$reviewCount개 리뷰',
+                              style: AppTheme.sans(
+                                fontSize: 11,
+                                color: AppTheme.textTertiary,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // 일시 정보
+                    Row(
                       children: [
-                        Icon(Icons.check_circle_rounded,
-                            size: 18, color: Colors.white),
-                        SizedBox(width: 8),
+                        Icon(Icons.calendar_today_rounded,
+                            size: 13,
+                            color:
+                                AppTheme.textTertiary.withValues(alpha: 0.7)),
+                        const SizedBox(width: 5),
                         Expanded(
-                          child: Text('링크가 복사되었습니다'),
+                          child: Text(
+                            dateFormat.format(event.startAt),
+                            style: AppTheme.sans(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                    backgroundColor: AppTheme.success,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  gradient: AppTheme.goldGradient,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.link_rounded,
-                        size: 18, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Text(
-                      'URL 복사하기',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+
+                    const SizedBox(height: 12),
+
+                    // 공연 보러가기 버튼
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      decoration: BoxDecoration(
+                        color: AppTheme.gold.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                            color: AppTheme.gold.withValues(alpha: 0.3)),
                       ),
+                      child: Center(
+                        child: Text(
+                          'VIEW PERFORMANCE',
+                          style: AppTheme.label(
+                            fontSize: 10,
+                            color: AppTheme.gold,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // 멜론티켓 브랜딩
+                    Row(
+                      children: [
+                        Container(
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            gradient: AppTheme.goldGradient,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.music_note_rounded,
+                                size: 11, color: Colors.white),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'MELON TICKET',
+                          style: AppTheme.label(
+                            fontSize: 9,
+                            color: AppTheme.textTertiary,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-            ),
+            ],
           ),
+        ),
 
-          // ── URL 미리보기 ──
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+        const SizedBox(height: 16),
+
+        // ── URL 복사 버튼 ──
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: GestureDetector(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: _shareUrl));
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Row(
+                    children: [
+                      Icon(Icons.check_circle_rounded,
+                          size: 18, color: Colors.white),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text('링크가 복사되었습니다'),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: AppTheme.success,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4)),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
-                color: AppTheme.cardElevated,
-                borderRadius: BorderRadius.circular(8),
+                gradient: AppTheme.goldGradient,
+                borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(
-                _shareUrl,
-                style: GoogleFonts.robotoMono(
-                  fontSize: 11,
-                  color: AppTheme.textTertiary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.link_rounded,
+                      size: 18, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Text(
+                    'COPY LINK',
+                    style: AppTheme.label(
+                      fontSize: 12,
+                      color: AppTheme.onAccent,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
+        ),
 
-          SizedBox(height: MediaQuery.of(context).padding.bottom + 12),
-        ],
+        // ── URL 미리보기 ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: AppTheme.cardElevated,
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Text(
+              _shareUrl,
+              style: AppTheme.sans(
+                fontSize: 11,
+                color: AppTheme.textTertiary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+
+        SizedBox(height: MediaQuery.of(context).padding.bottom + 12),
+      ],
     );
   }
 }
