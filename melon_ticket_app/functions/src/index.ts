@@ -67,6 +67,69 @@ function toDate(value: any): Date | null {
 }
 
 // ============================================================
+// FCM 푸시 알림 발송 헬퍼
+// ============================================================
+
+/**
+ * 특정 사용자에게 푸시 알림 발송
+ */
+async function sendPushToUser(
+  userId: string,
+  title: string,
+  body: string,
+  data?: Record<string, string>
+): Promise<void> {
+  try {
+    const userDoc = await db.collection("users").doc(userId).get();
+    const fcmToken = userDoc.data()?.fcmToken as string | undefined;
+    if (!fcmToken) return;
+
+    await admin.messaging().send({
+      token: fcmToken,
+      notification: { title, body },
+      data: data ?? {},
+      webpush: {
+        notification: { icon: "/icons/Icon-192.png" },
+      },
+    });
+  } catch (e: any) {
+    // 만료된 토큰 제거
+    if (e.code === "messaging/registration-token-not-registered") {
+      await db.collection("users").doc(userId).update({
+        fcmToken: admin.firestore.FieldValue.delete(),
+      });
+    }
+    functions.logger.warn(`FCM 발송 실패 (user=${userId}): ${e.message}`);
+  }
+}
+
+/**
+ * 이벤트의 모든 티켓 소유자에게 푸시 알림 발송
+ */
+async function sendPushToEventUsers(
+  eventId: string,
+  title: string,
+  body: string,
+  data?: Record<string, string>
+): Promise<number> {
+  const ticketsSnapshot = await db
+    .collection("tickets")
+    .where("eventId", "==", eventId)
+    .where("status", "==", "issued")
+    .get();
+
+  const userIds = [...new Set(ticketsSnapshot.docs.map((d) => d.data().userId as string))];
+  let sent = 0;
+
+  for (const uid of userIds) {
+    await sendPushToUser(uid, title, body, data);
+    sent++;
+  }
+
+  return sent;
+}
+
+// ============================================================
 // 1. createOrder - 주문 생성
 // ============================================================
 export const createOrder = functions.https.onCall(async (request) => {
@@ -142,7 +205,7 @@ export const confirmPaymentAndAssignSeats = functions.https.onCall(async (reques
   }
 
   // 트랜잭션으로 원자성 보장 (1500석 규모 성능 고려)
-  return db.runTransaction(async (transaction) => {
+  const result = await db.runTransaction(async (transaction) => {
     // 주문 조회
     const orderRef = db.collection("orders").doc(orderId);
     const orderDoc = await transaction.get(orderRef);
@@ -264,8 +327,24 @@ export const confirmPaymentAndAssignSeats = functions.https.onCall(async (reques
       success: true,
       seatBlockId: seatBlockRef.id,
       seatCount: seatIds.length,
+      userId,
+      eventId,
     };
   });
+
+  // 트랜잭션 성공 시 예매 확정 푸시 알림
+  if (result.success && result.userId) {
+    const eventDoc = await db.collection("events").doc(result.eventId).get();
+    const eventTitle = eventDoc.data()?.title ?? "공연";
+    sendPushToUser(
+      result.userId,
+      "예매가 확정되었습니다!",
+      `${eventTitle} - ${result.seatCount}매 예매 완료`,
+      { type: "booking_confirmed", orderId, eventId: result.eventId },
+    ).catch(() => {});
+  }
+
+  return result;
 });
 
 /**
@@ -400,15 +479,20 @@ export const revealSeatsForEvent = functions.https.onCall(async (request) => {
 
   functions.logger.info(`좌석 공개: 이벤트 ${eventId}, ${updateCount}개 블록`);
 
-  // TODO: FCM 푸시 알림 발송
-  // const ticketsSnapshot = await db.collection('tickets')
-  //   .where('eventId', '==', eventId)
-  //   .get();
-  // 각 사용자에게 푸시 알림
+  // FCM 푸시 알림: 좌석 공개 알림
+  const eventDoc2 = await db.collection("events").doc(eventId).get();
+  const eventTitle2 = eventDoc2.data()?.title ?? "공연";
+  const sentCount = await sendPushToEventUsers(
+    eventId,
+    "좌석이 공개되었습니다!",
+    `${eventTitle2} - 지금 바로 좌석을 확인하세요`,
+    { type: "seats_revealed", eventId },
+  );
 
   return {
     success: true,
     revealedBlocks: updateCount,
+    notificationsSent: sentCount,
   };
 });
 
@@ -1015,7 +1099,15 @@ export const scheduledRevealSeats = functions.pubsub
 
         await batch.commit();
 
-        // TODO: FCM 푸시 알림 발송
+        // FCM 푸시 알림: 자동 좌석 공개 알림
+        const eventData = eventDoc.data()!;
+        const title = eventData.title ?? "공연";
+        sendPushToEventUsers(
+          eventId,
+          "좌석이 공개되었습니다!",
+          `${title} - 지금 바로 좌석을 확인하세요`,
+          { type: "seats_revealed", eventId },
+        ).catch(() => {});
       }
     }
 
@@ -1150,3 +1242,67 @@ export const signInWithNaver = functions.https.onCall(async (data, context) => {
 
   return { customToken, uid, displayName, email };
 });
+
+// ============================================================
+// 스케줄러: 공연 임박 알림 (3시간 전) + 리뷰 요청 (공연 종료 후)
+// ============================================================
+export const scheduledEventReminders = functions.pubsub
+  .schedule("every 30 minutes")
+  .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+    const threeHoursFromNow = new Date(now.toDate().getTime() + 3 * 60 * 60 * 1000);
+    const threeAndHalfHoursFromNow = new Date(now.toDate().getTime() + 3.5 * 60 * 60 * 1000);
+
+    // ── 공연 임박 알림 (3시간 전) ──
+    const upcomingEvents = await db
+      .collection("events")
+      .where("startAt", ">=", admin.firestore.Timestamp.fromDate(threeHoursFromNow))
+      .where("startAt", "<=", admin.firestore.Timestamp.fromDate(threeAndHalfHoursFromNow))
+      .where("status", "==", "active")
+      .get();
+
+    for (const eventDoc of upcomingEvents.docs) {
+      const eventData = eventDoc.data();
+      if (eventData.reminderSent) continue;
+
+      const title = eventData.title ?? "공연";
+      const sent = await sendPushToEventUsers(
+        eventDoc.id,
+        "공연이 곧 시작됩니다!",
+        `${title} - 3시간 후 공연이 시작됩니다. 준비하세요!`,
+        { type: "event_reminder", eventId: eventDoc.id },
+      );
+
+      await eventDoc.ref.update({ reminderSent: true });
+      functions.logger.info(`공연 임박 알림: ${eventDoc.id}, ${sent}명`);
+    }
+
+    // ── 리뷰 요청 알림 (공연 종료 2시간 후) ──
+    const twoHoursAgo = new Date(now.toDate().getTime() - 2 * 60 * 60 * 1000);
+    const twoAndHalfHoursAgo = new Date(now.toDate().getTime() - 2.5 * 60 * 60 * 1000);
+
+    const endedEvents = await db
+      .collection("events")
+      .where("startAt", ">=", admin.firestore.Timestamp.fromDate(twoAndHalfHoursAgo))
+      .where("startAt", "<=", admin.firestore.Timestamp.fromDate(twoHoursAgo))
+      .where("status", "==", "active")
+      .get();
+
+    for (const eventDoc of endedEvents.docs) {
+      const eventData = eventDoc.data();
+      if (eventData.reviewReminderSent) continue;
+
+      const title = eventData.title ?? "공연";
+      const sent = await sendPushToEventUsers(
+        eventDoc.id,
+        "공연은 어떠셨나요?",
+        `${title}의 후기를 남겨주세요! 다른 관객에게 큰 도움이 됩니다.`,
+        { type: "review_request", eventId: eventDoc.id },
+      );
+
+      await eventDoc.ref.update({ reviewReminderSent: true });
+      functions.logger.info(`리뷰 요청 알림: ${eventDoc.id}, ${sent}명`);
+    }
+
+    return null;
+  });

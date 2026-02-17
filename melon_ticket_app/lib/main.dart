@@ -6,12 +6,24 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
+
 import 'app/router.dart';
 import 'app/theme.dart';
 import 'firebase_options.dart';
+import 'services/fcm_service.dart';
+
+/// 백그라운드 메시지 핸들러 (앱 종료 상태)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -54,6 +66,9 @@ class _MelonTicketAppState extends ConsumerState<MelonTicketApp> {
         initializeDateFormatting('ko_KR', null),
         Future<void>.delayed(const Duration(milliseconds: 680)),
       ]);
+
+      // FCM 초기화 (Firebase init 이후)
+      unawaited(ref.read(fcmServiceProvider).initialize());
 
       if (!mounted) return;
       setState(() => _showComplete = true);
