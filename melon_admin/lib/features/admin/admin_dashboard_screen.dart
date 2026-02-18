@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
+import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/services/auth_service.dart';
 
@@ -15,15 +15,41 @@ class AdminDashboardScreen extends ConsumerWidget {
 
     if (currentUser.value?.isAdmin != true) {
       return Scaffold(
-        appBar: AppBar(title: const Text('관리자')),
-        body: const Center(
+        backgroundColor: AppTheme.background,
+        appBar: AppBar(
+          title: Text(
+            'Administration',
+            style: AppTheme.serif(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+        body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.lock, size: 64, color: Colors.grey),
-              SizedBox(height: 16),
-              Text('관리자 권한이 필요합니다'),
+              Icon(Icons.lock_outline_rounded,
+                  size: 48, color: AppTheme.sage.withValues(alpha: 0.5)),
+              const SizedBox(height: 16),
+              Text(
+                '관리자 권한이 필요합니다',
+                style: AppTheme.serif(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '승인 요청 후 오너 승인을 기다려 주세요',
+                style: AppTheme.sans(
+                  fontSize: 13,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
             ],
           ),
         ),
@@ -32,7 +58,10 @@ class AdminDashboardScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: ElevatedButton(
               onPressed: () => context.push('/setup'),
-              child: const Text('티켓 어드민 승인 요청'),
+              child: Text(
+                '티켓 어드민 승인 요청',
+                style: AppTheme.label(fontSize: 12, color: AppTheme.onAccent),
+              ),
             ),
           ),
         ),
@@ -40,19 +69,25 @@ class AdminDashboardScreen extends ConsumerWidget {
     }
 
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('관리자 대시보드'),
+        title: Text(
+          'Dashboard',
+          style: AppTheme.serif(
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '빠른 메뉴',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              'QUICK MENU',
+              style: AppTheme.label(fontSize: 10, color: AppTheme.sage),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -60,7 +95,7 @@ class AdminDashboardScreen extends ConsumerWidget {
               runSpacing: 12,
               children: [
                 SizedBox(
-                  width: (MediaQuery.of(context).size.width - 44) / 2,
+                  width: (MediaQuery.of(context).size.width - 52) / 2,
                   child: _QuickMenuCard(
                     icon: Icons.add_circle_outline,
                     title: '공연 등록',
@@ -68,7 +103,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                 ),
                 SizedBox(
-                  width: (MediaQuery.of(context).size.width - 44) / 2,
+                  width: (MediaQuery.of(context).size.width - 52) / 2,
                   child: _QuickMenuCard(
                     icon: Icons.location_city_outlined,
                     title: '공연장 관리',
@@ -76,7 +111,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                 ),
                 SizedBox(
-                  width: (MediaQuery.of(context).size.width - 44) / 2,
+                  width: (MediaQuery.of(context).size.width - 52) / 2,
                   child: _QuickMenuCard(
                     icon: Icons.qr_code_scanner,
                     title: '입장 스캐너',
@@ -85,43 +120,76 @@ class AdminDashboardScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             Text(
-              '공연 관리',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              'EVENTS',
+              style: AppTheme.label(fontSize: 10, color: AppTheme.sage),
             ),
             const SizedBox(height: 12),
             eventsAsync.when(
               data: (events) {
                 if (events.isEmpty) {
-                  return const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Center(child: Text('등록된 공연이 없습니다')),
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surface,
+                      borderRadius: BorderRadius.circular(2),
+                      border: Border.all(color: AppTheme.border, width: 0.5),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '등록된 공연이 없습니다',
+                        style: AppTheme.sans(
+                          fontSize: 14,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
                     ),
                   );
                 }
 
-                return ListView.builder(
+                return ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: events.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final event = events[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface,
+                        borderRadius: BorderRadius.circular(2),
+                        border:
+                            Border.all(color: AppTheme.border, width: 0.5),
+                        boxShadow: AppShadows.small,
+                      ),
                       child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 4),
                         title: Text(
                           event.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          style: AppTheme.sans(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
+                          ),
                         ),
                         subtitle: Text(
-                          '${event.availableSeats}/${event.totalSeats}석 | ${event.status.name}',
+                          '${event.availableSeats}/${event.totalSeats}석  |  ${event.status.name}',
+                          style: AppTheme.sans(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                          ),
                         ),
                         trailing: PopupMenuButton<String>(
+                          icon: const Icon(
+                            Icons.more_horiz,
+                            color: AppTheme.sage,
+                            size: 20,
+                          ),
                           onSelected: (value) {
                             switch (value) {
                               case 'seats':
@@ -133,14 +201,20 @@ class AdminDashboardScreen extends ConsumerWidget {
                                 break;
                             }
                           },
-                          itemBuilder: (context) => const [
+                          itemBuilder: (context) => [
                             PopupMenuItem(
                               value: 'seats',
-                              child: Text('좌석 관리'),
+                              child: Text(
+                                '좌석 관리',
+                                style: AppTheme.sans(fontSize: 13),
+                              ),
                             ),
                             PopupMenuItem(
                               value: 'assignments',
-                              child: Text('배정 현황'),
+                              child: Text(
+                                '배정 현황',
+                                style: AppTheme.sans(fontSize: 13),
+                              ),
                             ),
                           ],
                         ),
@@ -149,8 +223,16 @@ class AdminDashboardScreen extends ConsumerWidget {
                   },
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => Text('오류: $error'),
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(40),
+                  child: CircularProgressIndicator(color: AppTheme.gold),
+                ),
+              ),
+              error: (error, stack) => Text(
+                '오류: $error',
+                style: AppTheme.sans(color: AppTheme.error),
+              ),
             ),
           ],
         ),
@@ -172,17 +254,29 @@ class _QuickMenuCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(color: AppTheme.border, width: 0.5),
+          boxShadow: AppShadows.small,
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
           child: Column(
             children: [
-              Icon(icon, size: 32, color: Theme.of(context).primaryColor),
-              const SizedBox(height: 8),
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Icon(icon, size: 28, color: AppTheme.gold),
+              const SizedBox(height: 10),
+              Text(
+                title,
+                style: AppTheme.sans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
             ],
           ),
         ),
