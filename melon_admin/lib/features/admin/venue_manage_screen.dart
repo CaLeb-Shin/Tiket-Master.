@@ -39,7 +39,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                   child: CircularProgressIndicator(color: AppTheme.gold)),
               error: (e, _) => Center(
                   child: Text('오류: $e',
-                      style: GoogleFonts.notoSans(color: AppTheme.error))),
+                      style: AppTheme.sans(color: AppTheme.error))),
               data: (venues) {
                 if (_showCreateForm) {
                   return _VenueCreateForm(
@@ -87,11 +87,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
           Expanded(
             child: Text(
               _showCreateForm ? '공연장 등록' : '공연장 관리',
-              style: GoogleFonts.notoSans(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
-              ),
+              style: AppTheme.serif(fontSize: 17),
             ),
           ),
           if (!_showCreateForm)
@@ -112,10 +108,10 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                     const SizedBox(width: 4),
                     Text(
                       '공연장 등록',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.sans(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFFFDF3F6),
+                        color: AppTheme.onAccent,
                       ),
                     ),
                   ],
@@ -146,7 +142,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
             const SizedBox(height: 16),
             Text(
               '등록된 공연장이 없습니다',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.sans(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textSecondary,
@@ -155,7 +151,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
             const SizedBox(height: 8),
             Text(
               '공연장을 등록하면 공연 등록 시 선택할 수 있습니다',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.sans(
                 fontSize: 13,
                 color: AppTheme.textTertiary,
               ),
@@ -165,7 +161,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
               onPressed: () => setState(() => _showCreateForm = true),
               icon: const Icon(Icons.add_rounded, size: 18),
               label: Text('첫 공연장 등록하기',
-                  style: GoogleFonts.notoSans(fontWeight: FontWeight.w600)),
+                  style: AppTheme.sans(fontWeight: FontWeight.w600)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.gold,
                 foregroundColor: const Color(0xFFFDF3F6),
@@ -217,7 +213,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                             Expanded(
                               child: Text(
                                 venue.name,
-                                style: GoogleFonts.notoSans(
+                                style: AppTheme.sans(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
                                   color: AppTheme.textPrimary,
@@ -238,7 +234,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text('배치도',
-                                        style: GoogleFonts.notoSans(
+                                        style: AppTheme.sans(
                                           fontSize: 9,
                                           fontWeight: FontWeight.w700,
                                           color: AppTheme.info,
@@ -253,7 +249,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text('3D 시야',
-                                        style: GoogleFonts.notoSans(
+                                        style: AppTheme.sans(
                                           fontSize: 9,
                                           fontWeight: FontWeight.w700,
                                           color: AppTheme.gold,
@@ -267,7 +263,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                         Text(
                           '${fmt.format(venue.totalSeats)}석 · ${venue.floors.length}층'
                           '${venue.address != null ? ' · ${venue.address}' : ''}',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.sans(
                             fontSize: 12,
                             color: AppTheme.textTertiary,
                           ),
@@ -286,7 +282,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(g,
-                                        style: GoogleFonts.notoSans(
+                                        style: AppTheme.sans(
                                           fontSize: 10,
                                           color: AppTheme.textSecondary,
                                         )),
@@ -688,16 +684,12 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     children: [
                       Text(
                         '좌석 구조 편집',
-                        style: GoogleFonts.notoSans(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
-                        ),
+                        style: AppTheme.serif(fontSize: 17),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         widget.venueName,
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 12,
                           color: AppTheme.textTertiary,
                         ),
@@ -709,7 +701,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   onPressed: () => Navigator.pop(context),
                   child: Text(
                     '닫기',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.sans(
                       fontWeight: FontWeight.w700,
                       color: AppTheme.textSecondary,
                     ),
@@ -749,7 +741,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                       children: [
                         Text(
                           '무대 위치',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.sans(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: AppTheme.textPrimary,
@@ -791,7 +783,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                           Text(
                             '층 추가',
                             style:
-                                GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                                AppTheme.sans(fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),
@@ -816,7 +808,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     onPressed: () => Navigator.pop(context),
                     child: Text(
                       '취소',
-                      style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                      style: AppTheme.sans(fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
@@ -830,7 +822,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     ),
                     child: Text(
                       '적용',
-                      style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                      style: AppTheme.sans(fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
@@ -848,7 +840,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
       children: [
         Text(
           label,
-          style: GoogleFonts.notoSans(
+          style: AppTheme.sans(
             fontSize: 11,
             color: AppTheme.textTertiary,
           ),
@@ -856,7 +848,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
         const SizedBox(height: 4),
         Text(
           value,
-          style: GoogleFonts.notoSans(
+          style: AppTheme.sans(
             fontSize: 14,
             fontWeight: FontWeight.w700,
             color: AppTheme.textPrimary,
@@ -888,14 +880,14 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   key: ValueKey('${floor.id}-name'),
                   initialValue: floor.name,
                   onChanged: (value) => floor.name = value,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.textPrimary,
                   ),
                   decoration: InputDecoration(
                     labelText: '층 이름',
-                    labelStyle: GoogleFonts.notoSans(
+                    labelStyle: AppTheme.sans(
                       color: AppTheme.textTertiary,
                       fontSize: 12,
                     ),
@@ -930,7 +922,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                 ),
                 child: Text(
                   '${NumberFormat('#,###').format(floorSeatCount)}석',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.gold,
@@ -961,7 +953,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   const SizedBox(width: 8),
                   Text(
                     '구역 추가',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.sans(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1003,7 +995,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
             children: [
               Text(
                 '구역 배치 드래그',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.textSecondary,
@@ -1012,7 +1004,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
               const Spacer(),
               Text(
                 '블록을 끌어서 이동',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: 11,
                   color: AppTheme.textTertiary,
                 ),
@@ -1079,7 +1071,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                               width: 18,
                               child: Text(
                                 '${row + 1}',
-                                style: GoogleFonts.notoSans(
+                                style: AppTheme.sans(
                                   fontSize: 9,
                                   color: AppTheme.textTertiary,
                                 ),
@@ -1109,7 +1101,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                         alignment: Alignment.center,
                         child: Text(
                           'STAGE',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.sans(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
@@ -1174,7 +1166,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                                     block.name,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.notoSans(
+                                    style: AppTheme.sans(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800,
                                       height: 1.0,
@@ -1186,7 +1178,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                                     '$gradeLabel · $seatText석',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.notoSans(
+                                    style: AppTheme.sans(
                                       fontSize: 9.5,
                                       fontWeight: FontWeight.w700,
                                       height: 1.0,
@@ -1282,7 +1274,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   key: ValueKey('${block.id}-name'),
                   initialValue: block.name,
                   onChanged: (value) => block.name = value,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 13,
                     color: AppTheme.textPrimary,
                   ),
@@ -1296,7 +1288,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   key: ValueKey('${block.id}-grade'),
                   initialValue: block.grade ?? '',
                   onChanged: (value) => block.grade = value,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 13,
                     color: AppTheme.textPrimary,
                   ),
@@ -1318,7 +1310,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
             children: [
               Text(
                 '자유 편집 모드',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.textSecondary,
@@ -1370,7 +1362,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                           Text(
                             '행 추가',
                             style:
-                                GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                                AppTheme.sans(fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),
@@ -1391,7 +1383,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                       block.rows = int.tryParse(value) ?? 0;
                       setState(() {});
                     },
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.sans(
                       fontSize: 13,
                       color: AppTheme.textPrimary,
                     ),
@@ -1408,7 +1400,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                       block.seatsPerRow = int.tryParse(value) ?? 0;
                       setState(() {});
                     },
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.sans(
                       fontSize: 13,
                       color: AppTheme.textPrimary,
                     ),
@@ -1425,7 +1417,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   ),
                   child: Text(
                     '${NumberFormat('#,###').format(seatCount)}석',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.sans(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       color: AppTheme.textSecondary,
@@ -1440,7 +1432,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
             children: [
               Text(
                 '배치 방향',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.textSecondary,
@@ -1477,7 +1469,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
               block.useCustomRows
                   ? '자유 편집 모드에서는 행 위치/좌석 수를 직접 조정합니다'
                   : '기본 구성: ${block.rows}행 · 행당 ${block.seatsPerRow}석 · 배치는 드래그 화면에서 이동',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.sans(
                 fontSize: 10,
                 color: AppTheme.textTertiary,
               ),
@@ -1490,7 +1482,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   '현재 요약: $rowCount행 · 최대 $maxSeatsPerRow석/행 · 총 ${NumberFormat('#,###').format(seatCount)}석',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 10,
                     color: AppTheme.textTertiary,
                   ),
@@ -1511,7 +1503,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
       ),
       child: Text(
         text,
-        style: GoogleFonts.notoSans(
+        style: AppTheme.sans(
           fontSize: 10,
           fontWeight: FontWeight.w700,
           color: AppTheme.textSecondary,
@@ -1539,7 +1531,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   key: ValueKey('${row.id}-name'),
                   initialValue: row.name,
                   onChanged: (value) => row.name = value,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 12,
                     color: AppTheme.textPrimary,
                   ),
@@ -1557,7 +1549,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     row.seatCount = int.tryParse(value) ?? 0;
                     setState(() {});
                   },
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 12,
                     color: AppTheme.textPrimary,
                   ),
@@ -1591,7 +1583,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
             children: [
               Text(
                 '위치',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: 11,
                   color: AppTheme.textTertiary,
                 ),
@@ -1613,7 +1605,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                 child: Text(
                   '${row.offset}',
                   textAlign: TextAlign.right,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.textSecondary,
@@ -1678,7 +1670,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
   InputDecoration _fieldDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: GoogleFonts.notoSans(
+      labelStyle: AppTheme.sans(
         fontSize: 11,
         color: AppTheme.textTertiary,
       ),
@@ -1800,7 +1792,7 @@ class _GeneratedSeatMapDiagram extends StatelessWidget {
             if (showSummaryLabel) ...[
               Text(
                 '무대 위치: ${_stagePositionLabel(normalizedStagePosition)}',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: compact ? 10 : 11,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.textSecondary,
@@ -1841,7 +1833,7 @@ class _GeneratedSeatMapDiagram extends StatelessWidget {
         child: Text(
           'STAGE',
           textAlign: TextAlign.center,
-          style: GoogleFonts.notoSans(
+          style: AppTheme.sans(
             fontSize: isCompact ? 14 : 18,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.8,
@@ -1894,10 +1886,10 @@ class _GeneratedSeatMapDiagram extends StatelessWidget {
           Text(
             floorLabel,
             textAlign: TextAlign.center,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.serif(
               fontSize: compact ? 19 : 24,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF545A66),
+              color: AppTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
@@ -1928,7 +1920,7 @@ class _GeneratedSeatMapDiagram extends StatelessWidget {
           Text(
             '${floor.name} · ${fmt.format(floor.totalSeats)}석',
             textAlign: TextAlign.center,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.sans(
               fontSize: compact ? 10 : 11,
               color: const Color(0xFF5F6572),
               fontWeight: FontWeight.w700,
@@ -2013,7 +2005,7 @@ class _GeneratedSeatBlock extends StatelessWidget {
         children: [
           Text(
             '${block.name}열',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.sans(
               fontSize: compact ? 10 : 11,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF585E6A),
@@ -2053,7 +2045,7 @@ class _GeneratedSeatBlock extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             summaryText,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.sans(
               fontSize: compact ? 9 : 10,
               color: const Color(0xFF737A86),
               fontWeight: FontWeight.w600,
@@ -2147,14 +2139,10 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(venue.name,
-                          style: GoogleFonts.notoSans(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
-                          )),
+                          style: AppTheme.serif(fontSize: 18)),
                       if (venue.address != null)
                         Text(venue.address!,
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.sans(
                               fontSize: 12,
                               color: AppTheme.textTertiary,
                             )),
@@ -2181,7 +2169,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                   ),
                   const SizedBox(height: 20),
                   Text('좌석 배치 자산',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.sans(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: AppTheme.textPrimary,
@@ -2190,7 +2178,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                   _buildSeatMapAssetCard(venue),
                   const SizedBox(height: 20),
                   Text('층/구역 구성',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.sans(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: AppTheme.textPrimary,
@@ -2203,7 +2191,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                       borderWidth: 1,
                       child: Text(
                         '등록된 좌석 구조가 없습니다. 좌석 구조 편집에서 추가해주세요.',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 12,
                           color: AppTheme.textTertiary,
                         ),
@@ -2214,7 +2202,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(floor.name,
-                                style: GoogleFonts.notoSans(
+                                style: AppTheme.sans(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
                                   color: AppTheme.textPrimary,
@@ -2231,7 +2219,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                                   child: Row(
                                     children: [
                                       Text('${block.name}열',
-                                          style: GoogleFonts.notoSans(
+                                          style: AppTheme.sans(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w600,
                                             color: AppTheme.textPrimary,
@@ -2248,7 +2236,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                                                 BorderRadius.circular(4),
                                           ),
                                           child: Text(block.grade!,
-                                              style: GoogleFonts.notoSans(
+                                              style: AppTheme.sans(
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.w600,
                                                 color: AppTheme.gold,
@@ -2269,7 +2257,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                                                 );
                                           return Text(
                                               '$rowCount행 · ${fmt.format(block.totalSeats)}석 · $modeText',
-                                              style: GoogleFonts.notoSans(
+                                              style: AppTheme.sans(
                                                 fontSize: 12,
                                                 color: AppTheme.textTertiary,
                                               ));
@@ -2312,7 +2300,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                                 ),
                               )
                             : Text('좌석 구조 편집',
-                                style: GoogleFonts.notoSans(
+                                style: AppTheme.sans(
                                     fontWeight: FontWeight.w700)),
                       ),
                     ),
@@ -2326,7 +2314,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                           );
                         },
                         child: Text('3D 시야 업로드',
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.sans(
                                 fontWeight: FontWeight.w700)),
                       ),
                     ),
@@ -2347,7 +2335,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                     ),
                     child: Text('삭제',
                         style:
-                            GoogleFonts.notoSans(fontWeight: FontWeight.w700)),
+                            AppTheme.sans(fontWeight: FontWeight.w700)),
                   ),
                 ),
               ],
@@ -2444,7 +2432,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                       : hasGeneratedMap
                           ? '좌석 구조 기반 자동 배치도'
                           : '좌석배치도 미등록',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: hasSeatMap || hasGeneratedMap
@@ -2467,7 +2455,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                       )
                     : Text(
                         hasLayout ? '수정' : '구조 만들기',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -2488,7 +2476,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                       )
                     : Text(
                         hasSeatMap ? '배치도 교체' : '배치도 업로드',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -2518,7 +2506,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
             const SizedBox(height: 8),
             Text(
               '이미지가 없어도 좌석 구조 데이터로 배치도를 자동 생성합니다. STAGE(무대)는 ${_stagePositionLabel(_stagePosition)}에 표시됩니다.',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.sans(
                 fontSize: 11,
                 color: AppTheme.textTertiary,
               ),
@@ -2544,7 +2532,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
       child: Center(
         child: Text(
           text,
-          style: GoogleFonts.notoSans(
+          style: AppTheme.sans(
             fontSize: 12,
             color: AppTheme.textTertiary,
             fontWeight: FontWeight.w600,
@@ -2626,14 +2614,14 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
         child: Column(
           children: [
             Text(value,
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.gold,
                 )),
             const SizedBox(height: 2),
             Text(label,
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: 11,
                   color: AppTheme.textTertiary,
                 )),
@@ -2651,23 +2639,23 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
         backgroundColor: AppTheme.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text('공연장 삭제',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.sans(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: AppTheme.textPrimary)),
         content: Text('${venue.name}을(를) 삭제하시겠습니까?',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.sans(
                 fontSize: 14, color: AppTheme.textSecondary)),
         actions: [
           shad.Button.ghost(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text('취소',
-                style: GoogleFonts.notoSans(color: AppTheme.textTertiary)),
+                style: AppTheme.sans(color: AppTheme.textTertiary)),
           ),
           shad.Button.ghost(
             onPressed: () => Navigator.pop(ctx, true),
             child:
-                Text('삭제', style: GoogleFonts.notoSans(color: AppTheme.error)),
+                Text('삭제', style: AppTheme.sans(color: AppTheme.error)),
           ),
         ],
       ),
@@ -2732,7 +2720,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
             children: [
               // 프리셋 선택
               Text('프리셋 선택',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textSecondary,
@@ -2754,7 +2742,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
 
               // 직접 입력
               Text('또는 직접 입력',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textSecondary,
@@ -2797,7 +2785,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Color(0xFFFDF3F6)))
                       : Text('공연장 등록',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.sans(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           )),
@@ -2845,13 +2833,13 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(name,
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.sans(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: AppTheme.textPrimary,
                       )),
                   Text(detail,
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.sans(
                         fontSize: 12,
                         color: AppTheme.textTertiary,
                       )),
@@ -2892,7 +2880,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.sans(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AppTheme.textSecondary,
@@ -2901,10 +2889,10 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
         TextFormField(
           controller: ctrl,
           style:
-              GoogleFonts.notoSans(fontSize: 14, color: AppTheme.textPrimary),
+              AppTheme.sans(),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: GoogleFonts.notoSans(
+            hintStyle: AppTheme.sans(
                 fontSize: 13, color: AppTheme.textTertiary),
             filled: true,
             fillColor: AppTheme.card,
@@ -2946,7 +2934,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                   color: AppTheme.success, size: 16),
               const SizedBox(width: 8),
               Text('프리셋 미리보기',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.success,
@@ -2955,7 +2943,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
           ),
           const SizedBox(height: 10),
           Text('총 ${fmt.format(venue.totalSeats)}석 · ${venue.floors.length}층',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.sans(
                 fontSize: 13,
                 color: AppTheme.textSecondary,
               )),
@@ -2964,7 +2952,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   '${floor.name}: ${floor.blocks.map((b) => "${b.name}(${b.grade ?? "-"})").join(", ")}',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 12,
                     color: AppTheme.textTertiary,
                   ),
@@ -2983,7 +2971,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('좌석배치도 이미지 (선택)',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.sans(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AppTheme.textSecondary,
@@ -2998,7 +2986,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               Expanded(
                 child: Text(
                   hasFile ? _seatMapFileName! : '업로드된 파일 없음',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 12,
                     color:
                         hasFile ? AppTheme.textPrimary : AppTheme.textTertiary,
@@ -3012,7 +3000,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                 onPressed: _pickSeatMapImage,
                 child: Text(
                   hasFile ? '교체' : '업로드',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
@@ -3037,7 +3025,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                 hasLayout
                     ? '이미지 없이도 작성한 좌석 구조로 자동 배치도를 생성합니다. 무대 위치도 함께 수정할 수 있습니다.'
                     : '좌석배치도 이미지가 없어도 아래 버튼에서 직접 좌석 구조를 만들 수 있습니다.',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: 11,
                   color: AppTheme.textSecondary,
                 ),
@@ -3054,7 +3042,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                       const SizedBox(width: 8),
                       Text(
                         hasLayout ? '직접 만든 좌석 구조 편집' : '좌석배치도 직접 만들기',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -3080,7 +3068,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('좌석 구조',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.sans(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AppTheme.textSecondary,
@@ -3097,7 +3085,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                 _layoutFloors.isEmpty
                     ? '아직 좌석 구조가 없습니다'
                     : '총 ${fmt.format(totalSeats)}석 · ${_layoutFloors.length}층 · $blockCount구역 · 무대 ${_stagePositionLabel(_stagePosition)}',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: 12,
                   color: _layoutFloors.isEmpty
                       ? AppTheme.textTertiary
@@ -3108,7 +3096,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               const SizedBox(height: 10),
               Text(
                 '무대 위치',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.textSecondary,
@@ -3148,7 +3136,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                           ),
                           child: Text(
                             '${floor.name} (${fmt.format(floor.totalSeats)}석)',
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.sans(
                               fontSize: 11,
                               color: AppTheme.textSecondary,
                             ),
@@ -3172,7 +3160,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                       const SizedBox(width: 8),
                       Text(
                         _layoutFloors.isEmpty ? '좌석배치도 직접 만들기' : '좌석 구조 편집',
-                        style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                        style: AppTheme.sans(fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),
@@ -3199,7 +3187,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
         children: [
           Text(
             '자동 생성 배치도 미리보기',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.sans(
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: AppTheme.textSecondary,
