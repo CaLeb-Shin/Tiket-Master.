@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+// google_fonts removed — using AppTheme helpers
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/venue.dart';
@@ -86,11 +86,11 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                     const SizedBox(height: 8),
                     shad.Card(
                       padding: const EdgeInsets.all(12),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(4),
                       borderWidth: 0.5,
                       child: Text(
                         '공연장 좌석 정보를 불러오는 중입니다...',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 12,
                           color: AppTheme.textTertiary,
                         ),
@@ -114,13 +114,13 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
                         color: AppTheme.gold.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(4),
                         border:
                             Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
                       ),
                       child: Text(
                         _uploadStatus!,
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 13,
                           color: AppTheme.gold,
                         ),
@@ -153,9 +153,9 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                   onPressed: _isUploading ? null : _uploadAll,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.gold,
-                    foregroundColor: const Color(0xFFFDF3F6),
+                    foregroundColor: AppTheme.onAccent,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     disabledBackgroundColor: AppTheme.border,
                   ),
@@ -165,12 +165,12 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Color(0xFFFDF3F6),
+                            color: AppTheme.onAccent,
                           ),
                         )
                       : Text(
                           '${_entries.length}개 이미지 업로드',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.sans(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           ),
@@ -204,15 +204,11 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
               children: [
                 Text(
                   '시점 이미지 관리',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
-                  ),
+                  style: AppTheme.serif(fontSize: 17),
                 ),
                 Text(
                   widget.venueName,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 12,
                     color: AppTheme.textTertiary,
                   ),
@@ -224,20 +220,20 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               gradient: AppTheme.goldGradient,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.visibility_rounded,
-                    size: 14, color: Color(0xFFFDF3F6)),
+                    size: 14, color: AppTheme.onAccent),
                 const SizedBox(width: 4),
                 Text(
                   'Seat View',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFFFDF3F6),
+                    color: AppTheme.onAccent,
                   ),
                 ),
               ],
@@ -251,7 +247,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
   Widget _buildInfoCard() {
     return shad.Card(
       padding: const EdgeInsets.all(16),
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(4),
       borderWidth: 0.5,
       child: Column(
         children: [
@@ -268,17 +264,13 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
           const SizedBox(height: 12),
           Text(
             '좌석 시점 이미지 (일반/360°)',
-            style: GoogleFonts.notoSans(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
-            ),
+            style: AppTheme.serif(fontSize: 16),
           ),
           const SizedBox(height: 6),
           Text(
             '일반 카메라 사진과 360° 파노라마를 모두 등록할 수 있습니다.\n구역/층/행/좌석 단위로 업로드하면 예매 화면에서\n좌석 시야를 바로 확인할 수 있습니다.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.sans(
               fontSize: 13,
               color: AppTheme.textTertiary,
               height: 1.5,
@@ -292,7 +284,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: GoogleFonts.notoSans(
+      style: AppTheme.sans(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: AppTheme.textSecondary,
@@ -411,12 +403,12 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       child: shad.Card(
         padding: EdgeInsets.zero,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(4),
         borderWidth: 0.5,
         child: Column(
         children: [
           InkWell(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(4),
             onTap: () {
               setState(() {
                 if (expanded) {
@@ -444,7 +436,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                       children: [
                         Text(
                           '${group.floor} ${group.zone}구역',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.sans(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: AppTheme.textPrimary,
@@ -453,7 +445,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                         const SizedBox(height: 1),
                         Text(
                           '${group.entries.length}개 이미지',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.sans(
                             fontSize: 11,
                             color: AppTheme.textTertiary,
                           ),
@@ -472,7 +464,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                     ),
                     child: Text(
                       '${group.entries.length}',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.sans(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: AppTheme.textSecondary,
@@ -524,14 +516,14 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
       padding: EdgeInsets.all(dense ? 10 : 12),
       decoration: BoxDecoration(
         color: dense ? AppTheme.surface : AppTheme.card,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: AppTheme.border, width: 0.5),
       ),
       child: Row(
         children: [
           // Thumbnail
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
             child: SizedBox(
               width: 72,
               height: 48,
@@ -561,7 +553,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                         ),
                         child: Text(
                           '360°',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.sans(
                             fontSize: 8,
                             fontWeight: FontWeight.w700,
                             color: AppTheme.gold,
@@ -580,7 +572,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
               children: [
                 Text(
                   view.displayName,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textPrimary,
@@ -588,7 +580,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                 ),
                 Text(
                   '${view.floor}${view.is360 ? ' · 360° 파노라마' : ' · 일반 사진'}',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 11,
                     color: AppTheme.textTertiary,
                   ),
@@ -596,7 +588,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                 if (view.description != null)
                   Text(
                     view.description!,
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.sans(
                       fontSize: 11,
                       color: AppTheme.textTertiary,
                     ),
@@ -621,7 +613,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       child: shad.Card(
         padding: const EdgeInsets.all(12),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(4),
         borderWidth: 0.5,
         child: Column(
         children: [
@@ -630,7 +622,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
               // Thumbnail
               if (entry.imageBytes != null)
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                   child: SizedBox(
                     width: 72,
                     height: 48,
@@ -646,7 +638,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                   height: 48,
                   decoration: BoxDecoration(
                     color: AppTheme.surface,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: AppTheme.border),
                   ),
                   child: const Icon(Icons.add_photo_alternate_rounded,
@@ -706,7 +698,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                           onPressed: (index) {
                             setState(() => entry.is360 = index == 1);
                           },
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(4),
                           borderColor: AppTheme.border,
                           selectedBorderColor: AppTheme.gold,
                           fillColor: AppTheme.gold.withValues(alpha: 0.15),
@@ -718,7 +710,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                                   const EdgeInsets.symmetric(horizontal: 8),
                               child: Text(
                                 '일반',
-                                style: GoogleFonts.notoSans(
+                                style: AppTheme.sans(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   color: !entry.is360
@@ -732,7 +724,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                                   const EdgeInsets.symmetric(horizontal: 8),
                               child: Text(
                                 '360°',
-                                style: GoogleFonts.notoSans(
+                                style: AppTheme.sans(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   color: entry.is360
@@ -788,24 +780,24 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      style: GoogleFonts.notoSans(fontSize: 13, color: AppTheme.textPrimary),
+      style: AppTheme.sans(fontSize: 13, color: AppTheme.textPrimary),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle:
-            GoogleFonts.notoSans(fontSize: 12, color: AppTheme.textTertiary),
+            AppTheme.sans(fontSize: 12, color: AppTheme.textTertiary),
         filled: true,
         fillColor: AppTheme.surface,
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           borderSide: const BorderSide(color: AppTheme.gold, width: 1),
         ),
         isDense: true,
@@ -818,7 +810,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
       onTap: _addEntry,
       child: shad.Card(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(4),
         borderWidth: 1,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -828,7 +820,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
             const SizedBox(width: 8),
             Text(
               '시점 이미지 추가',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.sans(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.gold,
@@ -869,14 +861,14 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
 
     return shad.Card(
       padding: const EdgeInsets.all(12),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(4),
       borderWidth: 0.5,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             '좌석 구조 기반 템플릿',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.sans(
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: AppTheme.textPrimary,
@@ -885,7 +877,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
           const SizedBox(height: 4),
           Text(
             '추천 로직에서 사용하는 구역/층/행/좌석 키 기준으로 업로드 항목을 자동 생성합니다.',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.sans(
               fontSize: 11,
               color: AppTheme.textTertiary,
             ),
@@ -895,7 +887,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 '좌석 구조가 없어 임시 배치도로 표시 중입니다. 공연장 관리에서 좌석 구조를 저장하면 정확한 배치가 반영됩니다.',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: 10,
                   color: AppTheme.textTertiary,
                 ),
@@ -919,7 +911,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                       const SizedBox(width: 8),
                       Text(
                         '구역 단위 생성',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -944,7 +936,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                       const SizedBox(width: 8),
                       Text(
                         '앞/중/뒤 열 생성',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -961,7 +953,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(color: AppTheme.border, width: 0.5),
             ),
             child: Column(
@@ -969,7 +961,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
               children: [
                 Text(
                   '무대 배치도에서 구역 선택',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.textPrimary,
@@ -978,7 +970,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                 const SizedBox(height: 4),
                 Text(
                   '클릭: 행/좌석 선택, 더블클릭: 구역 대표 시야 업로드',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.sans(
                     fontSize: 11,
                     color: AppTheme.textTertiary,
                   ),
@@ -1102,7 +1094,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
         alignment: Alignment.center,
         child: Text(
           '${floor.name}에 구역이 없습니다',
-          style: GoogleFonts.notoSans(
+          style: AppTheme.sans(
             fontSize: 11,
             color: AppTheme.textTertiary,
           ),
@@ -1164,7 +1156,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: AppTheme.card,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: AppTheme.border, width: 0.5),
                   ),
                 ),
@@ -1181,7 +1173,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                         width: 18,
                         child: Text(
                           '${idx + 1}',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.sans(
                             fontSize: 9,
                             color: AppTheme.textTertiary,
                           ),
@@ -1206,12 +1198,12 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                   height: stageHeight,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFB8BEC9),
-                    borderRadius: BorderRadius.circular(8),
+                    color: AppTheme.sage,
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     'STAGE',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.sans(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
@@ -1255,7 +1247,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                   width: blockWidth,
                   height: blockHeight,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                     onTap: () {
                       setState(() {
                         _selectedLayoutFloor = floor.name;
@@ -1272,7 +1264,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                       decoration: BoxDecoration(
                         color: (isSelected ? AppTheme.gold : borderColor)
                             .withValues(alpha: isSelected ? 0.26 : 0.18),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(4),
                         border: Border.all(
                           color: isSelected ? AppTheme.gold : borderColor,
                           width: isSelected ? 1.4 : 1,
@@ -1292,7 +1284,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                             block.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.sans(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
                               color: AppTheme.textPrimary,
@@ -1304,7 +1296,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                             '$gradeLabel · ${block.totalSeats}석',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.sans(
                               fontSize: 9.5,
                               fontWeight: FontWeight.w700,
                               color: AppTheme.textSecondary,
@@ -1316,7 +1308,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                             statusText,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.sans(
                               fontSize: 8.5,
                               fontWeight: FontWeight.w700,
                               color: borderColor,
@@ -1354,7 +1346,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
 
     return shad.Card(
       padding: const EdgeInsets.all(10),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(4),
       borderWidth: 0.8,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1371,7 +1363,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       softWrap: false,
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.sans(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                         color: AppTheme.textPrimary,
@@ -1392,7 +1384,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                       '${rowLabels.length}행, 총 $seatTotal석 · 좌석 점 클릭 시 해당 좌석 업로드 항목 생성',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.sans(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textSecondary,
@@ -1421,7 +1413,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                     '구역 대표 업로드',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.sans(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1459,7 +1451,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                 ? AppTheme.error
                 : (rowPendingCount > 0
                     ? pendingColor
-                    : Colors.white.withValues(alpha: 0.84));
+                    : AppTheme.textTertiary);
             final statusLabel = rowSavedCount > 0
                 ? '업로드 $rowSavedCount석'
                 : (rowPendingCount > 0 ? '대기 $rowPendingCount석' : '미업로드');
@@ -1469,7 +1461,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: AppTheme.border, width: 0.5),
               ),
               child: Column(
@@ -1479,7 +1471,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                     children: [
                       Text(
                         '$rowLabel행',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.textSecondary,
@@ -1488,7 +1480,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                       const SizedBox(width: 6),
                       Text(
                         '$seatCount석',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.textTertiary,
@@ -1497,7 +1489,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                       const Spacer(),
                       Text(
                         statusLabel,
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           color: statusColor,
@@ -1527,12 +1519,12 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                       );
                       final seatColor = hasSaved
                           ? AppTheme.error
-                          : (hasPending ? pendingColor : Colors.white);
+                          : (hasPending ? pendingColor : AppTheme.sage);
                       final seatFillColor = hasSaved
                           ? AppTheme.error.withValues(alpha: 0.28)
                           : (hasPending
                               ? pendingColor.withValues(alpha: 0.28)
-                              : Colors.white.withValues(alpha: 0.12));
+                              : AppTheme.sage.withValues(alpha: 0.12));
                       final seatStatus =
                           hasSaved ? '업로드됨' : (hasPending ? '업로드 대기' : '미업로드');
 
@@ -1558,7 +1550,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                             ),
                             child: Text(
                               '$seatNumber',
-                              style: GoogleFonts.notoSans(
+                              style: AppTheme.sans(
                                 fontSize: 8,
                                 fontWeight: FontWeight.w800,
                                 color: seatColor,
@@ -1589,7 +1581,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
       ),
       child: Text(
         label,
-        style: GoogleFonts.notoSans(
+        style: AppTheme.sans(
           fontSize: 10.5,
           fontWeight: FontWeight.w700,
           color: AppTheme.textPrimary,
@@ -1974,18 +1966,14 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         title: Text(
           '시점 이미지 삭제',
-          style: GoogleFonts.notoSans(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.textPrimary,
-          ),
+          style: AppTheme.serif(fontSize: 16),
         ),
         content: Text(
           '${view.displayName} (${view.floor}) 시점 이미지를 삭제하시겠습니까?',
-          style: GoogleFonts.notoSans(
+          style: AppTheme.sans(
             fontSize: 14,
             color: AppTheme.textSecondary,
           ),
@@ -1994,12 +1982,12 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
           shad.Button.ghost(
             onPressed: () => Navigator.pop(context, false),
             child: Text('취소',
-                style: GoogleFonts.notoSans(color: AppTheme.textTertiary)),
+                style: AppTheme.sans(color: AppTheme.textTertiary)),
           ),
           shad.Button.ghost(
             onPressed: () => Navigator.pop(context, true),
             child:
-                Text('삭제', style: GoogleFonts.notoSans(color: AppTheme.error)),
+                Text('삭제', style: AppTheme.sans(color: AppTheme.error)),
           ),
         ],
       ),
