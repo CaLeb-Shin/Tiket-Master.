@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
@@ -304,13 +303,13 @@ B,1층,1,5''';
         // ── Section 1: CSV 형식 안내 ──
         _sectionHeader('형식 안내'),
         const SizedBox(height: 20),
-        shad.Card(
+        Container(
           padding: const EdgeInsets.all(20),
-          borderRadius: BorderRadius.circular(2),
-          borderWidth: 0.5,
-          borderColor: AppTheme.sage.withValues(alpha: 0.15),
-          fillColor: AppTheme.surface,
-          filled: true,
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+            borderRadius: BorderRadius.circular(2),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

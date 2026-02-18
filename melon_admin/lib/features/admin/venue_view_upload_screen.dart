@@ -4,7 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // google_fonts removed — using AppTheme helpers
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/venue.dart';
 import 'package:melon_core/data/repositories/venue_repository.dart';
@@ -84,10 +83,13 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                     _buildLayoutTemplateCard(venue, existingViews),
                   ] else ...[
                     const SizedBox(height: 8),
-                    shad.Card(
+                    Container(
                       padding: const EdgeInsets.all(12),
-                      borderRadius: BorderRadius.circular(4),
-                      borderWidth: 0.5,
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface,
+                        border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                       child: Text(
                         '공연장 좌석 정보를 불러오는 중입니다...',
                         style: AppTheme.sans(
@@ -245,10 +247,13 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
   }
 
   Widget _buildInfoCard() {
-    return shad.Card(
+    return Container(
       padding: const EdgeInsets.all(16),
-      borderRadius: BorderRadius.circular(4),
-      borderWidth: 0.5,
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+        borderRadius: BorderRadius.circular(4),
+      ),
       child: Column(
         children: [
           Container(
@@ -401,10 +406,12 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      child: shad.Card(
-        padding: EdgeInsets.zero,
-        borderRadius: BorderRadius.circular(4),
-        borderWidth: 0.5,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+          borderRadius: BorderRadius.circular(4),
+        ),
         child: Column(
         children: [
           InkWell(
@@ -611,10 +618,13 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
   Widget _buildEntryCard(int index, _ZoneViewEntry entry) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      child: shad.Card(
+      child: Container(
         padding: const EdgeInsets.all(12),
-        borderRadius: BorderRadius.circular(4),
-        borderWidth: 0.5,
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+          borderRadius: BorderRadius.circular(4),
+        ),
         child: Column(
         children: [
           Row(
@@ -808,10 +818,13 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
   Widget _buildAddButton() {
     return GestureDetector(
       onTap: _addEntry,
-      child: shad.Card(
+      child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        borderRadius: BorderRadius.circular(4),
-        borderWidth: 1,
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 1),
+          borderRadius: BorderRadius.circular(4),
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -859,10 +872,13 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
     );
     final hasSelectedBlock = selectedBlock.name.isNotEmpty;
 
-    return shad.Card(
+    return Container(
       padding: const EdgeInsets.all(12),
-      borderRadius: BorderRadius.circular(4),
-      borderWidth: 0.5,
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+        borderRadius: BorderRadius.circular(4),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -897,12 +913,17 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
           Row(
             children: [
               Expanded(
-                child: shad.Button.outline(
+                child: OutlinedButton(
                   onPressed: () => _addEntriesFromLayout(
                     venue,
                     existingViews: existingViews,
                     includeRows: false,
                     floorsOverride: layoutFloors,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textPrimary,
+                    side: BorderSide(color: AppTheme.sage.withValues(alpha: 0.3), width: 0.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -922,12 +943,17 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: shad.Button.outline(
+                child: OutlinedButton(
                   onPressed: () => _addEntriesFromLayout(
                     venue,
                     existingViews: existingViews,
                     includeRows: true,
                     floorsOverride: layoutFloors,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textPrimary,
+                    side: BorderSide(color: AppTheme.sage.withValues(alpha: 0.3), width: 0.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1344,10 +1370,13 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
       (sum, row) => sum + _seatCountForRow(block, row),
     );
 
-    return shad.Card(
+    return Container(
       padding: const EdgeInsets.all(10),
-      borderRadius: BorderRadius.circular(4),
-      borderWidth: 0.8,
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.8),
+        borderRadius: BorderRadius.circular(4),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1979,12 +2008,12 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
           ),
         ),
         actions: [
-          shad.Button.ghost(
+          TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text('취소',
                 style: AppTheme.sans(color: AppTheme.textTertiary)),
           ),
-          shad.Button.ghost(
+          TextButton(
             onPressed: () => Navigator.pop(context, true),
             child:
                 Text('삭제', style: AppTheme.sans(color: AppTheme.error)),

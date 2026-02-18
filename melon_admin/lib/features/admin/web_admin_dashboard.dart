@@ -71,16 +71,26 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      shad.Button.primary(
+                      ElevatedButton(
                         onPressed: () => context.push('/setup'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.gold,
+                          foregroundColor: AppTheme.onAccent,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        ),
                         child: Text(
                           '승인 요청',
                           style: AppTheme.sans(fontWeight: FontWeight.w700),
                         ),
                       ),
                       const SizedBox(width: 10),
-                      shad.Button.outline(
+                      OutlinedButton(
                         onPressed: () => context.go('/'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.textPrimary,
+                          side: BorderSide(color: AppTheme.sage.withValues(alpha: 0.3), width: 0.5),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        ),
                         child: Text(
                           '홈으로 이동',
                           style: AppTheme.sans(fontWeight: FontWeight.w700),

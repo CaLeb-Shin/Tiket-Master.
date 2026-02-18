@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
@@ -648,7 +647,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             fontSize: 13,
           ),
         ),
-        shad.Button.link(
+        TextButton(
           onPressed: () {
             setState(() {
               _isSignUp = !_isSignUp;

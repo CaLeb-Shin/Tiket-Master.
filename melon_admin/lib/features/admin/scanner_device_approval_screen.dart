@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/scanner_device.dart';
 import 'package:melon_core/data/repositories/scanner_device_repository.dart';
@@ -251,13 +250,13 @@ class _ScannerDeviceApprovalScreenState
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildSummary(int totalCount, int filteredCount) {
-    return shad.Card(
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      borderRadius: BorderRadius.circular(2),
-      borderWidth: 0.5,
-      borderColor: AppTheme.sage.withValues(alpha: 0.15),
-      fillColor: AppTheme.surface,
-      filled: true,
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+        borderRadius: BorderRadius.circular(2),
+      ),
       child: Row(
         children: [
           Text(

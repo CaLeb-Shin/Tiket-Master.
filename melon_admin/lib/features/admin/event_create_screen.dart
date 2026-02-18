@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/services/kakao_postcode_service.dart'
     if (dart.library.io) 'package:melon_core/services/kakao_postcode_stub.dart';
@@ -206,8 +205,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                shad.Button.primary(
+                ElevatedButton(
                   onPressed: () => context.go('/'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.gold,
+                    foregroundColor: AppTheme.onAccent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  ),
                   child: Text(
                     '홈으로 이동',
                     style: AppTheme.sans(fontWeight: FontWeight.w700),
