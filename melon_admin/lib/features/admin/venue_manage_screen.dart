@@ -98,13 +98,13 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                 decoration: BoxDecoration(
                   gradient: AppTheme.goldGradient,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.add_rounded,
-                        size: 16, color: Color(0xFFFDF3F6)),
+                        size: 16, color: AppTheme.onAccent),
                     const SizedBox(width: 4),
                     Text(
                       '공연장 등록',
@@ -164,9 +164,9 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                   style: AppTheme.sans(fontWeight: FontWeight.w600)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.gold,
-                foregroundColor: const Color(0xFFFDF3F6),
+                foregroundColor: AppTheme.onAccent,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(4)),
               ),
             ),
           ],
@@ -185,11 +185,11 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
           margin: const EdgeInsets.only(bottom: 10),
           child: shad.Card(
             padding: const EdgeInsets.all(16),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(4),
             borderWidth: 0.5,
             child: InkWell(
               onTap: () => _showVenueDetail(venue),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(4),
               child: Row(
                 children: [
                   // 아이콘
@@ -198,7 +198,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                     height: 48,
                     decoration: BoxDecoration(
                       color: AppTheme.gold.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: const Icon(Icons.location_city_rounded,
                         size: 24, color: AppTheme.gold),
@@ -659,7 +659,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
       height: screenSize.height * (isDesktopEditor ? 0.94 : 0.88),
       decoration: const BoxDecoration(
         color: AppTheme.background,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
       ),
       child: Column(
         children: [
@@ -719,7 +719,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                 children: [
                   shad.Card(
                     padding: const EdgeInsets.all(12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(4),
                     borderWidth: 1,
                     child: Row(
                       children: [
@@ -734,7 +734,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   const SizedBox(height: 10),
                   shad.Card(
                     padding: const EdgeInsets.all(12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(4),
                     borderWidth: 1,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -818,7 +818,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     onPressed: _applyLayout,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.gold,
-                      foregroundColor: const Color(0xFFFDF3F6),
+                      foregroundColor: AppTheme.onAccent,
                     ),
                     child: Text(
                       '적용',
@@ -868,7 +868,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
       margin: const EdgeInsets.only(bottom: 10),
       child: shad.Card(
         padding: const EdgeInsets.all(12),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(4),
         borderWidth: 1,
         child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -895,17 +895,17 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     filled: true,
                     fillColor: AppTheme.surface,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
                       borderSide:
                           const BorderSide(color: AppTheme.border, width: 0.5),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
                       borderSide:
                           const BorderSide(color: AppTheme.border, width: 0.5),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
                       borderSide:
                           const BorderSide(color: AppTheme.gold, width: 1),
                     ),
@@ -918,7 +918,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
                   color: AppTheme.surface,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   '${NumberFormat('#,###').format(floorSeatCount)}석',
@@ -985,7 +985,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: AppTheme.border, width: 0.5),
       ),
       child: Column(
@@ -1052,7 +1052,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                       child: Container(
                         decoration: BoxDecoration(
                           color: AppTheme.card,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(4),
                           border:
                               Border.all(color: AppTheme.border, width: 0.5),
                         ),
@@ -1095,8 +1095,8 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                         width: stageWidth,
                         height: stageHeight,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFB8BEC9),
-                          borderRadius: BorderRadius.circular(8),
+                          color: AppTheme.sage,
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         alignment: Alignment.center,
                         child: Text(
@@ -1148,7 +1148,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                             child: Container(
                               decoration: BoxDecoration(
                                 color: gradeColor.withValues(alpha: 0.22),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(4),
                                 border: Border.all(color: gradeColor, width: 1),
                                 boxShadow: [
                                   BoxShadow(
@@ -1262,7 +1262,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: AppTheme.border, width: 0.5),
       ),
       child: Column(
@@ -1328,7 +1328,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
           if (block.useCustomRows) ...[
             shad.Card(
               padding: const EdgeInsets.all(8),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               borderWidth: 0.5,
               child: Column(
                 children: [
@@ -1413,7 +1413,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: AppTheme.card,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     '${NumberFormat('#,###').format(seatCount)}석',
@@ -1499,7 +1499,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(2),
       ),
       child: Text(
         text,
@@ -1519,7 +1519,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: AppTheme.border, width: 0.5),
       ),
       child: Column(
@@ -1678,15 +1678,15 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
       filled: true,
       fillColor: AppTheme.card,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         borderSide: const BorderSide(color: AppTheme.gold, width: 1),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -1827,8 +1827,8 @@ class _GeneratedSeatMapDiagram extends StatelessWidget {
         width: isCompact ? 160 : 230,
         padding: EdgeInsets.symmetric(vertical: isCompact ? 7 : 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFB8BEC9),
-          borderRadius: BorderRadius.circular(10),
+          color: AppTheme.sage,
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Text(
           'STAGE',
@@ -1877,7 +1877,7 @@ class _GeneratedSeatMapDiagram extends StatelessWidget {
         compact ? 8 : 10,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFE7EAF0),
+        color: AppTheme.cardElevated,
         borderRadius: BorderRadius.circular(compact ? 10 : 14),
       ),
       child: Column(
@@ -1922,7 +1922,7 @@ class _GeneratedSeatMapDiagram extends StatelessWidget {
             textAlign: TextAlign.center,
             style: AppTheme.sans(
               fontSize: compact ? 10 : 11,
-              color: const Color(0xFF5F6572),
+              color: AppTheme.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -2008,7 +2008,7 @@ class _GeneratedSeatBlock extends StatelessWidget {
             style: AppTheme.sans(
               fontSize: compact ? 10 : 11,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF585E6A),
+              color: AppTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
@@ -2047,7 +2047,7 @@ class _GeneratedSeatBlock extends StatelessWidget {
             summaryText,
             style: AppTheme.sans(
               fontSize: compact ? 9 : 10,
-              color: const Color(0xFF737A86),
+              color: AppTheme.textTertiary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -2104,7 +2104,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
       height: MediaQuery.of(context).size.height * 0.72,
       decoration: const BoxDecoration(
         color: AppTheme.background,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
       ),
       child: Column(
         children: [
@@ -2128,10 +2128,10 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                   height: 44,
                   decoration: BoxDecoration(
                     gradient: AppTheme.goldGradient,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Icon(Icons.location_city_rounded,
-                      size: 22, color: Color(0xFFFDF3F6)),
+                      size: 22, color: AppTheme.onAccent),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -2187,7 +2187,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                   if (_floors.isEmpty)
                     shad.Card(
                       padding: const EdgeInsets.all(14),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(4),
                       borderWidth: 1,
                       child: Text(
                         '등록된 좌석 구조가 없습니다. 좌석 구조 편집에서 추가해주세요.',
@@ -2214,7 +2214,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                                       horizontal: 12, vertical: 8),
                                   decoration: BoxDecoration(
                                     color: AppTheme.card,
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Row(
                                     children: [
@@ -2417,7 +2417,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppTheme.card,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(
@@ -2486,7 +2486,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
           ),
           const SizedBox(height: 8),
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
             child: SizedBox(
               width: double.infinity,
               height: hasGeneratedMap ? 300 : 140,
@@ -2609,7 +2609,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
         margin: const EdgeInsets.symmetric(horizontal: 3),
         decoration: BoxDecoration(
           color: AppTheme.card,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Column(
           children: [
@@ -2637,7 +2637,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         title: Text('공연장 삭제',
             style: AppTheme.sans(
                 fontSize: 16,
@@ -2773,9 +2773,9 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                   onPressed: _isSubmitting ? null : _createVenue,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.gold,
-                    foregroundColor: const Color(0xFFFDF3F6),
+                    foregroundColor: AppTheme.onAccent,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(4)),
                     disabledBackgroundColor: AppTheme.border,
                   ),
                   child: _isSubmitting
@@ -2783,7 +2783,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Color(0xFFFDF3F6)))
+                              strokeWidth: 2, color: AppTheme.onAccent))
                       : Text('공연장 등록',
                           style: AppTheme.sans(
                             fontSize: 15,
@@ -2806,7 +2806,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.goldSubtle : AppTheme.card,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: isSelected ? AppTheme.gold : AppTheme.border,
             width: isSelected ? 1.5 : 0.5,
@@ -2821,7 +2821,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                 color: isSelected
                     ? AppTheme.gold.withValues(alpha: 0.2)
                     : AppTheme.surface,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(4),
               ),
               child: Icon(Icons.location_city_rounded,
                   size: 20,
@@ -2899,15 +2899,15 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(4),
               borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(4),
               borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(4),
               borderSide: const BorderSide(color: AppTheme.gold, width: 1),
             ),
           ),
@@ -2922,7 +2922,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppTheme.success.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: AppTheme.success.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -2979,7 +2979,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
         const SizedBox(height: 6),
         shad.Card(
           padding: const EdgeInsets.all(12),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(4),
           borderWidth: 0.5,
           child: Row(
             children: [
@@ -3015,7 +3015,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: AppTheme.info.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
             border: Border.all(color: AppTheme.info.withValues(alpha: 0.28)),
           ),
           child: Column(
@@ -3076,7 +3076,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
         const SizedBox(height: 6),
         shad.Card(
           padding: const EdgeInsets.all(12),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(4),
           borderWidth: 0.5,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3132,7 +3132,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: AppTheme.surface,
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(2),
                           ),
                           child: Text(
                             '${floor.name} (${fmt.format(floor.totalSeats)}석)',
@@ -3179,7 +3179,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: AppTheme.border, width: 0.5),
       ),
       child: Column(
