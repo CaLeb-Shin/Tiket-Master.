@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:melon_core/app/theme.dart';
+import '../../app/admin_theme.dart';
 import 'package:melon_core/services/kakao_postcode_service.dart'
     if (dart.library.io) 'package:melon_core/services/kakao_postcode_stub.dart';
 import 'package:melon_core/data/models/discount_policy.dart';
@@ -154,22 +154,22 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
     if (currentUser.isLoading) {
       return const Scaffold(
-        backgroundColor: AppTheme.background,
+        backgroundColor: AdminTheme.background,
         body: Center(
-          child: CircularProgressIndicator(color: AppTheme.gold),
+          child: CircularProgressIndicator(color: AdminTheme.gold),
         ),
       );
     }
 
     if (currentUser.value?.isAdmin != true) {
       return Scaffold(
-        backgroundColor: AppTheme.background,
+        backgroundColor: AdminTheme.background,
         appBar: AppBar(
-          backgroundColor: AppTheme.surface,
-          foregroundColor: AppTheme.textPrimary,
+          backgroundColor: AdminTheme.surface,
+          foregroundColor: AdminTheme.textPrimary,
           title: Text(
             'Editorial Admin',
-            style: AppTheme.serif(
+            style: AdminTheme.serif(
               fontSize: 17,
               fontWeight: FontWeight.w500,
               fontStyle: FontStyle.italic,
@@ -185,12 +185,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 const Icon(
                   Icons.lock_outline_rounded,
                   size: 44,
-                  color: AppTheme.textTertiary,
+                  color: AdminTheme.textTertiary,
                 ),
                 const SizedBox(height: 12),
                 Text(
                   '관리자 권한이 필요합니다',
-                  style: AppTheme.serif(
+                  style: AdminTheme.serif(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -199,22 +199,22 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 Text(
                   '관리자 계정으로 로그인 후 다시 시도해 주세요.',
                   textAlign: TextAlign.center,
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 13,
-                    color: AppTheme.textSecondary,
+                    color: AdminTheme.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () => context.go('/'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.gold,
-                    foregroundColor: AppTheme.onAccent,
+                    backgroundColor: AdminTheme.gold,
+                    foregroundColor: AdminTheme.onAccent,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                   ),
                   child: Text(
                     '홈으로 이동',
-                    style: AppTheme.sans(fontWeight: FontWeight.w700),
+                    style: AdminTheme.sans(fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -225,7 +225,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AdminTheme.background,
       body: Column(
         children: [
           _buildAppBar(),
@@ -264,7 +264,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         // ── Form Title ──
         Text(
           '공연 등록',
-          style: AppTheme.serif(
+          style: AdminTheme.serif(
             fontSize: 28,
             fontWeight: FontWeight.w300,
           ),
@@ -273,7 +273,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         Container(
           width: 12,
           height: 1,
-          color: AppTheme.gold,
+          color: AdminTheme.gold,
         ),
         const SizedBox(height: 40),
 
@@ -384,10 +384,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         bottom: 12,
       ),
       decoration: BoxDecoration(
-        color: AppTheme.background.withValues(alpha: 0.95),
+        color: AdminTheme.background.withValues(alpha: 0.95),
         border: const Border(
           bottom: BorderSide(
-            color: AppTheme.border,
+            color: AdminTheme.border,
             width: 0.5,
           ),
         ),
@@ -403,12 +403,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               }
             },
             icon: const Icon(Icons.west,
-                color: AppTheme.textPrimary, size: 20),
+                color: AdminTheme.textPrimary, size: 20),
           ),
           const SizedBox(width: 4),
           Text(
             'Editorial Admin',
-            style: AppTheme.serif(
+            style: AdminTheme.serif(
               fontSize: 17,
               fontWeight: FontWeight.w500,
               fontStyle: FontStyle.italic,
@@ -432,9 +432,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         12 + MediaQuery.of(context).padding.bottom,
       ),
       decoration: BoxDecoration(
-        color: AppTheme.background.withValues(alpha: 0.95),
+        color: AdminTheme.background.withValues(alpha: 0.95),
         border: const Border(
-          top: BorderSide(color: AppTheme.border, width: 0.5),
+          top: BorderSide(color: AdminTheme.border, width: 0.5),
         ),
       ),
       child: SizedBox(
@@ -443,9 +443,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         child: ElevatedButton(
           onPressed: _isSubmitting ? null : _submitEvent,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.gold,
-            foregroundColor: AppTheme.onAccent,
-            disabledBackgroundColor: AppTheme.sage.withValues(alpha: 0.3),
+            backgroundColor: AdminTheme.gold,
+            foregroundColor: AdminTheme.onAccent,
+            disabledBackgroundColor: AdminTheme.sage.withValues(alpha: 0.3),
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(4),
@@ -457,7 +457,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppTheme.onAccent,
+                    color: AdminTheme.onAccent,
                   ),
                 )
               : Row(
@@ -465,10 +465,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   children: [
                     Text(
                       'REGISTER EVENT',
-                      style: AppTheme.serif(
+                      style: AdminTheme.serif(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.onAccent,
+                        color: AdminTheme.onAccent,
                         letterSpacing: 2.5,
                       ),
                     ),
@@ -490,7 +490,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       children: [
         Text(
           title,
-          style: AppTheme.serif(
+          style: AdminTheme.serif(
             fontSize: 16,
             fontWeight: FontWeight.w500,
             fontStyle: FontStyle.italic,
@@ -500,7 +500,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         Expanded(
           child: Container(
             height: 0.5,
-            color: AppTheme.sage.withValues(alpha: 0.3),
+            color: AdminTheme.sage.withValues(alpha: 0.3),
           ),
         ),
       ],
@@ -522,9 +522,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           .toList(),
       onChanged: (v) => setState(() => _category = v!),
       decoration: _inputDecoration(null).copyWith(
-        suffixIcon: const Icon(Icons.expand_more, size: 20, color: AppTheme.sage),
+        suffixIcon: const Icon(Icons.expand_more, size: 20, color: AdminTheme.sage),
       ),
-      dropdownColor: AppTheme.surface,
+      dropdownColor: AdminTheme.surface,
       icon: const SizedBox.shrink(),
     );
   }
@@ -562,15 +562,15 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         Row(
           children: [
             Icon(Icons.calendar_today_rounded,
-                size: 14, color: AppTheme.sage.withValues(alpha: 0.6)),
+                size: 14, color: AdminTheme.sage.withValues(alpha: 0.6)),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 '${_startAt.year}년 ${_startAt.month}월 ${_startAt.day}일 ($wd) $amPm ${_startAt.hour}시 ${_startAt.minute.toString().padLeft(2, '0')}분',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: AppTheme.gold,
+                  color: AdminTheme.gold,
                 ),
               ),
             ),
@@ -583,9 +583,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       })),
               child: Text(
                 'CALENDAR',
-                style: AppTheme.label(
+                style: AdminTheme.label(
                   fontSize: 9,
-                  color: AppTheme.gold,
+                  color: AdminTheme.gold,
                 ),
               ),
             ),
@@ -608,9 +608,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             _dateTimeField(_hourCtrl, 32, '시'),
             _dtLabel('시'),
             const SizedBox(width: 4),
-            Text(':', style: AppTheme.sans(
+            Text(':', style: AdminTheme.sans(
               fontSize: 14, fontWeight: FontWeight.w600,
-              color: AppTheme.textTertiary,
+              color: AdminTheme.textTertiary,
             )),
             const SizedBox(width: 4),
             _dateTimeField(_minuteCtrl, 32, '분'),
@@ -627,10 +627,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       height: 36,
       child: TextFormField(
         controller: ctrl,
-        style: AppTheme.sans(
+        style: AdminTheme.sans(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: AppTheme.textPrimary,
+          color: AdminTheme.textPrimary,
         ),
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
@@ -639,13 +639,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           filled: false,
           border: const UnderlineInputBorder(
-            borderSide: BorderSide(color: AppTheme.border, width: 0.5),
+            borderSide: BorderSide(color: AdminTheme.border, width: 0.5),
           ),
           enabledBorder: UnderlineInputBorder(
-            borderSide: BorderSide(color: AppTheme.sage.withValues(alpha: 0.4), width: 0.5),
+            borderSide: BorderSide(color: AdminTheme.sage.withValues(alpha: 0.4), width: 0.5),
           ),
           focusedBorder: const UnderlineInputBorder(
-            borderSide: BorderSide(color: AppTheme.gold, width: 1),
+            borderSide: BorderSide(color: AdminTheme.gold, width: 1),
           ),
         ),
         onChanged: (_) => _syncDateTimeFromControllers(),
@@ -658,10 +658,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       padding: const EdgeInsets.only(left: 2),
       child: Text(
         text,
-        style: AppTheme.sans(
+        style: AdminTheme.sans(
           fontSize: 12,
           fontWeight: FontWeight.w500,
-          color: AppTheme.textTertiary,
+          color: AdminTheme.textTertiary,
         ),
       ),
     );
@@ -679,9 +679,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       children: [
         Text(
           '공연장을 선택하면 좌석 배치가 자동으로 설정됩니다.',
-          style: AppTheme.sans(
+          style: AdminTheme.sans(
             fontSize: 13,
-            color: AppTheme.sage.withValues(alpha: 0.7),
+            color: AdminTheme.sage.withValues(alpha: 0.7),
             height: 1.5,
           ),
         ),
@@ -696,7 +696,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppTheme.gold))),
+                        strokeWidth: 2, color: AdminTheme.gold))),
           ),
           error: (_, __) => const SizedBox.shrink(),
           data: (venues) {
@@ -726,18 +726,18 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppTheme.error.withValues(alpha: 0.06),
-                border: Border.all(color: AppTheme.error.withValues(alpha: 0.3), width: 0.5),
+                color: AdminTheme.error.withValues(alpha: 0.06),
+                border: Border.all(color: AdminTheme.error.withValues(alpha: 0.3), width: 0.5),
               ),
               child: Row(
                 children: [
                   const Icon(Icons.error_outline,
-                      size: 16, color: AppTheme.error),
+                      size: 16, color: AdminTheme.error),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(_seatMapError!,
-                        style: AppTheme.sans(
-                            fontSize: 13, color: AppTheme.error)),
+                        style: AdminTheme.sans(
+                            fontSize: 13, color: AdminTheme.error)),
                   ),
                 ],
               ),
@@ -760,8 +760,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppTheme.surface,
-          border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3), width: 0.5),
+          color: AdminTheme.surface,
+          border: Border.all(color: AdminTheme.gold.withValues(alpha: 0.3), width: 0.5),
         ),
         child: Row(
           children: [
@@ -769,11 +769,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: AppTheme.gold.withValues(alpha: 0.08),
+                color: AdminTheme.gold.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.add_location_alt_rounded,
-                  size: 20, color: AppTheme.gold),
+                  size: 20, color: AdminTheme.gold),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -781,21 +781,21 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('공연장을 먼저 등록하세요',
-                      style: AppTheme.sans(
+                      style: AdminTheme.sans(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.gold,
+                        color: AdminTheme.gold,
                       )),
                   Text('공연장 관리에서 좌석 배치가 포함된 공연장을 등록할 수 있습니다',
-                      style: AppTheme.sans(
+                      style: AdminTheme.sans(
                         fontSize: 12,
-                        color: AppTheme.textTertiary,
+                        color: AdminTheme.textTertiary,
                       )),
                 ],
               ),
             ),
             const Icon(Icons.arrow_forward_ios_rounded,
-                size: 14, color: AppTheme.gold),
+                size: 14, color: AdminTheme.gold),
           ],
         ),
       ),
@@ -811,9 +811,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.gold.withValues(alpha: 0.04) : AppTheme.surface,
+          color: isSelected ? AdminTheme.gold.withValues(alpha: 0.04) : AdminTheme.surface,
           border: Border.all(
-            color: isSelected ? AppTheme.gold : AppTheme.sage.withValues(alpha: 0.2),
+            color: isSelected ? AdminTheme.gold : AdminTheme.sage.withValues(alpha: 0.2),
             width: isSelected ? 1 : 0.5,
           ),
         ),
@@ -824,13 +824,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               height: 40,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? AppTheme.gold.withValues(alpha: 0.1)
-                    : AppTheme.background,
+                    ? AdminTheme.gold.withValues(alpha: 0.1)
+                    : AdminTheme.background,
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.location_city_rounded,
                   size: 20,
-                  color: isSelected ? AppTheme.gold : AppTheme.textTertiary),
+                  color: isSelected ? AdminTheme.gold : AdminTheme.textTertiary),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -840,10 +840,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   Row(
                     children: [
                       Text(venue.name,
-                          style: AppTheme.sans(
+                          style: AdminTheme.sans(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
+                            color: AdminTheme.textPrimary,
                           )),
                       if (venue.hasSeatView) ...[
                         const SizedBox(width: 6),
@@ -851,12 +851,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
-                            border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4), width: 0.5),
+                            border: Border.all(color: AdminTheme.gold.withValues(alpha: 0.4), width: 0.5),
                           ),
                           child: Text('VIEW',
-                              style: AppTheme.label(
+                              style: AdminTheme.label(
                                 fontSize: 8,
-                                color: AppTheme.gold,
+                                color: AdminTheme.gold,
                               )),
                         ),
                       ],
@@ -865,9 +865,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   Text(
                     '${fmt.format(venue.totalSeats)}석 · ${venue.floors.length}층'
                     '${venue.address != null ? ' · ${venue.address}' : ''}',
-                    style: AppTheme.sans(
+                    style: AdminTheme.sans(
                       fontSize: 12,
-                      color: AppTheme.textTertiary,
+                      color: AdminTheme.textTertiary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -877,7 +877,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             ),
             if (isSelected)
               const Icon(Icons.check_circle_rounded,
-                  color: AppTheme.gold, size: 20),
+                  color: AdminTheme.gold, size: 20),
           ],
         ),
       ),
@@ -919,9 +919,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 28),
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: AdminTheme.surface,
           border: Border.all(
-            color: AppTheme.sage.withValues(alpha: 0.25),
+            color: AdminTheme.sage.withValues(alpha: 0.25),
             width: 0.5,
             // Dashed border simulated via pattern
           ),
@@ -933,25 +933,25 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   width: 24,
                   height: 24,
                   child: CircularProgressIndicator(
-                      strokeWidth: 2, color: AppTheme.gold))
+                      strokeWidth: 2, color: AdminTheme.gold))
             else
               Icon(Icons.cloud_upload_outlined,
-                  size: 28, color: AppTheme.sage.withValues(alpha: 0.4)),
+                  size: 28, color: AdminTheme.sage.withValues(alpha: 0.4)),
             const SizedBox(height: 10),
             Text(
               _isLoadingSeatMap ? '엑셀 분석 중...' : 'Drag or tap to upload seat data',
-              style: AppTheme.sans(
+              style: AdminTheme.sans(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: AppTheme.sage,
+                color: AdminTheme.sage,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               '시트명=층, 행: 구역 | 열 수 | 좌석 수 | 등급',
-              style: AppTheme.sans(
+              style: AdminTheme.sans(
                 fontSize: 11,
-                color: AppTheme.sage.withValues(alpha: 0.5),
+                color: AdminTheme.sage.withValues(alpha: 0.5),
               ),
             ),
           ],
@@ -967,8 +967,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
-        border: Border.all(color: AppTheme.success.withValues(alpha: 0.3), width: 0.5),
+        color: AdminTheme.surface,
+        border: Border.all(color: AdminTheme.success.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -976,12 +976,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           Row(
             children: [
               const Icon(Icons.check_circle_rounded,
-                  color: AppTheme.success, size: 18),
+                  color: AdminTheme.success, size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   data.venueName,
-                  style: AppTheme.serif(
+                  style: AdminTheme.serif(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
@@ -991,9 +991,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 onTap: _clearSeatMap,
                 child: Text(
                   'RESET',
-                  style: AppTheme.label(
+                  style: AdminTheme.label(
                     fontSize: 9,
-                    color: AppTheme.error,
+                    color: AdminTheme.error,
                   ),
                 ),
               ),
@@ -1002,9 +1002,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           const SizedBox(height: 10),
           Text(
             '총 ${fmt.format(data.totalSeats)}석 · ${data.floors.length}층',
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
               fontSize: 13,
-              color: AppTheme.textSecondary,
+              color: AdminTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
@@ -1016,15 +1016,15 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppTheme.background,
-                        border: Border.all(color: AppTheme.border, width: 0.5),
+                        color: AdminTheme.background,
+                        border: Border.all(color: AdminTheme.border, width: 0.5),
                       ),
                       child: Text(
                         '${f.name}: ${f.blocks.length}구역 (${fmt.format(f.totalSeats)}석)',
-                        style: AppTheme.sans(
+                        style: AdminTheme.sans(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
-                          color: AppTheme.textSecondary,
+                          color: AdminTheme.textSecondary,
                         ),
                       ),
                     ))
@@ -1049,10 +1049,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                         )),
                     const SizedBox(width: 4),
                     Text(g.name,
-                        style: AppTheme.sans(
+                        style: AdminTheme.sans(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: AppTheme.textSecondary,
+                          color: AdminTheme.textSecondary,
                         )),
                   ],
                 );
@@ -1156,7 +1156,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
                 side: BorderSide(
-                  color: isEnabled ? color : AppTheme.textTertiary,
+                  color: isEnabled ? color : AdminTheme.textTertiary,
                   width: 1,
                 ),
               ),
@@ -1166,15 +1166,15 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: isEnabled ? AppTheme.gold : AppTheme.sage.withValues(alpha: 0.3),
+                  color: isEnabled ? AdminTheme.gold : AdminTheme.sage.withValues(alpha: 0.3),
                   width: 0.5,
                 ),
               ),
               child: Text(
                 grade,
-                style: AppTheme.label(
+                style: AdminTheme.label(
                   fontSize: 10,
-                  color: isEnabled ? AppTheme.gold : AppTheme.textTertiary,
+                  color: isEnabled ? AdminTheme.gold : AdminTheme.textTertiary,
                 ),
               ),
             ),
@@ -1182,9 +1182,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               const SizedBox(width: 8),
               Text(
                 '${fmt.format(gradeSeats)}석',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 11,
-                  color: AppTheme.textTertiary,
+                  color: AdminTheme.textTertiary,
                 ),
               ),
             ],
@@ -1195,36 +1195,36 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         TextFormField(
           controller: ctrl,
           enabled: isEnabled,
-          style: AppTheme.sans(
+          style: AdminTheme.sans(
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: isEnabled
-                ? AppTheme.textPrimary
-                : AppTheme.textTertiary,
+                ? AdminTheme.textPrimary
+                : AdminTheme.textTertiary,
           ),
           decoration: InputDecoration(
             suffixText: '원',
-            suffixStyle: AppTheme.sans(
+            suffixStyle: AdminTheme.sans(
               fontSize: 13,
-              color: AppTheme.textTertiary,
+              color: AdminTheme.textTertiary,
             ),
             filled: false,
             contentPadding: const EdgeInsets.symmetric(
                 horizontal: 0, vertical: 10),
             border: UnderlineInputBorder(
               borderSide: BorderSide(
-                  color: AppTheme.sage.withValues(alpha: 0.4), width: 0.5),
+                  color: AdminTheme.sage.withValues(alpha: 0.4), width: 0.5),
             ),
             enabledBorder: UnderlineInputBorder(
               borderSide: BorderSide(
-                  color: AppTheme.sage.withValues(alpha: 0.4), width: 0.5),
+                  color: AdminTheme.sage.withValues(alpha: 0.4), width: 0.5),
             ),
             disabledBorder: UnderlineInputBorder(
               borderSide: BorderSide(
-                  color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+                  color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
             ),
             focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: AppTheme.gold, width: 1),
+              borderSide: BorderSide(color: AdminTheme.gold, width: 1),
             ),
           ),
           keyboardType: TextInputType.number,
@@ -1267,9 +1267,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       .toList(),
                   onChanged: (v) => setState(() => _ageLimit = v!),
                   decoration: _inputDecoration(null).copyWith(
-                    suffixIcon: const Icon(Icons.expand_more, size: 20, color: AppTheme.sage),
+                    suffixIcon: const Icon(Icons.expand_more, size: 20, color: AdminTheme.sage),
                   ),
-                  dropdownColor: AppTheme.surface,
+                  dropdownColor: AdminTheme.surface,
                   icon: const SizedBox.shrink(),
                 ));
             final runningTimeField = _field('공연시간 (분)', isRequired: true,
@@ -1388,8 +1388,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             margin: EdgeInsets.only(bottom: i < _discountPolicies.length - 1 ? 8 : 0),
             padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
             decoration: BoxDecoration(
-              color: AppTheme.surface,
-              border: Border.all(color: AppTheme.sage.withValues(alpha: 0.2), width: 0.5),
+              color: AdminTheme.surface,
+              border: Border.all(color: AdminTheme.sage.withValues(alpha: 0.2), width: 0.5),
             ),
             child: Row(
               children: [
@@ -1399,8 +1399,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   height: 32,
                   decoration: BoxDecoration(
                     color: p.type == 'bulk'
-                        ? AppTheme.gold.withValues(alpha: 0.08)
-                        : AppTheme.success.withValues(alpha: 0.08),
+                        ? AdminTheme.gold.withValues(alpha: 0.08)
+                        : AdminTheme.success.withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
@@ -1410,8 +1410,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                           : Icons.verified_user_rounded,
                       size: 16,
                       color: p.type == 'bulk'
-                          ? AppTheme.gold
-                          : AppTheme.success,
+                          ? AdminTheme.gold
+                          : AdminTheme.success,
                     ),
                   ),
                 ),
@@ -1423,10 +1423,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                     children: [
                       Text(
                         p.name,
-                        style: AppTheme.sans(
+                        style: AdminTheme.sans(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
+                          color: AdminTheme.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -1434,19 +1434,19 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                         children: [
                           Text(
                             '${(p.discountRate * 100).toInt()}%',
-                            style: AppTheme.sans(
+                            style: AdminTheme.sans(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
-                              color: AppTheme.error,
+                              color: AdminTheme.error,
                             ),
                           ),
                           const SizedBox(width: 6),
                           Text(
                             '${priceFormat.format(discounted)}원',
-                            style: AppTheme.sans(
+                            style: AdminTheme.sans(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: AppTheme.textSecondary,
+                              color: AdminTheme.textSecondary,
                             ),
                           ),
                           if (p.description != null) ...[
@@ -1454,9 +1454,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                             Expanded(
                               child: Text(
                                 p.description!,
-                                style: AppTheme.sans(
+                                style: AdminTheme.sans(
                                   fontSize: 10,
-                                  color: AppTheme.textTertiary,
+                                  color: AdminTheme.textTertiary,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -1472,7 +1472,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 IconButton(
                   onPressed: () => setState(() => _discountPolicies.removeAt(i)),
                   icon: const Icon(Icons.close_rounded,
-                      size: 16, color: AppTheme.textTertiary),
+                      size: 16, color: AdminTheme.textTertiary),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                 ),
@@ -1488,9 +1488,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 14),
             decoration: BoxDecoration(
-              color: AppTheme.surface,
+              color: AdminTheme.surface,
               border: Border.all(
-                color: AppTheme.gold.withValues(alpha: 0.3),
+                color: AdminTheme.gold.withValues(alpha: 0.3),
                 width: 0.5,
               ),
             ),
@@ -1498,13 +1498,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Icon(Icons.add_rounded,
-                    size: 16, color: AppTheme.gold),
+                    size: 16, color: AdminTheme.gold),
                 const SizedBox(width: 6),
                 Text(
                   'ADD DISCOUNT POLICY',
-                  style: AppTheme.label(
+                  style: AdminTheme.label(
                     fontSize: 10,
-                    color: AppTheme.gold,
+                    color: AdminTheme.gold,
                   ),
                 ),
               ],
@@ -1547,9 +1547,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 const SizedBox(height: 6),
                 Text(
                   '0 입력 시 무제한',
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 11,
-                    color: AppTheme.sage.withValues(alpha: 0.6),
+                    color: AdminTheme.sage.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -1561,8 +1561,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           decoration: BoxDecoration(
-            color: AppTheme.surface,
-            border: Border.all(color: AppTheme.gold.withValues(alpha: 0.25), width: 0.5),
+            color: AdminTheme.surface,
+            border: Border.all(color: AdminTheme.gold.withValues(alpha: 0.25), width: 0.5),
           ),
           child: Row(
             children: [
@@ -1572,18 +1572,18 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   children: [
                     Text(
                       '잔여석 표시',
-                      style: AppTheme.sans(
+                      style: AdminTheme.sans(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
+                        color: AdminTheme.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '예매 화면에 남은 좌석 수를 표시합니다',
-                      style: AppTheme.sans(
+                      style: AdminTheme.sans(
                         fontSize: 11,
-                        color: AppTheme.sage.withValues(alpha: 0.6),
+                        color: AdminTheme.sage.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -1592,8 +1592,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               Switch(
                 value: _showRemainingSeats,
                 onChanged: (v) => setState(() => _showRemainingSeats = v),
-                activeTrackColor: AppTheme.gold,
-                activeThumbColor: AppTheme.onAccent,
+                activeTrackColor: AdminTheme.gold,
+                activeThumbColor: AdminTheme.onAccent,
               ),
             ],
           ),
@@ -1623,18 +1623,18 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 height: 40,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
-                  border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4), width: 0.5),
+                  border: Border.all(color: AdminTheme.gold.withValues(alpha: 0.4), width: 0.5),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.search_rounded,
-                        size: 15, color: AppTheme.gold),
+                        size: 15, color: AdminTheme.gold),
                     const SizedBox(width: 6),
                     Text('SEARCH',
-                        style: AppTheme.label(
+                        style: AdminTheme.label(
                           fontSize: 9,
-                          color: AppTheme.gold,
+                          color: AdminTheme.gold,
                         )),
                   ],
                 ),
@@ -1651,7 +1651,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('주소 검색은 웹에서만 지원됩니다'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AdminTheme.error,
           behavior: SnackBarBehavior.floating,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
@@ -1685,12 +1685,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           return AlertDialog(
-            backgroundColor: AppTheme.surface,
+            backgroundColor: AdminTheme.surface,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4)),
             title: Text(
               '할인 정책 추가',
-              style: AppTheme.serif(
+              style: AdminTheme.serif(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
@@ -1702,8 +1702,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 children: [
                   // 유형 선택
                   Text('DISCOUNT TYPE',
-                      style: AppTheme.label(
-                          fontSize: 9, color: AppTheme.sage)),
+                      style: AdminTheme.label(
+                          fontSize: 9, color: AdminTheme.sage)),
                   const SizedBox(height: 6),
                   Row(
                     children: [
@@ -1726,8 +1726,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
                   // 이름
                   Text(type == 'bulk' ? 'CONDITION NAME' : 'TARGET NAME',
-                      style: AppTheme.label(
-                          fontSize: 9, color: AppTheme.sage)),
+                      style: AdminTheme.label(
+                          fontSize: 9, color: AdminTheme.sage)),
                   const SizedBox(height: 4),
                   TextFormField(
                     controller: nameCtrl,
@@ -1738,8 +1738,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   if (type == 'bulk') ...[
                     const SizedBox(height: 12),
                     Text('MIN QUANTITY',
-                        style: AppTheme.label(
-                            fontSize: 9, color: AppTheme.sage)),
+                        style: AdminTheme.label(
+                            fontSize: 9, color: AdminTheme.sage)),
                     const SizedBox(height: 4),
                     TextFormField(
                       controller: qtyCtrl,
@@ -1752,8 +1752,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
                   const SizedBox(height: 12),
                   Text('DISCOUNT RATE (%)',
-                      style: AppTheme.label(
-                          fontSize: 9, color: AppTheme.sage)),
+                      style: AdminTheme.label(
+                          fontSize: 9, color: AdminTheme.sage)),
                   const SizedBox(height: 4),
                   TextFormField(
                     controller: rateCtrl,
@@ -1765,8 +1765,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
                   const SizedBox(height: 12),
                   Text('DESCRIPTION (OPTIONAL)',
-                      style: AppTheme.label(
-                          fontSize: 9, color: AppTheme.sage)),
+                      style: AdminTheme.label(
+                          fontSize: 9, color: AdminTheme.sage)),
                   const SizedBox(height: 4),
                   TextFormField(
                     controller: descCtrl,
@@ -1780,7 +1780,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: Text('취소',
-                    style: AppTheme.sans(color: AppTheme.textTertiary)),
+                    style: AdminTheme.sans(color: AdminTheme.textTertiary)),
               ),
               FilledButton(
                 onPressed: () {
@@ -1813,14 +1813,14 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   Navigator.pop(ctx);
                 },
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.gold,
-                  foregroundColor: AppTheme.onAccent,
+                  backgroundColor: AdminTheme.gold,
+                  foregroundColor: AdminTheme.onAccent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
                 child: Text('추가',
-                    style: AppTheme.sans(fontWeight: FontWeight.w700, color: AppTheme.onAccent)),
+                    style: AdminTheme.sans(fontWeight: FontWeight.w700, color: AdminTheme.onAccent)),
               ),
             ],
           );
@@ -1842,12 +1842,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: selected
-                ? AppTheme.gold.withValues(alpha: 0.06)
-                : AppTheme.background,
+                ? AdminTheme.gold.withValues(alpha: 0.06)
+                : AdminTheme.background,
             border: Border.all(
               color: selected
-                  ? AppTheme.gold.withValues(alpha: 0.4)
-                  : AppTheme.sage.withValues(alpha: 0.2),
+                  ? AdminTheme.gold.withValues(alpha: 0.4)
+                  : AdminTheme.sage.withValues(alpha: 0.2),
               width: 0.5,
             ),
           ),
@@ -1856,14 +1856,14 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             children: [
               Icon(icon,
                   size: 15,
-                  color: selected ? AppTheme.gold : AppTheme.textTertiary),
+                  color: selected ? AdminTheme.gold : AdminTheme.textTertiary),
               const SizedBox(width: 6),
               Text(
                 label,
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: selected ? AppTheme.gold : AppTheme.textTertiary,
+                  color: selected ? AdminTheme.gold : AdminTheme.textTertiary,
                 ),
               ),
             ],
@@ -1877,7 +1877,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     if (_posterBytes != null) {
       return Container(
         decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.gold, width: 0.5),
+          border: Border.all(color: AdminTheme.gold, width: 0.5),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
@@ -1915,15 +1915,15 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         width: double.infinity,
         height: 120,
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: AdminTheme.surface,
           border: Border.all(
-            color: AppTheme.sage.withValues(alpha: 0.25),
+            color: AdminTheme.sage.withValues(alpha: 0.25),
             width: 0.5,
           ),
         ),
         child: CustomPaint(
           painter: _DashedBorderPainter(
-            color: AppTheme.sage.withValues(alpha: 0.3),
+            color: AdminTheme.sage.withValues(alpha: 0.3),
             strokeWidth: 0.5,
             dashWidth: 6,
             dashSpace: 4,
@@ -1932,22 +1932,22 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.cloud_upload_outlined,
-                  size: 28, color: AppTheme.sage.withValues(alpha: 0.4)),
+                  size: 28, color: AdminTheme.sage.withValues(alpha: 0.4)),
               const SizedBox(height: 8),
               Text(
                 'Drag or tap to upload artwork',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: AppTheme.sage,
+                  color: AdminTheme.sage,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 'Recommended: 1000x1440px (JPG, PNG)',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 11,
-                  color: AppTheme.sage.withValues(alpha: 0.5),
+                  color: AdminTheme.sage.withValues(alpha: 0.5),
                 ),
               ),
             ],
@@ -1972,7 +1972,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             Icon(icon, size: 14, color: Colors.white),
             const SizedBox(width: 4),
             Text(label,
-                style: AppTheme.label(
+                style: AdminTheme.label(
                   fontSize: 8,
                   color: Colors.white,
                 )),
@@ -1994,18 +1994,18 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           children: [
             Text(
               label.toUpperCase(),
-              style: AppTheme.label(
+              style: AdminTheme.label(
                 fontSize: 10,
-                color: AppTheme.sage,
+                color: AdminTheme.sage,
               ),
             ),
             if (isRequired)
               Text(
                 ' *',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.error,
+                  color: AdminTheme.error,
                 ),
               ),
           ],
@@ -2019,35 +2019,35 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   InputDecoration _inputDecoration(String? hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: AppTheme.sans(
+      hintStyle: AdminTheme.sans(
         fontSize: 14,
-        color: AppTheme.sage.withValues(alpha: 0.5),
+        color: AdminTheme.sage.withValues(alpha: 0.5),
       ),
       filled: false,
       contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
       border: UnderlineInputBorder(
-        borderSide: BorderSide(color: AppTheme.sage.withValues(alpha: 0.4), width: 0.5),
+        borderSide: BorderSide(color: AdminTheme.sage.withValues(alpha: 0.4), width: 0.5),
       ),
       enabledBorder: UnderlineInputBorder(
-        borderSide: BorderSide(color: AppTheme.sage.withValues(alpha: 0.4), width: 0.5),
+        borderSide: BorderSide(color: AdminTheme.sage.withValues(alpha: 0.4), width: 0.5),
       ),
       focusedBorder: const UnderlineInputBorder(
-        borderSide: BorderSide(color: AppTheme.gold, width: 1),
+        borderSide: BorderSide(color: AdminTheme.gold, width: 1),
       ),
       errorBorder: const UnderlineInputBorder(
-        borderSide: BorderSide(color: AppTheme.error, width: 1),
+        borderSide: BorderSide(color: AdminTheme.error, width: 1),
       ),
       focusedErrorBorder: const UnderlineInputBorder(
-        borderSide: BorderSide(color: AppTheme.error, width: 1.5),
+        borderSide: BorderSide(color: AdminTheme.error, width: 1.5),
       ),
     );
   }
 
   TextStyle _inputStyle() {
-    return AppTheme.sans(
+    return AdminTheme.sans(
       fontSize: 14,
       fontWeight: FontWeight.w500,
-      color: AppTheme.textPrimary,
+      color: AdminTheme.textPrimary,
     );
   }
 
@@ -2065,10 +2065,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
           colorScheme: const ColorScheme.light(
-            primary: AppTheme.gold,
-            onPrimary: AppTheme.onAccent,
-            surface: AppTheme.surface,
-            onSurface: AppTheme.textPrimary,
+            primary: AdminTheme.gold,
+            onPrimary: AdminTheme.onAccent,
+            surface: AdminTheme.surface,
+            onSurface: AdminTheme.textPrimary,
           ),
         ),
         child: child!,
@@ -2081,10 +2081,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         builder: (ctx, child) => Theme(
           data: Theme.of(ctx).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: AppTheme.gold,
-              onPrimary: AppTheme.onAccent,
-              surface: AppTheme.surface,
-              onSurface: AppTheme.textPrimary,
+              primary: AdminTheme.gold,
+              onPrimary: AdminTheme.onAccent,
+              surface: AdminTheme.surface,
+              onSurface: AdminTheme.textPrimary,
             ),
           ),
           child: child!,
@@ -2183,7 +2183,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Text('이미지 크기가 5MB를 초과합니다'),
-                backgroundColor: AppTheme.error,
+                backgroundColor: AdminTheme.error,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4)),
@@ -2399,10 +2399,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   height: 72,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: AppTheme.goldGradient,
+                    gradient: AdminTheme.goldGradient,
                     boxShadow: [
                       BoxShadow(
-                        color: AppTheme.gold.withValues(alpha: 0.3),
+                        color: AdminTheme.gold.withValues(alpha: 0.3),
                         blurRadius: 20,
                         spreadRadius: 2,
                       ),
@@ -2416,7 +2416,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 // ── 제목 ──
                 Text(
                   '공연이 등록되었습니다!',
-                  style: AppTheme.serif(
+                  style: AdminTheme.serif(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
                   ),
@@ -2424,19 +2424,19 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 const SizedBox(height: 8),
                 Text(
                   title,
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.gold,
+                    color: AdminTheme.gold,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '총 ${fmt.format(totalSeats)}석 · 즉시 판매 시작',
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 13,
-                    color: AppTheme.textTertiary,
+                    color: AdminTheme.textTertiary,
                   ),
                 ),
 
@@ -2447,20 +2447,20 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: AppTheme.background,
-                    border: Border.all(color: AppTheme.border, width: 0.5),
+                    color: AdminTheme.background,
+                    border: Border.all(color: AdminTheme.border, width: 0.5),
                   ),
                   child: Row(
                     children: [
                       const Icon(Icons.link_rounded,
-                          size: 16, color: AppTheme.textTertiary),
+                          size: 16, color: AdminTheme.textTertiary),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           fullUrl,
-                          style: AppTheme.sans(
+                          style: AdminTheme.sans(
                             fontSize: 12,
-                            color: AppTheme.textSecondary,
+                            color: AdminTheme.textSecondary,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -2472,7 +2472,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                           ScaffoldMessenger.of(ctx).showSnackBar(
                             SnackBar(
                               content: const Text('링크가 복사되었습니다'),
-                              backgroundColor: AppTheme.success,
+                              backgroundColor: AdminTheme.success,
                               behavior: SnackBarBehavior.floating,
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(4)),
@@ -2482,9 +2482,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                         },
                         child: Text(
                           'COPY',
-                          style: AppTheme.label(
+                          style: AdminTheme.label(
                             fontSize: 9,
-                            color: AppTheme.gold,
+                            color: AdminTheme.gold,
                           ),
                         ),
                       ),
@@ -2504,8 +2504,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       context.go(eventPath);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.gold,
-                      foregroundColor: AppTheme.onAccent,
+                      backgroundColor: AdminTheme.gold,
+                      foregroundColor: AdminTheme.onAccent,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
@@ -2513,10 +2513,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                     ),
                     child: Text(
                       'VIEW EVENT',
-                      style: AppTheme.serif(
+                      style: AdminTheme.serif(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.onAccent,
+                        color: AdminTheme.onAccent,
                         letterSpacing: 2.0,
                       ),
                     ),
@@ -2535,16 +2535,16 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                     },
                     style: OutlinedButton.styleFrom(
                       side:
-                          const BorderSide(color: AppTheme.border, width: 0.5),
+                          const BorderSide(color: AdminTheme.border, width: 0.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
                     child: Text(
                       'DASHBOARD',
-                      style: AppTheme.label(
+                      style: AdminTheme.label(
                         fontSize: 10,
-                        color: AppTheme.textSecondary,
+                        color: AdminTheme.textSecondary,
                       ),
                     ),
                   ),
@@ -2563,7 +2563,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: AppTheme.error,
+        backgroundColor: AdminTheme.error,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),

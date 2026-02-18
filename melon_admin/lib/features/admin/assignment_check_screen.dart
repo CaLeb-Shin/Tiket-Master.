@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:melon_core/app/theme.dart';
+import '../../app/admin_theme.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/order_repository.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
@@ -25,7 +25,7 @@ class AssignmentCheckScreen extends ConsumerWidget {
     final seatBlocksAsync = ref.watch(seatRepositoryProvider).getSeatBlocksByEvent(eventId);
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AdminTheme.background,
       body: Column(
         children: [
           // ── Editorial App Bar ──
@@ -37,9 +37,9 @@ class AssignmentCheckScreen extends ConsumerWidget {
               bottom: 12,
             ),
             decoration: BoxDecoration(
-              color: AppTheme.background.withValues(alpha: 0.95),
+              color: AdminTheme.background.withValues(alpha: 0.95),
               border: const Border(
-                bottom: BorderSide(color: AppTheme.border, width: 0.5),
+                bottom: BorderSide(color: AdminTheme.border, width: 0.5),
               ),
             ),
             child: Row(
@@ -51,12 +51,12 @@ class AssignmentCheckScreen extends ConsumerWidget {
                     }
                   },
                   icon: const Icon(Icons.west,
-                      color: AppTheme.textPrimary, size: 20),
+                      color: AdminTheme.textPrimary, size: 20),
                 ),
                 const SizedBox(width: 4),
                 Text(
                   'Seat Assignment',
-                  style: AppTheme.serif(
+                  style: AdminTheme.serif(
                     fontSize: 17,
                     fontWeight: FontWeight.w500,
                     fontStyle: FontStyle.italic,
@@ -71,7 +71,7 @@ class AssignmentCheckScreen extends ConsumerWidget {
                         horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: AppTheme.sage.withValues(alpha: 0.2),
+                        color: AdminTheme.sage.withValues(alpha: 0.2),
                         width: 0.5,
                       ),
                       borderRadius: BorderRadius.circular(2),
@@ -80,13 +80,13 @@ class AssignmentCheckScreen extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(Icons.visibility_outlined,
-                            size: 14, color: AppTheme.gold),
+                            size: 14, color: AdminTheme.gold),
                         const SizedBox(width: 6),
                         Text(
                           'REVEAL',
-                          style: AppTheme.label(
+                          style: AdminTheme.label(
                             fontSize: 9,
-                            color: AppTheme.gold,
+                            color: AdminTheme.gold,
                           ),
                         ),
                       ],
@@ -105,9 +105,9 @@ class AssignmentCheckScreen extends ConsumerWidget {
                   return Center(
                     child: Text(
                       '공연을 찾을 수 없습니다',
-                      style: AppTheme.sans(
+                      style: AdminTheme.sans(
                         fontSize: 14,
-                        color: AppTheme.textTertiary,
+                        color: AdminTheme.textTertiary,
                       ),
                     ),
                   );
@@ -127,25 +127,25 @@ class AssignmentCheckScreen extends ConsumerWidget {
                             width: double.infinity,
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
-                              color: AppTheme.surface,
+                              color: AdminTheme.surface,
                               borderRadius: BorderRadius.circular(2),
                               border: Border.all(
-                                color: AppTheme.sage.withValues(alpha: 0.1),
+                                color: AdminTheme.sage.withValues(alpha: 0.1),
                                 width: 0.5,
                               ),
-                              boxShadow: AppShadows.card,
+                              boxShadow: AdminShadows.card,
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   'EVENT',
-                                  style: AppTheme.label(fontSize: 9),
+                                  style: AdminTheme.label(fontSize: 9),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   event.title,
-                                  style: AppTheme.serif(
+                                  style: AdminTheme.serif(
                                     fontSize: 22,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -153,7 +153,7 @@ class AssignmentCheckScreen extends ConsumerWidget {
                                 const SizedBox(height: 20),
                                 Container(
                                   height: 0.5,
-                                  color: AppTheme.sage.withValues(alpha: 0.15),
+                                  color: AdminTheme.sage.withValues(alpha: 0.15),
                                 ),
                                 const SizedBox(height: 16),
                                 _InfoRow(
@@ -172,8 +172,8 @@ class AssignmentCheckScreen extends ConsumerWidget {
                                       ? 'YES'
                                       : 'NO',
                                   valueColor: event.isSeatsRevealed
-                                      ? AppTheme.success
-                                      : AppTheme.warning,
+                                      ? AdminTheme.success
+                                      : AdminTheme.warning,
                                 ),
                               ],
                             ),
@@ -186,7 +186,7 @@ class AssignmentCheckScreen extends ConsumerWidget {
                             children: [
                               Text(
                                 'Paid Orders',
-                                style: AppTheme.serif(
+                                style: AdminTheme.serif(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w500,
                                   fontStyle: FontStyle.italic,
@@ -196,7 +196,7 @@ class AssignmentCheckScreen extends ConsumerWidget {
                               Expanded(
                                 child: Container(
                                   height: 0.5,
-                                  color: AppTheme.sage
+                                  color: AdminTheme.sage
                                       .withValues(alpha: 0.3),
                                 ),
                               ),
@@ -214,7 +214,7 @@ class AssignmentCheckScreen extends ConsumerWidget {
                                   child: Padding(
                                     padding: EdgeInsets.all(32),
                                     child: CircularProgressIndicator(
-                                        color: AppTheme.gold),
+                                        color: AdminTheme.gold),
                                   ),
                                 );
                               }
@@ -225,11 +225,11 @@ class AssignmentCheckScreen extends ConsumerWidget {
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(32),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.surface,
+                                    color: AdminTheme.surface,
                                     borderRadius:
                                         BorderRadius.circular(2),
                                     border: Border.all(
-                                      color: AppTheme.sage
+                                      color: AdminTheme.sage
                                           .withValues(alpha: 0.1),
                                       width: 0.5,
                                     ),
@@ -237,9 +237,9 @@ class AssignmentCheckScreen extends ConsumerWidget {
                                   child: Center(
                                     child: Text(
                                       '결제 완료된 주문이 없습니다',
-                                      style: AppTheme.sans(
+                                      style: AdminTheme.sans(
                                         fontSize: 13,
-                                        color: AppTheme.textTertiary,
+                                        color: AdminTheme.textTertiary,
                                       ),
                                     ),
                                   ),
@@ -292,11 +292,11 @@ class AssignmentCheckScreen extends ConsumerWidget {
                 );
               },
               loading: () => const Center(
-                child: CircularProgressIndicator(color: AppTheme.gold),
+                child: CircularProgressIndicator(color: AdminTheme.gold),
               ),
               error: (error, stack) => Center(
                 child: Text('오류: $error',
-                    style: AppTheme.sans(color: AppTheme.error)),
+                    style: AdminTheme.sans(color: AdminTheme.error)),
               ),
             ),
           ),
@@ -309,22 +309,22 @@ class AssignmentCheckScreen extends ConsumerWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.surface,
+        backgroundColor: AdminTheme.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(4),
         ),
         title: Text(
           '좌석 공개',
-          style: AppTheme.serif(
+          style: AdminTheme.serif(
             fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
         ),
         content: Text(
           '모든 좌석을 공개하시겠습니까?\n(테스트용 - 실제로는 자동 실행됩니다)',
-          style: AppTheme.sans(
+          style: AdminTheme.sans(
             fontSize: 13,
-            color: AppTheme.textSecondary,
+            color: AdminTheme.textSecondary,
             height: 1.6,
           ),
         ),
@@ -333,17 +333,17 @@ class AssignmentCheckScreen extends ConsumerWidget {
             onPressed: () => Navigator.pop(context, false),
             child: Text(
               '취소',
-              style: AppTheme.sans(
+              style: AdminTheme.sans(
                 fontSize: 13,
-                color: AppTheme.textTertiary,
+                color: AdminTheme.textTertiary,
               ),
             ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.gold,
-              foregroundColor: AppTheme.onAccent,
+              backgroundColor: AdminTheme.gold,
+              foregroundColor: AdminTheme.onAccent,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(2),
@@ -351,9 +351,9 @@ class AssignmentCheckScreen extends ConsumerWidget {
             ),
             child: Text(
               'REVEAL',
-              style: AppTheme.label(
+              style: AdminTheme.label(
                 fontSize: 10,
-                color: AppTheme.onAccent,
+                color: AdminTheme.onAccent,
               ),
             ),
           ),
@@ -373,12 +373,12 @@ class AssignmentCheckScreen extends ConsumerWidget {
           SnackBar(
             content: Text(
               '좌석이 공개되었습니다',
-              style: AppTheme.sans(
+              style: AdminTheme.sans(
                 fontSize: 13,
-                color: AppTheme.onAccent,
+                color: AdminTheme.onAccent,
               ),
             ),
-            backgroundColor: AppTheme.gold,
+            backgroundColor: AdminTheme.gold,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4)),
@@ -390,7 +390,7 @@ class AssignmentCheckScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('오류: $e'),
-            backgroundColor: AppTheme.error,
+            backgroundColor: AdminTheme.error,
           ),
         );
       }
@@ -418,17 +418,17 @@ class _InfoRow extends StatelessWidget {
       children: [
         Text(
           label,
-          style: AppTheme.label(
+          style: AdminTheme.label(
             fontSize: 9,
-            color: AppTheme.sage,
+            color: AdminTheme.sage,
           ),
         ),
         Text(
           value,
-          style: AppTheme.sans(
+          style: AdminTheme.sans(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: valueColor ?? AppTheme.textPrimary,
+            color: valueColor ?? AdminTheme.textPrimary,
           ),
         ),
       ],
@@ -457,10 +457,10 @@ class _OrderAssignmentCard extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 1),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AdminTheme.surface,
         border: Border(
           bottom: BorderSide(
-            color: AppTheme.sage.withValues(alpha: 0.1),
+            color: AdminTheme.sage.withValues(alpha: 0.1),
             width: 0.5,
           ),
         ),
@@ -484,8 +484,8 @@ class _OrderAssignmentCard extends ConsumerWidget {
                 height: 28,
                 decoration: BoxDecoration(
                   color: seatBlock.hidden
-                      ? AppTheme.warning
-                      : AppTheme.success,
+                      ? AdminTheme.warning
+                      : AdminTheme.success,
                   borderRadius: BorderRadius.circular(1),
                 ),
               ),
@@ -496,18 +496,18 @@ class _OrderAssignmentCard extends ConsumerWidget {
                   children: [
                     Text(
                       '#${order.id.substring(0, 8)}',
-                      style: AppTheme.sans(
+                      style: AdminTheme.sans(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
+                        color: AdminTheme.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${order.quantity}매  ·  ${priceFormat.format(order.totalAmount)}원  ·  ${dateFormat.format(order.createdAt)}',
-                      style: AppTheme.sans(
+                      style: AdminTheme.sans(
                         fontSize: 11,
-                        color: AppTheme.textTertiary,
+                        color: AdminTheme.textTertiary,
                       ),
                     ),
                   ],
@@ -517,11 +517,11 @@ class _OrderAssignmentCard extends ConsumerWidget {
           ),
           trailing: Text(
             seatBlock.hidden ? 'HIDDEN' : 'VISIBLE',
-            style: AppTheme.label(
+            style: AdminTheme.label(
               fontSize: 9,
               color: seatBlock.hidden
-                  ? AppTheme.warning
-                  : AppTheme.success,
+                  ? AdminTheme.warning
+                  : AdminTheme.success,
             ),
           ),
           children: [
@@ -530,33 +530,33 @@ class _OrderAssignmentCard extends ConsumerWidget {
               children: [
                 Container(
                   height: 0.5,
-                  color: AppTheme.sage.withValues(alpha: 0.1),
+                  color: AdminTheme.sage.withValues(alpha: 0.1),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   'USER',
-                  style: AppTheme.label(fontSize: 8),
+                  style: AdminTheme.label(fontSize: 8),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   order.userId,
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 12,
-                    color: AppTheme.textSecondary,
+                    color: AdminTheme.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 14),
                 Text(
                   'ASSIGNED SEATS',
-                  style: AppTheme.label(fontSize: 8),
+                  style: AdminTheme.label(fontSize: 8),
                 ),
                 const SizedBox(height: 8),
                 if (seatBlock.seatIds.isEmpty)
                   Text(
                     '배정 정보 없음',
-                    style: AppTheme.sans(
+                    style: AdminTheme.sans(
                       fontSize: 12,
-                      color: AppTheme.error,
+                      color: AdminTheme.error,
                     ),
                   )
                 else
@@ -569,10 +569,10 @@ class _OrderAssignmentCard extends ConsumerWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AppTheme.cardElevated,
+                              color: AdminTheme.cardElevated,
                               borderRadius: BorderRadius.circular(2),
                               border: Border.all(
-                                color: AppTheme.sage
+                                color: AdminTheme.sage
                                     .withValues(alpha: 0.1),
                                 width: 0.5,
                               ),
@@ -581,10 +581,10 @@ class _OrderAssignmentCard extends ConsumerWidget {
                               seatId.length > 8
                                   ? seatId.substring(0, 8)
                                   : seatId,
-                              style: AppTheme.sans(
+                              style: AdminTheme.sans(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
-                                color: AppTheme.textSecondary,
+                                color: AdminTheme.textSecondary,
                               ),
                             ),
                           ),

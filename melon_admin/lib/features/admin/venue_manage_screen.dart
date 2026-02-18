@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:melon_core/app/theme.dart';
+import '../../app/admin_theme.dart';
 import 'package:melon_core/data/models/venue.dart';
 import 'package:melon_core/data/repositories/venue_repository.dart';
 import 'package:melon_core/services/storage_service.dart';
@@ -27,17 +27,17 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
     final venuesAsync = ref.watch(venuesStreamProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AdminTheme.background,
       body: Column(
         children: [
           _buildAppBar(),
           Expanded(
             child: venuesAsync.when(
               loading: () => const Center(
-                  child: CircularProgressIndicator(color: AppTheme.gold)),
+                  child: CircularProgressIndicator(color: AdminTheme.gold)),
               error: (e, _) => Center(
                   child: Text('오류: $e',
-                      style: AppTheme.sans(color: AppTheme.error))),
+                      style: AdminTheme.sans(color: AdminTheme.error))),
               data: (venues) {
                 if (_showCreateForm) {
                   return _VenueCreateForm(
@@ -64,8 +64,8 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
         bottom: 12,
       ),
       decoration: const BoxDecoration(
-        color: AppTheme.surface,
-        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
+        color: AdminTheme.surface,
+        border: Border(bottom: BorderSide(color: AdminTheme.border, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -80,12 +80,12 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
               }
             },
             icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                color: AppTheme.textPrimary, size: 20),
+                color: AdminTheme.textPrimary, size: 20),
           ),
           Expanded(
             child: Text(
               _showCreateForm ? '공연장 등록' : '공연장 관리',
-              style: AppTheme.serif(fontSize: 17),
+              style: AdminTheme.serif(fontSize: 17),
             ),
           ),
           if (!_showCreateForm)
@@ -95,21 +95,21 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                 decoration: BoxDecoration(
-                  gradient: AppTheme.goldGradient,
+                  gradient: AdminTheme.goldGradient,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.add_rounded,
-                        size: 16, color: AppTheme.onAccent),
+                        size: 16, color: AdminTheme.onAccent),
                     const SizedBox(width: 4),
                     Text(
                       '공연장 등록',
-                      style: AppTheme.sans(
+                      style: AdminTheme.sans(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.onAccent,
+                        color: AdminTheme.onAccent,
                       ),
                     ),
                   ],
@@ -131,27 +131,27 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: AppTheme.gold.withValues(alpha: 0.1),
+                color: AdminTheme.gold.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.location_city_rounded,
-                  size: 36, color: AppTheme.gold),
+                  size: 36, color: AdminTheme.gold),
             ),
             const SizedBox(height: 16),
             Text(
               '등록된 공연장이 없습니다',
-              style: AppTheme.sans(
+              style: AdminTheme.sans(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.textSecondary,
+                color: AdminTheme.textSecondary,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               '공연장을 등록하면 공연 등록 시 선택할 수 있습니다',
-              style: AppTheme.sans(
+              style: AdminTheme.sans(
                 fontSize: 13,
-                color: AppTheme.textTertiary,
+                color: AdminTheme.textTertiary,
               ),
             ),
             const SizedBox(height: 24),
@@ -159,10 +159,10 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
               onPressed: () => setState(() => _showCreateForm = true),
               icon: const Icon(Icons.add_rounded, size: 18),
               label: Text('첫 공연장 등록하기',
-                  style: AppTheme.sans(fontWeight: FontWeight.w600)),
+                  style: AdminTheme.sans(fontWeight: FontWeight.w600)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.gold,
-                foregroundColor: AppTheme.onAccent,
+                backgroundColor: AdminTheme.gold,
+                foregroundColor: AdminTheme.onAccent,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4)),
               ),
@@ -184,8 +184,8 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppTheme.surface,
-              border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+              color: AdminTheme.surface,
+              border: Border.all(color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
               borderRadius: BorderRadius.circular(2),
             ),
             child: InkWell(
@@ -198,11 +198,11 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: AppTheme.gold.withValues(alpha: 0.1),
+                      color: AdminTheme.gold.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: const Icon(Icons.location_city_rounded,
-                        size: 24, color: AppTheme.gold),
+                        size: 24, color: AdminTheme.gold),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -214,10 +214,10 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                             Expanded(
                               child: Text(
                                 venue.name,
-                                style: AppTheme.sans(
+                                style: AdminTheme.sans(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
-                                  color: AppTheme.textPrimary,
+                                  color: AdminTheme.textPrimary,
                                 ),
                               ),
                             ),
@@ -231,14 +231,14 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.info.withValues(alpha: 0.15),
+                                      color: AdminTheme.info.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text('배치도',
-                                        style: AppTheme.sans(
+                                        style: AdminTheme.sans(
                                           fontSize: 9,
                                           fontWeight: FontWeight.w700,
-                                          color: AppTheme.info,
+                                          color: AdminTheme.info,
                                         )),
                                   ),
                                 if (venue.hasSeatView)
@@ -246,14 +246,14 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.gold.withValues(alpha: 0.15),
+                                      color: AdminTheme.gold.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text('3D 시야',
-                                        style: AppTheme.sans(
+                                        style: AdminTheme.sans(
                                           fontSize: 9,
                                           fontWeight: FontWeight.w700,
-                                          color: AppTheme.gold,
+                                          color: AdminTheme.gold,
                                         )),
                                   ),
                               ],
@@ -264,9 +264,9 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                         Text(
                           '${fmt.format(venue.totalSeats)}석 · ${venue.floors.length}층'
                           '${venue.address != null ? ' · ${venue.address}' : ''}',
-                          style: AppTheme.sans(
+                          style: AdminTheme.sans(
                             fontSize: 12,
-                            color: AppTheme.textTertiary,
+                            color: AdminTheme.textTertiary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -279,13 +279,13 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 6, vertical: 1),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.surface,
+                                      color: AdminTheme.surface,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(g,
-                                        style: AppTheme.sans(
+                                        style: AdminTheme.sans(
                                           fontSize: 10,
-                                          color: AppTheme.textSecondary,
+                                          color: AdminTheme.textSecondary,
                                         )),
                                   ))
                               .toList(),
@@ -294,7 +294,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                     ),
                   ),
                   const Icon(Icons.chevron_right_rounded,
-                      color: AppTheme.textTertiary, size: 20),
+                      color: AdminTheme.textTertiary, size: 20),
                 ],
               ),
             ),
@@ -358,7 +358,7 @@ Color _gradeColorForLayout(String? grade) {
     case 'A':
       return const Color(0xFFFF9F0A);
     default:
-      return AppTheme.info;
+      return AdminTheme.info;
   }
 }
 
@@ -659,7 +659,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
     return Container(
       height: screenSize.height * (isDesktopEditor ? 0.94 : 0.88),
       decoration: const BoxDecoration(
-        color: AppTheme.background,
+        color: AdminTheme.background,
         borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
       ),
       child: Column(
@@ -670,7 +670,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: AppTheme.border,
+                color: AdminTheme.border,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -685,14 +685,14 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     children: [
                       Text(
                         '좌석 구조 편집',
-                        style: AppTheme.serif(fontSize: 17),
+                        style: AdminTheme.serif(fontSize: 17),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         widget.venueName,
-                        style: AppTheme.sans(
+                        style: AdminTheme.sans(
                           fontSize: 12,
-                          color: AppTheme.textTertiary,
+                          color: AdminTheme.textTertiary,
                         ),
                       ),
                     ],
@@ -701,21 +701,21 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.textSecondary,
+                    foregroundColor: AdminTheme.textSecondary,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   child: Text(
                     '닫기',
-                    style: AppTheme.sans(
+                    style: AdminTheme.sans(
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.textSecondary,
+                      color: AdminTheme.textSecondary,
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(color: AppTheme.border, height: 1),
+          const Divider(color: AdminTheme.border, height: 1),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 18),
@@ -725,8 +725,8 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppTheme.surface,
-                      border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+                      color: AdminTheme.surface,
+                      border: Border.all(color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
                       borderRadius: BorderRadius.circular(2),
                     ),
                     child: Row(
@@ -743,8 +743,8 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppTheme.surface,
-                      border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+                      color: AdminTheme.surface,
+                      border: Border.all(color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
                       borderRadius: BorderRadius.circular(2),
                     ),
                     child: Column(
@@ -752,10 +752,10 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                       children: [
                         Text(
                           '무대 위치',
-                          style: AppTheme.sans(
+                          style: AdminTheme.sans(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
+                            color: AdminTheme.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -787,8 +787,8 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     child: OutlinedButton(
                       onPressed: _addFloor,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.textPrimary,
-                        side: const BorderSide(color: AppTheme.border, width: 0.5),
+                        foregroundColor: AdminTheme.textPrimary,
+                        side: const BorderSide(color: AdminTheme.border, width: 0.5),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
@@ -800,7 +800,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                           Text(
                             '층 추가',
                             style:
-                                AppTheme.sans(fontWeight: FontWeight.w700),
+                                AdminTheme.sans(fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),
@@ -814,9 +814,9 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
             padding: EdgeInsets.fromLTRB(
                 16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
             decoration: const BoxDecoration(
-              color: AppTheme.surface,
+              color: AdminTheme.surface,
               border:
-                  Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
+                  Border(top: BorderSide(color: AdminTheme.border, width: 0.5)),
             ),
             child: Row(
               children: [
@@ -824,14 +824,14 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.textPrimary,
-                      side: const BorderSide(color: AppTheme.border, width: 0.5),
+                      foregroundColor: AdminTheme.textPrimary,
+                      side: const BorderSide(color: AdminTheme.border, width: 0.5),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     child: Text(
                       '취소',
-                      style: AppTheme.sans(fontWeight: FontWeight.w700),
+                      style: AdminTheme.sans(fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
@@ -840,12 +840,12 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   child: ElevatedButton(
                     onPressed: _applyLayout,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.gold,
-                      foregroundColor: AppTheme.onAccent,
+                      backgroundColor: AdminTheme.gold,
+                      foregroundColor: AdminTheme.onAccent,
                     ),
                     child: Text(
                       '적용',
-                      style: AppTheme.sans(fontWeight: FontWeight.w700),
+                      style: AdminTheme.sans(fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
@@ -863,18 +863,18 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
       children: [
         Text(
           label,
-          style: AppTheme.sans(
+          style: AdminTheme.sans(
             fontSize: 11,
-            color: AppTheme.textTertiary,
+            color: AdminTheme.textTertiary,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           value,
-          style: AppTheme.sans(
+          style: AdminTheme.sans(
             fontSize: 14,
             fontWeight: FontWeight.w700,
-            color: AppTheme.textPrimary,
+            color: AdminTheme.textPrimary,
           ),
         ),
       ],
@@ -892,8 +892,8 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppTheme.surface,
-          border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+          color: AdminTheme.surface,
+          border: Border.all(color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
           borderRadius: BorderRadius.circular(2),
         ),
         child: Column(
@@ -906,34 +906,34 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   key: ValueKey('${floor.id}-name'),
                   initialValue: floor.name,
                   onChanged: (value) => floor.name = value,
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
+                    color: AdminTheme.textPrimary,
                   ),
                   decoration: InputDecoration(
                     labelText: '층 이름',
-                    labelStyle: AppTheme.sans(
-                      color: AppTheme.textTertiary,
+                    labelStyle: AdminTheme.sans(
+                      color: AdminTheme.textTertiary,
                       fontSize: 12,
                     ),
                     isDense: true,
                     filled: true,
-                    fillColor: AppTheme.surface,
+                    fillColor: AdminTheme.surface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(4),
                       borderSide:
-                          const BorderSide(color: AppTheme.border, width: 0.5),
+                          const BorderSide(color: AdminTheme.border, width: 0.5),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(4),
                       borderSide:
-                          const BorderSide(color: AppTheme.border, width: 0.5),
+                          const BorderSide(color: AdminTheme.border, width: 0.5),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(4),
                       borderSide:
-                          const BorderSide(color: AppTheme.gold, width: 1),
+                          const BorderSide(color: AdminTheme.gold, width: 1),
                     ),
                   ),
                 ),
@@ -943,15 +943,15 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
-                  color: AppTheme.surface,
+                  color: AdminTheme.surface,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   '${NumberFormat('#,###').format(floorSeatCount)}석',
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.gold,
+                    color: AdminTheme.gold,
                   ),
                 ),
               ),
@@ -959,7 +959,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                 onPressed:
                     _drafts.length == 1 ? null : () => _removeFloor(floor),
                 icon: const Icon(Icons.delete_outline_rounded),
-                color: AppTheme.error,
+                color: AdminTheme.error,
                 tooltip: '층 삭제',
               ),
             ],
@@ -973,7 +973,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
             child: TextButton(
               onPressed: () => _addBlock(floor),
               style: TextButton.styleFrom(
-                foregroundColor: AppTheme.textPrimary,
+                foregroundColor: AdminTheme.textPrimary,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               child: Row(
@@ -983,7 +983,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   const SizedBox(width: 8),
                   Text(
                     '구역 추가',
-                    style: AppTheme.sans(
+                    style: AdminTheme.sans(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1014,9 +1014,9 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
       width: double.infinity,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AdminTheme.surface,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppTheme.border, width: 0.5),
+        border: Border.all(color: AdminTheme.border, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1025,18 +1025,18 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
             children: [
               Text(
                 '구역 배치 드래그',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textSecondary,
+                  color: AdminTheme.textSecondary,
                 ),
               ),
               const Spacer(),
               Text(
                 '블록을 끌어서 이동',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 11,
-                  color: AppTheme.textTertiary,
+                  color: AdminTheme.textTertiary,
                 ),
               ),
             ],
@@ -1081,10 +1081,10 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     Positioned.fill(
                       child: Container(
                         decoration: BoxDecoration(
-                          color: AppTheme.card,
+                          color: AdminTheme.card,
                           borderRadius: BorderRadius.circular(4),
                           border:
-                              Border.all(color: AppTheme.border, width: 0.5),
+                              Border.all(color: AdminTheme.border, width: 0.5),
                         ),
                       ),
                     ),
@@ -1101,16 +1101,16 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                               width: 18,
                               child: Text(
                                 '${row + 1}',
-                                style: AppTheme.sans(
+                                style: AdminTheme.sans(
                                   fontSize: 9,
-                                  color: AppTheme.textTertiary,
+                                  color: AdminTheme.textTertiary,
                                 ),
                               ),
                             ),
                             Expanded(
                               child: Container(
                                 height: 1,
-                                color: AppTheme.border.withValues(alpha: 0.45),
+                                color: AdminTheme.border.withValues(alpha: 0.45),
                               ),
                             ),
                           ],
@@ -1125,16 +1125,16 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                         width: stageWidth,
                         height: stageHeight,
                         decoration: BoxDecoration(
-                          color: AppTheme.sage,
+                          color: AdminTheme.sage,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         alignment: Alignment.center,
                         child: Text(
                           'STAGE',
-                          style: AppTheme.sans(
+                          style: AdminTheme.sans(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
-                            color: AppTheme.onAccent,
+                            color: AdminTheme.onAccent,
                             letterSpacing: 0.6,
                           ),
                         ),
@@ -1182,7 +1182,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                                 border: Border.all(color: gradeColor, width: 1),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppTheme.sage.withValues(alpha: 0.2),
+                                    color: AdminTheme.sage.withValues(alpha: 0.2),
                                     blurRadius: 5,
                                     offset: const Offset(0, 2),
                                   ),
@@ -1196,11 +1196,11 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                                     block.name,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: AppTheme.sans(
+                                    style: AdminTheme.sans(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800,
                                       height: 1.0,
-                                      color: AppTheme.textPrimary,
+                                      color: AdminTheme.textPrimary,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -1208,11 +1208,11 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                                     '$gradeLabel · $seatText석',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: AppTheme.sans(
+                                    style: AdminTheme.sans(
                                       fontSize: 9.5,
                                       fontWeight: FontWeight.w700,
                                       height: 1.0,
-                                      color: AppTheme.textSecondary,
+                                      color: AdminTheme.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -1291,9 +1291,9 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AdminTheme.surface,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppTheme.border, width: 0.5),
+        border: Border.all(color: AdminTheme.border, width: 0.5),
       ),
       child: Column(
         children: [
@@ -1304,9 +1304,9 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   key: ValueKey('${block.id}-name'),
                   initialValue: block.name,
                   onChanged: (value) => block.name = value,
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 13,
-                    color: AppTheme.textPrimary,
+                    color: AdminTheme.textPrimary,
                   ),
                   decoration: _fieldDecoration('구역명'),
                 ),
@@ -1318,9 +1318,9 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   key: ValueKey('${block.id}-grade'),
                   initialValue: block.grade ?? '',
                   onChanged: (value) => block.grade = value,
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 13,
-                    color: AppTheme.textPrimary,
+                    color: AdminTheme.textPrimary,
                   ),
                   decoration: _fieldDecoration('등급'),
                 ),
@@ -1330,7 +1330,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     ? null
                     : () => _removeBlock(floor, block),
                 icon: const Icon(Icons.remove_circle_outline_rounded, size: 20),
-                color: AppTheme.error,
+                color: AdminTheme.error,
                 tooltip: '구역 삭제',
               ),
             ],
@@ -1340,17 +1340,17 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
             children: [
               Text(
                 '자유 편집 모드',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textSecondary,
+                  color: AdminTheme.textSecondary,
                 ),
               ),
               const Spacer(),
               Switch(
                 value: block.useCustomRows,
                 onChanged: (enabled) => _toggleCustomRowMode(block, enabled),
-                activeThumbColor: AppTheme.gold,
+                activeThumbColor: AdminTheme.gold,
               ),
             ],
           ),
@@ -1359,8 +1359,8 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppTheme.surface,
-                border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+                color: AdminTheme.surface,
+                border: Border.all(color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Column(
@@ -1388,8 +1388,8 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     child: OutlinedButton(
                       onPressed: () => _addCustomRow(block),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.textPrimary,
-                        side: const BorderSide(color: AppTheme.border, width: 0.5),
+                        foregroundColor: AdminTheme.textPrimary,
+                        side: const BorderSide(color: AdminTheme.border, width: 0.5),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                       ),
@@ -1401,7 +1401,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                           Text(
                             '행 추가',
                             style:
-                                AppTheme.sans(fontWeight: FontWeight.w700),
+                                AdminTheme.sans(fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),
@@ -1422,9 +1422,9 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                       block.rows = int.tryParse(value) ?? 0;
                       setState(() {});
                     },
-                    style: AppTheme.sans(
+                    style: AdminTheme.sans(
                       fontSize: 13,
-                      color: AppTheme.textPrimary,
+                      color: AdminTheme.textPrimary,
                     ),
                     decoration: _fieldDecoration('행 수'),
                   ),
@@ -1439,9 +1439,9 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                       block.seatsPerRow = int.tryParse(value) ?? 0;
                       setState(() {});
                     },
-                    style: AppTheme.sans(
+                    style: AdminTheme.sans(
                       fontSize: 13,
-                      color: AppTheme.textPrimary,
+                      color: AdminTheme.textPrimary,
                     ),
                     decoration: _fieldDecoration('행당 좌석'),
                   ),
@@ -1451,15 +1451,15 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppTheme.card,
+                    color: AdminTheme.card,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     '${NumberFormat('#,###').format(seatCount)}석',
-                    style: AppTheme.sans(
+                    style: AdminTheme.sans(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.textSecondary,
+                      color: AdminTheme.textSecondary,
                     ),
                   ),
                 ),
@@ -1471,10 +1471,10 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
             children: [
               Text(
                 '배치 방향',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textSecondary,
+                  color: AdminTheme.textSecondary,
                 ),
               ),
               const SizedBox(width: 8),
@@ -1508,9 +1508,9 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
               block.useCustomRows
                   ? '자유 편집 모드에서는 행 위치/좌석 수를 직접 조정합니다'
                   : '기본 구성: ${block.rows}행 · 행당 ${block.seatsPerRow}석 · 배치는 드래그 화면에서 이동',
-              style: AppTheme.sans(
+              style: AdminTheme.sans(
                 fontSize: 10,
-                color: AppTheme.textTertiary,
+                color: AdminTheme.textTertiary,
               ),
             ),
           ),
@@ -1521,9 +1521,9 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   '현재 요약: $rowCount행 · 최대 $maxSeatsPerRow석/행 · 총 ${NumberFormat('#,###').format(seatCount)}석',
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 10,
-                    color: AppTheme.textTertiary,
+                    color: AdminTheme.textTertiary,
                   ),
                 ),
               ),
@@ -1537,15 +1537,15 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AdminTheme.surface,
         borderRadius: BorderRadius.circular(2),
       ),
       child: Text(
         text,
-        style: AppTheme.sans(
+        style: AdminTheme.sans(
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          color: AppTheme.textSecondary,
+          color: AdminTheme.textSecondary,
         ),
       ),
     );
@@ -1557,9 +1557,9 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AdminTheme.surface,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppTheme.border, width: 0.5),
+        border: Border.all(color: AdminTheme.border, width: 0.5),
       ),
       child: Column(
         children: [
@@ -1570,9 +1570,9 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   key: ValueKey('${row.id}-name'),
                   initialValue: row.name,
                   onChanged: (value) => row.name = value,
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 12,
-                    color: AppTheme.textPrimary,
+                    color: AdminTheme.textPrimary,
                   ),
                   decoration: _fieldDecoration('행 라벨'),
                 ),
@@ -1588,9 +1588,9 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     row.seatCount = int.tryParse(value) ?? 0;
                     setState(() {});
                   },
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 12,
-                    color: AppTheme.textPrimary,
+                    color: AdminTheme.textPrimary,
                   ),
                   decoration: _fieldDecoration('좌석 수'),
                 ),
@@ -1613,7 +1613,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     ? null
                     : () => _removeCustomRow(block, index),
                 icon: const Icon(Icons.delete_outline_rounded, size: 19),
-                color: AppTheme.error,
+                color: AdminTheme.error,
                 tooltip: '행 삭제',
               ),
             ],
@@ -1622,9 +1622,9 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
             children: [
               Text(
                 '위치',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 11,
-                  color: AppTheme.textTertiary,
+                  color: AdminTheme.textTertiary,
                 ),
               ),
               Expanded(
@@ -1633,7 +1633,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   min: -12,
                   max: 12,
                   divisions: 24,
-                  activeColor: AppTheme.gold,
+                  activeColor: AdminTheme.gold,
                   onChanged: (value) {
                     setState(() => row.offset = value.round());
                   },
@@ -1644,10 +1644,10 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                 child: Text(
                   '${row.offset}',
                   textAlign: TextAlign.right,
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.textSecondary,
+                    color: AdminTheme.textSecondary,
                   ),
                 ),
               ),
@@ -1709,24 +1709,24 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
   InputDecoration _fieldDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: AppTheme.sans(
+      labelStyle: AdminTheme.sans(
         fontSize: 11,
-        color: AppTheme.textTertiary,
+        color: AdminTheme.textTertiary,
       ),
       isDense: true,
       filled: true,
-      fillColor: AppTheme.card,
+      fillColor: AdminTheme.card,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
+        borderSide: const BorderSide(color: AdminTheme.border, width: 0.5),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
+        borderSide: const BorderSide(color: AdminTheme.border, width: 0.5),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: AppTheme.gold, width: 1),
+        borderSide: const BorderSide(color: AdminTheme.gold, width: 1),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
     );
@@ -1785,7 +1785,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(validationError),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AdminTheme.error,
         ),
       );
       return;
@@ -1822,7 +1822,7 @@ class _GeneratedSeatMapDiagram extends StatelessWidget {
     final padding = compact ? 10.0 : 14.0;
 
     return Container(
-      color: AppTheme.surface,
+      color: AdminTheme.surface,
       child: SingleChildScrollView(
         padding: EdgeInsets.all(padding),
         child: Column(
@@ -1831,10 +1831,10 @@ class _GeneratedSeatMapDiagram extends StatelessWidget {
             if (showSummaryLabel) ...[
               Text(
                 '무대 위치: ${_stagePositionLabel(normalizedStagePosition)}',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: compact ? 10 : 11,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textSecondary,
+                  color: AdminTheme.textSecondary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -1866,17 +1866,17 @@ class _GeneratedSeatMapDiagram extends StatelessWidget {
         width: isCompact ? 160 : 230,
         padding: EdgeInsets.symmetric(vertical: isCompact ? 7 : 10),
         decoration: BoxDecoration(
-          color: AppTheme.sage,
+          color: AdminTheme.sage,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Text(
           'STAGE',
           textAlign: TextAlign.center,
-          style: AppTheme.sans(
+          style: AdminTheme.sans(
             fontSize: isCompact ? 14 : 18,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.8,
-            color: AppTheme.onAccent,
+            color: AdminTheme.onAccent,
           ),
         ),
       ),
@@ -1916,7 +1916,7 @@ class _GeneratedSeatMapDiagram extends StatelessWidget {
         compact ? 8 : 10,
       ),
       decoration: BoxDecoration(
-        color: AppTheme.cardElevated,
+        color: AdminTheme.cardElevated,
         borderRadius: BorderRadius.circular(compact ? 10 : 14),
       ),
       child: Column(
@@ -1925,10 +1925,10 @@ class _GeneratedSeatMapDiagram extends StatelessWidget {
           Text(
             floorLabel,
             textAlign: TextAlign.center,
-            style: AppTheme.serif(
+            style: AdminTheme.serif(
               fontSize: compact ? 19 : 24,
               fontWeight: FontWeight.w800,
-              color: AppTheme.textSecondary,
+              color: AdminTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
@@ -1959,9 +1959,9 @@ class _GeneratedSeatMapDiagram extends StatelessWidget {
           Text(
             '${floor.name} · ${fmt.format(floor.totalSeats)}석',
             textAlign: TextAlign.center,
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
               fontSize: compact ? 10 : 11,
-              color: AppTheme.textSecondary,
+              color: AdminTheme.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -2044,10 +2044,10 @@ class _GeneratedSeatBlock extends StatelessWidget {
         children: [
           Text(
             '${block.name}열',
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
               fontSize: compact ? 10 : 11,
               fontWeight: FontWeight.w700,
-              color: AppTheme.textSecondary,
+              color: AdminTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
@@ -2084,9 +2084,9 @@ class _GeneratedSeatBlock extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             summaryText,
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
               fontSize: compact ? 9 : 10,
-              color: AppTheme.textTertiary,
+              color: AdminTheme.textTertiary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -2142,7 +2142,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
     return Container(
       height: MediaQuery.of(context).size.height * 0.72,
       decoration: const BoxDecoration(
-        color: AppTheme.background,
+        color: AdminTheme.background,
         borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
       ),
       child: Column(
@@ -2153,7 +2153,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: AppTheme.border,
+                color: AdminTheme.border,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -2166,11 +2166,11 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    gradient: AppTheme.goldGradient,
+                    gradient: AdminTheme.goldGradient,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Icon(Icons.location_city_rounded,
-                      size: 22, color: AppTheme.onAccent),
+                      size: 22, color: AdminTheme.onAccent),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -2178,12 +2178,12 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(venue.name,
-                          style: AppTheme.serif(fontSize: 18)),
+                          style: AdminTheme.serif(fontSize: 18)),
                       if (venue.address != null)
                         Text(venue.address!,
-                            style: AppTheme.sans(
+                            style: AdminTheme.sans(
                               fontSize: 12,
-                              color: AppTheme.textTertiary,
+                              color: AdminTheme.textTertiary,
                             )),
                     ],
                   ),
@@ -2191,7 +2191,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
               ],
             ),
           ),
-          const Divider(color: AppTheme.border, height: 1),
+          const Divider(color: AdminTheme.border, height: 1),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
@@ -2208,34 +2208,34 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                   ),
                   const SizedBox(height: 20),
                   Text('좌석 배치 자산',
-                      style: AppTheme.sans(
+                      style: AdminTheme.sans(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        color: AdminTheme.textPrimary,
                       )),
                   const SizedBox(height: 8),
                   _buildSeatMapAssetCard(venue),
                   const SizedBox(height: 20),
                   Text('층/구역 구성',
-                      style: AppTheme.sans(
+                      style: AdminTheme.sans(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        color: AdminTheme.textPrimary,
                       )),
                   const SizedBox(height: 8),
                   if (_floors.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: AppTheme.surface,
-                        border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+                        color: AdminTheme.surface,
+                        border: Border.all(color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Text(
                         '등록된 좌석 구조가 없습니다. 좌석 구조 편집에서 추가해주세요.',
-                        style: AppTheme.sans(
+                        style: AdminTheme.sans(
                           fontSize: 12,
-                          color: AppTheme.textTertiary,
+                          color: AdminTheme.textTertiary,
                         ),
                       ),
                     )
@@ -2244,10 +2244,10 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(floor.name,
-                                style: AppTheme.sans(
+                                style: AdminTheme.sans(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
-                                  color: AppTheme.textPrimary,
+                                  color: AdminTheme.textPrimary,
                                 )),
                             const SizedBox(height: 8),
                             ...floor.blocks.map((block) => Container(
@@ -2255,16 +2255,16 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 12, vertical: 8),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.card,
+                                    color: AdminTheme.card,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Row(
                                     children: [
                                       Text('${block.name}열',
-                                          style: AppTheme.sans(
+                                          style: AdminTheme.sans(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w600,
-                                            color: AppTheme.textPrimary,
+                                            color: AdminTheme.textPrimary,
                                           )),
                                       const SizedBox(width: 8),
                                       if (block.grade != null)
@@ -2273,15 +2273,15 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                                               horizontal: 6, vertical: 1),
                                           decoration: BoxDecoration(
                                             color:
-                                                AppTheme.gold.withValues(alpha: 0.15),
+                                                AdminTheme.gold.withValues(alpha: 0.15),
                                             borderRadius:
                                                 BorderRadius.circular(4),
                                           ),
                                           child: Text(block.grade!,
-                                              style: AppTheme.sans(
+                                              style: AdminTheme.sans(
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.w600,
-                                                color: AppTheme.gold,
+                                                color: AdminTheme.gold,
                                               )),
                                         ),
                                       const Spacer(),
@@ -2299,9 +2299,9 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                                                 );
                                           return Text(
                                               '$rowCount행 · ${fmt.format(block.totalSeats)}석 · $modeText',
-                                              style: AppTheme.sans(
+                                              style: AdminTheme.sans(
                                                 fontSize: 12,
-                                                color: AppTheme.textTertiary,
+                                                color: AdminTheme.textTertiary,
                                               ));
                                         },
                                       ),
@@ -2319,9 +2319,9 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
             padding: EdgeInsets.fromLTRB(
                 20, 12, 20, MediaQuery.of(context).padding.bottom + 12),
             decoration: const BoxDecoration(
-              color: AppTheme.surface,
+              color: AdminTheme.surface,
               border:
-                  Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
+                  Border(top: BorderSide(color: AdminTheme.border, width: 0.5)),
             ),
             child: Column(
               children: [
@@ -2333,8 +2333,8 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                             ? null
                             : () => _editSeatStructure(venue),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.textPrimary,
-                          side: const BorderSide(color: AppTheme.border, width: 0.5),
+                          foregroundColor: AdminTheme.textPrimary,
+                          side: const BorderSide(color: AdminTheme.border, width: 0.5),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
@@ -2344,11 +2344,11 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                                 height: 14,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: AppTheme.gold,
+                                  color: AdminTheme.gold,
                                 ),
                               )
                             : Text('좌석 구조 편집',
-                                style: AppTheme.sans(
+                                style: AdminTheme.sans(
                                     fontWeight: FontWeight.w700)),
                       ),
                     ),
@@ -2362,13 +2362,13 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                           );
                         },
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.textPrimary,
-                          side: const BorderSide(color: AppTheme.border, width: 0.5),
+                          foregroundColor: AdminTheme.textPrimary,
+                          side: const BorderSide(color: AdminTheme.border, width: 0.5),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         child: Text('3D 시야 업로드',
-                            style: AppTheme.sans(
+                            style: AdminTheme.sans(
                                 fontWeight: FontWeight.w700)),
                       ),
                     ),
@@ -2383,13 +2383,13 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                       _deleteVenue(context, ref, venue);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.error.withValues(alpha: 0.15),
-                      foregroundColor: AppTheme.error,
+                      backgroundColor: AdminTheme.error.withValues(alpha: 0.15),
+                      foregroundColor: AdminTheme.error,
                       elevation: 0,
                     ),
                     child: Text('삭제',
                         style:
-                            AppTheme.sans(fontWeight: FontWeight.w700)),
+                            AdminTheme.sans(fontWeight: FontWeight.w700)),
                   ),
                 ),
               ],
@@ -2445,7 +2445,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('좌석 구조와 무대 위치가 저장되었습니다'),
-          backgroundColor: AppTheme.success,
+          backgroundColor: AdminTheme.success,
         ),
       );
     } catch (e) {
@@ -2453,7 +2453,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('좌석 구조 저장 실패: $e'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AdminTheme.error,
         ),
       );
     } finally {
@@ -2470,9 +2470,9 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: AdminTheme.card,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: AdminTheme.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2486,12 +2486,12 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                       : hasGeneratedMap
                           ? '좌석 구조 기반 자동 배치도'
                           : '좌석배치도 미등록',
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: hasSeatMap || hasGeneratedMap
-                        ? AppTheme.info
-                        : AppTheme.textSecondary,
+                        ? AdminTheme.info
+                        : AdminTheme.textSecondary,
                   ),
                 ),
               ),
@@ -2499,7 +2499,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                 onPressed:
                     _isSavingLayout ? null : () => _editSeatStructure(venue),
                 style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.textPrimary,
+                  foregroundColor: AdminTheme.textPrimary,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 ),
                 child: _isSavingLayout
@@ -2508,12 +2508,12 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                         height: 14,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppTheme.gold,
+                          color: AdminTheme.gold,
                         ),
                       )
                     : Text(
                         hasLayout ? '수정' : '구조 만들기',
-                        style: AppTheme.sans(
+                        style: AdminTheme.sans(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -2524,7 +2524,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                     ? null
                     : () => _uploadSeatMapImage(venue),
                 style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.textPrimary,
+                  foregroundColor: AdminTheme.textPrimary,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 ),
                 child: _isUploadingSeatMap
@@ -2533,12 +2533,12 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                         height: 14,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppTheme.gold,
+                          color: AdminTheme.gold,
                         ),
                       )
                     : Text(
                         hasSeatMap ? '배치도 교체' : '배치도 업로드',
-                        style: AppTheme.sans(
+                        style: AdminTheme.sans(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -2568,9 +2568,9 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
             const SizedBox(height: 8),
             Text(
               '이미지가 없어도 좌석 구조 데이터로 배치도를 자동 생성합니다. STAGE(무대)는 ${_stagePositionLabel(_stagePosition)}에 표시됩니다.',
-              style: AppTheme.sans(
+              style: AdminTheme.sans(
                 fontSize: 11,
-                color: AppTheme.textTertiary,
+                color: AdminTheme.textTertiary,
               ),
             ),
           ],
@@ -2590,13 +2590,13 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
 
   Widget _assetPlaceholder(String text) {
     return Container(
-      color: AppTheme.surface,
+      color: AdminTheme.surface,
       child: Center(
         child: Text(
           text,
-          style: AppTheme.sans(
+          style: AdminTheme.sans(
             fontSize: 12,
-            color: AppTheme.textTertiary,
+            color: AdminTheme.textTertiary,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -2619,7 +2619,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('이미지 크기는 10MB 이하만 업로드 가능합니다'),
-            backgroundColor: AppTheme.error,
+            backgroundColor: AdminTheme.error,
           ),
         );
         return;
@@ -2648,7 +2648,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('좌석배치도 업로드 완료'),
-          backgroundColor: AppTheme.success,
+          backgroundColor: AdminTheme.success,
         ),
       );
     } catch (e) {
@@ -2656,7 +2656,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('업로드 실패: $e'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AdminTheme.error,
         ),
       );
     } finally {
@@ -2670,22 +2670,22 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
         padding: const EdgeInsets.symmetric(vertical: 10),
         margin: const EdgeInsets.symmetric(horizontal: 3),
         decoration: BoxDecoration(
-          color: AppTheme.card,
+          color: AdminTheme.card,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Column(
           children: [
             Text(value,
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.gold,
+                  color: AdminTheme.gold,
                 )),
             const SizedBox(height: 2),
             Text(label,
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 11,
-                  color: AppTheme.textTertiary,
+                  color: AdminTheme.textTertiary,
                 )),
           ],
         ),
@@ -2698,32 +2698,32 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.card,
+        backgroundColor: AdminTheme.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         title: Text('공연장 삭제',
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary)),
+                color: AdminTheme.textPrimary)),
         content: Text('${venue.name}을(를) 삭제하시겠습니까?',
-            style: AppTheme.sans(
-                fontSize: 14, color: AppTheme.textSecondary)),
+            style: AdminTheme.sans(
+                fontSize: 14, color: AdminTheme.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             style: TextButton.styleFrom(
-              foregroundColor: AppTheme.textTertiary,
+              foregroundColor: AdminTheme.textTertiary,
             ),
             child: Text('취소',
-                style: AppTheme.sans(color: AppTheme.textTertiary)),
+                style: AdminTheme.sans(color: AdminTheme.textTertiary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(
-              foregroundColor: AppTheme.error,
+              foregroundColor: AdminTheme.error,
             ),
             child:
-                Text('삭제', style: AppTheme.sans(color: AppTheme.error)),
+                Text('삭제', style: AdminTheme.sans(color: AdminTheme.error)),
           ),
         ],
       ),
@@ -2788,10 +2788,10 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
             children: [
               // 프리셋 선택
               Text('프리셋 선택',
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
+                    color: AdminTheme.textSecondary,
                   )),
               const SizedBox(height: 10),
               _buildPresetOption(
@@ -2810,10 +2810,10 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
 
               // 직접 입력
               Text('또는 직접 입력',
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
+                    color: AdminTheme.textSecondary,
                   )),
               const SizedBox(height: 10),
 
@@ -2840,20 +2840,20 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                 child: ElevatedButton(
                   onPressed: _isSubmitting ? null : _createVenue,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.gold,
-                    foregroundColor: AppTheme.onAccent,
+                    backgroundColor: AdminTheme.gold,
+                    foregroundColor: AdminTheme.onAccent,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4)),
-                    disabledBackgroundColor: AppTheme.border,
+                    disabledBackgroundColor: AdminTheme.border,
                   ),
                   child: _isSubmitting
                       ? const SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: AppTheme.onAccent))
+                              strokeWidth: 2, color: AdminTheme.onAccent))
                       : Text('공연장 등록',
-                          style: AppTheme.sans(
+                          style: AdminTheme.sans(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           )),
@@ -2873,10 +2873,10 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.goldSubtle : AppTheme.card,
+          color: isSelected ? AdminTheme.goldSubtle : AdminTheme.card,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isSelected ? AppTheme.gold : AppTheme.border,
+            color: isSelected ? AdminTheme.gold : AdminTheme.border,
             width: isSelected ? 1.5 : 0.5,
           ),
         ),
@@ -2887,13 +2887,13 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               height: 40,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? AppTheme.gold.withValues(alpha: 0.2)
-                    : AppTheme.surface,
+                    ? AdminTheme.gold.withValues(alpha: 0.2)
+                    : AdminTheme.surface,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Icon(Icons.location_city_rounded,
                   size: 20,
-                  color: isSelected ? AppTheme.gold : AppTheme.textTertiary),
+                  color: isSelected ? AdminTheme.gold : AdminTheme.textTertiary),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -2901,22 +2901,22 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(name,
-                      style: AppTheme.sans(
+                      style: AdminTheme.sans(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        color: AdminTheme.textPrimary,
                       )),
                   Text(detail,
-                      style: AppTheme.sans(
+                      style: AdminTheme.sans(
                         fontSize: 12,
-                        color: AppTheme.textTertiary,
+                        color: AdminTheme.textTertiary,
                       )),
                 ],
               ),
             ),
             if (isSelected)
               const Icon(Icons.check_circle_rounded,
-                  color: AppTheme.gold, size: 22),
+                  color: AdminTheme.gold, size: 22),
           ],
         ),
       ),
@@ -2948,35 +2948,35 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: AppTheme.textSecondary,
+              color: AdminTheme.textSecondary,
             )),
         const SizedBox(height: 6),
         TextFormField(
           controller: ctrl,
           style:
-              AppTheme.sans(),
+              AdminTheme.sans(),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: AppTheme.sans(
-                fontSize: 13, color: AppTheme.textTertiary),
+            hintStyle: AdminTheme.sans(
+                fontSize: 13, color: AdminTheme.textTertiary),
             filled: true,
-            fillColor: AppTheme.card,
+            fillColor: AdminTheme.card,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
+              borderSide: const BorderSide(color: AdminTheme.border, width: 0.5),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: AppTheme.border, width: 0.5),
+              borderSide: const BorderSide(color: AdminTheme.border, width: 0.5),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: AppTheme.gold, width: 1),
+              borderSide: const BorderSide(color: AdminTheme.gold, width: 1),
             ),
           ),
         ),
@@ -2989,9 +2989,9 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.success.withValues(alpha: 0.08),
+        color: AdminTheme.success.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppTheme.success.withValues(alpha: 0.3)),
+        border: Border.all(color: AdminTheme.success.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2999,30 +2999,30 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
           Row(
             children: [
               const Icon(Icons.check_circle_rounded,
-                  color: AppTheme.success, size: 16),
+                  color: AdminTheme.success, size: 16),
               const SizedBox(width: 8),
               Text('프리셋 미리보기',
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.success,
+                    color: AdminTheme.success,
                   )),
             ],
           ),
           const SizedBox(height: 10),
           Text('총 ${fmt.format(venue.totalSeats)}석 · ${venue.floors.length}층',
-              style: AppTheme.sans(
+              style: AdminTheme.sans(
                 fontSize: 13,
-                color: AppTheme.textSecondary,
+                color: AdminTheme.textSecondary,
               )),
           const SizedBox(height: 6),
           ...venue.floors.map((floor) => Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   '${floor.name}: ${floor.blocks.map((b) => "${b.name}(${b.grade ?? "-"})").join(", ")}',
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 12,
-                    color: AppTheme.textTertiary,
+                    color: AdminTheme.textTertiary,
                   ),
                 ),
               )),
@@ -3039,17 +3039,17 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('좌석배치도 이미지 (선택)',
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: AppTheme.textSecondary,
+              color: AdminTheme.textSecondary,
             )),
         const SizedBox(height: 6),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppTheme.surface,
-            border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+            color: AdminTheme.surface,
+            border: Border.all(color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
             borderRadius: BorderRadius.circular(2),
           ),
           child: Row(
@@ -3057,10 +3057,10 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               Expanded(
                 child: Text(
                   hasFile ? _seatMapFileName! : '업로드된 파일 없음',
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 12,
                     color:
-                        hasFile ? AppTheme.textPrimary : AppTheme.textTertiary,
+                        hasFile ? AdminTheme.textPrimary : AdminTheme.textTertiary,
                     fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -3070,12 +3070,12 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               TextButton(
                 onPressed: _pickSeatMapImage,
                 style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.textPrimary,
+                  foregroundColor: AdminTheme.textPrimary,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 ),
                 child: Text(
                   hasFile ? '교체' : '업로드',
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
@@ -3089,9 +3089,9 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
           width: double.infinity,
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: AppTheme.info.withValues(alpha: 0.08),
+            color: AdminTheme.info.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AppTheme.info.withValues(alpha: 0.28)),
+            border: Border.all(color: AdminTheme.info.withValues(alpha: 0.28)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3100,9 +3100,9 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                 hasLayout
                     ? '이미지 없이도 작성한 좌석 구조로 자동 배치도를 생성합니다. 무대 위치도 함께 수정할 수 있습니다.'
                     : '좌석배치도 이미지가 없어도 아래 버튼에서 직접 좌석 구조를 만들 수 있습니다.',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 11,
-                  color: AppTheme.textSecondary,
+                  color: AdminTheme.textSecondary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -3111,8 +3111,8 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                 child: OutlinedButton(
                   onPressed: _openSeatLayoutEditor,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textPrimary,
-                    side: const BorderSide(color: AppTheme.border, width: 0.5),
+                    foregroundColor: AdminTheme.textPrimary,
+                    side: const BorderSide(color: AdminTheme.border, width: 0.5),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
@@ -3123,7 +3123,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                       const SizedBox(width: 8),
                       Text(
                         hasLayout ? '직접 만든 좌석 구조 편집' : '좌석배치도 직접 만들기',
-                        style: AppTheme.sans(
+                        style: AdminTheme.sans(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -3149,17 +3149,17 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('좌석 구조',
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: AppTheme.textSecondary,
+              color: AdminTheme.textSecondary,
             )),
         const SizedBox(height: 6),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppTheme.surface,
-            border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+            color: AdminTheme.surface,
+            border: Border.all(color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
             borderRadius: BorderRadius.circular(2),
           ),
           child: Column(
@@ -3169,21 +3169,21 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                 _layoutFloors.isEmpty
                     ? '아직 좌석 구조가 없습니다'
                     : '총 ${fmt.format(totalSeats)}석 · ${_layoutFloors.length}층 · $blockCount구역 · 무대 ${_stagePositionLabel(_stagePosition)}',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 12,
                   color: _layoutFloors.isEmpty
-                      ? AppTheme.textTertiary
-                      : AppTheme.textPrimary,
+                      ? AdminTheme.textTertiary
+                      : AdminTheme.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 10),
               Text(
                 '무대 위치',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textSecondary,
+                  color: AdminTheme.textSecondary,
                 ),
               ),
               const SizedBox(height: 6),
@@ -3215,14 +3215,14 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppTheme.surface,
+                            color: AdminTheme.surface,
                             borderRadius: BorderRadius.circular(2),
                           ),
                           child: Text(
                             '${floor.name} (${fmt.format(floor.totalSeats)}석)',
-                            style: AppTheme.sans(
+                            style: AdminTheme.sans(
                               fontSize: 11,
-                              color: AppTheme.textSecondary,
+                              color: AdminTheme.textSecondary,
                             ),
                           ),
                         ),
@@ -3238,8 +3238,8 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                 child: OutlinedButton(
                   onPressed: _openSeatLayoutEditor,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textPrimary,
-                    side: const BorderSide(color: AppTheme.border, width: 0.5),
+                    foregroundColor: AdminTheme.textPrimary,
+                    side: const BorderSide(color: AdminTheme.border, width: 0.5),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
@@ -3250,7 +3250,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                       const SizedBox(width: 8),
                       Text(
                         _layoutFloors.isEmpty ? '좌석배치도 직접 만들기' : '좌석 구조 편집',
-                        style: AppTheme.sans(fontWeight: FontWeight.w700),
+                        style: AdminTheme.sans(fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),
@@ -3268,19 +3268,19 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AdminTheme.surface,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppTheme.border, width: 0.5),
+        border: Border.all(color: AdminTheme.border, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             '자동 생성 배치도 미리보기',
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: AppTheme.textSecondary,
+              color: AdminTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
@@ -3343,7 +3343,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('이미지 크기는 10MB 이하만 가능합니다'),
-            backgroundColor: AppTheme.error,
+            backgroundColor: AdminTheme.error,
           ),
         );
         return;
@@ -3363,7 +3363,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('공연장명을 입력해주세요'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AdminTheme.error,
         ),
       );
       return;
@@ -3376,7 +3376,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('좌석배치도 이미지가 없다면 좌석 구조를 먼저 직접 만들어주세요'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AdminTheme.error,
         ),
       );
       return;
@@ -3417,7 +3417,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${venue.name} 등록 완료'),
-            backgroundColor: AppTheme.success,
+            backgroundColor: AdminTheme.success,
           ),
         );
         widget.onCreated();
@@ -3427,7 +3427,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('오류: $e'),
-            backgroundColor: AppTheme.error,
+            backgroundColor: AdminTheme.error,
           ),
         );
       }

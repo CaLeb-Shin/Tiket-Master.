@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import 'package:melon_core/app/theme.dart';
+import '../../app/admin_theme.dart';
 import 'package:melon_core/data/models/app_user.dart';
 import 'package:melon_core/data/models/order.dart' as app;
 import 'package:melon_core/data/models/ticket.dart';
@@ -51,7 +51,7 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
     );
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AdminTheme.background,
       body: Column(
         children: [
           _buildAppBar(context, eventAsync),
@@ -67,13 +67,13 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
                       children: [
                         Icon(Icons.people_outline_rounded,
                             size: 36,
-                            color: AppTheme.sage.withValues(alpha: 0.3)),
+                            color: AdminTheme.sage.withValues(alpha: 0.3)),
                         const SizedBox(height: 16),
                         Text(
                           '예매자가 없습니다',
-                          style: AppTheme.sans(
+                          style: AdminTheme.sans(
                             fontSize: 14,
-                            color: AppTheme.textTertiary,
+                            color: AdminTheme.textTertiary,
                           ),
                         ),
                       ],
@@ -106,7 +106,7 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
                         separatorBuilder: (_, __) => Divider(
                           height: 1,
                           thickness: 0.5,
-                          color: AppTheme.sage.withValues(alpha: 0.12),
+                          color: AdminTheme.sage.withValues(alpha: 0.12),
                         ),
                         itemBuilder: (_, i) => _BookerCard(
                           order: paidOrders[i],
@@ -126,11 +126,11 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
                 );
               },
               loading: () => const Center(
-                child: CircularProgressIndicator(color: AppTheme.gold),
+                child: CircularProgressIndicator(color: AdminTheme.gold),
               ),
               error: (e, _) => Center(
                 child: Text('오류: $e',
-                    style: AppTheme.sans(color: AppTheme.error)),
+                    style: AdminTheme.sans(color: AdminTheme.error)),
               ),
             ),
           ),
@@ -155,9 +155,9 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
         bottom: 12,
       ),
       decoration: BoxDecoration(
-        color: AppTheme.background.withValues(alpha: 0.95),
+        color: AdminTheme.background.withValues(alpha: 0.95),
         border: const Border(
-          bottom: BorderSide(color: AppTheme.border, width: 0.5),
+          bottom: BorderSide(color: AdminTheme.border, width: 0.5),
         ),
       ),
       child: Row(
@@ -165,7 +165,7 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.west,
-                color: AppTheme.textPrimary, size: 20),
+                color: AdminTheme.textPrimary, size: 20),
           ),
           const SizedBox(width: 4),
           Expanded(
@@ -174,7 +174,7 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
               children: [
                 Text(
                   'Bookers',
-                  style: AppTheme.serif(
+                  style: AdminTheme.serif(
                     fontSize: 17,
                     fontWeight: FontWeight.w500,
                     fontStyle: FontStyle.italic,
@@ -182,9 +182,9 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
                 ),
                 Text(
                   title,
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 11,
-                    color: AppTheme.textTertiary,
+                    color: AdminTheme.textTertiary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -308,18 +308,18 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
             content: Row(
               children: [
                 const Icon(Icons.check_circle_rounded,
-                    size: 18, color: AppTheme.onAccent),
+                    size: 18, color: AdminTheme.onAccent),
                 const SizedBox(width: 8),
                 Text(
                   '엑셀 파일이 다운로드되었습니다 (${orders.length}건)',
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 13,
-                    color: AppTheme.onAccent,
+                    color: AdminTheme.onAccent,
                   ),
                 ),
               ],
             ),
-            backgroundColor: AppTheme.gold,
+            backgroundColor: AdminTheme.gold,
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
@@ -331,7 +331,7 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('내보내기 실패: $e'),
-            backgroundColor: AppTheme.error,
+            backgroundColor: AdminTheme.error,
           ),
         );
       }
@@ -376,9 +376,9 @@ class _SummaryBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: const BoxDecoration(
-        color: AppTheme.surface,
+        color: AdminTheme.surface,
         border: Border(
-          bottom: BorderSide(color: AppTheme.border, width: 0.5),
+          bottom: BorderSide(color: AdminTheme.border, width: 0.5),
         ),
       ),
       child: Row(
@@ -396,7 +396,7 @@ class _SummaryBar extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: AppTheme.sage.withValues(alpha: 0.2),
+                  color: AdminTheme.sage.withValues(alpha: 0.2),
                   width: 0.5,
                 ),
                 borderRadius: BorderRadius.circular(2),
@@ -409,17 +409,17 @@ class _SummaryBar extends StatelessWidget {
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(
-                          strokeWidth: 1.5, color: AppTheme.gold),
+                          strokeWidth: 1.5, color: AdminTheme.gold),
                     )
                   else
                     const Icon(Icons.download_rounded,
-                        size: 14, color: AppTheme.gold),
+                        size: 14, color: AdminTheme.gold),
                   const SizedBox(width: 8),
                   Text(
                     'EXPORT',
-                    style: AppTheme.label(
+                    style: AdminTheme.label(
                       fontSize: 9,
-                      color: AppTheme.gold,
+                      color: AdminTheme.gold,
                     ),
                   ),
                 ],
@@ -444,18 +444,18 @@ class _SummaryChip extends StatelessWidget {
       children: [
         Text(
           label,
-          style: AppTheme.label(
+          style: AdminTheme.label(
             fontSize: 8,
-            color: AppTheme.sage,
+            color: AdminTheme.sage,
           ),
         ),
         const SizedBox(height: 2),
         Text(
           value,
-          style: AppTheme.serif(
+          style: AdminTheme.serif(
             fontSize: 15,
             fontWeight: FontWeight.w700,
-            color: AppTheme.textPrimary,
+            color: AdminTheme.textPrimary,
           ),
         ),
       ],
@@ -554,7 +554,7 @@ class _BookerCardState extends ConsumerState<_BookerCard> {
                 style: GoogleFonts.robotoMono(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-                  color: AppTheme.sage,
+                  color: AdminTheme.sage,
                 ),
               ),
               const SizedBox(width: 14),
@@ -567,25 +567,25 @@ class _BookerCardState extends ConsumerState<_BookerCard> {
                         height: 14,
                         width: 80,
                         decoration: BoxDecoration(
-                          color: AppTheme.sage.withValues(alpha: 0.1),
+                          color: AdminTheme.sage.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       )
                     else
                       Text(
                         _user?.displayName ?? '사용자',
-                        style: AppTheme.sans(
+                        style: AdminTheme.sans(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
+                          color: AdminTheme.textPrimary,
                         ),
                       ),
                     if (_user?.email != null)
                       Text(
                         _user!.email,
-                        style: AppTheme.sans(
+                        style: AdminTheme.sans(
                           fontSize: 11,
-                          color: AppTheme.textTertiary,
+                          color: AdminTheme.textTertiary,
                         ),
                       ),
                   ],
@@ -593,9 +593,9 @@ class _BookerCardState extends ConsumerState<_BookerCard> {
               ),
               Text(
                 order.paidAt != null ? dateFormat.format(order.paidAt!) : '-',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 11,
-                  color: AppTheme.textTertiary,
+                  color: AdminTheme.textTertiary,
                 ),
               ),
             ],
@@ -649,24 +649,24 @@ class _InfoTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppTheme.cardElevated,
+        color: AdminTheme.cardElevated,
         borderRadius: BorderRadius.circular(2),
         border: Border.all(
-          color: AppTheme.sage.withValues(alpha: 0.08),
+          color: AdminTheme.sage.withValues(alpha: 0.08),
           width: 0.5,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 11, color: AppTheme.sage),
+          Icon(icon, size: 11, color: AdminTheme.sage),
           const SizedBox(width: 4),
           Text(
             text,
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
               fontSize: 11,
               fontWeight: FontWeight.w500,
-              color: AppTheme.textSecondary,
+              color: AdminTheme.textSecondary,
             ),
           ),
         ],

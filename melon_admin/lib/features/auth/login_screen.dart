@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:melon_core/app/theme.dart';
+import '../../app/admin_theme.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
 
@@ -72,13 +72,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             SnackBar(
               content: Text(
                 '티켓 어드민 승인 신청이 접수되었습니다. 오너 승인 후 관리자 권한이 활성화됩니다.',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.onAccent,
+                  color: AdminTheme.onAccent,
                 ),
               ),
-              backgroundColor: AppTheme.info,
+              backgroundColor: AdminTheme.info,
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -188,7 +188,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             Expanded(
               child: Text(
                 message,
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: Colors.white,
@@ -197,7 +197,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             ),
           ],
         ),
-        backgroundColor: AppTheme.error,
+        backgroundColor: AdminTheme.error,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -211,7 +211,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AdminTheme.background,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -307,14 +307,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         width: 64,
         height: 64,
         decoration: BoxDecoration(
-          gradient: AppTheme.goldGradient,
+          gradient: AdminTheme.goldGradient,
           borderRadius: BorderRadius.circular(4),
-          boxShadow: AppShadows.elevated,
+          boxShadow: AdminShadows.elevated,
         ),
         child: const Icon(
           Icons.confirmation_number_rounded,
           size: 32,
-          color: AppTheme.onAccent,
+          color: AdminTheme.onAccent,
         ),
       ),
     );
@@ -329,16 +329,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       children: [
         Text(
           'MELON TICKET',
-          style: AppTheme.label(fontSize: 12, color: AppTheme.sage),
+          style: AdminTheme.label(fontSize: 12, color: AdminTheme.sage),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
         Text(
           _isSignUp ? '새 계정 만들기' : '다시 만나서 반가워요',
-          style: AppTheme.serif(
+          style: AdminTheme.serif(
             fontSize: 24,
             fontWeight: FontWeight.w700,
-            color: AppTheme.textPrimary,
+            color: AdminTheme.textPrimary,
             letterSpacing: -0.5,
           ),
           textAlign: TextAlign.center,
@@ -346,9 +346,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         const SizedBox(height: 6),
         Text(
           _isSignUp ? '관리자 계정을 만들어보세요' : '계정에 로그인해 주세요',
-          style: AppTheme.sans(
+          style: AdminTheme.sans(
             fontSize: 14,
-            color: AppTheme.textSecondary,
+            color: AdminTheme.textSecondary,
           ),
           textAlign: TextAlign.center,
         ),
@@ -387,7 +387,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   const Spacer(),
                   Text(
                     label,
-                    style: AppTheme.sans(
+                    style: AdminTheme.sans(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: textColor,
@@ -413,9 +413,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       child: Container(
         height: 50,
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: AdminTheme.surface,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: AppTheme.border, width: 0.5),
+          border: Border.all(color: AdminTheme.border, width: 0.5),
         ),
         child: Material(
           color: Colors.transparent,
@@ -448,10 +448,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   const Spacer(),
                   Text(
                     'Google로 계속하기',
-                    style: AppTheme.sans(
+                    style: AdminTheme.sans(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
+                      color: AdminTheme.textPrimary,
                     ),
                   ),
                   const Spacer(),
@@ -473,19 +473,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     return Row(
       children: [
         const Expanded(
-            child: Divider(color: AppTheme.border, thickness: 0.5)),
+            child: Divider(color: AdminTheme.border, thickness: 0.5)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             '또는 이메일로 계속',
-            style: AppTheme.sans(
-              color: AppTheme.textTertiary,
+            style: AdminTheme.sans(
+              color: AdminTheme.textTertiary,
               fontSize: 12,
             ),
           ),
         ),
         const Expanded(
-            child: Divider(color: AppTheme.border, thickness: 0.5)),
+            child: Divider(color: AdminTheme.border, thickness: 0.5)),
       ],
     );
   }
@@ -497,7 +497,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Widget _buildLabel(String text) {
     return Text(
       text,
-      style: AppTheme.label(fontSize: 10, color: AppTheme.sage),
+      style: AdminTheme.label(fontSize: 10, color: AdminTheme.sage),
     );
   }
 
@@ -511,15 +511,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       focusNode: _emailFocus,
       keyboardType: TextInputType.emailAddress,
       textInputAction: TextInputAction.next,
-      style: AppTheme.sans(
+      style: AdminTheme.sans(
         fontSize: 15,
-        color: AppTheme.textPrimary,
+        color: AdminTheme.textPrimary,
       ),
-      cursorColor: AppTheme.gold,
+      cursorColor: AdminTheme.gold,
       decoration: InputDecoration(
         hintText: 'email@example.com',
-        hintStyle: AppTheme.sans(fontSize: 14, color: AppTheme.textTertiary),
-        errorStyle: AppTheme.sans(fontSize: 12, color: AppTheme.error),
+        hintStyle: AdminTheme.sans(fontSize: 14, color: AdminTheme.textTertiary),
+        errorStyle: AdminTheme.sans(fontSize: 12, color: AdminTheme.error),
       ),
       onFieldSubmitted: (_) {
         FocusScope.of(context).requestFocus(_passwordFocus);
@@ -546,11 +546,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       focusNode: _passwordFocus,
       obscureText: _obscurePassword,
       textInputAction: TextInputAction.done,
-      style: AppTheme.sans(
+      style: AdminTheme.sans(
         fontSize: 15,
-        color: AppTheme.textPrimary,
+        color: AdminTheme.textPrimary,
       ),
-      cursorColor: AppTheme.gold,
+      cursorColor: AdminTheme.gold,
       decoration: InputDecoration(
         hintText: '6자 이상 입력',
         suffixIcon: IconButton(
@@ -558,15 +558,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             _obscurePassword
                 ? Icons.visibility_off_outlined
                 : Icons.visibility_outlined,
-            color: AppTheme.textTertiary,
+            color: AdminTheme.textTertiary,
             size: 20,
           ),
           onPressed: () {
             setState(() => _obscurePassword = !_obscurePassword);
           },
         ),
-        hintStyle: AppTheme.sans(fontSize: 14, color: AppTheme.textTertiary),
-        errorStyle: AppTheme.sans(fontSize: 12, color: AppTheme.error),
+        hintStyle: AdminTheme.sans(fontSize: 14, color: AdminTheme.textTertiary),
+        errorStyle: AdminTheme.sans(fontSize: 12, color: AdminTheme.error),
       ),
       onFieldSubmitted: (_) => _submit(),
       validator: (value) {
@@ -597,9 +597,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Widget _buildAdminApprovalRequestBox() {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AdminTheme.surface,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppTheme.border, width: 0.5),
+        border: Border.all(color: AdminTheme.border, width: 0.5),
       ),
       child: CheckboxListTile(
         value: _requestAdminApproval,
@@ -608,23 +608,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             : (value) {
                 setState(() => _requestAdminApproval = value ?? false);
               },
-        activeColor: AppTheme.gold,
-        checkColor: AppTheme.onAccent,
+        activeColor: AdminTheme.gold,
+        checkColor: AdminTheme.onAccent,
         contentPadding: const EdgeInsets.symmetric(horizontal: 8),
         controlAffinity: ListTileControlAffinity.leading,
         title: Text(
           '티켓 어드민 승인 신청',
-          style: AppTheme.sans(
+          style: AdminTheme.sans(
             fontSize: 13,
             fontWeight: FontWeight.w700,
-            color: AppTheme.textPrimary,
+            color: AdminTheme.textPrimary,
           ),
         ),
         subtitle: Text(
           '가입 시 바로 관리자 권한이 부여되지 않으며 오너 승인 후 활성화됩니다.',
-          style: AppTheme.sans(
+          style: AdminTheme.sans(
             fontSize: 11,
-            color: AppTheme.textTertiary,
+            color: AdminTheme.textTertiary,
             height: 1.4,
           ),
         ),
@@ -642,8 +642,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       children: [
         Text(
           _isSignUp ? '이미 계정이 있으신가요?' : '계정이 없으신가요?',
-          style: AppTheme.sans(
-            color: AppTheme.textSecondary,
+          style: AdminTheme.sans(
+            color: AdminTheme.textSecondary,
             fontSize: 13,
           ),
         ),
@@ -657,8 +657,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           },
           child: Text(
             _isSignUp ? '로그인' : '회원가입',
-            style: AppTheme.sans(
-              color: AppTheme.gold,
+            style: AdminTheme.sans(
+              color: AdminTheme.gold,
               fontSize: 13,
               fontWeight: FontWeight.w700,
             ),

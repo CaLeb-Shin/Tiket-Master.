@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:melon_core/app/theme.dart';
+import '../../app/admin_theme.dart';
 import 'package:melon_core/data/models/order.dart';
 import 'package:melon_core/data/repositories/order_repository.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
@@ -25,7 +25,7 @@ class AdminOrdersScreen extends ConsumerWidget {
     final eventAsync = ref.watch(eventStreamProvider(eventId));
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AdminTheme.background,
       body: Column(
         children: [
           // ── Editorial App Bar ──
@@ -37,9 +37,9 @@ class AdminOrdersScreen extends ConsumerWidget {
               bottom: 12,
             ),
             decoration: BoxDecoration(
-              color: AppTheme.background.withValues(alpha: 0.95),
+              color: AdminTheme.background.withValues(alpha: 0.95),
               border: const Border(
-                bottom: BorderSide(color: AppTheme.border, width: 0.5),
+                bottom: BorderSide(color: AdminTheme.border, width: 0.5),
               ),
             ),
             child: Row(
@@ -53,7 +53,7 @@ class AdminOrdersScreen extends ConsumerWidget {
                     }
                   },
                   icon: const Icon(Icons.west,
-                      color: AppTheme.textPrimary, size: 20),
+                      color: AdminTheme.textPrimary, size: 20),
                 ),
                 const SizedBox(width: 4),
                 Expanded(
@@ -63,7 +63,7 @@ class AdminOrdersScreen extends ConsumerWidget {
                       children: [
                         Text(
                           'Orders',
-                          style: AppTheme.serif(
+                          style: AdminTheme.serif(
                             fontSize: 17,
                             fontWeight: FontWeight.w500,
                             fontStyle: FontStyle.italic,
@@ -72,9 +72,9 @@ class AdminOrdersScreen extends ConsumerWidget {
                         if (event != null)
                           Text(
                             event.title,
-                            style: AppTheme.sans(
+                            style: AdminTheme.sans(
                               fontSize: 11,
-                              color: AppTheme.textTertiary,
+                              color: AdminTheme.textTertiary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -83,7 +83,7 @@ class AdminOrdersScreen extends ConsumerWidget {
                     ),
                     loading: () => Text(
                       'Orders',
-                      style: AppTheme.serif(
+                      style: AdminTheme.serif(
                         fontSize: 17,
                         fontWeight: FontWeight.w500,
                         fontStyle: FontStyle.italic,
@@ -91,7 +91,7 @@ class AdminOrdersScreen extends ConsumerWidget {
                     ),
                     error: (_, __) => Text(
                       'Orders',
-                      style: AppTheme.serif(
+                      style: AdminTheme.serif(
                         fontSize: 17,
                         fontWeight: FontWeight.w500,
                         fontStyle: FontStyle.italic,
@@ -114,13 +114,13 @@ class AdminOrdersScreen extends ConsumerWidget {
                       children: [
                         Icon(Icons.receipt_long_rounded,
                             size: 36,
-                            color: AppTheme.sage.withValues(alpha: 0.3)),
+                            color: AdminTheme.sage.withValues(alpha: 0.3)),
                         const SizedBox(height: 16),
                         Text(
                           '주문이 없습니다',
-                          style: AppTheme.sans(
+                          style: AdminTheme.sans(
                             fontSize: 14,
-                            color: AppTheme.textTertiary,
+                            color: AdminTheme.textTertiary,
                           ),
                         ),
                       ],
@@ -146,7 +146,7 @@ class AdminOrdersScreen extends ConsumerWidget {
                       padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
                       child: Text(
                         'SUMMARY',
-                        style: AppTheme.label(fontSize: 10),
+                        style: AdminTheme.label(fontSize: 10),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -157,25 +157,25 @@ class AdminOrdersScreen extends ConsumerWidget {
                           _SummaryCard(
                             label: 'PAID',
                             value: '${paid.length}',
-                            color: AppTheme.success,
+                            color: AdminTheme.success,
                           ),
                           const SizedBox(width: 10),
                           _SummaryCard(
                             label: 'REFUNDED',
                             value: '${refunded.length}',
-                            color: AppTheme.error,
+                            color: AdminTheme.error,
                           ),
                           const SizedBox(width: 10),
                           _SummaryCard(
                             label: 'CANCELED',
                             value: '${canceled.length}',
-                            color: AppTheme.textTertiary,
+                            color: AdminTheme.textTertiary,
                           ),
                           const SizedBox(width: 10),
                           _SummaryCard(
                             label: 'REVENUE',
                             value: priceFormat.format(totalRevenue),
-                            color: AppTheme.gold,
+                            color: AdminTheme.gold,
                           ),
                         ],
                       ),
@@ -190,7 +190,7 @@ class AdminOrdersScreen extends ConsumerWidget {
                         children: [
                           Text(
                             'All Orders',
-                            style: AppTheme.serif(
+                            style: AdminTheme.serif(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                               fontStyle: FontStyle.italic,
@@ -200,16 +200,16 @@ class AdminOrdersScreen extends ConsumerWidget {
                           Expanded(
                             child: Container(
                               height: 0.5,
-                              color: AppTheme.sage.withValues(alpha: 0.3),
+                              color: AdminTheme.sage.withValues(alpha: 0.3),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Text(
                             '${orders.length}',
-                            style: AppTheme.sans(
+                            style: AdminTheme.sans(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: AppTheme.textTertiary,
+                              color: AdminTheme.textTertiary,
                             ),
                           ),
                         ],
@@ -225,7 +225,7 @@ class AdminOrdersScreen extends ConsumerWidget {
                         separatorBuilder: (_, __) => Divider(
                           height: 1,
                           thickness: 0.5,
-                          color: AppTheme.sage.withValues(alpha: 0.12),
+                          color: AdminTheme.sage.withValues(alpha: 0.12),
                         ),
                         itemBuilder: (_, i) =>
                             _AdminOrderRow(order: orders[i]),
@@ -235,11 +235,11 @@ class AdminOrdersScreen extends ConsumerWidget {
                 );
               },
               loading: () => const Center(
-                child: CircularProgressIndicator(color: AppTheme.gold),
+                child: CircularProgressIndicator(color: AdminTheme.gold),
               ),
               error: (e, _) => Center(
                 child: Text('오류: $e',
-                    style: AppTheme.sans(color: AppTheme.error)),
+                    style: AdminTheme.sans(color: AdminTheme.error)),
               ),
             ),
           ),
@@ -268,27 +268,27 @@ class _SummaryCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: AdminTheme.surface,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: AppTheme.sage.withValues(alpha: 0.1),
+            color: AdminTheme.sage.withValues(alpha: 0.1),
             width: 0.5,
           ),
-          boxShadow: AppShadows.small,
+          boxShadow: AdminShadows.small,
         ),
         child: Column(
           children: [
             Text(
               label,
-              style: AppTheme.label(
+              style: AdminTheme.label(
                 fontSize: 9,
-                color: AppTheme.sage,
+                color: AdminTheme.sage,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               value,
-              style: AppTheme.serif(
+              style: AdminTheme.serif(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: color,
@@ -318,19 +318,19 @@ class _AdminOrderRow extends StatelessWidget {
     String statusLabel;
     switch (order.status) {
       case OrderStatus.paid:
-        statusColor = AppTheme.success;
+        statusColor = AdminTheme.success;
         statusLabel = 'PAID';
       case OrderStatus.pending:
-        statusColor = AppTheme.warning;
+        statusColor = AdminTheme.warning;
         statusLabel = 'PENDING';
       case OrderStatus.refunded:
-        statusColor = AppTheme.error;
+        statusColor = AdminTheme.error;
         statusLabel = 'REFUNDED';
       case OrderStatus.canceled:
-        statusColor = AppTheme.textTertiary;
+        statusColor = AdminTheme.textTertiary;
         statusLabel = 'CANCELED';
       case OrderStatus.failed:
-        statusColor = AppTheme.error.withValues(alpha: 0.6);
+        statusColor = AdminTheme.error.withValues(alpha: 0.6);
         statusLabel = 'FAILED';
     }
 
@@ -356,18 +356,18 @@ class _AdminOrderRow extends StatelessWidget {
               children: [
                 Text(
                   order.id.substring(0, 8),
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
+                    color: AdminTheme.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   '${order.quantity}매  ·  ${dateFormat.format(order.createdAt)}',
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 11,
-                    color: AppTheme.textTertiary,
+                    color: AdminTheme.textTertiary,
                   ),
                 ),
               ],
@@ -380,16 +380,16 @@ class _AdminOrderRow extends StatelessWidget {
             children: [
               Text(
                 '${priceFormat.format(order.totalAmount)}원',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                  color: AdminTheme.textPrimary,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 statusLabel,
-                style: AppTheme.label(
+                style: AdminTheme.label(
                   fontSize: 9,
                   color: statusColor,
                 ),

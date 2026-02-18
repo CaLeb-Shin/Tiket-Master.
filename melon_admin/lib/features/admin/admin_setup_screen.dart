@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:melon_core/app/theme.dart';
+import '../../app/admin_theme.dart';
 import 'package:melon_core/services/auth_service.dart';
 
 // =============================================================================
@@ -41,7 +41,7 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('관리자 승인 요청이 접수되었습니다.'),
-          backgroundColor: AppTheme.success,
+          backgroundColor: AdminTheme.success,
         ),
       );
     } catch (e) {
@@ -49,7 +49,7 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('요청 실패: $e'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AdminTheme.error,
         ),
       );
     } finally {
@@ -67,7 +67,7 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('관리자 승인 완료'),
-          backgroundColor: AppTheme.success,
+          backgroundColor: AdminTheme.success,
         ),
       );
     } catch (e) {
@@ -75,7 +75,7 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('승인 실패: $e'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AdminTheme.error,
         ),
       );
     } finally {
@@ -93,7 +93,7 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('요청을 거절했습니다'),
-          backgroundColor: AppTheme.warning,
+          backgroundColor: AdminTheme.warning,
         ),
       );
     } catch (e) {
@@ -101,7 +101,7 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('거절 실패: $e'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AdminTheme.error,
         ),
       );
     } finally {
@@ -117,7 +117,7 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
     final appUser = ref.watch(currentUserProvider).valueOrNull;
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AdminTheme.background,
       body: Column(
         children: [
           _buildAppBar(),
@@ -141,11 +141,11 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
                 );
               },
               loading: () => const Center(
-                child: CircularProgressIndicator(color: AppTheme.gold),
+                child: CircularProgressIndicator(color: AdminTheme.gold),
               ),
               error: (error, _) => Center(
                 child: Text('오류: $error',
-                    style: AppTheme.sans(color: AppTheme.error)),
+                    style: AdminTheme.sans(color: AdminTheme.error)),
               ),
             ),
           ),
@@ -164,9 +164,9 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
         bottom: 12,
       ),
       decoration: const BoxDecoration(
-        color: AppTheme.surface,
+        color: AdminTheme.surface,
         border:
-            Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
+            Border(bottom: BorderSide(color: AdminTheme.border, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -179,12 +179,12 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
               }
             },
             icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                color: AppTheme.textPrimary, size: 20),
+                color: AdminTheme.textPrimary, size: 20),
           ),
           Expanded(
             child: Text(
               '어드민 승인 관리',
-              style: AppTheme.serif(fontSize: 17),
+              style: AdminTheme.serif(fontSize: 17),
             ),
           ),
         ],
@@ -204,22 +204,22 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: AppTheme.goldSubtle,
+                color: AdminTheme.goldSubtle,
                 borderRadius: BorderRadius.circular(2),
               ),
               child: const Icon(Icons.lock_outline,
-                  size: 28, color: AppTheme.gold),
+                  size: 28, color: AdminTheme.gold),
             ),
             const SizedBox(height: 20),
             Text(
               '로그인이 필요합니다',
-              style: AppTheme.serif(fontSize: 18),
+              style: AdminTheme.serif(fontSize: 18),
             ),
             const SizedBox(height: 8),
             Text(
               '관리자 승인 관리는 로그인 후 이용할 수 있습니다.',
-              style: AppTheme.sans(
-                  color: AppTheme.textSecondary, fontSize: 13),
+              style: AdminTheme.sans(
+                  color: AdminTheme.textSecondary, fontSize: 13),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -228,9 +228,9 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
               child: ElevatedButton(
                 onPressed: () => context.push('/login'),
                 child: Text('로그인하기',
-                    style: AppTheme.sans(
+                    style: AdminTheme.sans(
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.onAccent)),
+                        color: AdminTheme.onAccent)),
               ),
             ),
           ],
@@ -268,17 +268,17 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: AppTheme.goldSubtle,
+                color: AdminTheme.goldSubtle,
                 borderRadius: BorderRadius.circular(2),
               ),
               alignment: Alignment.center,
               child: const Icon(Icons.manage_accounts_rounded,
-                  size: 28, color: AppTheme.gold),
+                  size: 28, color: AdminTheme.gold),
             ),
             const SizedBox(height: 20),
             Text(
               '관리자 승인 요청',
-              style: AppTheme.serif(fontSize: 22),
+              style: AdminTheme.serif(fontSize: 22),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
@@ -286,8 +286,8 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
               isAlreadyAdmin
                   ? '이미 관리자 권한이 활성화된 계정입니다.'
                   : '요청을 보내면 오너(${AuthService.ownerEmail})가 승인 후\n관리자 권한을 부여합니다.',
-              style: AppTheme.sans(
-                  color: AppTheme.textSecondary, height: 1.5),
+              style: AdminTheme.sans(
+                  color: AdminTheme.textSecondary, height: 1.5),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
@@ -296,16 +296,16 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.surface,
+                color: AdminTheme.surface,
                 borderRadius: BorderRadius.circular(2),
                 border:
-                    Border.all(color: AppTheme.border, width: 0.5),
+                    Border.all(color: AdminTheme.border, width: 0.5),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('ACCOUNT',
-                      style: AppTheme.label()),
+                      style: AdminTheme.label()),
                   const SizedBox(height: 12),
                   _infoRow('이메일', user.email ?? '-'),
                   const SizedBox(height: 8),
@@ -328,14 +328,14 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
                         height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppTheme.onAccent,
+                          color: AdminTheme.onAccent,
                         ),
                       )
                     : Text(
                         isRejected ? '관리자 승인 재요청' : '관리자 승인 요청 보내기',
-                        style: AppTheme.sans(
+                        style: AdminTheme.sans(
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.onAccent),
+                            color: AdminTheme.onAccent),
                       ),
               ),
             ),
@@ -351,9 +351,9 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
                   },
                   child: Text(
                     '다시 로그인하여 권한 반영',
-                    style: AppTheme.sans(
+                    style: AdminTheme.sans(
                         fontWeight: FontWeight.w500,
-                        color: AppTheme.gold),
+                        color: AdminTheme.gold),
                   ),
                 ),
               ),
@@ -370,12 +370,12 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
         SizedBox(
           width: 56,
           child: Text(label,
-              style: AppTheme.sans(
-                  fontSize: 12, color: AppTheme.textTertiary)),
+              style: AdminTheme.sans(
+                  fontSize: 12, color: AdminTheme.textTertiary)),
         ),
         Expanded(
           child: Text(value,
-              style: AppTheme.sans(
+              style: AdminTheme.sans(
                   fontSize: 13, fontWeight: FontWeight.w500)),
         ),
       ],
@@ -395,12 +395,12 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
         if (snapshot.hasError) {
           return Center(
             child: Text('요청 목록 조회 실패: ${snapshot.error}',
-                style: AppTheme.sans(color: AppTheme.error)),
+                style: AdminTheme.sans(color: AdminTheme.error)),
           );
         }
         if (!snapshot.hasData) {
           return const Center(
-            child: CircularProgressIndicator(color: AppTheme.gold),
+            child: CircularProgressIndicator(color: AdminTheme.gold),
           );
         }
 
@@ -417,17 +417,17 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
           padding: const EdgeInsets.all(24),
           children: [
             Text('PENDING REQUESTS',
-                style: AppTheme.label()),
+                style: AdminTheme.label()),
             const SizedBox(height: 8),
             Text(
               '관리자 승인 대기 목록',
-              style: AppTheme.serif(fontSize: 22),
+              style: AdminTheme.serif(fontSize: 22),
             ),
             const SizedBox(height: 6),
             Text(
               '오너 계정(${AuthService.ownerEmail})만 승인/거절할 수 있습니다.',
-              style: AppTheme.sans(
-                  color: AppTheme.textSecondary, fontSize: 13),
+              style: AdminTheme.sans(
+                  color: AdminTheme.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 24),
             if (docs.isEmpty)
@@ -435,15 +435,15 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 20, vertical: 32),
                 decoration: BoxDecoration(
-                  color: AppTheme.surface,
+                  color: AdminTheme.surface,
                   borderRadius: BorderRadius.circular(2),
                   border:
-                      Border.all(color: AppTheme.border, width: 0.5),
+                      Border.all(color: AdminTheme.border, width: 0.5),
                 ),
                 child: Center(
                   child: Text(
                     '현재 승인 대기 요청이 없습니다.',
-                    style: AppTheme.sans(color: AppTheme.textTertiary),
+                    style: AdminTheme.sans(color: AdminTheme.textTertiary),
                   ),
                 ),
               )
@@ -463,29 +463,29 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.surface,
+                    color: AdminTheme.surface,
                     borderRadius: BorderRadius.circular(2),
                     border:
-                        Border.all(color: AppTheme.border, width: 0.5),
-                    boxShadow: AppShadows.small,
+                        Border.all(color: AdminTheme.border, width: 0.5),
+                    boxShadow: AdminShadows.small,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         displayName,
-                        style: AppTheme.serif(fontSize: 16),
+                        style: AdminTheme.serif(fontSize: 16),
                       ),
                       const SizedBox(height: 6),
                       Text(email,
-                          style: AppTheme.sans(
+                          style: AdminTheme.sans(
                               fontSize: 13,
-                              color: AppTheme.textSecondary)),
+                              color: AdminTheme.textSecondary)),
                       const SizedBox(height: 4),
                       Text('요청 시각: $requestedLabel',
-                          style: AppTheme.sans(
+                          style: AdminTheme.sans(
                               fontSize: 12,
-                              color: AppTheme.textTertiary)),
+                              color: AdminTheme.textTertiary)),
                       const SizedBox(height: 16),
                       Row(
                         children: [
@@ -499,13 +499,13 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
                                       height: 16,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        color: AppTheme.onAccent,
+                                        color: AdminTheme.onAccent,
                                       ),
                                     )
                                   : Text('승인',
-                                      style: AppTheme.sans(
+                                      style: AdminTheme.sans(
                                           fontWeight: FontWeight.w700,
-                                          color: AppTheme.onAccent)),
+                                          color: AdminTheme.onAccent)),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -515,9 +515,9 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
                                   isActing ? null : () => _reject(uid),
                               child: Text(
                                 '거절',
-                                style: AppTheme.sans(
+                                style: AdminTheme.sans(
                                     fontWeight: FontWeight.w500,
-                                    color: AppTheme.error),
+                                    color: AdminTheme.error),
                               ),
                             ),
                           ),

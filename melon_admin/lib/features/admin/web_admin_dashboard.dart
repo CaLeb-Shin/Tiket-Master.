@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
-import 'package:melon_core/app/theme.dart';
+import '../../app/admin_theme.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/models/event.dart';
 import 'package:melon_core/services/auth_service.dart';
@@ -25,16 +25,16 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
 
     if (currentUser.isLoading) {
       return const Scaffold(
-        backgroundColor: AppTheme.background,
+        backgroundColor: AdminTheme.background,
         body: Center(
-          child: CircularProgressIndicator(color: AppTheme.gold),
+          child: CircularProgressIndicator(color: AdminTheme.gold),
         ),
       );
     }
 
     if (currentUser.value?.isAdmin != true) {
       return Scaffold(
-        backgroundColor: AppTheme.background,
+        backgroundColor: AdminTheme.background,
         body: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
@@ -46,24 +46,24 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
                   Icon(
                     Icons.lock_outline_rounded,
                     size: 44,
-                    color: AppTheme.sage.withValues(alpha: 0.5),
+                    color: AdminTheme.sage.withValues(alpha: 0.5),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     '관리자 권한이 필요합니다',
-                    style: AppTheme.serif(
+                    style: AdminTheme.serif(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
+                      color: AdminTheme.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '관리자 계정으로 로그인한 뒤 다시 접근해 주세요.',
                     textAlign: TextAlign.center,
-                    style: AppTheme.sans(
+                    style: AdminTheme.sans(
                       fontSize: 13,
-                      color: AppTheme.textSecondary,
+                      color: AdminTheme.textSecondary,
                       height: 1.5,
                     ),
                   ),
@@ -74,26 +74,26 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
                       ElevatedButton(
                         onPressed: () => context.push('/setup'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.gold,
-                          foregroundColor: AppTheme.onAccent,
+                          backgroundColor: AdminTheme.gold,
+                          foregroundColor: AdminTheme.onAccent,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                         ),
                         child: Text(
                           '승인 요청',
-                          style: AppTheme.sans(fontWeight: FontWeight.w700),
+                          style: AdminTheme.sans(fontWeight: FontWeight.w700),
                         ),
                       ),
                       const SizedBox(width: 10),
                       OutlinedButton(
                         onPressed: () => context.go('/'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.textPrimary,
-                          side: BorderSide(color: AppTheme.sage.withValues(alpha: 0.3), width: 0.5),
+                          foregroundColor: AdminTheme.textPrimary,
+                          side: BorderSide(color: AdminTheme.sage.withValues(alpha: 0.3), width: 0.5),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                         ),
                         child: Text(
                           '홈으로 이동',
-                          style: AppTheme.sans(fontWeight: FontWeight.w700),
+                          style: AdminTheme.sans(fontWeight: FontWeight.w700),
                         ),
                       ),
                     ],
@@ -107,7 +107,7 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AdminTheme.background,
       body: Row(
         children: [
           _Sidebar(
@@ -163,10 +163,10 @@ class _SidebarState extends State<_Sidebar> {
     return Container(
       width: 260,
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AdminTheme.surface,
         border: Border(
           right: BorderSide(
-              color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+              color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
         ),
       ),
       child: Column(
@@ -180,15 +180,15 @@ class _SidebarState extends State<_Sidebar> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    gradient: AppTheme.goldGradient,
+                    gradient: AdminTheme.goldGradient,
                     borderRadius: BorderRadius.circular(4),
-                    boxShadow: AppShadows.small,
+                    boxShadow: AdminShadows.small,
                   ),
                   child: Center(
                     child: Text(
                       'M',
-                      style: AppTheme.serif(
-                        color: AppTheme.onAccent,
+                      style: AdminTheme.serif(
+                        color: AdminTheme.onAccent,
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                         height: 1,
@@ -202,16 +202,16 @@ class _SidebarState extends State<_Sidebar> {
                   children: [
                     Text(
                       'MELON',
-                      style: AppTheme.label(
+                      style: AdminTheme.label(
                         fontSize: 12,
-                        color: AppTheme.gold,
+                        color: AdminTheme.gold,
                       ),
                     ),
                     Text(
                       'TICKET ADMIN',
-                      style: AppTheme.label(
+                      style: AdminTheme.label(
                         fontSize: 8,
-                        color: AppTheme.textTertiary,
+                        color: AdminTheme.textTertiary,
                       ),
                     ),
                   ],
@@ -223,7 +223,7 @@ class _SidebarState extends State<_Sidebar> {
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 24),
             height: 0.5,
-            color: AppTheme.border,
+            color: AdminTheme.border,
           ),
 
           const SizedBox(height: 20),
@@ -233,7 +233,7 @@ class _SidebarState extends State<_Sidebar> {
               alignment: Alignment.centerLeft,
               child: Text(
                 'NAVIGATION',
-                style: AppTheme.label(fontSize: 9, color: AppTheme.textTertiary),
+                style: AdminTheme.label(fontSize: 9, color: AdminTheme.textTertiary),
               ),
             ),
           ),
@@ -274,17 +274,17 @@ class _SidebarState extends State<_Sidebar> {
                   padding:
                       const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                   decoration: BoxDecoration(
-                    color: AppTheme.background,
+                    color: AdminTheme.background,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: AppTheme.border, width: 0.5),
+                    border: Border.all(color: AdminTheme.border, width: 0.5),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         '로그아웃',
-                        style: AppTheme.sans(
-                          color: AppTheme.textSecondary,
+                        style: AdminTheme.sans(
+                          color: AdminTheme.textSecondary,
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
@@ -321,14 +321,14 @@ class _SidebarState extends State<_Sidebar> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.gold.withValues(alpha: 0.06)
+                ? AdminTheme.gold.withValues(alpha: 0.06)
                 : isHovered
-                    ? AppTheme.sage.withValues(alpha: 0.05)
+                    ? AdminTheme.sage.withValues(alpha: 0.05)
                     : Colors.transparent,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color:
-                  isSelected ? AppTheme.gold.withValues(alpha: 0.15) : Colors.transparent,
+                  isSelected ? AdminTheme.gold.withValues(alpha: 0.15) : Colors.transparent,
               width: 0.5,
             ),
           ),
@@ -339,7 +339,7 @@ class _SidebarState extends State<_Sidebar> {
                 height: 20,
                 margin: const EdgeInsets.only(right: 10),
                 decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.gold : Colors.transparent,
+                  color: isSelected ? AdminTheme.gold : Colors.transparent,
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -347,19 +347,19 @@ class _SidebarState extends State<_Sidebar> {
                 width: 28,
                 child: Text(
                   code,
-                  style: AppTheme.label(
+                  style: AdminTheme.label(
                     fontSize: 10,
-                    color: isSelected ? AppTheme.gold : AppTheme.textTertiary,
+                    color: isSelected ? AdminTheme.gold : AdminTheme.textTertiary,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 label,
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   color:
-                      isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                      isSelected ? AdminTheme.textPrimary : AdminTheme.textSecondary,
                   fontSize: 14,
                 ),
               ),
@@ -369,7 +369,7 @@ class _SidebarState extends State<_Sidebar> {
                   width: 6,
                   height: 6,
                   decoration: const BoxDecoration(
-                    color: AppTheme.success,
+                    color: AdminTheme.success,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -404,10 +404,10 @@ class _DashboardContent extends ConsumerWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(32, 28, 32, 28),
                 decoration: BoxDecoration(
-                  color: AppTheme.surface,
+                  color: AdminTheme.surface,
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AppTheme.border, width: 0.5),
-                  boxShadow: AppShadows.card,
+                  border: Border.all(color: AdminTheme.border, width: 0.5),
+                  boxShadow: AdminShadows.card,
                 ),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
@@ -428,16 +428,16 @@ class _DashboardContent extends ConsumerWidget {
                                 children: [
                                   Text(
                                     'OPERATIONS',
-                                    style: AppTheme.label(
-                                        fontSize: 10, color: AppTheme.sage),
+                                    style: AdminTheme.label(
+                                        fontSize: 10, color: AdminTheme.sage),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
                                     '공연 운영 대시보드',
-                                    style: AppTheme.serif(
+                                    style: AdminTheme.serif(
                                       fontSize: compact ? 26 : 32,
                                       fontWeight: FontWeight.w700,
-                                      color: AppTheme.textPrimary,
+                                      color: AdminTheme.textPrimary,
                                       letterSpacing: -0.5,
                                       height: 1.1,
                                     ),
@@ -445,8 +445,8 @@ class _DashboardContent extends ConsumerWidget {
                                   const SizedBox(height: 8),
                                   Text(
                                     '예매, 좌석, 발권 상태를 한 화면에서 빠르게 파악하고 운영 액션으로 바로 이동하세요.',
-                                    style: AppTheme.sans(
-                                      color: AppTheme.textSecondary,
+                                    style: AdminTheme.sans(
+                                      color: AdminTheme.textSecondary,
                                       fontSize: 14,
                                       height: 1.55,
                                     ),
@@ -521,7 +521,7 @@ class _DashboardContent extends ConsumerWidget {
                               code: 'LIVE',
                               label: '판매 중',
                               value: '$activeEvents',
-                              accentColor: AppTheme.success,
+                              accentColor: AdminTheme.success,
                               footnote: '즉시 예매 가능한 공연',
                             ),
                           ),
@@ -540,7 +540,7 @@ class _DashboardContent extends ConsumerWidget {
                               code: 'TICK',
                               label: '판매 티켓',
                               value: NumberFormat('#,###').format(soldSeats),
-                              accentColor: AppTheme.gold,
+                              accentColor: AdminTheme.gold,
                               footnote: '좌석 점유율 $utilization%',
                             ),
                           ),
@@ -560,23 +560,23 @@ class _DashboardContent extends ConsumerWidget {
                                 children: [
                                   Text(
                                     '최근 공연',
-                                    style: AppTheme.serif(
+                                    style: AdminTheme.serif(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w700,
-                                      color: AppTheme.textPrimary,
+                                      color: AdminTheme.textPrimary,
                                     ),
                                   ),
                                   Text(
                                     '최신 5건',
-                                    style: AppTheme.label(
+                                    style: AdminTheme.label(
                                       fontSize: 10,
-                                      color: AppTheme.textTertiary,
+                                      color: AdminTheme.textTertiary,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            Container(height: 0.5, color: AppTheme.border),
+                            Container(height: 0.5, color: AdminTheme.border),
                             _EventsTable(events: events.take(5).toList()),
                           ],
                         ),
@@ -610,7 +610,7 @@ class _DashboardContent extends ConsumerWidget {
                     padding: const EdgeInsets.all(80),
                     child: Text(
                       '오류: $e',
-                      style: AppTheme.sans(color: AppTheme.textSecondary),
+                      style: AdminTheme.sans(color: AdminTheme.textSecondary),
                     ),
                   ),
                 ),
@@ -633,14 +633,14 @@ class _EditorialTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppTheme.background,
+        color: AdminTheme.background,
         borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: AppTheme.border, width: 0.5),
+        border: Border.all(color: AdminTheme.border, width: 0.5),
       ),
       child: Text(
         label,
-        style: AppTheme.sans(
-          color: AppTheme.textSecondary,
+        style: AdminTheme.sans(
+          color: AdminTheme.textSecondary,
           fontSize: 11,
           fontWeight: FontWeight.w500,
         ),
@@ -674,7 +674,7 @@ class _StatCardState extends State<_StatCard> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = widget.accentColor ?? AppTheme.sage;
+    final accent = widget.accentColor ?? AdminTheme.sage;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -683,15 +683,15 @@ class _StatCardState extends State<_StatCard> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: AdminTheme.surface,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: _isHovered
                 ? accent.withValues(alpha: 0.3)
-                : AppTheme.border,
+                : AdminTheme.border,
             width: 0.5,
           ),
-          boxShadow: _isHovered ? AppShadows.card : AppShadows.small,
+          boxShadow: _isHovered ? AdminShadows.card : AdminShadows.small,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -707,14 +707,14 @@ class _StatCardState extends State<_StatCard> {
                   ),
                   child: Text(
                     widget.code,
-                    style: AppTheme.label(fontSize: 9, color: accent),
+                    style: AdminTheme.label(fontSize: 9, color: accent),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Container(
                     height: 0.5,
-                    color: AppTheme.border,
+                    color: AdminTheme.border,
                   ),
                 ),
               ],
@@ -722,19 +722,19 @@ class _StatCardState extends State<_StatCard> {
             const SizedBox(height: 16),
             Text(
               widget.value,
-              style: AppTheme.serif(
+              style: AdminTheme.serif(
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
+                color: AdminTheme.textPrimary,
                 height: 1,
               ),
             ),
             const SizedBox(height: 6),
             Text(
               widget.label,
-              style: AppTheme.sans(
+              style: AdminTheme.sans(
                 fontSize: 13,
-                color: AppTheme.textSecondary,
+                color: AdminTheme.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -742,9 +742,9 @@ class _StatCardState extends State<_StatCard> {
               const SizedBox(height: 10),
               Text(
                 widget.footnote!,
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 11,
-                  color: AppTheme.textTertiary,
+                  color: AdminTheme.textTertiary,
                 ),
               ),
             ],
@@ -765,10 +765,10 @@ class _LightCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AdminTheme.surface,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppTheme.border, width: 0.5),
-        boxShadow: AppShadows.card,
+        border: Border.all(color: AdminTheme.border, width: 0.5),
+        boxShadow: AdminShadows.card,
       ),
       clipBehavior: Clip.antiAlias,
       child: child,
@@ -795,7 +795,7 @@ class _ActionButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            gradient: AppTheme.goldGradient,
+            gradient: AdminTheme.goldGradient,
             borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
@@ -803,8 +803,8 @@ class _ActionButton extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: AppTheme.sans(
-                  color: AppTheme.onAccent,
+                style: AdminTheme.sans(
+                  color: AdminTheme.onAccent,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),
@@ -813,7 +813,7 @@ class _ActionButton extends StatelessWidget {
               Container(
                 width: 10,
                 height: 1,
-                color: AppTheme.onAccent.withValues(alpha: 0.6),
+                color: AdminTheme.onAccent.withValues(alpha: 0.6),
               ),
             ],
           ),
@@ -841,33 +841,33 @@ class _EventsTable extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppTheme.background,
+                  color: AdminTheme.background,
                   borderRadius: BorderRadius.circular(2),
-                  border: Border.all(color: AppTheme.border, width: 0.5),
+                  border: Border.all(color: AdminTheme.border, width: 0.5),
                 ),
                 child: Text(
                   'NO EVENTS',
-                  style: AppTheme.label(
+                  style: AdminTheme.label(
                     fontSize: 10,
-                    color: AppTheme.gold,
+                    color: AdminTheme.gold,
                   ),
                 ),
               ),
               const SizedBox(height: 18),
               Text(
                 '등록된 공연이 없습니다',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textSecondary,
+                  color: AdminTheme.textSecondary,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 '새 공연을 등록해보세요',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 13,
-                  color: AppTheme.textTertiary,
+                  color: AdminTheme.textTertiary,
                 ),
               ),
             ],
@@ -881,37 +881,37 @@ class _EventsTable extends StatelessWidget {
         // Header
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          color: AppTheme.cardElevated,
+          color: AdminTheme.cardElevated,
           child: Row(
             children: [
               SizedBox(
                 width: 280,
                 child: Text('공연명',
-                    style: AppTheme.label(
-                        fontSize: 10, color: AppTheme.textTertiary)),
+                    style: AdminTheme.label(
+                        fontSize: 10, color: AdminTheme.textTertiary)),
               ),
               Expanded(
                 child: Text('일시',
-                    style: AppTheme.label(
-                        fontSize: 10, color: AppTheme.textTertiary)),
+                    style: AdminTheme.label(
+                        fontSize: 10, color: AdminTheme.textTertiary)),
               ),
               SizedBox(
                 width: 120,
                 child: Text('좌석',
-                    style: AppTheme.label(
-                        fontSize: 10, color: AppTheme.textTertiary)),
+                    style: AdminTheme.label(
+                        fontSize: 10, color: AdminTheme.textTertiary)),
               ),
               SizedBox(
                 width: 100,
                 child: Text('상태',
-                    style: AppTheme.label(
-                        fontSize: 10, color: AppTheme.textTertiary)),
+                    style: AdminTheme.label(
+                        fontSize: 10, color: AdminTheme.textTertiary)),
               ),
               const SizedBox(width: 48),
             ],
           ),
         ),
-        Container(height: 0.5, color: AppTheme.border),
+        Container(height: 0.5, color: AdminTheme.border),
 
         // Rows
         ...events.map((event) =>
@@ -944,7 +944,7 @@ class _EventRowState extends State<_EventRow> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         color: _isHovered
-            ? AppTheme.sage.withValues(alpha: 0.04)
+            ? AdminTheme.sage.withValues(alpha: 0.04)
             : Colors.transparent,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Row(
@@ -959,9 +959,9 @@ class _EventRowState extends State<_EventRow> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: AppTheme.cardElevated,
+                      color: AdminTheme.cardElevated,
                       borderRadius: BorderRadius.circular(2),
-                      border: Border.all(color: AppTheme.border, width: 0.5),
+                      border: Border.all(color: AdminTheme.border, width: 0.5),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: event.imageUrl != null && event.imageUrl!.isNotEmpty
@@ -981,10 +981,10 @@ class _EventRowState extends State<_EventRow> {
                         Text(
                           event.title,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTheme.sans(
+                          style: AdminTheme.sans(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
-                            color: AppTheme.textPrimary,
+                            color: AdminTheme.textPrimary,
                           ),
                         ),
                         if (event.venueName != null) ...[
@@ -992,9 +992,9 @@ class _EventRowState extends State<_EventRow> {
                           Text(
                             event.venueName!,
                             overflow: TextOverflow.ellipsis,
-                            style: AppTheme.sans(
+                            style: AdminTheme.sans(
                               fontSize: 12,
-                              color: AppTheme.textTertiary,
+                              color: AdminTheme.textTertiary,
                             ),
                           ),
                         ],
@@ -1009,9 +1009,9 @@ class _EventRowState extends State<_EventRow> {
             Expanded(
               child: Text(
                 DateFormat('MM.dd (E) HH:mm', 'ko_KR').format(event.startAt),
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 13,
-                  color: AppTheme.textSecondary,
+                  color: AdminTheme.textSecondary,
                 ),
               ),
             ),
@@ -1024,10 +1024,10 @@ class _EventRowState extends State<_EventRow> {
                 children: [
                   Text(
                     '$soldSeats / ${NumberFormat('#,###').format(event.totalSeats)}',
-                    style: AppTheme.sans(
+                    style: AdminTheme.sans(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
+                      color: AdminTheme.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -1035,12 +1035,12 @@ class _EventRowState extends State<_EventRow> {
                     height: 3,
                     child: shad.Progress(
                       progress: ratio,
-                      backgroundColor: AppTheme.border,
+                      backgroundColor: AdminTheme.border,
                       color: ratio > 0.8
-                          ? AppTheme.error
+                          ? AdminTheme.error
                           : ratio > 0.5
-                              ? AppTheme.warning
-                              : AppTheme.success,
+                              ? AdminTheme.warning
+                              : AdminTheme.success,
                     ),
                   ),
                 ],
@@ -1067,7 +1067,7 @@ class _EventRowState extends State<_EventRow> {
                           shad.MenuButton(
                             child: Text(
                               '좌석 관리',
-                              style: AppTheme.sans(fontSize: 13),
+                              style: AdminTheme.sans(fontSize: 13),
                             ),
                             onPressed: (_) =>
                                 context.push('/events/${event.id}/seats'),
@@ -1075,7 +1075,7 @@ class _EventRowState extends State<_EventRow> {
                           shad.MenuButton(
                             child: Text(
                               '배정 현황',
-                              style: AppTheme.sans(fontSize: 13),
+                              style: AdminTheme.sans(fontSize: 13),
                             ),
                             onPressed: (_) =>
                                 context.push('/events/${event.id}/assignments'),
@@ -1083,7 +1083,7 @@ class _EventRowState extends State<_EventRow> {
                           shad.MenuButton(
                             child: Text(
                               '예매자 목록',
-                              style: AppTheme.sans(fontSize: 13),
+                              style: AdminTheme.sans(fontSize: 13),
                             ),
                             onPressed: (_) =>
                                 context.push('/events/${event.id}/bookers'),
@@ -1096,8 +1096,8 @@ class _EventRowState extends State<_EventRow> {
                     alignment: Alignment.centerRight,
                     child: Text(
                       '옵션',
-                      style: AppTheme.sans(
-                        color: AppTheme.textTertiary,
+                      style: AdminTheme.sans(
+                        color: AdminTheme.textTertiary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1125,13 +1125,13 @@ class _PosterFallback extends StatelessWidget {
 
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: AppTheme.cardElevated,
+        color: AdminTheme.cardElevated,
       ),
       child: Center(
         child: Text(
           initial,
-          style: AppTheme.serif(
-            color: AppTheme.gold,
+          style: AdminTheme.serif(
+            color: AdminTheme.gold,
             fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
@@ -1153,16 +1153,16 @@ class _StatusBadge extends StatelessWidget {
     String text;
 
     if (event.status == EventStatus.soldOut || event.availableSeats == 0) {
-      color = AppTheme.error;
+      color = AdminTheme.error;
       text = '매진';
     } else if (event.isOnSale) {
-      color = AppTheme.success;
+      color = AdminTheme.success;
       text = '판매중';
     } else if (DateTime.now().isBefore(event.saleStartAt)) {
-      color = AppTheme.warning;
+      color = AdminTheme.warning;
       text = '판매예정';
     } else {
-      color = AppTheme.textTertiary;
+      color = AdminTheme.textTertiary;
       text = '종료';
     }
 
@@ -1180,7 +1180,7 @@ class _StatusBadge extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           text,
-          style: AppTheme.sans(
+          style: AdminTheme.sans(
             color: color,
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -1213,10 +1213,10 @@ class _EventsContent extends ConsumerWidget {
                 children: [
                   Text(
                     '공연 관리',
-                    style: AppTheme.serif(
+                    style: AdminTheme.serif(
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
+                      color: AdminTheme.textPrimary,
                       letterSpacing: -0.5,
                     ),
                   ),
@@ -1252,7 +1252,7 @@ class _EventsContent extends ConsumerWidget {
                       child: Text(
                         '오류: $e',
                         style:
-                            AppTheme.sans(color: AppTheme.textSecondary),
+                            AdminTheme.sans(color: AdminTheme.textSecondary),
                       ),
                     ),
                   ),
@@ -1285,10 +1285,10 @@ class _StatsContent extends ConsumerWidget {
             children: [
               Text(
                 '통계 대시보드',
-                style: AppTheme.serif(
+                style: AdminTheme.serif(
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
+                  color: AdminTheme.textPrimary,
                   letterSpacing: -0.5,
                 ),
               ),
@@ -1297,11 +1297,11 @@ class _StatsContent extends ConsumerWidget {
                 child: eventsAsync.when(
                   data: (events) => _StatsBody(events: events),
                   loading: () => const Center(
-                    child: CircularProgressIndicator(color: AppTheme.gold),
+                    child: CircularProgressIndicator(color: AdminTheme.gold),
                   ),
                   error: (e, _) => Center(
                     child: Text('오류: $e',
-                        style: AppTheme.sans(color: AppTheme.error)),
+                        style: AdminTheme.sans(color: AdminTheme.error)),
                   ),
                 ),
               ),
@@ -1351,7 +1351,7 @@ class _StatsBody extends StatelessWidget {
                 label: '총 공연',
                 value: '$totalEvents',
                 subtext: '진행중 $activeEvents',
-                color: AppTheme.gold,
+                color: AdminTheme.gold,
               ),
               _KpiCard(
                 icon: Icons.event_seat_rounded,
@@ -1359,21 +1359,21 @@ class _StatsBody extends StatelessWidget {
                 value:
                     '${priceFormat.format(soldSeats)} / ${priceFormat.format(totalSeats)}',
                 subtext: '점유율 ${occupancyRate.toStringAsFixed(1)}%',
-                color: AppTheme.success,
+                color: AdminTheme.success,
               ),
               _KpiCard(
                 icon: Icons.payments_rounded,
                 label: '예상 매출',
                 value: '${priceFormat.format(estimatedRevenue)}원',
                 subtext: '판매 좌석 기준',
-                color: AppTheme.warning,
+                color: AdminTheme.warning,
               ),
               _KpiCard(
                 icon: Icons.calendar_month_rounded,
                 label: '예정 / 종료',
                 value: '$upcomingEvents / $pastEvents',
                 subtext: '공연 일정',
-                color: AppTheme.info,
+                color: AdminTheme.info,
               ),
             ],
           ),
@@ -1383,10 +1383,10 @@ class _StatsBody extends StatelessWidget {
           // Performance table
           Text(
             '공연별 실적',
-            style: AppTheme.serif(
+            style: AdminTheme.serif(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
+              color: AdminTheme.textPrimary,
             ),
           ),
           const SizedBox(height: 12),
@@ -1400,7 +1400,7 @@ class _StatsBody extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         vertical: 10, horizontal: 12),
                     decoration: BoxDecoration(
-                      color: AppTheme.cardElevated,
+                      color: AdminTheme.cardElevated,
                       borderRadius: BorderRadius.circular(2),
                     ),
                     child: Row(
@@ -1428,7 +1428,7 @@ class _StatsBody extends StatelessWidget {
                       decoration: const BoxDecoration(
                         border: Border(
                           bottom: BorderSide(
-                              color: AppTheme.border, width: 0.5),
+                              color: AdminTheme.border, width: 0.5),
                         ),
                       ),
                       child: Row(
@@ -1437,10 +1437,10 @@ class _StatsBody extends StatelessWidget {
                             flex: 3,
                             child: Text(
                               event.title,
-                              style: AppTheme.sans(
+                              style: AdminTheme.sans(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
-                                color: AppTheme.textPrimary,
+                                color: AdminTheme.textPrimary,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -1454,19 +1454,19 @@ class _StatsBody extends StatelessWidget {
                                       ? '매진'
                                       : '종료',
                               color: event.status == EventStatus.active
-                                  ? AppTheme.success
+                                  ? AdminTheme.success
                                   : event.status == EventStatus.soldOut
-                                      ? AppTheme.error
-                                      : AppTheme.textTertiary,
+                                      ? AdminTheme.error
+                                      : AdminTheme.textTertiary,
                             ),
                           ),
                           Expanded(
                             child: Text(
                               '$sold / ${event.totalSeats}',
                               textAlign: TextAlign.center,
-                              style: AppTheme.sans(
+                              style: AdminTheme.sans(
                                 fontSize: 12,
-                                color: AppTheme.textSecondary,
+                                color: AdminTheme.textSecondary,
                               ),
                             ),
                           ),
@@ -1477,10 +1477,10 @@ class _StatsBody extends StatelessWidget {
                             child: Text(
                               '${priceFormat.format(revenue)}원',
                               textAlign: TextAlign.right,
-                              style: AppTheme.sans(
+                              style: AdminTheme.sans(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: AppTheme.gold,
+                                color: AdminTheme.gold,
                               ),
                             ),
                           ),
@@ -1503,7 +1503,7 @@ class _StatsBody extends StatelessWidget {
       child: Text(
         text,
         textAlign: flex > 1 ? TextAlign.left : TextAlign.center,
-        style: AppTheme.label(fontSize: 10, color: AppTheme.textTertiary),
+        style: AdminTheme.label(fontSize: 10, color: AdminTheme.textTertiary),
       ),
     );
   }
@@ -1530,10 +1530,10 @@ class _KpiCard extends StatelessWidget {
       width: 260,
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: AdminTheme.surface,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: AppTheme.border, width: 0.5),
-          boxShadow: AppShadows.small,
+          border: Border.all(color: AdminTheme.border, width: 0.5),
+          boxShadow: AdminShadows.small,
         ),
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -1555,23 +1555,23 @@ class _KpiCard extends StatelessWidget {
                   children: [
                     Text(
                       label,
-                      style: AppTheme.sans(
-                          fontSize: 11, color: AppTheme.textTertiary),
+                      style: AdminTheme.sans(
+                          fontSize: 11, color: AdminTheme.textTertiary),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       value,
-                      style: AppTheme.serif(
+                      style: AdminTheme.serif(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        color: AdminTheme.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       subtext,
-                      style: AppTheme.sans(
+                      style: AdminTheme.sans(
                         fontSize: 11,
                         color: color.withValues(alpha: 0.8),
                       ),
@@ -1606,7 +1606,7 @@ class _StatusDot extends StatelessWidget {
         const SizedBox(width: 4),
         Text(
           label,
-          style: AppTheme.sans(fontSize: 11, color: color),
+          style: AdminTheme.sans(fontSize: 11, color: color),
         ),
       ],
     );
@@ -1624,14 +1624,14 @@ class _OccupancyBar extends StatelessWidget {
       children: [
         Text(
           '${clampedRate.toStringAsFixed(0)}%',
-          style: AppTheme.sans(
+          style: AdminTheme.sans(
             fontSize: 11,
             fontWeight: FontWeight.w600,
             color: clampedRate >= 80
-                ? AppTheme.success
+                ? AdminTheme.success
                 : clampedRate >= 50
-                    ? AppTheme.warning
-                    : AppTheme.textTertiary,
+                    ? AdminTheme.warning
+                    : AdminTheme.textTertiary,
           ),
         ),
         const SizedBox(height: 4),
@@ -1639,12 +1639,12 @@ class _OccupancyBar extends StatelessWidget {
           height: 4,
           child: shad.Progress(
             progress: clampedRate / 100,
-            backgroundColor: AppTheme.border,
+            backgroundColor: AdminTheme.border,
             color: clampedRate >= 80
-                ? AppTheme.success
+                ? AdminTheme.success
                 : clampedRate >= 50
-                    ? AppTheme.warning
-                    : AppTheme.textTertiary,
+                    ? AdminTheme.warning
+                    : AdminTheme.textTertiary,
           ),
         ),
       ],

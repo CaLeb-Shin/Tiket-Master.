@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:melon_core/app/theme.dart';
+import '../../app/admin_theme.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 
@@ -141,7 +141,7 @@ B,1층,1,5''';
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AdminTheme.background,
       body: Column(
         children: [
           _buildAppBar(),
@@ -179,10 +179,10 @@ B,1층,1,5''';
         bottom: 12,
       ),
       decoration: BoxDecoration(
-        color: AppTheme.background.withValues(alpha: 0.95),
+        color: AdminTheme.background.withValues(alpha: 0.95),
         border: const Border(
           bottom: BorderSide(
-            color: AppTheme.border,
+            color: AdminTheme.border,
             width: 0.5,
           ),
         ),
@@ -198,12 +198,12 @@ B,1층,1,5''';
               }
             },
             icon: const Icon(Icons.west,
-                color: AppTheme.textPrimary, size: 20),
+                color: AdminTheme.textPrimary, size: 20),
           ),
           const SizedBox(width: 4),
           Text(
             'Editorial Admin',
-            style: AppTheme.serif(
+            style: AdminTheme.serif(
               fontSize: 17,
               fontWeight: FontWeight.w500,
               fontStyle: FontStyle.italic,
@@ -227,9 +227,9 @@ B,1층,1,5''';
         12 + MediaQuery.of(context).padding.bottom,
       ),
       decoration: BoxDecoration(
-        color: AppTheme.background.withValues(alpha: 0.95),
+        color: AdminTheme.background.withValues(alpha: 0.95),
         border: const Border(
-          top: BorderSide(color: AppTheme.border, width: 0.5),
+          top: BorderSide(color: AdminTheme.border, width: 0.5),
         ),
       ),
       child: SizedBox(
@@ -238,9 +238,9 @@ B,1층,1,5''';
         child: ElevatedButton(
           onPressed: _isLoading ? null : _uploadSeats,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.gold,
-            foregroundColor: AppTheme.onAccent,
-            disabledBackgroundColor: AppTheme.sage.withValues(alpha: 0.3),
+            backgroundColor: AdminTheme.gold,
+            foregroundColor: AdminTheme.onAccent,
+            disabledBackgroundColor: AdminTheme.sage.withValues(alpha: 0.3),
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(4),
@@ -252,7 +252,7 @@ B,1층,1,5''';
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppTheme.onAccent,
+                    color: AdminTheme.onAccent,
                   ),
                 )
               : Row(
@@ -260,10 +260,10 @@ B,1층,1,5''';
                   children: [
                     Text(
                       'UPLOAD SEATS',
-                      style: AppTheme.serif(
+                      style: AdminTheme.serif(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.onAccent,
+                        color: AdminTheme.onAccent,
                         letterSpacing: 2.5,
                       ),
                     ),
@@ -287,7 +287,7 @@ B,1층,1,5''';
         // ── Page Title ──
         Text(
           '좌석 등록',
-          style: AppTheme.serif(
+          style: AdminTheme.serif(
             fontSize: 28,
             fontWeight: FontWeight.w300,
           ),
@@ -296,7 +296,7 @@ B,1층,1,5''';
         Container(
           width: 12,
           height: 1,
-          color: AppTheme.gold,
+          color: AdminTheme.gold,
         ),
         const SizedBox(height: 40),
 
@@ -306,8 +306,8 @@ B,1층,1,5''';
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppTheme.surface,
-            border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+            color: AdminTheme.surface,
+            border: Border.all(color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
             borderRadius: BorderRadius.circular(2),
           ),
           child: Column(
@@ -316,13 +316,13 @@ B,1층,1,5''';
               Row(
                 children: [
                   Icon(Icons.info_outline,
-                      size: 16, color: AppTheme.sage.withValues(alpha: 0.6)),
+                      size: 16, color: AdminTheme.sage.withValues(alpha: 0.6)),
                   const SizedBox(width: 8),
                   Text(
                     'CSV FORMAT',
-                    style: AppTheme.label(
+                    style: AdminTheme.label(
                       fontSize: 10,
-                      color: AppTheme.sage,
+                      color: AdminTheme.sage,
                     ),
                   ),
                 ],
@@ -331,30 +331,30 @@ B,1층,1,5''';
               Container(
                 width: double.infinity,
                 height: 0.5,
-                color: AppTheme.sage.withValues(alpha: 0.15),
+                color: AdminTheme.sage.withValues(alpha: 0.15),
               ),
               const SizedBox(height: 12),
               Text(
                 '첫 줄: block,floor,row,number (헤더)',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 13,
-                  color: AppTheme.textSecondary,
+                  color: AdminTheme.textSecondary,
                   height: 1.8,
                 ),
               ),
               Text(
                 '데이터: A,1층,1,1 (구역,층,열,번호)',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 13,
-                  color: AppTheme.textSecondary,
+                  color: AdminTheme.textSecondary,
                   height: 1.8,
                 ),
               ),
               Text(
                 'row는 생략 가능 (A,1층,,1)',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 13,
-                  color: AppTheme.textSecondary,
+                  color: AdminTheme.textSecondary,
                   height: 1.8,
                 ),
               ),
@@ -368,18 +368,18 @@ B,1층,1,5''';
         const SizedBox(height: 20),
         Text(
           'CSV DATA',
-          style: AppTheme.label(
+          style: AdminTheme.label(
             fontSize: 10,
-            color: AppTheme.sage,
+            color: AdminTheme.sage,
           ),
         ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: AppTheme.surface,
+            color: AdminTheme.surface,
             borderRadius: BorderRadius.circular(2),
             border: Border.all(
-              color: AppTheme.sage.withValues(alpha: 0.15),
+              color: AdminTheme.sage.withValues(alpha: 0.15),
               width: 0.5,
             ),
           ),
@@ -387,9 +387,9 @@ B,1층,1,5''';
             controller: _csvController,
             decoration: InputDecoration(
               hintText: 'CSV 데이터를 붙여넣으세요',
-              hintStyle: AppTheme.sans(
+              hintStyle: AdminTheme.sans(
                 fontSize: 13,
-                color: AppTheme.sage.withValues(alpha: 0.5),
+                color: AdminTheme.sage.withValues(alpha: 0.5),
               ),
               filled: false,
               contentPadding: const EdgeInsets.all(16),
@@ -398,10 +398,10 @@ B,1층,1,5''';
               focusedBorder: InputBorder.none,
             ),
             maxLines: 15,
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
               fontSize: 12,
               fontWeight: FontWeight.w400,
-              color: AppTheme.textPrimary,
+              color: AdminTheme.textPrimary,
             ),
           ),
         ),
@@ -413,21 +413,21 @@ B,1층,1,5''';
           child: TextButton(
             onPressed: _preview,
             style: TextButton.styleFrom(
-              foregroundColor: AppTheme.gold,
+              foregroundColor: AdminTheme.gold,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(2),
                 side: BorderSide(
-                  color: AppTheme.gold.withValues(alpha: 0.2),
+                  color: AdminTheme.gold.withValues(alpha: 0.2),
                   width: 0.5,
                 ),
               ),
             ),
             child: Text(
               'PREVIEW',
-              style: AppTheme.label(
+              style: AdminTheme.label(
                 fontSize: 10,
-                color: AppTheme.gold,
+                color: AdminTheme.gold,
               ),
             ),
           ),
@@ -442,13 +442,13 @@ B,1층,1,5''';
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppTheme.surface,
+              color: AdminTheme.surface,
               borderRadius: BorderRadius.circular(2),
               border: Border.all(
-                color: AppTheme.sage.withValues(alpha: 0.15),
+                color: AdminTheme.sage.withValues(alpha: 0.15),
                 width: 0.5,
               ),
-              boxShadow: AppShadows.small,
+              boxShadow: AdminShadows.small,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -459,23 +459,23 @@ B,1층,1,5''';
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppTheme.gold.withValues(alpha: 0.08),
+                        color: AdminTheme.gold.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Text(
                         '${_previewSeats.length} SEATS',
-                        style: AppTheme.label(
+                        style: AdminTheme.label(
                           fontSize: 10,
-                          color: AppTheme.gold,
+                          color: AdminTheme.gold,
                         ),
                       ),
                     ),
                     const Spacer(),
                     Text(
                       'PREVIEW RESULT',
-                      style: AppTheme.label(
+                      style: AdminTheme.label(
                         fontSize: 9,
-                        color: AppTheme.textTertiary,
+                        color: AdminTheme.textTertiary,
                       ),
                     ),
                   ],
@@ -484,7 +484,7 @@ B,1층,1,5''';
                 Container(
                   width: double.infinity,
                   height: 0.5,
-                  color: AppTheme.sage.withValues(alpha: 0.15),
+                  color: AdminTheme.sage.withValues(alpha: 0.15),
                 ),
                 const SizedBox(height: 16),
 
@@ -503,7 +503,7 @@ B,1층,1,5''';
                   Container(
                     width: double.infinity,
                     height: 0.5,
-                    color: AppTheme.sage.withValues(alpha: 0.1),
+                    color: AdminTheme.sage.withValues(alpha: 0.1),
                   ),
                   // Table rows (first 5)
                   ..._previewSeats.take(5).map((seat) => Container(
@@ -511,7 +511,7 @@ B,1층,1,5''';
                         decoration: BoxDecoration(
                           border: Border(
                             bottom: BorderSide(
-                              color: AppTheme.sage.withValues(alpha: 0.08),
+                              color: AdminTheme.sage.withValues(alpha: 0.08),
                               width: 0.5,
                             ),
                           ),
@@ -529,9 +529,9 @@ B,1층,1,5''';
                     const SizedBox(height: 12),
                     Text(
                       '... 외 ${_previewSeats.length - 5}개',
-                      style: AppTheme.sans(
+                      style: AdminTheme.sans(
                         fontSize: 12,
-                        color: AppTheme.textTertiary,
+                        color: AdminTheme.textTertiary,
                       ),
                     ),
                   ],
@@ -555,7 +555,7 @@ B,1층,1,5''';
       children: [
         Text(
           title,
-          style: AppTheme.serif(
+          style: AdminTheme.serif(
             fontSize: 16,
             fontWeight: FontWeight.w500,
             fontStyle: FontStyle.italic,
@@ -565,7 +565,7 @@ B,1층,1,5''';
         Expanded(
           child: Container(
             height: 0.5,
-            color: AppTheme.sage.withValues(alpha: 0.3),
+            color: AdminTheme.sage.withValues(alpha: 0.3),
           ),
         ),
       ],
@@ -581,9 +581,9 @@ B,1층,1,5''';
       flex: flex,
       child: Text(
         text,
-        style: AppTheme.label(
+        style: AdminTheme.label(
           fontSize: 9,
-          color: AppTheme.sage,
+          color: AdminTheme.sage,
         ),
       ),
     );
@@ -594,10 +594,10 @@ B,1층,1,5''';
       flex: flex,
       child: Text(
         text,
-        style: AppTheme.sans(
+        style: AdminTheme.sans(
           fontSize: 13,
           fontWeight: FontWeight.w500,
-          color: AppTheme.textPrimary,
+          color: AdminTheme.textPrimary,
         ),
       ),
     );

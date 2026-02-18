@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:melon_core/app/theme.dart';
+import '../../app/admin_theme.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/services/auth_service.dart';
 
@@ -15,11 +15,11 @@ class AdminDashboardScreen extends ConsumerWidget {
 
     if (currentUser.value?.isAdmin != true) {
       return Scaffold(
-        backgroundColor: AppTheme.background,
+        backgroundColor: AdminTheme.background,
         appBar: AppBar(
           title: Text(
             'Administration',
-            style: AppTheme.serif(
+            style: AdminTheme.serif(
               fontSize: 18,
               fontWeight: FontWeight.w500,
               fontStyle: FontStyle.italic,
@@ -32,22 +32,22 @@ class AdminDashboardScreen extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.lock_outline_rounded,
-                  size: 48, color: AppTheme.sage.withValues(alpha: 0.5)),
+                  size: 48, color: AdminTheme.sage.withValues(alpha: 0.5)),
               const SizedBox(height: 16),
               Text(
                 '관리자 권한이 필요합니다',
-                style: AppTheme.serif(
+                style: AdminTheme.serif(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
+                  color: AdminTheme.textPrimary,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 '승인 요청 후 오너 승인을 기다려 주세요',
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 13,
-                  color: AppTheme.textSecondary,
+                  color: AdminTheme.textSecondary,
                 ),
               ),
             ],
@@ -60,7 +60,7 @@ class AdminDashboardScreen extends ConsumerWidget {
               onPressed: () => context.push('/setup'),
               child: Text(
                 '티켓 어드민 승인 요청',
-                style: AppTheme.label(fontSize: 12, color: AppTheme.onAccent),
+                style: AdminTheme.label(fontSize: 12, color: AdminTheme.onAccent),
               ),
             ),
           ),
@@ -69,11 +69,11 @@ class AdminDashboardScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AdminTheme.background,
       appBar: AppBar(
         title: Text(
           'Dashboard',
-          style: AppTheme.serif(
+          style: AdminTheme.serif(
             fontSize: 18,
             fontWeight: FontWeight.w500,
             fontStyle: FontStyle.italic,
@@ -87,7 +87,7 @@ class AdminDashboardScreen extends ConsumerWidget {
           children: [
             Text(
               'QUICK MENU',
-              style: AppTheme.label(fontSize: 10, color: AppTheme.sage),
+              style: AdminTheme.label(fontSize: 10, color: AdminTheme.sage),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -123,7 +123,7 @@ class AdminDashboardScreen extends ConsumerWidget {
             const SizedBox(height: 32),
             Text(
               'EVENTS',
-              style: AppTheme.label(fontSize: 10, color: AppTheme.sage),
+              style: AdminTheme.label(fontSize: 10, color: AdminTheme.sage),
             ),
             const SizedBox(height: 12),
             eventsAsync.when(
@@ -133,16 +133,16 @@ class AdminDashboardScreen extends ConsumerWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(32),
                     decoration: BoxDecoration(
-                      color: AppTheme.surface,
+                      color: AdminTheme.surface,
                       borderRadius: BorderRadius.circular(2),
-                      border: Border.all(color: AppTheme.border, width: 0.5),
+                      border: Border.all(color: AdminTheme.border, width: 0.5),
                     ),
                     child: Center(
                       child: Text(
                         '등록된 공연이 없습니다',
-                        style: AppTheme.sans(
+                        style: AdminTheme.sans(
                           fontSize: 14,
-                          color: AppTheme.textSecondary,
+                          color: AdminTheme.textSecondary,
                         ),
                       ),
                     ),
@@ -158,11 +158,11 @@ class AdminDashboardScreen extends ConsumerWidget {
                     final event = events[index];
                     return Container(
                       decoration: BoxDecoration(
-                        color: AppTheme.surface,
+                        color: AdminTheme.surface,
                         borderRadius: BorderRadius.circular(2),
                         border:
-                            Border.all(color: AppTheme.border, width: 0.5),
-                        boxShadow: AppShadows.small,
+                            Border.all(color: AdminTheme.border, width: 0.5),
+                        boxShadow: AdminShadows.small,
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(
@@ -171,23 +171,23 @@ class AdminDashboardScreen extends ConsumerWidget {
                           event.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTheme.sans(
+                          style: AdminTheme.sans(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
+                            color: AdminTheme.textPrimary,
                           ),
                         ),
                         subtitle: Text(
                           '${event.availableSeats}/${event.totalSeats}석  |  ${event.status.name}',
-                          style: AppTheme.sans(
+                          style: AdminTheme.sans(
                             fontSize: 12,
-                            color: AppTheme.textSecondary,
+                            color: AdminTheme.textSecondary,
                           ),
                         ),
                         trailing: PopupMenuButton<String>(
                           icon: const Icon(
                             Icons.more_horiz,
-                            color: AppTheme.sage,
+                            color: AdminTheme.sage,
                             size: 20,
                           ),
                           onSelected: (value) {
@@ -206,14 +206,14 @@ class AdminDashboardScreen extends ConsumerWidget {
                               value: 'seats',
                               child: Text(
                                 '좌석 관리',
-                                style: AppTheme.sans(fontSize: 13),
+                                style: AdminTheme.sans(fontSize: 13),
                               ),
                             ),
                             PopupMenuItem(
                               value: 'assignments',
                               child: Text(
                                 '배정 현황',
-                                style: AppTheme.sans(fontSize: 13),
+                                style: AdminTheme.sans(fontSize: 13),
                               ),
                             ),
                           ],
@@ -226,12 +226,12 @@ class AdminDashboardScreen extends ConsumerWidget {
               loading: () => const Center(
                 child: Padding(
                   padding: EdgeInsets.all(40),
-                  child: CircularProgressIndicator(color: AppTheme.gold),
+                  child: CircularProgressIndicator(color: AdminTheme.gold),
                 ),
               ),
               error: (error, stack) => Text(
                 '오류: $error',
-                style: AppTheme.sans(color: AppTheme.error),
+                style: AdminTheme.sans(color: AdminTheme.error),
               ),
             ),
           ],
@@ -258,23 +258,23 @@ class _QuickMenuCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: AdminTheme.surface,
           borderRadius: BorderRadius.circular(2),
-          border: Border.all(color: AppTheme.border, width: 0.5),
-          boxShadow: AppShadows.small,
+          border: Border.all(color: AdminTheme.border, width: 0.5),
+          boxShadow: AdminShadows.small,
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
           child: Column(
             children: [
-              Icon(icon, size: 28, color: AppTheme.gold),
+              Icon(icon, size: 28, color: AdminTheme.gold),
               const SizedBox(height: 10),
               Text(
                 title,
-                style: AppTheme.sans(
+                style: AdminTheme.sans(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                  color: AdminTheme.textPrimary,
                 ),
               ),
             ],

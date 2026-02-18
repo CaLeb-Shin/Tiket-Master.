@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:melon_core/app/theme.dart';
+import '../../app/admin_theme.dart';
 import 'package:melon_core/data/models/scanner_device.dart';
 import 'package:melon_core/data/repositories/scanner_device_repository.dart';
 import 'package:melon_core/services/functions_service.dart';
@@ -60,7 +60,7 @@ class _ScannerDeviceApprovalScreenState
     final devicesAsync = ref.watch(scannerDeviceRepositoryProvider).streamAllDevices();
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AdminTheme.background,
       body: Column(
         children: [
           _buildAppBar(),
@@ -71,7 +71,7 @@ class _ScannerDeviceApprovalScreenState
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
                     child: CircularProgressIndicator(
-                      color: AppTheme.gold,
+                      color: AdminTheme.gold,
                       strokeWidth: 2,
                     ),
                   );
@@ -95,7 +95,7 @@ class _ScannerDeviceApprovalScreenState
                           // ── Page Title ──
                           Text(
                             '스캐너 기기 승인',
-                            style: AppTheme.serif(
+                            style: AdminTheme.serif(
                               fontSize: 28,
                               fontWeight: FontWeight.w300,
                             ),
@@ -104,7 +104,7 @@ class _ScannerDeviceApprovalScreenState
                           Container(
                             width: 12,
                             height: 1,
-                            color: AppTheme.gold,
+                            color: AdminTheme.gold,
                           ),
                           const SizedBox(height: 40),
 
@@ -170,10 +170,10 @@ class _ScannerDeviceApprovalScreenState
         bottom: 12,
       ),
       decoration: BoxDecoration(
-        color: AppTheme.background.withValues(alpha: 0.95),
+        color: AdminTheme.background.withValues(alpha: 0.95),
         border: const Border(
           bottom: BorderSide(
-            color: AppTheme.border,
+            color: AdminTheme.border,
             width: 0.5,
           ),
         ),
@@ -187,12 +187,12 @@ class _ScannerDeviceApprovalScreenState
               }
             },
             icon: const Icon(Icons.west,
-                color: AppTheme.textPrimary, size: 20),
+                color: AdminTheme.textPrimary, size: 20),
           ),
           const SizedBox(width: 4),
           Text(
             'Editorial Admin',
-            style: AppTheme.serif(
+            style: AdminTheme.serif(
               fontSize: 17,
               fontWeight: FontWeight.w500,
               fontStyle: FontStyle.italic,
@@ -219,23 +219,23 @@ class _ScannerDeviceApprovalScreenState
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: selected
-                    ? AppTheme.gold
+                    ? AdminTheme.gold
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(2),
                 border: Border.all(
                   color: selected
-                      ? AppTheme.gold
-                      : AppTheme.sage.withValues(alpha: 0.25),
+                      ? AdminTheme.gold
+                      : AdminTheme.sage.withValues(alpha: 0.25),
                   width: 0.5,
                 ),
               ),
               child: Text(
                 filter.upperLabel,
-                style: AppTheme.label(
+                style: AdminTheme.label(
                   fontSize: 9,
                   color: selected
-                      ? AppTheme.onAccent
-                      : AppTheme.textSecondary,
+                      ? AdminTheme.onAccent
+                      : AdminTheme.textSecondary,
                 ),
               ),
             ),
@@ -253,49 +253,49 @@ class _ScannerDeviceApprovalScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
-        border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+        color: AdminTheme.surface,
+        border: Border.all(color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
         borderRadius: BorderRadius.circular(2),
       ),
       child: Row(
         children: [
           Text(
             'DEVICES',
-            style: AppTheme.label(
+            style: AdminTheme.label(
               fontSize: 9,
-              color: AppTheme.sage,
+              color: AdminTheme.sage,
             ),
           ),
           const SizedBox(width: 12),
           Container(
             width: 0.5,
             height: 12,
-            color: AppTheme.sage.withValues(alpha: 0.3),
+            color: AdminTheme.sage.withValues(alpha: 0.3),
           ),
           const SizedBox(width: 12),
           Text(
             '총 $totalCount대',
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: AppTheme.textSecondary,
+              color: AdminTheme.textSecondary,
             ),
           ),
           const SizedBox(width: 4),
           Text(
             '·',
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
               fontSize: 12,
-              color: AppTheme.textTertiary,
+              color: AdminTheme.textTertiary,
             ),
           ),
           const SizedBox(width: 4),
           Text(
             '표시 $filteredCount대',
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: AppTheme.textPrimary,
+              color: AdminTheme.textPrimary,
             ),
           ),
         ],
@@ -316,14 +316,14 @@ class _ScannerDeviceApprovalScreenState
           Icon(
             Icons.devices_other_outlined,
             size: 36,
-            color: AppTheme.sage.withValues(alpha: 0.4),
+            color: AdminTheme.sage.withValues(alpha: 0.4),
           ),
           const SizedBox(height: 12),
           Text(
             '표시할 기기가 없습니다',
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
               fontSize: 14,
-              color: AppTheme.textTertiary,
+              color: AdminTheme.textTertiary,
             ),
           ),
         ],
@@ -372,7 +372,7 @@ class _ScannerDeviceApprovalScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('처리 실패: $e'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AdminTheme.error,
         ),
       );
     }
@@ -410,13 +410,13 @@ class _DeviceCard extends StatelessWidget {
     Color stateColor;
     String stateLabel;
     if (device.blocked) {
-      stateColor = AppTheme.error;
+      stateColor = AdminTheme.error;
       stateLabel = 'BLOCKED';
     } else if (device.approved) {
-      stateColor = AppTheme.success;
+      stateColor = AdminTheme.success;
       stateLabel = 'APPROVED';
     } else {
-      stateColor = AppTheme.warning;
+      stateColor = AdminTheme.warning;
       stateLabel = 'PENDING';
     }
 
@@ -424,13 +424,13 @@ class _DeviceCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AdminTheme.surface,
         borderRadius: BorderRadius.circular(2),
         border: Border.all(
-          color: AppTheme.sage.withValues(alpha: 0.15),
+          color: AdminTheme.sage.withValues(alpha: 0.15),
           width: 0.5,
         ),
-        boxShadow: AppShadows.small,
+        boxShadow: AdminShadows.small,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -441,7 +441,7 @@ class _DeviceCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   device.label.isEmpty ? device.id : device.label,
-                  style: AppTheme.serif(
+                  style: AdminTheme.serif(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
@@ -459,7 +459,7 @@ class _DeviceCard extends StatelessWidget {
                 ),
                 child: Text(
                   stateLabel,
-                  style: AppTheme.label(
+                  style: AdminTheme.label(
                     fontSize: 9,
                     color: stateColor,
                   ),
@@ -473,7 +473,7 @@ class _DeviceCard extends StatelessWidget {
           Container(
             width: double.infinity,
             height: 0.5,
-            color: AppTheme.sage.withValues(alpha: 0.1),
+            color: AdminTheme.sage.withValues(alpha: 0.1),
           ),
           const SizedBox(height: 12),
 
@@ -482,18 +482,18 @@ class _DeviceCard extends StatelessWidget {
             children: [
               Text(
                 'OWNER',
-                style: AppTheme.label(
+                style: AdminTheme.label(
                   fontSize: 9,
-                  color: AppTheme.sage,
+                  color: AdminTheme.sage,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   '${device.ownerDisplayName} · ${device.ownerEmail}',
-                  style: AppTheme.sans(
+                  style: AdminTheme.sans(
                     fontSize: 12,
-                    color: AppTheme.textSecondary,
+                    color: AdminTheme.textSecondary,
                   ),
                 ),
               ),
@@ -520,28 +520,28 @@ class _DeviceCard extends StatelessWidget {
                 _actionButton(
                   label: 'APPROVE',
                   onPressed: onApprove,
-                  color: AppTheme.success,
+                  color: AdminTheme.success,
                   filled: true,
                 ),
               if (device.approved)
                 _actionButton(
                   label: 'REVOKE',
                   onPressed: onRevoke,
-                  color: AppTheme.warning,
+                  color: AdminTheme.warning,
                   filled: false,
                 ),
               if (!device.blocked)
                 _actionButton(
                   label: 'BLOCK',
                   onPressed: onBlock,
-                  color: AppTheme.error,
+                  color: AdminTheme.error,
                   filled: false,
                 ),
               if (device.blocked)
                 _actionButton(
                   label: 'UNBLOCK',
                   onPressed: onUnblock,
-                  color: AppTheme.warning,
+                  color: AdminTheme.warning,
                   filled: true,
                 ),
             ],
@@ -558,18 +558,18 @@ class _DeviceCard extends StatelessWidget {
         children: [
           Text(
             label,
-            style: AppTheme.label(
+            style: AdminTheme.label(
               fontSize: 8,
-              color: AppTheme.textTertiary,
+              color: AdminTheme.textTertiary,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             value,
-            style: AppTheme.sans(
+            style: AdminTheme.sans(
               fontSize: 11,
               fontWeight: FontWeight.w500,
-              color: AppTheme.textPrimary,
+              color: AdminTheme.textPrimary,
             ),
           ),
         ],
@@ -599,7 +599,7 @@ class _DeviceCard extends StatelessWidget {
           ),
           child: Text(
             label,
-            style: AppTheme.label(
+            style: AdminTheme.label(
               fontSize: 9,
               color: filled ? Colors.white : color,
             ),

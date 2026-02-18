@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:melon_core/melon_core.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 import 'app/admin_theme.dart';
 import 'app/router.dart';
 import 'firebase_options.dart';
+
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,14 +56,14 @@ class _MelonAdminAppState extends ConsumerState<MelonAdminApp> {
     if (!_ready) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.theme,
+        theme: AdminTheme.theme,
         home: Scaffold(
-          backgroundColor: AppTheme.background,
+          backgroundColor: AdminTheme.background,
           body: Center(
             child: _error != null
                 ? Text('초기화 오류: $_error',
-                    style: const TextStyle(color: AppTheme.error))
-                : const CircularProgressIndicator(color: AppTheme.gold),
+                    style: const TextStyle(color: AdminTheme.error))
+                : const CircularProgressIndicator(color: AdminTheme.gold),
           ),
         ),
       );
@@ -73,8 +73,8 @@ class _MelonAdminAppState extends ConsumerState<MelonAdminApp> {
     return shad.ShadcnApp.router(
       title: '멜론티켓 관리자',
       debugShowCheckedModeBanner: false,
-      theme: AdminShadcnTheme.theme,
-      materialTheme: AppTheme.theme,
+      theme: AdminTheme.shadcnTheme,
+      materialTheme: AdminTheme.theme,
       locale: const Locale('ko', 'KR'),
       supportedLocales: const [Locale('ko', 'KR')],
       localizationsDelegates: const [
