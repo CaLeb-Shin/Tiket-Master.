@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/venue.dart';
 import 'package:melon_core/data/repositories/venue_repository.dart';
@@ -182,10 +181,13 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
         final venue = venues[index];
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
-          child: shad.Card(
+          child: Container(
             padding: const EdgeInsets.all(16),
-            borderRadius: BorderRadius.circular(4),
-            borderWidth: 0.5,
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+              borderRadius: BorderRadius.circular(2),
+            ),
             child: InkWell(
               onTap: () => _showVenueDetail(venue),
               borderRadius: BorderRadius.circular(4),
@@ -696,8 +698,12 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     ],
                   ),
                 ),
-                shad.Button.ghost(
+                TextButton(
                   onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.textSecondary,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
                   child: Text(
                     '닫기',
                     style: AppTheme.sans(
@@ -716,10 +722,13 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  shad.Card(
+                  Container(
                     padding: const EdgeInsets.all(12),
-                    borderRadius: BorderRadius.circular(4),
-                    borderWidth: 1,
+                    decoration: BoxDecoration(
+                      color: AppTheme.surface,
+                      border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                     child: Row(
                       children: [
                         Expanded(child: _metric('층', '${_drafts.length}')),
@@ -731,10 +740,13 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  shad.Card(
+                  Container(
                     padding: const EdgeInsets.all(12),
-                    borderRadius: BorderRadius.circular(4),
-                    borderWidth: 1,
+                    decoration: BoxDecoration(
+                      color: AppTheme.surface,
+                      border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -772,8 +784,14 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
-                    child: shad.Button.outline(
+                    child: OutlinedButton(
                       onPressed: _addFloor,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.textPrimary,
+                        side: const BorderSide(color: AppTheme.border, width: 0.5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -803,8 +821,14 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
             child: Row(
               children: [
                 Expanded(
-                  child: shad.Button.outline(
+                  child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.textPrimary,
+                      side: const BorderSide(color: AppTheme.border, width: 0.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
                     child: Text(
                       '취소',
                       style: AppTheme.sans(fontWeight: FontWeight.w700),
@@ -865,10 +889,13 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      child: shad.Card(
+      child: Container(
         padding: const EdgeInsets.all(12),
-        borderRadius: BorderRadius.circular(4),
-        borderWidth: 1,
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+          borderRadius: BorderRadius.circular(2),
+        ),
         child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -943,8 +970,12 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
           _buildBlockDragCanvas(floor),
           Align(
             alignment: Alignment.centerRight,
-            child: shad.Button.ghost(
+            child: TextButton(
               onPressed: () => _addBlock(floor),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.textPrimary,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1103,7 +1134,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                           style: AppTheme.sans(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
-                            color: Colors.white,
+                            color: AppTheme.onAccent,
                             letterSpacing: 0.6,
                           ),
                         ),
@@ -1151,7 +1182,7 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                                 border: Border.all(color: gradeColor, width: 1),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.2),
+                                    color: AppTheme.sage.withValues(alpha: 0.2),
                                     blurRadius: 5,
                                     offset: const Offset(0, 2),
                                   ),
@@ -1325,10 +1356,13 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
           ),
           const SizedBox(height: 4),
           if (block.useCustomRows) ...[
-            shad.Card(
+            Container(
               padding: const EdgeInsets.all(8),
-              borderRadius: BorderRadius.circular(4),
-              borderWidth: 0.5,
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+                borderRadius: BorderRadius.circular(2),
+              ),
               child: Column(
                 children: [
                   Row(
@@ -1351,8 +1385,14 @@ class _VenueLayoutEditorSheetState extends State<_VenueLayoutEditorSheet> {
                   const SizedBox(height: 4),
                   SizedBox(
                     width: double.infinity,
-                    child: shad.Button.outline(
+                    child: OutlinedButton(
                       onPressed: () => _addCustomRow(block),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.textPrimary,
+                        side: const BorderSide(color: AppTheme.border, width: 0.5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -1836,7 +1876,7 @@ class _GeneratedSeatMapDiagram extends StatelessWidget {
             fontSize: isCompact ? 14 : 18,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.8,
-            color: Colors.white,
+            color: AppTheme.onAccent,
           ),
         ),
       ),
@@ -2184,10 +2224,13 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                       )),
                   const SizedBox(height: 8),
                   if (_floors.isEmpty)
-                    shad.Card(
+                    Container(
                       padding: const EdgeInsets.all(14),
-                      borderRadius: BorderRadius.circular(4),
-                      borderWidth: 1,
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface,
+                        border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                       child: Text(
                         '등록된 좌석 구조가 없습니다. 좌석 구조 편집에서 추가해주세요.',
                         style: AppTheme.sans(
@@ -2285,10 +2328,16 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                 Row(
                   children: [
                     Expanded(
-                      child: shad.Button.outline(
+                      child: OutlinedButton(
                         onPressed: _isSavingLayout
                             ? null
                             : () => _editSeatStructure(venue),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.textPrimary,
+                          side: const BorderSide(color: AppTheme.border, width: 0.5),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
                         child: _isSavingLayout
                             ? const SizedBox(
                                 width: 14,
@@ -2305,13 +2354,19 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: shad.Button.outline(
+                      child: OutlinedButton(
                         onPressed: () {
                           Navigator.pop(context);
                           context.push(
                             '/venues/${venue.id}/views?name=${Uri.encodeComponent(venue.name)}',
                           );
                         },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.textPrimary,
+                          side: const BorderSide(color: AppTheme.border, width: 0.5),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
                         child: Text('3D 시야 업로드',
                             style: AppTheme.sans(
                                 fontWeight: FontWeight.w700)),
@@ -2440,9 +2495,13 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                   ),
                 ),
               ),
-              shad.Button.ghost(
+              TextButton(
                 onPressed:
                     _isSavingLayout ? null : () => _editSeatStructure(venue),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.textPrimary,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                ),
                 child: _isSavingLayout
                     ? const SizedBox(
                         width: 14,
@@ -2460,10 +2519,14 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                         ),
                       ),
               ),
-              shad.Button.ghost(
+              TextButton(
                 onPressed: _isUploadingSeatMap
                     ? null
                     : () => _uploadSeatMapImage(venue),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.textPrimary,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                ),
                 child: _isUploadingSeatMap
                     ? const SizedBox(
                         width: 14,
@@ -2646,13 +2709,19 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
             style: AppTheme.sans(
                 fontSize: 14, color: AppTheme.textSecondary)),
         actions: [
-          shad.Button.ghost(
+          TextButton(
             onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.textTertiary,
+            ),
             child: Text('취소',
                 style: AppTheme.sans(color: AppTheme.textTertiary)),
           ),
-          shad.Button.ghost(
+          TextButton(
             onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.error,
+            ),
             child:
                 Text('삭제', style: AppTheme.sans(color: AppTheme.error)),
           ),
@@ -2976,10 +3045,13 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               color: AppTheme.textSecondary,
             )),
         const SizedBox(height: 6),
-        shad.Card(
+        Container(
           padding: const EdgeInsets.all(12),
-          borderRadius: BorderRadius.circular(4),
-          borderWidth: 0.5,
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+            borderRadius: BorderRadius.circular(2),
+          ),
           child: Row(
             children: [
               Expanded(
@@ -2995,8 +3067,12 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                 ),
               ),
               const SizedBox(width: 8),
-              shad.Button.ghost(
+              TextButton(
                 onPressed: _pickSeatMapImage,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.textPrimary,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                ),
                 child: Text(
                   hasFile ? '교체' : '업로드',
                   style: AppTheme.sans(
@@ -3032,8 +3108,14 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
-                child: shad.Button.outline(
+                child: OutlinedButton(
                   onPressed: _openSeatLayoutEditor,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textPrimary,
+                    side: const BorderSide(color: AppTheme.border, width: 0.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -3073,10 +3155,13 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               color: AppTheme.textSecondary,
             )),
         const SizedBox(height: 6),
-        shad.Card(
+        Container(
           padding: const EdgeInsets.all(12),
-          borderRadius: BorderRadius.circular(4),
-          borderWidth: 0.5,
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            border: Border.all(color: AppTheme.sage.withValues(alpha: 0.15), width: 0.5),
+            borderRadius: BorderRadius.circular(2),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -3150,8 +3235,14 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
-                child: shad.Button.outline(
+                child: OutlinedButton(
                   onPressed: _openSeatLayoutEditor,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textPrimary,
+                    side: const BorderSide(color: AppTheme.border, width: 0.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
