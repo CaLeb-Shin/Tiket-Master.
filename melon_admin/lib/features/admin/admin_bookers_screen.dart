@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/app_user.dart';
@@ -20,7 +19,10 @@ import 'package:melon_core/services/firestore_service.dart';
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:html' if (dart.library.io) 'admin_bookers_stub.dart' as html;
 
-/// 공연별 예매자 목록 + 엑셀 내보내기
+// =============================================================================
+// 예매자 목록 (Editorial / Luxury Magazine Admin Design)
+// =============================================================================
+
 class AdminBookersScreen extends ConsumerStatefulWidget {
   final String eventId;
   const AdminBookersScreen({super.key, required this.eventId});
@@ -64,13 +66,13 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.people_outline_rounded,
-                            size: 48,
-                            color: AppTheme.textTertiary.withValues(alpha: 0.4)),
-                        const SizedBox(height: 12),
+                            size: 36,
+                            color: AppTheme.sage.withValues(alpha: 0.3)),
+                        const SizedBox(height: 16),
                         Text(
                           '예매자가 없습니다',
-                          style: GoogleFonts.notoSans(
-                            fontSize: 15,
+                          style: AppTheme.sans(
+                            fontSize: 14,
                             color: AppTheme.textTertiary,
                           ),
                         ),
@@ -86,6 +88,7 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
                     paidOrders.fold<int>(0, (s, o) => s + o.totalAmount);
 
                 return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // 요약 바
                     _SummaryBar(
@@ -98,9 +101,13 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
                     // 목록
                     Expanded(
                       child: ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                         itemCount: paidOrders.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        separatorBuilder: (_, __) => Divider(
+                          height: 1,
+                          thickness: 0.5,
+                          color: AppTheme.sage.withValues(alpha: 0.12),
+                        ),
                         itemBuilder: (_, i) => _BookerCard(
                           order: paidOrders[i],
                           index: i + 1,
@@ -123,7 +130,7 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
               ),
               error: (e, _) => Center(
                 child: Text('오류: $e',
-                    style: GoogleFonts.notoSans(color: AppTheme.error)),
+                    style: AppTheme.sans(color: AppTheme.error)),
               ),
             ),
           ),
@@ -131,6 +138,8 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
       ),
     );
   }
+
+  // ── Editorial App Bar ──
 
   Widget _buildAppBar(BuildContext context, AsyncValue eventAsync) {
     final title = eventAsync.whenOrNull<String>(
@@ -145,9 +154,9 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
         right: 16,
         bottom: 12,
       ),
-      decoration: const BoxDecoration(
-        color: AppTheme.surface,
-        border: Border(
+      decoration: BoxDecoration(
+        color: AppTheme.background.withValues(alpha: 0.95),
+        border: const Border(
           bottom: BorderSide(color: AppTheme.border, width: 0.5),
         ),
       ),
@@ -155,25 +164,26 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
         children: [
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.arrow_back_ios_new_rounded,
+            icon: const Icon(Icons.west,
                 color: AppTheme.textPrimary, size: 20),
           ),
+          const SizedBox(width: 4),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '예매자 목록',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
+                  'Bookers',
+                  style: AppTheme.serif(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w500,
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
                 Text(
                   title,
-                  style: GoogleFonts.notoSans(
-                    fontSize: 12,
+                  style: AppTheme.sans(
+                    fontSize: 11,
                     color: AppTheme.textTertiary,
                   ),
                   maxLines: 1,
@@ -186,6 +196,8 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
       ),
     );
   }
+
+  // ── Excel Export (business logic preserved) ──
 
   Future<void> _exportToExcel(List<app.Order> orders) async {
     setState(() => _isExporting = true);
@@ -296,15 +308,21 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
             content: Row(
               children: [
                 const Icon(Icons.check_circle_rounded,
-                    size: 18, color: Colors.white),
+                    size: 18, color: AppTheme.onAccent),
                 const SizedBox(width: 8),
-                Text('엑셀 파일이 다운로드되었습니다 (${orders.length}건)'),
+                Text(
+                  '엑셀 파일이 다운로드되었습니다 (${orders.length}건)',
+                  style: AppTheme.sans(
+                    fontSize: 13,
+                    color: AppTheme.onAccent,
+                  ),
+                ),
               ],
             ),
-            backgroundColor: AppTheme.success,
+            backgroundColor: AppTheme.gold,
             behavior: SnackBarBehavior.floating,
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           ),
         );
       }
@@ -334,7 +352,8 @@ class _AdminBookersScreenState extends ConsumerState<AdminBookersScreen> {
   }
 }
 
-// ─── 요약 바 ───
+// ─── Summary Bar (editorial) ───
+
 class _SummaryBar extends StatelessWidget {
   final int orderCount;
   final int ticketCount;
@@ -355,7 +374,7 @@ class _SummaryBar extends StatelessWidget {
     final priceFormat = NumberFormat('#,###');
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: const BoxDecoration(
         color: AppTheme.surface,
         border: Border(
@@ -364,38 +383,47 @@ class _SummaryBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _SummaryChip(label: '주문', value: '$orderCount건'),
-          const SizedBox(width: 10),
-          _SummaryChip(label: '티켓', value: '$ticketCount매'),
-          const SizedBox(width: 10),
+          _SummaryChip(label: 'ORDERS', value: '$orderCount'),
+          const SizedBox(width: 16),
+          _SummaryChip(label: 'TICKETS', value: '$ticketCount'),
+          const SizedBox(width: 16),
           _SummaryChip(
-              label: '매출', value: '${priceFormat.format(totalRevenue)}원'),
+              label: 'REVENUE', value: priceFormat.format(totalRevenue)),
           const Spacer(),
-          shad.Button.outline(
-            onPressed: isExporting ? null : onExport,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isExporting)
-                  const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppTheme.gold),
-                  )
-                else
-                  const Icon(Icons.download_rounded,
-                      size: 16, color: AppTheme.gold),
-                const SizedBox(width: 6),
-                Text(
-                  '엑셀 다운로드',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.gold,
-                  ),
+          GestureDetector(
+            onTap: isExporting ? null : onExport,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: AppTheme.sage.withValues(alpha: 0.2),
+                  width: 0.5,
                 ),
-              ],
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isExporting)
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 1.5, color: AppTheme.gold),
+                    )
+                  else
+                    const Icon(Icons.download_rounded,
+                        size: 14, color: AppTheme.gold),
+                  const SizedBox(width: 8),
+                  Text(
+                    'EXPORT',
+                    style: AppTheme.label(
+                      fontSize: 9,
+                      color: AppTheme.gold,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -411,35 +439,32 @@ class _SummaryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppTheme.goldSubtle,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '$label ',
-            style: GoogleFonts.notoSans(
-                fontSize: 11, color: AppTheme.textTertiary),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTheme.label(
+            fontSize: 8,
+            color: AppTheme.sage,
           ),
-          Text(
-            value,
-            style: GoogleFonts.notoSans(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
-            ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: AppTheme.serif(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.textPrimary,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-// ─── 예매자 카드 ───
+// ─── Booker Card (editorial minimal) ───
+
 class _BookerCard extends ConsumerStatefulWidget {
   final app.Order order;
   final int index;
@@ -514,35 +539,25 @@ class _BookerCardState extends ConsumerState<_BookerCard> {
     final priceFormat = NumberFormat('#,###');
     final dateFormat = DateFormat('MM.dd HH:mm');
 
-    return shad.Card(
-      padding: const EdgeInsets.all(14),
-      borderRadius: BorderRadius.circular(12),
-      borderWidth: 0.5,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 상단: 번호 + 이름 + 날짜
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: AppTheme.gold.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Center(
-                  child: Text(
-                    '${widget.index}',
-                    style: GoogleFonts.robotoMono(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.gold,
-                    ),
-                  ),
+              // Index number
+              Text(
+                '${widget.index}'.padLeft(2, '0'),
+                style: GoogleFonts.robotoMono(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.sage,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -552,23 +567,23 @@ class _BookerCardState extends ConsumerState<_BookerCard> {
                         height: 14,
                         width: 80,
                         decoration: BoxDecoration(
-                          color: AppTheme.border,
-                          borderRadius: BorderRadius.circular(3),
+                          color: AppTheme.sage.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       )
                     else
                       Text(
                         _user?.displayName ?? '사용자',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: AppTheme.textPrimary,
                         ),
                       ),
                     if (_user?.email != null)
                       Text(
                         _user!.email,
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.sans(
                           fontSize: 11,
                           color: AppTheme.textTertiary,
                         ),
@@ -578,7 +593,7 @@ class _BookerCardState extends ConsumerState<_BookerCard> {
               ),
               Text(
                 order.paidAt != null ? dateFormat.format(order.paidAt!) : '-',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: 11,
                   color: AppTheme.textTertiary,
                 ),
@@ -589,31 +604,34 @@ class _BookerCardState extends ConsumerState<_BookerCard> {
           const SizedBox(height: 10),
 
           // 하단: 수량·금액·좌석
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              _InfoTag(
-                icon: Icons.confirmation_number_rounded,
-                text: '${order.quantity}매',
-              ),
-              _InfoTag(
-                icon: Icons.payments_rounded,
-                text: '${priceFormat.format(order.totalAmount)}원',
-              ),
-              if (_user?.phoneNumber != null && _user!.phoneNumber!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 25),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
                 _InfoTag(
-                  icon: Icons.phone_rounded,
-                  text: _user!.phoneNumber!,
+                  icon: Icons.confirmation_number_rounded,
+                  text: '${order.quantity}매',
                 ),
-              if (_tickets != null && _tickets!.isNotEmpty)
-                ..._tickets!.map((t) => _InfoTag(
-                      icon: Icons.event_seat_rounded,
-                      text: t.seatId.length > 20
-                          ? '${t.seatId.substring(0, 20)}…'
-                          : t.seatId,
-                    )),
-            ],
+                _InfoTag(
+                  icon: Icons.payments_rounded,
+                  text: '${priceFormat.format(order.totalAmount)}원',
+                ),
+                if (_user?.phoneNumber != null && _user!.phoneNumber!.isNotEmpty)
+                  _InfoTag(
+                    icon: Icons.phone_rounded,
+                    text: _user!.phoneNumber!,
+                  ),
+                if (_tickets != null && _tickets!.isNotEmpty)
+                  ..._tickets!.map((t) => _InfoTag(
+                        icon: Icons.event_seat_rounded,
+                        text: t.seatId.length > 20
+                            ? '${t.seatId.substring(0, 20)}...'
+                            : t.seatId,
+                      )),
+              ],
+            ),
           ),
         ],
       ),
@@ -631,17 +649,21 @@ class _InfoTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppTheme.goldSubtle,
-        borderRadius: BorderRadius.circular(6),
+        color: AppTheme.cardElevated,
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(
+          color: AppTheme.sage.withValues(alpha: 0.08),
+          width: 0.5,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: AppTheme.textTertiary),
+          Icon(icon, size: 11, color: AppTheme.sage),
           const SizedBox(width: 4),
           Text(
             text,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.sans(
               fontSize: 11,
               fontWeight: FontWeight.w500,
               color: AppTheme.textSecondary,

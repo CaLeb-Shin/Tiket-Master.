@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/order.dart';
 import 'package:melon_core/data/repositories/order_repository.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
+
+// =============================================================================
+// 주문 관리 화면 (Editorial / Luxury Magazine Admin Design)
+// =============================================================================
 
 class AdminOrdersScreen extends ConsumerWidget {
   final String eventId;
@@ -26,7 +28,7 @@ class AdminOrdersScreen extends ConsumerWidget {
       backgroundColor: AppTheme.background,
       body: Column(
         children: [
-          // App bar
+          // ── Editorial App Bar ──
           Container(
             padding: EdgeInsets.only(
               top: MediaQuery.of(context).padding.top + 8,
@@ -34,9 +36,9 @@ class AdminOrdersScreen extends ConsumerWidget {
               right: 16,
               bottom: 12,
             ),
-            decoration: const BoxDecoration(
-              color: AppTheme.surface,
-              border: Border(
+            decoration: BoxDecoration(
+              color: AppTheme.background.withValues(alpha: 0.95),
+              border: const Border(
                 bottom: BorderSide(color: AppTheme.border, width: 0.5),
               ),
             ),
@@ -50,35 +52,49 @@ class AdminOrdersScreen extends ConsumerWidget {
                       context.go('/');
                     }
                   },
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                  icon: const Icon(Icons.west,
                       color: AppTheme.textPrimary, size: 20),
                 ),
+                const SizedBox(width: 4),
                 Expanded(
                   child: eventAsync.when(
-                    data: (event) => Text(
-                      event != null ? '주문관리 - ${event.title}' : '주문관리',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    data: (event) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Orders',
+                          style: AppTheme.serif(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w500,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                        if (event != null)
+                          Text(
+                            event.title,
+                            style: AppTheme.sans(
+                              fontSize: 11,
+                              color: AppTheme.textTertiary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
                     ),
                     loading: () => Text(
-                      '주문관리',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
+                      'Orders',
+                      style: AppTheme.serif(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w500,
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
                     error: (_, __) => Text(
-                      '주문관리',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
+                      'Orders',
+                      style: AppTheme.serif(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w500,
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
                   ),
@@ -87,7 +103,7 @@ class AdminOrdersScreen extends ConsumerWidget {
             ),
           ),
 
-          // Content
+          // ── Content ──
           Expanded(
             child: ordersAsync.when(
               data: (orders) {
@@ -97,13 +113,15 @@ class AdminOrdersScreen extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.receipt_long_rounded,
-                            size: 40,
-                            color: AppTheme.textTertiary.withValues(alpha: 0.4)),
-                        const SizedBox(height: 12),
+                            size: 36,
+                            color: AppTheme.sage.withValues(alpha: 0.3)),
+                        const SizedBox(height: 16),
                         Text(
                           '주문이 없습니다',
-                          style: GoogleFonts.notoSans(
-                              fontSize: 14, color: AppTheme.textTertiary),
+                          style: AppTheme.sans(
+                            fontSize: 14,
+                            color: AppTheme.textTertiary,
+                          ),
                         ),
                       ],
                     ),
@@ -121,45 +139,94 @@ class AdminOrdersScreen extends ConsumerWidget {
                 final priceFormat = NumberFormat('#,###');
 
                 return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Summary cards ──
-                    Container(
-                      padding: const EdgeInsets.all(16),
+                    // ── Summary Cards ──
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                      child: Text(
+                        'SUMMARY',
+                        style: AppTheme.label(fontSize: 10),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Row(
                         children: [
                           _SummaryCard(
-                            label: '결제완료',
-                            value: '${paid.length}건',
+                            label: 'PAID',
+                            value: '${paid.length}',
                             color: AppTheme.success,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           _SummaryCard(
-                            label: '환불',
-                            value: '${refunded.length}건',
+                            label: 'REFUNDED',
+                            value: '${refunded.length}',
                             color: AppTheme.error,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           _SummaryCard(
-                            label: '취소',
-                            value: '${canceled.length}건',
+                            label: 'CANCELED',
+                            value: '${canceled.length}',
                             color: AppTheme.textTertiary,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           _SummaryCard(
-                            label: '매출',
-                            value: '${priceFormat.format(totalRevenue)}원',
+                            label: 'REVENUE',
+                            value: priceFormat.format(totalRevenue),
                             color: AppTheme.gold,
                           ),
                         ],
                       ),
                     ),
 
+                    const SizedBox(height: 28),
+
+                    // ── Section header ──
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        children: [
+                          Text(
+                            'All Orders',
+                            style: AppTheme.serif(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Container(
+                              height: 0.5,
+                              color: AppTheme.sage.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '${orders.length}',
+                            style: AppTheme.sans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
                     // ── Order list ──
                     Expanded(
                       child: ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                         itemCount: orders.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        separatorBuilder: (_, __) => Divider(
+                          height: 1,
+                          thickness: 0.5,
+                          color: AppTheme.sage.withValues(alpha: 0.12),
+                        ),
                         itemBuilder: (_, i) =>
                             _AdminOrderRow(order: orders[i]),
                       ),
@@ -172,7 +239,7 @@ class AdminOrdersScreen extends ConsumerWidget {
               ),
               error: (e, _) => Center(
                 child: Text('오류: $e',
-                    style: GoogleFonts.notoSans(color: AppTheme.error)),
+                    style: AppTheme.sans(color: AppTheme.error)),
               ),
             ),
           ),
@@ -181,6 +248,8 @@ class AdminOrdersScreen extends ConsumerWidget {
     );
   }
 }
+
+// ─── Summary Card (editorial white surface) ───
 
 class _SummaryCard extends StatelessWidget {
   final String label;
@@ -196,27 +265,31 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: shad.Card(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        borderRadius: BorderRadius.circular(10),
-        borderWidth: 1.0,
-        filled: true,
-        fillColor: color.withValues(alpha: 0.08),
-        borderColor: color.withValues(alpha: 0.15),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(
+            color: AppTheme.sage.withValues(alpha: 0.1),
+            width: 0.5,
+          ),
+          boxShadow: AppShadows.small,
+        ),
         child: Column(
           children: [
             Text(
               label,
-              style: GoogleFonts.notoSans(
-                fontSize: 11,
-                color: color.withValues(alpha: 0.8),
+              style: AppTheme.label(
+                fontSize: 9,
+                color: AppTheme.sage,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Text(
               value,
-              style: GoogleFonts.notoSans(
-                fontSize: 13,
+              style: AppTheme.serif(
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: color,
               ),
@@ -230,6 +303,8 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
+// ─── Order Row (editorial minimal) ───
+
 class _AdminOrderRow extends StatelessWidget {
   final Order order;
   const _AdminOrderRow({required this.order});
@@ -240,35 +315,39 @@ class _AdminOrderRow extends StatelessWidget {
     final dateFormat = DateFormat('MM.dd HH:mm', 'ko_KR');
 
     Color statusColor;
+    String statusLabel;
     switch (order.status) {
       case OrderStatus.paid:
         statusColor = AppTheme.success;
+        statusLabel = 'PAID';
       case OrderStatus.pending:
         statusColor = AppTheme.warning;
+        statusLabel = 'PENDING';
       case OrderStatus.refunded:
         statusColor = AppTheme.error;
+        statusLabel = 'REFUNDED';
       case OrderStatus.canceled:
         statusColor = AppTheme.textTertiary;
+        statusLabel = 'CANCELED';
       case OrderStatus.failed:
         statusColor = AppTheme.error.withValues(alpha: 0.6);
+        statusLabel = 'FAILED';
     }
 
-    return shad.Card(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      borderRadius: BorderRadius.circular(10),
-      borderWidth: 0.5,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
       child: Row(
         children: [
-          // Status dot
+          // Status indicator — thin vertical line
           Container(
-            width: 8,
-            height: 8,
+            width: 2,
+            height: 32,
             decoration: BoxDecoration(
               color: statusColor,
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(1),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 14),
 
           // Order info
           Expanded(
@@ -276,17 +355,17 @@ class _AdminOrderRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${order.id.substring(0, 8)}...',
-                  style: GoogleFonts.notoSans(
+                  order.id.substring(0, 8),
+                  style: AppTheme.sans(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
-                  '${order.quantity}매 · ${dateFormat.format(order.createdAt)}',
-                  style: GoogleFonts.notoSans(
+                  '${order.quantity}매  ·  ${dateFormat.format(order.createdAt)}',
+                  style: AppTheme.sans(
                     fontSize: 11,
                     color: AppTheme.textTertiary,
                   ),
@@ -295,33 +374,24 @@ class _AdminOrderRow extends StatelessWidget {
             ),
           ),
 
-          // Amount + status
+          // Amount + status label
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
                 '${priceFormat.format(order.totalAmount)}원',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.sans(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.textPrimary,
                 ),
               ),
-              const SizedBox(height: 2),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  order.status.displayName,
-                  style: GoogleFonts.notoSans(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: statusColor,
-                  ),
+              const SizedBox(height: 4),
+              Text(
+                statusLabel,
+                style: AppTheme.label(
+                  fontSize: 9,
+                  color: statusColor,
                 ),
               ),
             ],
