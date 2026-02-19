@@ -1721,10 +1721,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 유형 선택
-                  Text('DISCOUNT TYPE',
+                  Text('할인 유형',
+                      style: AdminTheme.sans(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                  Text('Discount Type',
                       style: AdminTheme.label(
-                          fontSize: 9, color: AdminTheme.sage)),
-                  const SizedBox(height: 6),
+                          fontSize: 8, color: AdminTheme.sage)),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       _dialogChip(
@@ -1745,9 +1748,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   const SizedBox(height: 16),
 
                   // 이름
-                  Text(type == 'bulk' ? 'CONDITION NAME' : 'TARGET NAME',
+                  Text(type == 'bulk' ? '조건명' : '대상명',
+                      style: AdminTheme.sans(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                  Text(type == 'bulk' ? 'Condition Name' : 'Target Name',
                       style: AdminTheme.label(
-                          fontSize: 9, color: AdminTheme.sage)),
+                          fontSize: 8, color: AdminTheme.sage)),
                   const SizedBox(height: 4),
                   TextFormField(
                     controller: nameCtrl,
@@ -1757,9 +1763,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
                   if (type == 'bulk') ...[
                     const SizedBox(height: 12),
-                    Text('MIN QUANTITY',
+                    Text('최소 수량',
+                        style: AdminTheme.sans(
+                            fontSize: 13, fontWeight: FontWeight.w600)),
+                    Text('Min Quantity',
                         style: AdminTheme.label(
-                            fontSize: 9, color: AdminTheme.sage)),
+                            fontSize: 8, color: AdminTheme.sage)),
                     const SizedBox(height: 4),
                     TextFormField(
                       controller: qtyCtrl,
@@ -1771,9 +1780,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   ],
 
                   const SizedBox(height: 12),
-                  Text('DISCOUNT RATE (%)',
+                  Text('할인율 (%)',
+                      style: AdminTheme.sans(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                  Text('Discount Rate (%)',
                       style: AdminTheme.label(
-                          fontSize: 9, color: AdminTheme.sage)),
+                          fontSize: 8, color: AdminTheme.sage)),
                   const SizedBox(height: 4),
                   TextFormField(
                     controller: rateCtrl,
@@ -1784,9 +1796,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   ),
 
                   const SizedBox(height: 12),
-                  Text('DESCRIPTION (OPTIONAL)',
+                  Text('설명 (선택)',
+                      style: AdminTheme.sans(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                  Text('Description (Optional)',
                       style: AdminTheme.label(
-                          fontSize: 9, color: AdminTheme.sage)),
+                          fontSize: 8, color: AdminTheme.sage)),
                   const SizedBox(height: 4),
                   TextFormField(
                     controller: descCtrl,
