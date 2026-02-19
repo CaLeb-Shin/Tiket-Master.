@@ -68,7 +68,9 @@ class _PremiumDateTimePickerState extends State<_PremiumDateTimePicker> {
       widget.initialDateTime.day,
     );
     _selectedHour = widget.initialDateTime.hour;
-    _selectedMinute = widget.initialDateTime.minute;
+    // 5분 단위로 라운딩 (0, 5, 10, ... 55)
+    _selectedMinute = (widget.initialDateTime.minute / 5).round() * 5;
+    if (_selectedMinute >= 60) _selectedMinute = 55;
     _displayMonth = DateTime(_selectedDate.year, _selectedDate.month);
   }
 
@@ -421,7 +423,7 @@ class _PremiumDateTimePickerState extends State<_PremiumDateTimePicker> {
           ),
           const SizedBox(height: 6),
           Text(
-            '5분 단위 · 길게 눌러 빠르게 조절',
+            '숫자를 클릭하여 직접 입력 · 분은 5분 단위',
             style: AdminTheme.sans(
               fontSize: 10,
               color: AdminTheme.textTertiary,
@@ -529,6 +531,28 @@ class _TimeSpinner extends StatefulWidget {
 class _TimeSpinnerState extends State<_TimeSpinner> {
   bool _upPressed = false;
   bool _downPressed = false;
+  bool _editing = false;
+  late TextEditingController _textController;
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = TextEditingController();
+    _focusNode = FocusNode();
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus && _editing) {
+        _commitEdit();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   void _increment() {
     var next = widget.value + widget.step;
@@ -538,8 +562,31 @@ class _TimeSpinnerState extends State<_TimeSpinner> {
 
   void _decrement() {
     var next = widget.value - widget.step;
-    if (next < 0) next = widget.maxValue - (widget.maxValue % widget.step);
+    if (next < 0) {
+      // 가장 큰 step 배수로
+      next = (widget.maxValue ~/ widget.step) * widget.step;
+    }
     widget.onChanged(next);
+  }
+
+  void _startEditing() {
+    setState(() {
+      _editing = true;
+      _textController.text = widget.value.toString().padLeft(2, '0');
+      _textController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _textController.text.length,
+      );
+    });
+    Future.microtask(() => _focusNode.requestFocus());
+  }
+
+  void _commitEdit() {
+    final parsed = int.tryParse(_textController.text);
+    if (parsed != null && parsed >= 0 && parsed <= widget.maxValue) {
+      widget.onChanged(parsed);
+    }
+    setState(() => _editing = false);
   }
 
   /// 길게 누르면 반복 실행
@@ -556,7 +603,7 @@ class _TimeSpinnerState extends State<_TimeSpinner> {
   Widget build(BuildContext context) {
     final display = widget.value.toString().padLeft(2, '0');
     final prev = ((widget.value - widget.step) < 0
-            ? widget.maxValue - (widget.maxValue % widget.step)
+            ? (widget.maxValue ~/ widget.step) * widget.step
             : widget.value - widget.step)
         .toString()
         .padLeft(2, '0');
@@ -596,40 +643,70 @@ class _TimeSpinnerState extends State<_TimeSpinner> {
                 ),
               ),
               const SizedBox(height: 2),
-              // Current value (highlighted)
-              Container(
-                width: 72,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AdminTheme.gold.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: AdminTheme.gold.withValues(alpha: 0.25),
-                    width: 0.5,
-                  ),
-                ),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 150),
-                  transitionBuilder: (child, anim) => FadeTransition(
-                    opacity: anim,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.3),
-                        end: Offset.zero,
-                      ).animate(anim),
-                      child: child,
+              // Current value (highlighted) — 탭하면 직접 입력
+              GestureDetector(
+                onTap: _editing ? null : _startEditing,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.text,
+                  child: Container(
+                    width: 72,
+                    height: 44,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AdminTheme.gold
+                          .withValues(alpha: _editing ? 0.15 : 0.08),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: AdminTheme.gold
+                            .withValues(alpha: _editing ? 0.5 : 0.25),
+                        width: _editing ? 1 : 0.5,
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    display,
-                    key: ValueKey(display),
-                    style: AdminTheme.sans(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w500,
-                      color: AdminTheme.gold,
-                      letterSpacing: 4,
-                    ),
+                    child: _editing
+                        ? TextField(
+                            controller: _textController,
+                            focusNode: _focusNode,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            maxLength: 2,
+                            style: AdminTheme.sans(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w500,
+                              color: AdminTheme.gold,
+                              letterSpacing: 4,
+                            ),
+                            decoration: const InputDecoration(
+                              counterText: '',
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.zero,
+                              isDense: true,
+                            ),
+                            onSubmitted: (_) => _commitEdit(),
+                          )
+                        : AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 150),
+                            transitionBuilder: (child, anim) =>
+                                FadeTransition(
+                              opacity: anim,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0, 0.3),
+                                  end: Offset.zero,
+                                ).animate(anim),
+                                child: child,
+                              ),
+                            ),
+                            child: Text(
+                              display,
+                              key: ValueKey(display),
+                              style: AdminTheme.sans(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w500,
+                                color: AdminTheme.gold,
+                                letterSpacing: 4,
+                              ),
+                            ),
+                          ),
                   ),
                 ),
               ),
