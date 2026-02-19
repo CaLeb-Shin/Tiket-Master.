@@ -1827,69 +1827,73 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       style: AdminTheme.label(
                           fontSize: 8, color: AdminTheme.sage)),
                   const SizedBox(height: 8),
-                  // 전체 토글
-                  GestureDetector(
-                    onTap: () => setDialogState(() {
-                      allGrades = !allGrades;
-                      if (allGrades) {
-                        selectedGrades.addAll(_enabledGrades);
-                      }
-                    }),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: Checkbox(
-                            value: allGrades,
-                            onChanged: (v) => setDialogState(() {
-                              allGrades = v ?? true;
-                              if (allGrades) {
-                                selectedGrades.addAll(_enabledGrades);
-                              }
-                            }),
-                            activeColor: AdminTheme.gold,
-                            checkColor: AdminTheme.onAccent,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                            side: BorderSide(
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      // 전체 등급 칩
+                      GestureDetector(
+                        onTap: () => setDialogState(() {
+                          allGrades = !allGrades;
+                          if (allGrades) {
+                            selectedGrades.addAll(_enabledGrades);
+                          } else {
+                            selectedGrades.clear();
+                          }
+                        }),
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
                               color: allGrades
-                                  ? AdminTheme.gold
-                                  : AdminTheme.textTertiary,
-                              width: 1,
+                                  ? AdminTheme.gold.withValues(alpha: 0.12)
+                                  : AdminTheme.background,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: allGrades
+                                    ? AdminTheme.gold.withValues(alpha: 0.6)
+                                    : AdminTheme.sage.withValues(alpha: 0.2),
+                                width: allGrades ? 1 : 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              '전체',
+                              style: AdminTheme.label(
+                                fontSize: 10,
+                                color: allGrades
+                                    ? AdminTheme.gold
+                                    : AdminTheme.textTertiary,
+                              ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '전체 등급',
-                          style: AdminTheme.sans(
-                            fontSize: 12,
-                            color: allGrades
-                                ? AdminTheme.gold
-                                : AdminTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!allGrades) ...[
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: _allGrades
+                      ),
+                      // 개별 등급 칩
+                      ..._allGrades
                           .where((g) => _enabledGrades.contains(g))
                           .map((grade) {
-                        final selected = selectedGrades.contains(grade);
+                        final isOn =
+                            allGrades || selectedGrades.contains(grade);
                         final color = _gradeColors[grade]!;
                         return GestureDetector(
                           onTap: () => setDialogState(() {
-                            if (selected) {
+                            if (allGrades) {
+                              allGrades = false;
+                              selectedGrades
+                                ..clear()
+                                ..addAll(_enabledGrades)
+                                ..remove(grade);
+                            } else if (isOn) {
                               selectedGrades.remove(grade);
                             } else {
                               selectedGrades.add(grade);
+                              if (selectedGrades
+                                  .containsAll(_enabledGrades)) {
+                                allGrades = true;
+                              }
                             }
                           }),
                           child: MouseRegion(
@@ -1899,16 +1903,16 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 8),
                               decoration: BoxDecoration(
-                                color: selected
+                                color: isOn
                                     ? color.withValues(alpha: 0.12)
                                     : AdminTheme.background,
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(
-                                  color: selected
+                                  color: isOn
                                       ? color.withValues(alpha: 0.6)
                                       : AdminTheme.sage
                                           .withValues(alpha: 0.2),
-                                  width: selected ? 1 : 0.5,
+                                  width: isOn ? 1 : 0.5,
                                 ),
                               ),
                               child: Row(
@@ -1918,7 +1922,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                                     width: 8,
                                     height: 8,
                                     decoration: BoxDecoration(
-                                      color: selected
+                                      color: isOn
                                           ? color
                                           : color.withValues(alpha: 0.3),
                                       shape: BoxShape.circle,
@@ -1929,7 +1933,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                                     grade,
                                     style: AdminTheme.label(
                                       fontSize: 10,
-                                      color: selected
+                                      color: isOn
                                           ? color
                                           : AdminTheme.textTertiary,
                                     ),
@@ -1939,9 +1943,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                             ),
                           ),
                         );
-                      }).toList(),
-                    ),
-                  ],
+                      }),
+                    ],
+                  ),
                   const SizedBox(height: 16),
 
                   // 이름
