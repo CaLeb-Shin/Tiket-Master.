@@ -1527,6 +1527,44 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                           ],
                         ],
                       ),
+                      // 적용 등급 배지
+                      if (p.applicableGrades != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            ...p.applicableGrades!.map((g) {
+                              final color =
+                                  _gradeColors[g] ?? AdminTheme.sage;
+                              return Padding(
+                                padding:
+                                    const EdgeInsets.only(right: 4),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        color.withValues(alpha: 0.1),
+                                    borderRadius:
+                                        BorderRadius.circular(2),
+                                    border: Border.all(
+                                      color: color
+                                          .withValues(alpha: 0.3),
+                                      width: 0.5,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    g,
+                                    style: AdminTheme.label(
+                                      fontSize: 8,
+                                      color: color,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -1730,6 +1768,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     final rateCtrl = TextEditingController();
     final qtyCtrl = TextEditingController(text: '2');
     final descCtrl = TextEditingController();
+    // 적용 좌석 등급 (기본: 전체 선택)
+    final selectedGrades = Set<String>.from(_enabledGrades);
+    bool allGrades = true;
 
     showAnimatedDialog(
       context: context,
@@ -1776,6 +1817,131 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+
+                  // 적용 좌석 등급
+                  Text('적용 좌석',
+                      style: AdminTheme.sans(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                  Text('Applicable Grades',
+                      style: AdminTheme.label(
+                          fontSize: 8, color: AdminTheme.sage)),
+                  const SizedBox(height: 8),
+                  // 전체 토글
+                  GestureDetector(
+                    onTap: () => setDialogState(() {
+                      allGrades = !allGrades;
+                      if (allGrades) {
+                        selectedGrades.addAll(_enabledGrades);
+                      }
+                    }),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: Checkbox(
+                            value: allGrades,
+                            onChanged: (v) => setDialogState(() {
+                              allGrades = v ?? true;
+                              if (allGrades) {
+                                selectedGrades.addAll(_enabledGrades);
+                              }
+                            }),
+                            activeColor: AdminTheme.gold,
+                            checkColor: AdminTheme.onAccent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            side: BorderSide(
+                              color: allGrades
+                                  ? AdminTheme.gold
+                                  : AdminTheme.textTertiary,
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '전체 등급',
+                          style: AdminTheme.sans(
+                            fontSize: 12,
+                            color: allGrades
+                                ? AdminTheme.gold
+                                : AdminTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!allGrades) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: _allGrades
+                          .where((g) => _enabledGrades.contains(g))
+                          .map((grade) {
+                        final selected = selectedGrades.contains(grade);
+                        final color = _gradeColors[grade]!;
+                        return GestureDetector(
+                          onTap: () => setDialogState(() {
+                            if (selected) {
+                              selectedGrades.remove(grade);
+                            } else {
+                              selectedGrades.add(grade);
+                            }
+                          }),
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? color.withValues(alpha: 0.12)
+                                    : AdminTheme.background,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: selected
+                                      ? color.withValues(alpha: 0.6)
+                                      : AdminTheme.sage
+                                          .withValues(alpha: 0.2),
+                                  width: selected ? 1 : 0.5,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: selected
+                                          ? color
+                                          : color.withValues(alpha: 0.3),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    grade,
+                                    style: AdminTheme.label(
+                                      fontSize: 10,
+                                      color: selected
+                                          ? color
+                                          : AdminTheme.textTertiary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                   const SizedBox(height: 16),
 
                   // 이름
@@ -1854,6 +2020,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   if (nameCtrl.text.trim().isEmpty || rate <= 0 || rate > 100) {
                     return;
                   }
+                  if (!allGrades && selectedGrades.isEmpty) return;
+
                   final name = nameCtrl.text.trim();
                   final qty = type == 'bulk'
                       ? (int.tryParse(qtyCtrl.text) ?? 2)
@@ -1863,9 +2031,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       : descCtrl.text.trim();
 
                   // 자동 이름 생성
-                  final fullName = type == 'bulk'
-                      ? '$name $rate%'
-                      : '$name $rate%';
+                  final fullName = '$name $rate%';
 
                   setState(() {
                     _discountPolicies.add(DiscountPolicy(
@@ -1874,6 +2040,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       minQuantity: qty,
                       discountRate: rate / 100.0,
                       description: desc,
+                      applicableGrades: allGrades
+                          ? null
+                          : selectedGrades.toList(),
                     ));
                   });
                   Navigator.pop(ctx);

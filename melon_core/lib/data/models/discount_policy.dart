@@ -15,12 +15,16 @@ class DiscountPolicy {
   /// 부가 설명 (e.g. "2매 이상만 예매 가능. 전체취소만 가능.")
   final String? description;
 
+  /// 적용 좌석 등급 (null = 전체 등급 적용)
+  final List<String>? applicableGrades;
+
   const DiscountPolicy({
     required this.name,
     required this.type,
     required this.minQuantity,
     required this.discountRate,
     this.description,
+    this.applicableGrades,
   });
 
   /// 할인 적용 가격 계산
@@ -35,6 +39,9 @@ class DiscountPolicy {
       minQuantity: map['minQuantity'] ?? 1,
       discountRate: (map['discountRate'] as num?)?.toDouble() ?? 0.0,
       description: map['description'],
+      applicableGrades: map['applicableGrades'] != null
+          ? List<String>.from(map['applicableGrades'])
+          : null,
     );
   }
 
@@ -45,6 +52,7 @@ class DiscountPolicy {
       'minQuantity': minQuantity,
       'discountRate': discountRate,
       if (description != null) 'description': description,
+      if (applicableGrades != null) 'applicableGrades': applicableGrades,
     };
   }
 }
