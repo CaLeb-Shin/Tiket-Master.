@@ -594,48 +594,38 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: AdminTheme.gold.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Icon(Icons.calendar_month_rounded,
-                      size: 18, color: AdminTheme.gold),
-                ),
-                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    '${_startAt.year}년 ${_startAt.month}월 ${_startAt.day}일 ($wd) $amPm ${_startAt.hour}시 ${_startAt.minute.toString().padLeft(2, '0')}분',
-                    style: AdminTheme.sans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AdminTheme.textPrimary,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    gradient: AdminTheme.goldGradient,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.edit_calendar_rounded,
-                          size: 12, color: AdminTheme.onAccent),
-                      const SizedBox(width: 4),
-                      Text('변경',
-                          style: AdminTheme.label(
-                            fontSize: 9,
-                            color: AdminTheme.onAccent,
-                          )),
+                      Text(
+                        '${_startAt.year}년 ${_startAt.month}월 ${_startAt.day}일 ($wd)',
+                        style: AdminTheme.sans(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AdminTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$amPm ${_startAt.hour}시 ${_startAt.minute.toString().padLeft(2, '0')}분',
+                        style: AdminTheme.sans(
+                          fontSize: 13,
+                          color: AdminTheme.gold,
+                        ),
+                      ),
                     ],
                   ),
                 ),
+                Text('변경',
+                    style: AdminTheme.sans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AdminTheme.gold,
+                    )),
+                const SizedBox(width: 4),
+                Icon(Icons.chevron_right_rounded,
+                    size: 18, color: AdminTheme.gold.withValues(alpha: 0.6)),
               ],
             ),
           ),
