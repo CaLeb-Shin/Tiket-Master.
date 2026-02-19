@@ -112,15 +112,12 @@ class _DetailBody extends StatelessWidget {
                   ].join('\n'),
                 ),
 
-              // ── 할인 / 환불 정책 (Expandable) ──
+              // ── 할인 정책 (항상 표시) ──
               if (event.discountPolicies != null &&
                   event.discountPolicies!.isNotEmpty)
-                _ExpandablePolicy(
-                  title: '할인 정책',
-                  child: _DiscountPoliciesContent(
-                    policies: event.discountPolicies!,
-                    basePrice: event.price,
-                  ),
+                _DiscountSection(
+                  policies: event.discountPolicies!,
+                  event: event,
                 )
               else if (event.discount != null && event.discount!.isNotEmpty)
                 _ExpandablePolicy(
@@ -855,159 +852,178 @@ class _ExpandablePolicyState extends State<_ExpandablePolicy> {
 }
 
 // =============================================================================
-// Discount Policies Content (used inside expandable)
+// Discount Section (always visible, prominent)
 // =============================================================================
 
-class _DiscountPoliciesContent extends StatelessWidget {
+class _DiscountSection extends StatelessWidget {
   final List<dynamic> policies;
-  final int basePrice;
+  final Event event;
 
-  const _DiscountPoliciesContent({
-    required this.policies,
-    required this.basePrice,
-  });
+  const _DiscountSection({required this.policies, required this.event});
+
+  static const _gradeColors = {
+    'VIP': Color(0xFFD4AF37),
+    'R': Color(0xFF30D158),
+    'S': Color(0xFF0A84FF),
+    'A': Color(0xFFFF9F0A),
+    'B': Color(0xFF8E8E93),
+  };
 
   @override
   Widget build(BuildContext context) {
     final priceFormat = NumberFormat('#,###');
+    final grades = event.priceByGrade;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Base price row
-        _DiscountRow(
-          name: '일반',
-          price: '${priceFormat.format(basePrice)}원',
-          isBase: true,
-        ),
-        // Policy rows
-        ...policies.map((p) {
-          final name = p.name as String;
-          final rate = p.discountRate as double;
-          final discounted = p.discountedPrice(basePrice) as int;
-          final desc = p.description as String?;
-          final minQty = p.minQuantity as int;
-          final type = p.type as String;
-
-          return _DiscountRow(
-            name: name,
-            price: '${priceFormat.format(discounted)}원',
-            description: desc ??
-                (type == 'bulk'
-                    ? '$minQty매 이상만 예매 가능. 전체취소만 가능.'
-                    : null),
-            discountRate: '${(rate * 100).toInt()}%',
-            originalPrice: '${priceFormat.format(basePrice)}원',
-          );
-        }),
-      ],
-    );
-  }
-}
-
-class _DiscountRow extends StatelessWidget {
-  final String name;
-  final String price;
-  final bool isBase;
-  final String? description;
-  final String? discountRate;
-  final String? originalPrice;
-
-  const _DiscountRow({
-    required this.name,
-    required this.price,
-    this.isBase = false,
-    this.description,
-    this.discountRate,
-    this.originalPrice,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppTheme.border, width: 0.5),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Text(
-                      name,
-                      style: AppTheme.sans(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    if (discountRate != null) ...[
-                      const SizedBox(width: 8),
+          Container(height: 0.5, color: AppTheme.border),
+          const SizedBox(height: 24),
+          Text(
+            'Discount',
+            style: AppTheme.serif(
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              fontStyle: FontStyle.italic,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...policies.map((p) {
+            final name = p.name as String;
+            final rate = p.discountRate as double;
+            final desc = p.description as String?;
+            final applicableGrades =
+                p.applicableGrades as List<String>?;
+            final rateText = '${(rate * 100).toInt()}%';
+
+            // 적용 등급별 할인가 계산
+            final targetGrades = applicableGrades ??
+                (grades?.keys.toList() ?? ['전석']);
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.cardElevated,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: AppTheme.error.withValues(alpha: 0.15),
+                  width: 0.5,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      // 할인율 배지
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: AppTheme.error.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(2),
+                          borderRadius: BorderRadius.circular(3),
                         ),
                         child: Text(
-                          discountRate!,
+                          rateText,
                           style: AppTheme.sans(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
                             color: AppTheme.error,
                           ),
                         ),
                       ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: AppTheme.sans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ),
                     ],
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (originalPrice != null && !isBase)
+                  ),
+                  const SizedBox(height: 8),
+                  // 등급별 할인가
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 4,
+                    children: targetGrades.map((g) {
+                      final basePrice = grades?[g] ?? event.price;
+                      final discounted =
+                          (basePrice * (1 - rate)).round();
+                      final color =
+                          _gradeColors[g] ?? AppTheme.sage;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$g석',
+                            style: AppTheme.sans(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${priceFormat.format(basePrice)}원',
+                            style: AppTheme.sans(
+                              fontSize: 11,
+                              color: AppTheme.textTertiary,
+                            ).copyWith(
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            '→ ${priceFormat.format(discounted)}원',
+                            style: AppTheme.sans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                  if (desc != null) ...[
+                    const SizedBox(height: 6),
                     Text(
-                      originalPrice!,
+                      desc,
                       style: AppTheme.sans(
                         fontSize: 11,
                         color: AppTheme.textTertiary,
-                      ).copyWith(decoration: TextDecoration.lineThrough),
+                        height: 1.4,
+                      ),
                     ),
-                  Text(
-                    price,
-                    style: AppTheme.sans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
+                  ],
                 ],
               ),
-            ],
-          ),
-          if (description != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              description!,
-              style: AppTheme.sans(
-                fontSize: 11,
-                color: AppTheme.textTertiary,
-                height: 1.4,
-              ),
-            ),
-          ],
+            );
+          }),
         ],
       ),
     );
   }
 }
+
+// (Legacy _DiscountPoliciesContent and _DiscountRow removed — replaced by _DiscountSection)
 
 // =============================================================================
 // Notice Section (left burgundy border accent)
