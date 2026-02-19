@@ -469,6 +469,8 @@ class _PremiumDateTimePickerState extends State<_PremiumDateTimePicker> {
             flex: 2,
             child: GestureDetector(
               onTap: () {
+                // 직접 입력 중이면 먼저 commit (포커스 해제 → onChanged 호출)
+                FocusScope.of(context).unfocus();
                 final result = DateTime(
                   _selectedDate.year,
                   _selectedDate.month,
