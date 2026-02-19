@@ -93,6 +93,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
   bool _showRemainingSeats = true;
   bool _isSubmitting = false;
+  double _submitProgress = 0.0;
+  String _submitStage = '';
 
   // ── 임시저장 (Draft) ──
   static const _draftKey = 'event_create_draft';
@@ -741,30 +743,76 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           top: BorderSide(color: AdminTheme.border, width: 0.5),
         ),
       ),
-      child: SizedBox(
-        width: double.infinity,
-        height: 52,
-        child: ElevatedButton(
-          onPressed: _isSubmitting ? null : _submitEvent,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AdminTheme.gold,
-            foregroundColor: AdminTheme.onAccent,
-            disabledBackgroundColor: AdminTheme.sage.withValues(alpha: 0.3),
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AdminTheme.onAccent,
+      child: _isSubmitting
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 단계 텍스트 + 퍼센트
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: AdminTheme.gold.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _submitStage,
+                        style: AdminTheme.sans(
+                          fontSize: 12,
+                          color: AdminTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${(_submitProgress * 100).toInt()}%',
+                      style: AdminTheme.sans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AdminTheme.gold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // 프로그레스 바
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: SizedBox(
+                    height: 4,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: _submitProgress),
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                      builder: (context, value, _) => LinearProgressIndicator(
+                        value: value,
+                        backgroundColor: AdminTheme.sage.withValues(alpha: 0.15),
+                        valueColor:
+                            const AlwaysStoppedAnimation<Color>(AdminTheme.gold),
+                      ),
+                    ),
                   ),
-                )
-              : Row(
+                ),
+              ],
+            )
+          : SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _submitEvent,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AdminTheme.gold,
+                  foregroundColor: AdminTheme.onAccent,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
@@ -780,8 +828,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                     const Icon(Icons.arrow_forward, size: 18),
                   ],
                 ),
-        ),
-      ),
+              ),
+            ),
     );
   }
 
@@ -2996,7 +3044,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    setState(() {
+      _isSubmitting = true;
+      _submitProgress = 0.0;
+      _submitStage = '준비 중...';
+    });
 
     try {
       // 활성화된 등급만 좌석 수 계산
@@ -3073,12 +3125,15 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         showRemainingSeats: _showRemainingSeats,
       );
 
-      // 이벤트 생성
+      // ── Step 1: 이벤트 생성 (10%)
+      if (mounted) setState(() { _submitProgress = 0.05; _submitStage = '공연 정보 등록 중...'; });
       final eventId =
           await ref.read(eventRepositoryProvider).createEvent(event);
+      if (mounted) setState(() => _submitProgress = 0.15);
 
-      // 포스터 업로드
+      // ── Step 2: 포스터 업로드 (15% → 35%)
       if (_posterBytes != null && _posterFileName != null) {
+        if (mounted) setState(() { _submitProgress = 0.20; _submitStage = '포스터 업로드 중...'; });
         final imageUrl =
             await ref.read(storageServiceProvider).uploadPosterImage(
                   bytes: _posterBytes!,
@@ -3090,12 +3145,20 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           {'imageUrl': imageUrl},
         );
       }
+      if (mounted) setState(() => _submitProgress = 0.35);
 
-      // 팜플렛 업로드
+      // ── Step 3: 팜플렛 업로드 (35% → 65%)
       if (_pamphlets.isNotEmpty) {
+        if (mounted) setState(() => _submitStage = '팜플렛 업로드 중...');
         final pamphletUrls = <String>[];
         for (var i = 0; i < _pamphlets.length; i++) {
           final item = _pamphlets[i];
+          if (mounted) {
+            setState(() {
+              _submitProgress = 0.35 + (0.30 * (i / _pamphlets.length));
+              _submitStage = '팜플렛 업로드 중... (${i + 1}/${_pamphlets.length})';
+            });
+          }
           final url = await ref.read(storageServiceProvider).uploadPamphletImage(
                 bytes: item.bytes,
                 eventId: eventId,
@@ -3109,9 +3172,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           {'pamphletUrls': pamphletUrls},
         );
       }
+      if (mounted) setState(() => _submitProgress = 0.65);
 
-      // 좌석 생성
+      // ── Step 4: 좌석 생성 (65% → 95%)
+      if (mounted) setState(() { _submitProgress = 0.70; _submitStage = '좌석 생성 중...'; });
       await _createSeatsFromSeatMap(eventId);
+      if (mounted) setState(() { _submitProgress = 1.0; _submitStage = '완료!'; });
 
       // 등록 성공 → 임시저장 삭제
       await _clearDraft();
