@@ -1722,12 +1722,18 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           final i = entry.key;
           final p = entry.value;
           final priceFormat = NumberFormat('#,###');
-          final basePrice = int.tryParse(
-                  _gradePriceControllers.values.firstOrNull?.text
-                          .replaceAll(',', '') ??
-                      '55000') ??
-              55000;
-          final discounted = p.discountedPrice(basePrice);
+
+          // 적용 등급별 할인가 계산
+          final grades = p.applicableGrades ?? _enabledGrades.toList();
+          final gradePriceInfo = <String>[];
+          for (final g in grades) {
+            final ctrl = _gradePriceControllers[g];
+            if (ctrl != null) {
+              final base = int.tryParse(ctrl.text.replaceAll(',', '')) ?? 0;
+              final disc = p.discountedPrice(base);
+              gradePriceInfo.add('$g ${priceFormat.format(disc)}원');
+            }
+          }
 
           return Container(
             margin: EdgeInsets.only(bottom: i < _discountPolicies.length - 1 ? 8 : 0),
@@ -1737,26 +1743,25 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               border: Border.all(color: AdminTheme.sage.withValues(alpha: 0.2), width: 0.5),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 할인 아이콘
+                // 할인율 배지
                 Container(
-                  width: 32,
-                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: p.type == 'bulk'
-                        ? AdminTheme.gold.withValues(alpha: 0.08)
-                        : AdminTheme.success.withValues(alpha: 0.08),
-                    shape: BoxShape.circle,
+                    color: AdminTheme.error.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: AdminTheme.error.withValues(alpha: 0.25),
+                      width: 0.5,
+                    ),
                   ),
-                  child: Center(
-                    child: Icon(
-                      p.type == 'bulk'
-                          ? Icons.groups_rounded
-                          : Icons.verified_user_rounded,
-                      size: 16,
-                      color: p.type == 'bulk'
-                          ? AdminTheme.gold
-                          : AdminTheme.success,
+                  child: Text(
+                    '${(p.discountRate * 100).toInt()}%',
+                    style: AdminTheme.sans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AdminTheme.error,
                     ),
                   ),
                 ),
@@ -1766,6 +1771,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // 할인명
                       Text(
                         p.name,
                         style: AdminTheme.sans(
@@ -1774,78 +1780,63 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                           color: AdminTheme.textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
+                      // 적용 등급 + 할인가
                       Row(
                         children: [
-                          Text(
-                            '${(p.discountRate * 100).toInt()}%',
-                            style: AdminTheme.sans(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AdminTheme.error,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${priceFormat.format(discounted)}원',
-                            style: AdminTheme.sans(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AdminTheme.textSecondary,
-                            ),
-                          ),
-                          if (p.description != null) ...[
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                p.description!,
-                                style: AdminTheme.sans(
-                                  fontSize: 10,
-                                  color: AdminTheme.textTertiary,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                          ...grades.map((g) {
+                            final color = _gradeColors[g] ?? AdminTheme.sage;
+                            final ctrl = _gradePriceControllers[g];
+                            final base = ctrl != null
+                                ? (int.tryParse(ctrl.text.replaceAll(',', '')) ?? 0)
+                                : 0;
+                            final disc = p.discountedPrice(base);
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    '$g ${priceFormat.format(disc)}원',
+                                    style: AdminTheme.sans(
+                                      fontSize: 11,
+                                      color: AdminTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                          if (p.applicableGrades == null)
+                            Text(
+                              '(전체)',
+                              style: AdminTheme.sans(
+                                fontSize: 10,
+                                color: AdminTheme.textTertiary,
                               ),
                             ),
-                          ],
                         ],
                       ),
-                      // 적용 등급 배지
-                      if (p.applicableGrades != null) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            ...p.applicableGrades!.map((g) {
-                              final color =
-                                  _gradeColors[g] ?? AdminTheme.sage;
-                              return Padding(
-                                padding:
-                                    const EdgeInsets.only(right: 4),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 5, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        color.withValues(alpha: 0.1),
-                                    borderRadius:
-                                        BorderRadius.circular(2),
-                                    border: Border.all(
-                                      color: color
-                                          .withValues(alpha: 0.3),
-                                      width: 0.5,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    g,
-                                    style: AdminTheme.label(
-                                      fontSize: 8,
-                                      color: color,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }),
-                          ],
+                      // 설명
+                      if (p.description != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          p.description!,
+                          style: AdminTheme.sans(
+                            fontSize: 10,
+                            color: AdminTheme.textTertiary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ],
@@ -2110,9 +2101,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       style: AdminTheme.label(
                           fontSize: 8, color: AdminTheme.sage)),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
+                  Row(
                     children: [
                       // 전체 등급 칩
                       GestureDetector(
@@ -2161,67 +2150,70 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                         final isOn =
                             allGrades || selectedGrades.contains(grade);
                         final color = _gradeColors[grade]!;
-                        return GestureDetector(
-                          onTap: () => setDialogState(() {
-                            if (allGrades) {
-                              allGrades = false;
-                              selectedGrades
-                                ..clear()
-                                ..addAll(_enabledGrades)
-                                ..remove(grade);
-                            } else if (isOn) {
-                              selectedGrades.remove(grade);
-                            } else {
-                              selectedGrades.add(grade);
-                              if (selectedGrades
-                                  .containsAll(_enabledGrades)) {
-                                allGrades = true;
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: GestureDetector(
+                            onTap: () => setDialogState(() {
+                              if (allGrades) {
+                                allGrades = false;
+                                selectedGrades
+                                  ..clear()
+                                  ..addAll(_enabledGrades)
+                                  ..remove(grade);
+                              } else if (isOn) {
+                                selectedGrades.remove(grade);
+                              } else {
+                                selectedGrades.add(grade);
+                                if (selectedGrades
+                                    .containsAll(_enabledGrades)) {
+                                  allGrades = true;
+                                }
                               }
-                            }
-                          }),
-                          child: MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: isOn
-                                    ? color.withValues(alpha: 0.12)
-                                    : AdminTheme.background,
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
+                            }),
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
                                   color: isOn
-                                      ? color.withValues(alpha: 0.6)
-                                      : AdminTheme.sage
-                                          .withValues(alpha: 0.2),
-                                  width: isOn ? 1 : 0.5,
+                                      ? color.withValues(alpha: 0.12)
+                                      : AdminTheme.background,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: isOn
+                                        ? color.withValues(alpha: 0.6)
+                                        : AdminTheme.sage
+                                            .withValues(alpha: 0.2),
+                                    width: isOn ? 1 : 0.5,
+                                  ),
                                 ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: isOn
-                                          ? color
-                                          : color.withValues(alpha: 0.3),
-                                      shape: BoxShape.circle,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: isOn
+                                            ? color
+                                            : color.withValues(alpha: 0.3),
+                                        shape: BoxShape.circle,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    grade,
-                                    style: AdminTheme.label(
-                                      fontSize: 10,
-                                      color: isOn
-                                          ? color
-                                          : AdminTheme.textTertiary,
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      grade,
+                                      style: AdminTheme.label(
+                                        fontSize: 10,
+                                        color: isOn
+                                            ? color
+                                            : AdminTheme.textTertiary,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -2231,18 +2223,22 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 이름
-                  Text(type == 'bulk' ? '조건명' : '대상명',
+                  // 할인명 (공개용)
+                  Text('할인명',
                       style: AdminTheme.sans(
                           fontSize: 13, fontWeight: FontWeight.w600)),
-                  Text(type == 'bulk' ? 'Condition Name' : 'Target Name',
-                      style: AdminTheme.label(
-                          fontSize: 8, color: AdminTheme.sage)),
+                  Text('이 이름이 예매 화면에 그대로 표시됩니다',
+                      style: AdminTheme.sans(
+                          fontSize: 10, color: AdminTheme.textTertiary)),
                   const SizedBox(height: 4),
                   TextFormField(
                     controller: nameCtrl,
                     style: _inputStyle(),
-                    decoration: _inputDecoration(null),
+                    decoration: _inputDecoration(
+                      type == 'bulk'
+                          ? '예) 2매 이상 구매시 20% 할인'
+                          : '예) 국가유공자(동반1인) 50%',
+                    ),
                   ),
 
                   if (type == 'bulk') ...[
@@ -2264,17 +2260,24 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   ],
 
                   const SizedBox(height: 12),
-                  Text('할인율 (%)',
+                  Text('할인율',
                       style: AdminTheme.sans(
                           fontSize: 13, fontWeight: FontWeight.w600)),
-                  Text('Discount Rate (%)',
+                  Text('Discount Rate',
                       style: AdminTheme.label(
                           fontSize: 8, color: AdminTheme.sage)),
                   const SizedBox(height: 4),
                   TextFormField(
                     controller: rateCtrl,
                     style: _inputStyle(),
-                    decoration: _inputDecoration(null),
+                    decoration: _inputDecoration(null).copyWith(
+                      suffixText: '%',
+                      suffixStyle: AdminTheme.sans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AdminTheme.gold,
+                      ),
+                    ),
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   ),
@@ -2283,14 +2286,16 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   Text('설명 (선택)',
                       style: AdminTheme.sans(
                           fontSize: 13, fontWeight: FontWeight.w600)),
-                  Text('Description (Optional)',
-                      style: AdminTheme.label(
-                          fontSize: 8, color: AdminTheme.sage)),
+                  Text('예매 화면 하단에 부가 설명으로 표시됩니다',
+                      style: AdminTheme.sans(
+                          fontSize: 10, color: AdminTheme.textTertiary)),
                   const SizedBox(height: 4),
                   TextFormField(
                     controller: descCtrl,
                     style: _inputStyle(),
-                    decoration: _inputDecoration(null),
+                    decoration: _inputDecoration(
+                      '예) 2매 이상만 예매 가능. 전체취소만 가능.',
+                    ),
                   ),
                 ],
               ),
@@ -2317,12 +2322,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       ? null
                       : descCtrl.text.trim();
 
-                  // 자동 이름 생성
-                  final fullName = '$name $rate%';
-
                   setState(() {
                     _discountPolicies.add(DiscountPolicy(
-                      name: fullName,
+                      name: name,
                       type: type,
                       minQuantity: qty,
                       discountRate: rate / 100.0,
