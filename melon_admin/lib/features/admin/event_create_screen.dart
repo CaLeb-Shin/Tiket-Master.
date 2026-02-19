@@ -2054,106 +2054,157 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 이미지 그리드
+        // 이미지 그리드 + 스크롤 힌트
         if (_pamphlets.isNotEmpty) ...[
-          SizedBox(
-            height: 140,
-            child: ReorderableListView.builder(
-              scrollDirection: Axis.horizontal,
-              buildDefaultDragHandles: false,
-              itemCount: _pamphlets.length,
-              onReorder: (oldIndex, newIndex) {
-                setState(() {
-                  if (newIndex > oldIndex) newIndex--;
-                  final item = _pamphlets.removeAt(oldIndex);
-                  _pamphlets.insert(newIndex, item);
-                });
-              },
-              itemBuilder: (context, index) {
-                final item = _pamphlets[index];
-                return ReorderableDragStartListener(
-                  key: ValueKey(item.id),
-                  index: index,
-                  child: Container(
-                    width: 100,
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                          color: AdminTheme.sage.withValues(alpha: 0.2),
-                          width: 0.5),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.memory(
-                          item.bytes,
-                          fit: BoxFit.cover,
+          Stack(
+            children: [
+              SizedBox(
+                height: 140,
+                child: ReorderableListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  buildDefaultDragHandles: false,
+                  itemCount: _pamphlets.length,
+                  onReorder: (oldIndex, newIndex) {
+                    setState(() {
+                      if (newIndex > oldIndex) newIndex--;
+                      final item = _pamphlets.removeAt(oldIndex);
+                      _pamphlets.insert(newIndex, item);
+                    });
+                  },
+                  itemBuilder: (context, index) {
+                    final item = _pamphlets[index];
+                    return ReorderableDragStartListener(
+                      key: ValueKey(item.id),
+                      index: index,
+                      child: Container(
+                        width: 100,
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                              color: AdminTheme.sage.withValues(alpha: 0.2),
+                              width: 0.5),
+                          borderRadius: BorderRadius.circular(2),
                         ),
-                        // 페이지 번호
-                        Positioned(
-                          left: 4,
-                          bottom: 4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AdminTheme.background.withValues(alpha: 0.8),
-                              borderRadius: BorderRadius.circular(2),
+                        clipBehavior: Clip.antiAlias,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.memory(
+                              item.bytes,
+                              fit: BoxFit.cover,
                             ),
-                            child: Text('${index + 1}',
-                                style: AdminTheme.label(
-                                  fontSize: 9,
-                                  color: AdminTheme.textPrimary,
-                                )),
-                          ),
-                        ),
-                        // 삭제 버튼
-                        Positioned(
-                          top: 4,
-                          right: 4,
-                          child: GestureDetector(
-                            onTap: () =>
-                                setState(() => _pamphlets.removeAt(index)),
-                            child: Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: AdminTheme.error.withValues(alpha: 0.85),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.close_rounded,
-                                  size: 12, color: Colors.white),
-                            ),
-                          ),
-                        ),
-                        // 용량 표시
-                        if (item.bytes.length > 1 * 1024 * 1024)
-                          Positioned(
-                            right: 4,
-                            bottom: 4,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 4, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: AdminTheme.warning.withValues(alpha: 0.85),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                              child: Text(
-                                '${(item.bytes.length / 1024 / 1024).toStringAsFixed(1)}MB',
-                                style: AdminTheme.label(
-                                    fontSize: 7, color: AdminTheme.onAccent),
+                            // 페이지 번호
+                            Positioned(
+                              left: 4,
+                              bottom: 4,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AdminTheme.background
+                                      .withValues(alpha: 0.8),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                                child: Text('${index + 1}',
+                                    style: AdminTheme.label(
+                                      fontSize: 9,
+                                      color: AdminTheme.textPrimary,
+                                    )),
                               ),
                             ),
-                          ),
-                      ],
+                            // 삭제 버튼
+                            Positioned(
+                              top: 4,
+                              right: 4,
+                              child: GestureDetector(
+                                onTap: () => setState(
+                                    () => _pamphlets.removeAt(index)),
+                                child: Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    color: AdminTheme.error
+                                        .withValues(alpha: 0.85),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close_rounded,
+                                      size: 12, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                            // 용량 표시
+                            if (item.bytes.length > 1 * 1024 * 1024)
+                              Positioned(
+                                right: 4,
+                                bottom: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: AdminTheme.warning
+                                        .withValues(alpha: 0.85),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                  child: Text(
+                                    '${(item.bytes.length / 1024 / 1024).toStringAsFixed(1)}MB',
+                                    style: AdminTheme.label(
+                                        fontSize: 7,
+                                        color: AdminTheme.onAccent),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              // 오른쪽 페이드 (스크롤 더 있음 표시)
+              if (_pamphlets.length > 6)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 32,
+                  child: IgnorePointer(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AdminTheme.background.withValues(alpha: 0.0),
+                            AdminTheme.background,
+                          ],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                      ),
                     ),
                   ),
-                );
-              },
-            ),
+                ),
+            ],
           ),
+          // 스크롤 카운트 힌트
+          if (_pamphlets.length > 6)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Icon(Icons.swipe_rounded,
+                      size: 12,
+                      color: AdminTheme.sage.withValues(alpha: 0.5)),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${_pamphlets.length}장 · 스크롤하여 더보기',
+                    style: AdminTheme.sans(
+                      fontSize: 11,
+                      color: AdminTheme.textTertiary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           const SizedBox(height: 12),
         ],
 
@@ -2217,8 +2268,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
       if (result == null || result.files.isEmpty) return;
 
-      final files = result.files.take(remaining);
-      for (final file in files) {
+      // 이름순 정렬 후 추가
+      final sortedFiles = result.files.take(remaining).toList()
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      for (final file in sortedFiles) {
         if (file.bytes == null) continue;
 
         var bytes = file.bytes!;
