@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../app/admin_theme.dart';
+import '../../widgets/premium_datetime_picker.dart';
 import 'package:melon_core/services/kakao_postcode_service.dart'
     if (dart.library.io) 'package:melon_core/services/kakao_postcode_stub.dart';
 import 'package:melon_core/data/models/discount_policy.dart';
@@ -2328,48 +2329,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
   Future<void> _pickDateTime(
       DateTime current, ValueChanged<DateTime> onChanged) async {
-    final date = await showDatePicker(
+    final result = await showPremiumDateTimePicker(
       context: context,
-      initialDate: current,
-      firstDate: DateTime.now().subtract(const Duration(days: 1)),
-      lastDate: DateTime.now().add(const Duration(days: 730)),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: AdminTheme.gold,
-            onPrimary: AdminTheme.onAccent,
-            surface: AdminTheme.surface,
-            onSurface: AdminTheme.textPrimary,
-          ),
-        ),
-        child: child!,
-      ),
+      initialDateTime: current,
     );
-    if (date != null && mounted) {
-      final time = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(current),
-        builder: (ctx, child) => Theme(
-          data: Theme.of(ctx).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AdminTheme.gold,
-              onPrimary: AdminTheme.onAccent,
-              surface: AdminTheme.surface,
-              onSurface: AdminTheme.textPrimary,
-            ),
-          ),
-          child: child!,
-        ),
-      );
-      if (time != null) {
-        onChanged(DateTime(
-          date.year,
-          date.month,
-          date.day,
-          time.hour,
-          time.minute,
-        ));
-      }
+    if (result != null && mounted) {
+      onChanged(result);
     }
   }
 
