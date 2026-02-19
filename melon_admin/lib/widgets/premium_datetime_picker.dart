@@ -57,9 +57,6 @@ class _PremiumDateTimePickerState extends State<_PremiumDateTimePicker> {
   late int _selectedMinute;
   late DateTime _displayMonth;
 
-  late FixedExtentScrollController _hourController;
-  late FixedExtentScrollController _minuteController;
-
   static const _weekDays = ['월', '화', '수', '목', '금', '토', '일'];
 
   @override
@@ -73,16 +70,6 @@ class _PremiumDateTimePickerState extends State<_PremiumDateTimePicker> {
     _selectedHour = widget.initialDateTime.hour;
     _selectedMinute = widget.initialDateTime.minute;
     _displayMonth = DateTime(_selectedDate.year, _selectedDate.month);
-    _hourController = FixedExtentScrollController(initialItem: _selectedHour);
-    _minuteController =
-        FixedExtentScrollController(initialItem: _selectedMinute);
-  }
-
-  @override
-  void dispose() {
-    _hourController.dispose();
-    _minuteController.dispose();
-    super.dispose();
   }
 
   void _prevMonth() {
@@ -383,11 +370,11 @@ class _PremiumDateTimePickerState extends State<_PremiumDateTimePicker> {
     );
   }
 
-  // ─── Time Picker Wheels ───
+  // ─── Time Picker — 위/아래 버튼 + 애니메이션 ───
   Widget _buildTimePicker() {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: const BoxDecoration(
         border: Border(
           top: BorderSide(
@@ -402,109 +389,46 @@ class _PremiumDateTimePickerState extends State<_PremiumDateTimePicker> {
             'TIME',
             style: AdminTheme.label(fontSize: 9, color: AdminTheme.textTertiary),
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 120,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Hour wheel
-                SizedBox(
-                  width: 64,
-                  child: _buildWheel(
-                    controller: _hourController,
-                    itemCount: 24,
-                    onChanged: (v) => setState(() => _selectedHour = v),
-                    labelBuilder: (i) => i.toString().padLeft(2, '0'),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Hour column
+              _TimeSpinner(
+                value: _selectedHour,
+                maxValue: 23,
+                onChanged: (v) => setState(() => _selectedHour = v),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  ':',
+                  style: AdminTheme.sans(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w200,
+                    color: AdminTheme.gold.withValues(alpha: 0.6),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Text(
-                    ':',
-                    style: AdminTheme.sans(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w300,
-                      color: AdminTheme.gold,
-                    ),
-                  ),
-                ),
-                // Minute wheel
-                SizedBox(
-                  width: 64,
-                  child: _buildWheel(
-                    controller: _minuteController,
-                    itemCount: 60,
-                    onChanged: (v) => setState(() => _selectedMinute = v),
-                    labelBuilder: (i) => i.toString().padLeft(2, '0'),
-                  ),
-                ),
-              ],
+              ),
+              // Minute column
+              _TimeSpinner(
+                value: _selectedMinute,
+                maxValue: 59,
+                step: 5,
+                onChanged: (v) => setState(() => _selectedMinute = v),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '5분 단위 · 길게 눌러 빠르게 조절',
+            style: AdminTheme.sans(
+              fontSize: 10,
+              color: AdminTheme.textTertiary,
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildWheel({
-    required FixedExtentScrollController controller,
-    required int itemCount,
-    required ValueChanged<int> onChanged,
-    required String Function(int) labelBuilder,
-  }) {
-    return Stack(
-      children: [
-        // Selection highlight
-        Positioned.fill(
-          child: Align(
-            alignment: Alignment.center,
-            child: Container(
-              height: 36,
-              decoration: BoxDecoration(
-                color: AdminTheme.gold.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: AdminTheme.gold.withValues(alpha: 0.2),
-                  width: 0.5,
-                ),
-              ),
-            ),
-          ),
-        ),
-        // Wheel
-        ListWheelScrollView.useDelegate(
-          controller: controller,
-          itemExtent: 36,
-          diameterRatio: 1.5,
-          perspective: 0.003,
-          physics: const FixedExtentScrollPhysics(),
-          onSelectedItemChanged: onChanged,
-          childDelegate: ListWheelChildBuilderDelegate(
-            childCount: itemCount,
-            builder: (context, index) {
-              final isSelected = (controller.hasClients &&
-                      controller.selectedItem == index) ||
-                  (!controller.hasClients &&
-                      controller.initialItem == index);
-              return Center(
-                child: Text(
-                  labelBuilder(index),
-                  style: AdminTheme.sans(
-                    fontSize: isSelected ? 20 : 14,
-                    fontWeight:
-                        isSelected ? FontWeight.w500 : FontWeight.w300,
-                    color: isSelected
-                        ? AdminTheme.gold
-                        : AdminTheme.textTertiary,
-                    letterSpacing: 2,
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
     );
   }
 
@@ -579,6 +503,190 @@ class _PremiumDateTimePickerState extends State<_PremiumDateTimePicker> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 시/분 스피너 — 위/아래 화살표 + 애니메이션 숫자 전환 + 길게 눌러 연속 조절
+class _TimeSpinner extends StatefulWidget {
+  final int value;
+  final int maxValue;
+  final int step;
+  final ValueChanged<int> onChanged;
+
+  const _TimeSpinner({
+    required this.value,
+    required this.maxValue,
+    this.step = 1,
+    required this.onChanged,
+  });
+
+  @override
+  State<_TimeSpinner> createState() => _TimeSpinnerState();
+}
+
+class _TimeSpinnerState extends State<_TimeSpinner> {
+  bool _upPressed = false;
+  bool _downPressed = false;
+
+  void _increment() {
+    var next = widget.value + widget.step;
+    if (next > widget.maxValue) next = 0;
+    widget.onChanged(next);
+  }
+
+  void _decrement() {
+    var next = widget.value - widget.step;
+    if (next < 0) next = widget.maxValue - (widget.maxValue % widget.step);
+    widget.onChanged(next);
+  }
+
+  /// 길게 누르면 반복 실행
+  Future<void> _startRepeating(VoidCallback action) async {
+    action();
+    await Future.delayed(const Duration(milliseconds: 400));
+    while ((_upPressed || _downPressed) && mounted) {
+      action();
+      await Future.delayed(const Duration(milliseconds: 80));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final display = widget.value.toString().padLeft(2, '0');
+    final prev = ((widget.value - widget.step) < 0
+            ? widget.maxValue - (widget.maxValue % widget.step)
+            : widget.value - widget.step)
+        .toString()
+        .padLeft(2, '0');
+    final next = ((widget.value + widget.step) > widget.maxValue
+            ? 0
+            : widget.value + widget.step)
+        .toString()
+        .padLeft(2, '0');
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Up button
+        _arrowButton(
+          icon: Icons.keyboard_arrow_up_rounded,
+          onTap: _increment,
+          onLongPressStart: () {
+            _upPressed = true;
+            _startRepeating(_increment);
+          },
+          onLongPressEnd: () => _upPressed = false,
+        ),
+        const SizedBox(height: 4),
+        // Number display with adjacent values
+        SizedBox(
+          width: 72,
+          child: Column(
+            children: [
+              // Previous value (dim)
+              Text(
+                prev,
+                style: AdminTheme.sans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w300,
+                  color: AdminTheme.textTertiary,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 2),
+              // Current value (highlighted)
+              Container(
+                width: 72,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AdminTheme.gold.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: AdminTheme.gold.withValues(alpha: 0.25),
+                    width: 0.5,
+                  ),
+                ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 150),
+                  transitionBuilder: (child, anim) => FadeTransition(
+                    opacity: anim,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.3),
+                        end: Offset.zero,
+                      ).animate(anim),
+                      child: child,
+                    ),
+                  ),
+                  child: Text(
+                    display,
+                    key: ValueKey(display),
+                    style: AdminTheme.sans(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w500,
+                      color: AdminTheme.gold,
+                      letterSpacing: 4,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 2),
+              // Next value (dim)
+              Text(
+                next,
+                style: AdminTheme.sans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w300,
+                  color: AdminTheme.textTertiary,
+                  letterSpacing: 2,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        // Down button
+        _arrowButton(
+          icon: Icons.keyboard_arrow_down_rounded,
+          onTap: _decrement,
+          onLongPressStart: () {
+            _downPressed = true;
+            _startRepeating(_decrement);
+          },
+          onLongPressEnd: () => _downPressed = false,
+        ),
+      ],
+    );
+  }
+
+  Widget _arrowButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    required VoidCallback onLongPressStart,
+    required VoidCallback onLongPressEnd,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      onLongPressStart: (_) => onLongPressStart(),
+      onLongPressEnd: (_) => onLongPressEnd(),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          width: 40,
+          height: 28,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: AdminTheme.sage.withValues(alpha: 0.2),
+              width: 0.5,
+            ),
+          ),
+          child: Icon(icon, size: 20, color: AdminTheme.textSecondary),
+        ),
       ),
     );
   }
