@@ -1066,6 +1066,14 @@ class _EventRowState extends State<_EventRow> {
                         children: [
                           shad.MenuButton(
                             child: Text(
+                              '공연 수정',
+                              style: AdminTheme.sans(fontSize: 13),
+                            ),
+                            onPressed: (_) =>
+                                context.push('/events/${event.id}/edit'),
+                          ),
+                          shad.MenuButton(
+                            child: Text(
                               '좌석 관리',
                               style: AdminTheme.sans(fontSize: 13),
                             ),

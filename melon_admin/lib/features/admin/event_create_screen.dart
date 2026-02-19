@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../app/admin_theme.dart';
 import '../../widgets/premium_datetime_picker.dart';
@@ -28,7 +29,8 @@ import 'widgets/seat_map_picker.dart';
 // =============================================================================
 
 class EventCreateScreen extends ConsumerStatefulWidget {
-  const EventCreateScreen({super.key});
+  final String? editEventId;
+  const EventCreateScreen({super.key, this.editEventId});
 
   @override
   ConsumerState<EventCreateScreen> createState() => _EventCreateScreenState();
@@ -96,6 +98,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   double _submitProgress = 0.0;
   String _submitStage = '';
 
+  // ── 수정 모드 ──
+  bool get _isEditMode => widget.editEventId != null;
+  bool _isLoadingEvent = false;
+
   // ── 임시저장 (Draft) ──
   static const _draftKey = 'event_create_draft';
   Timer? _autoSaveTimer;
@@ -137,9 +143,15 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         text: priceFmt.format(SeatMapParser.getDefaultPrice(grade)),
       );
     }
-    _checkDraft();
-    // 30초마다 자동 저장
-    _autoSaveTimer = Timer.periodic(const Duration(seconds: 30), (_) => _saveDraft());
+    if (_isEditMode) {
+      _loadEventForEdit();
+    } else {
+      _checkDraft();
+    }
+    // 30초마다 자동 저장 (신규 등록 시에만)
+    if (!_isEditMode) {
+      _autoSaveTimer = Timer.periodic(const Duration(seconds: 30), (_) => _saveDraft());
+    }
   }
 
   @override
@@ -316,6 +328,63 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // LOAD EVENT FOR EDIT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> _loadEventForEdit() async {
+    setState(() => _isLoadingEvent = true);
+    try {
+      final event = await ref
+          .read(eventRepositoryProvider)
+          .getEvent(widget.editEventId!);
+      if (event == null || !mounted) return;
+
+      final priceFmt = NumberFormat('#,###');
+      setState(() {
+        _titleCtrl.text = event.title;
+        _category = event.category ?? '콘서트';
+        _ageLimit = event.ageLimit ?? '전체관람가';
+        _startAt = event.startAt;
+        _yearCtrl.text = _startAt.year.toString();
+        _monthCtrl.text = _startAt.month.toString();
+        _dayCtrl.text = _startAt.day.toString();
+        _hourCtrl.text = _startAt.hour.toString().padLeft(2, '0');
+        _minuteCtrl.text = _startAt.minute.toString().padLeft(2, '0');
+        _venueNameCtrl.text = event.venueName ?? '';
+        _venueAddressCtrl.text = event.venueAddress ?? '';
+        _runningTimeCtrl.text = (event.runningTime ?? 120).toString();
+        _maxTicketsCtrl.text = (event.maxTicketsPerOrder).toString();
+        _descriptionCtrl.text = event.description;
+        _castCtrl.text = event.cast ?? '';
+        _organizerCtrl.text = event.organizer ?? '';
+        _plannerCtrl.text = event.planner ?? '';
+        _noticeCtrl.text = event.notice ?? '';
+        _showRemainingSeats = event.showRemainingSeats;
+
+        if (event.priceByGrade != null) {
+          _enabledGrades
+            ..clear()
+            ..addAll(event.priceByGrade!.keys);
+          for (final entry in event.priceByGrade!.entries) {
+            _gradePriceControllers[entry.key]?.text =
+                priceFmt.format(entry.value);
+          }
+        }
+
+        if (event.discountPolicies != null) {
+          _discountPolicies
+            ..clear()
+            ..addAll(event.discountPolicies!);
+        }
+      });
+    } catch (e) {
+      if (mounted) _showError('공연 데이터 로드 실패: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingEvent = false);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // BUILD
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -323,7 +392,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider);
 
-    if (currentUser.isLoading) {
+    if (currentUser.isLoading || _isLoadingEvent) {
       return const Scaffold(
         backgroundColor: AdminTheme.background,
         body: Center(
@@ -436,7 +505,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       children: [
         // ── Form Title ──
         Text(
-          '공연 등록',
+          _isEditMode ? '공연 수정' : '공연 등록',
           style: AdminTheme.serif(
             fontSize: 28,
             fontWeight: FontWeight.w300,
@@ -494,14 +563,48 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         // ── Section 2: 공연장 ──
         _sectionHeader('공연장'),
         const SizedBox(height: 24),
-        _buildSeatMapSection(),
-
-        // ── Section 3: 등급별 가격 (좌석 데이터 로드 후 자동 표시) ──
-        if (_seatMapData != null) ...[
-          const SizedBox(height: 48),
-          _sectionHeader('등급별 가격'),
-          const SizedBox(height: 24),
-          _buildGradeSelector(),
+        if (_isEditMode) ...[
+          // 수정 모드: 좌석 배치 변경 불가 안내
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AdminTheme.sage.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: AdminTheme.border, width: 0.5),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline_rounded,
+                    size: 18, color: AdminTheme.textTertiary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '좌석 배치는 수정할 수 없습니다. 좌석 변경이 필요하면 좌석 관리에서 수정하세요.',
+                    style: AdminTheme.sans(
+                      fontSize: 13,
+                      color: AdminTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // 수정 모드에서도 등급별 가격은 수정 가능
+          if (_enabledGrades.isNotEmpty) ...[
+            const SizedBox(height: 48),
+            _sectionHeader('등급별 가격'),
+            const SizedBox(height: 24),
+            _buildGradeSelector(),
+          ],
+        ] else ...[
+          _buildSeatMapSection(),
+          // ── Section 3: 등급별 가격 (좌석 데이터 로드 후 자동 표시) ──
+          if (_seatMapData != null) ...[
+            const SizedBox(height: 48),
+            _sectionHeader('등급별 가격'),
+            const SizedBox(height: 24),
+            _buildGradeSelector(),
+          ],
         ],
 
         const SizedBox(height: 48),
@@ -816,7 +919,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'REGISTER EVENT',
+                      _isEditMode ? 'UPDATE EVENT' : 'REGISTER EVENT',
                       style: AdminTheme.serif(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -825,7 +928,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    const Icon(Icons.arrow_forward, size: 18),
+                    Icon(_isEditMode ? Icons.save_rounded : Icons.arrow_forward, size: 18),
                   ],
                 ),
               ),
@@ -3031,11 +3134,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Future<void> _submitEvent() async {
+    if (_isSubmitting) return; // 중복 등록 방지
     if (!_formKey.currentState!.validate()) {
       _showError('공연명을 입력해주세요');
       return;
     }
-    if (_seatMapData == null) {
+    if (!_isEditMode && _seatMapData == null) {
       _showError('좌석 배치를 선택해주세요');
       return;
     }
@@ -3051,16 +3155,6 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     });
 
     try {
-      // 활성화된 등급만 좌석 수 계산
-      var totalSeats = 0;
-      for (final floor in _seatMapData!.floors) {
-        for (final block in floor.blocks) {
-          if (block.grade == null || _enabledGrades.contains(block.grade)) {
-            totalSeats += block.totalSeats;
-          }
-        }
-      }
-
       // 활성화된 등급별 가격 맵
       final priceByGrade = <String, int>{};
       for (final grade in _enabledGrades) {
@@ -3076,11 +3170,123 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           ? priceByGrade.values.reduce((a, b) => a < b ? a : b)
           : 55000;
 
+      final saleEndAt = _startAt.subtract(const Duration(hours: 1));
+      final revealAt = _startAt.subtract(const Duration(hours: 1));
+
+      // ════════════════════════════════════════════════════════════════════
+      // 수정 모드
+      // ════════════════════════════════════════════════════════════════════
+      if (_isEditMode) {
+        final eventId = widget.editEventId!;
+        if (mounted) setState(() { _submitProgress = 0.10; _submitStage = '공연 정보 수정 중...'; });
+
+        final updateData = <String, dynamic>{
+          'title': _titleCtrl.text.trim(),
+          'description': _descriptionCtrl.text.trim(),
+          'startAt': Timestamp.fromDate(_startAt),
+          'saleEndAt': Timestamp.fromDate(saleEndAt),
+          'revealAt': Timestamp.fromDate(revealAt),
+          'price': basePrice,
+          'maxTicketsPerOrder': int.tryParse(_maxTicketsCtrl.text) ?? 0,
+          'category': _category,
+          'venueName': _venueNameCtrl.text.trim().isEmpty
+              ? null
+              : _venueNameCtrl.text.trim(),
+          'venueAddress': _venueAddressCtrl.text.trim().isEmpty
+              ? null
+              : _venueAddressCtrl.text.trim(),
+          'runningTime': int.tryParse(_runningTimeCtrl.text) ?? 120,
+          'ageLimit': _ageLimit,
+          'cast': _castCtrl.text.trim().isEmpty ? null : _castCtrl.text.trim(),
+          'organizer': _organizerCtrl.text.trim().isEmpty
+              ? null
+              : _organizerCtrl.text.trim(),
+          'planner': _plannerCtrl.text.trim().isEmpty
+              ? null
+              : _plannerCtrl.text.trim(),
+          'notice':
+              _noticeCtrl.text.trim().isEmpty ? null : _noticeCtrl.text.trim(),
+          'discount': _discountPolicies.isNotEmpty
+              ? _discountPolicies.map((p) => p.name).join(', ')
+              : null,
+          'priceByGrade': priceByGrade.isNotEmpty ? priceByGrade : null,
+          'discountPolicies':
+              _discountPolicies.isNotEmpty
+                  ? _discountPolicies.map((p) => p.toMap()).toList()
+                  : null,
+          'showRemainingSeats': _showRemainingSeats,
+        };
+
+        await ref.read(eventRepositoryProvider).updateEvent(eventId, updateData);
+        if (mounted) setState(() => _submitProgress = 0.40);
+
+        // 포스터 새로 업로드한 경우
+        if (_posterBytes != null && _posterFileName != null) {
+          if (mounted) setState(() { _submitProgress = 0.50; _submitStage = '포스터 업로드 중...'; });
+          final imageUrl =
+              await ref.read(storageServiceProvider).uploadPosterImage(
+                    bytes: _posterBytes!,
+                    eventId: eventId,
+                    fileName: _posterFileName!,
+                  );
+          await ref.read(eventRepositoryProvider).updateEvent(
+            eventId,
+            {'imageUrl': imageUrl},
+          );
+        }
+        if (mounted) setState(() => _submitProgress = 0.70);
+
+        // 팜플렛 새로 업로드한 경우
+        if (_pamphlets.isNotEmpty) {
+          if (mounted) setState(() => _submitStage = '팜플렛 업로드 중...');
+          final pamphletUrls = <String>[];
+          for (var i = 0; i < _pamphlets.length; i++) {
+            final item = _pamphlets[i];
+            if (mounted) {
+              setState(() {
+                _submitProgress = 0.70 + (0.25 * (i / _pamphlets.length));
+                _submitStage = '팜플렛 업로드 중... (${i + 1}/${_pamphlets.length})';
+              });
+            }
+            final url = await ref.read(storageServiceProvider).uploadPamphletImage(
+                  bytes: item.bytes,
+                  eventId: eventId,
+                  fileName: item.fileName,
+                  index: i,
+                );
+            pamphletUrls.add(url);
+          }
+          await ref.read(eventRepositoryProvider).updateEvent(
+            eventId,
+            {'pamphletUrls': pamphletUrls},
+          );
+        }
+
+        if (mounted) setState(() { _submitProgress = 1.0; _submitStage = '수정 완료!'; });
+
+        if (mounted) {
+          _showEditSuccessDialog(eventId, _titleCtrl.text.trim());
+        }
+        return;
+      }
+
+      // ════════════════════════════════════════════════════════════════════
+      // 신규 등록 모드
+      // ════════════════════════════════════════════════════════════════════
+
+      // 활성화된 등급만 좌석 수 계산
+      var totalSeats = 0;
+      for (final floor in _seatMapData!.floors) {
+        for (final block in floor.blocks) {
+          if (block.grade == null || _enabledGrades.contains(block.grade)) {
+            totalSeats += block.totalSeats;
+          }
+        }
+      }
+
       // 판매 설정 자동 계산
       final now = DateTime.now();
       final saleStartAt = now;
-      final saleEndAt = _startAt.subtract(const Duration(hours: 1));
-      final revealAt = _startAt.subtract(const Duration(hours: 1));
 
       final event = Event(
         id: '',
@@ -3416,6 +3622,84 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               ],
             ),
           ),
+    );
+  }
+
+  void _showEditSuccessDialog(String eventId, String title) {
+    showAnimatedDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AnimatedDialogContent(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: AdminTheme.goldGradient,
+                boxShadow: [
+                  BoxShadow(
+                    color: AdminTheme.gold.withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.check_rounded,
+                  color: Color(0xFFFDF3F6), size: 36),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              '공연이 수정되었습니다!',
+              style: AdminTheme.serif(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: AdminTheme.sans(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AdminTheme.gold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  context.go('/');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AdminTheme.gold,
+                  foregroundColor: AdminTheme.onAccent,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                child: Text(
+                  'DASHBOARD',
+                  style: AdminTheme.serif(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AdminTheme.onAccent,
+                    letterSpacing: 2.0,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
