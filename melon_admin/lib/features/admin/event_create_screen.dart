@@ -78,6 +78,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   Uint8List? _posterBytes;
   String? _posterFileName;
 
+  // ── 팜플렛 (최대 8장, 장당 3MB) ──
+  final List<_PamphletItem> _pamphlets = [];
+  static const _maxPamphlets = 8;
+  static const _maxPamphletBytes = 3 * 1024 * 1024; // 3MB per image
+
   // ── 할인 정책 ──
   final List<DiscountPolicy> _discountPolicies = [];
 
@@ -337,6 +342,19 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         _sectionHeader('포스터'),
         const SizedBox(height: 24),
         _buildPosterPicker(),
+
+        const SizedBox(height: 48),
+
+        // ── Section 4.5: 팜플렛 ──
+        _sectionHeader('팜플렛'),
+        const SizedBox(height: 8),
+        Text('공연 상세 팜플렛 이미지를 등록하세요 (최대 $_maxPamphlets장, 장당 3MB)',
+            style: AdminTheme.sans(
+              fontSize: 12,
+              color: AdminTheme.textTertiary,
+            )),
+        const SizedBox(height: 16),
+        _buildPamphletPicker(),
 
         const SizedBox(height: 48),
 
@@ -1913,6 +1931,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       return Container(
         decoration: BoxDecoration(
           border: Border.all(color: AdminTheme.gold, width: 0.5),
+          borderRadius: BorderRadius.circular(2),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
@@ -1920,8 +1939,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             Image.memory(
               _posterBytes!,
               width: double.infinity,
-              height: 200,
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
             ),
             Positioned(
               top: 8,
@@ -2015,6 +2033,213 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         ),
       ),
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PAMPHLET PICKER
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildPamphletPicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 이미지 그리드
+        if (_pamphlets.isNotEmpty) ...[
+          SizedBox(
+            height: 140,
+            child: ReorderableListView.builder(
+              scrollDirection: Axis.horizontal,
+              buildDefaultDragHandles: false,
+              itemCount: _pamphlets.length,
+              onReorder: (oldIndex, newIndex) {
+                setState(() {
+                  if (newIndex > oldIndex) newIndex--;
+                  final item = _pamphlets.removeAt(oldIndex);
+                  _pamphlets.insert(newIndex, item);
+                });
+              },
+              itemBuilder: (context, index) {
+                final item = _pamphlets[index];
+                return ReorderableDragStartListener(
+                  key: ValueKey(item.id),
+                  index: index,
+                  child: Container(
+                    width: 100,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                          color: AdminTheme.sage.withValues(alpha: 0.2),
+                          width: 0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.memory(
+                          item.bytes,
+                          fit: BoxFit.cover,
+                        ),
+                        // 페이지 번호
+                        Positioned(
+                          left: 4,
+                          bottom: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AdminTheme.background.withValues(alpha: 0.8),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            child: Text('${index + 1}',
+                                style: AdminTheme.label(
+                                  fontSize: 9,
+                                  color: AdminTheme.textPrimary,
+                                )),
+                          ),
+                        ),
+                        // 삭제 버튼
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: GestureDetector(
+                            onTap: () =>
+                                setState(() => _pamphlets.removeAt(index)),
+                            child: Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: AdminTheme.error.withValues(alpha: 0.85),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close_rounded,
+                                  size: 12, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                        // 용량 표시
+                        if (item.bytes.length > 1 * 1024 * 1024)
+                          Positioned(
+                            right: 4,
+                            bottom: 4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AdminTheme.warning.withValues(alpha: 0.85),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                              child: Text(
+                                '${(item.bytes.length / 1024 / 1024).toStringAsFixed(1)}MB',
+                                style: AdminTheme.label(
+                                    fontSize: 7, color: AdminTheme.onAccent),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // 추가 버튼
+        if (_pamphlets.length < _maxPamphlets)
+          InkWell(
+            onTap: _pickPamphletImages,
+            child: Container(
+              width: double.infinity,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AdminTheme.surface,
+                border: Border.all(
+                  color: AdminTheme.sage.withValues(alpha: 0.25),
+                  width: 0.5,
+                ),
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: CustomPaint(
+                painter: _DashedBorderPainter(
+                  color: AdminTheme.sage.withValues(alpha: 0.3),
+                  strokeWidth: 0.5,
+                  dashWidth: 6,
+                  dashSpace: 4,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_photo_alternate_outlined,
+                        size: 20,
+                        color: AdminTheme.sage.withValues(alpha: 0.5)),
+                    const SizedBox(width: 8),
+                    Text(
+                      _pamphlets.isEmpty
+                          ? '팜플렛 이미지 추가'
+                          : '추가 (${_pamphlets.length}/$_maxPamphlets)',
+                      style: AdminTheme.sans(
+                        fontSize: 12,
+                        color: AdminTheme.sage,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _pickPamphletImages() async {
+    try {
+      final remaining = _maxPamphlets - _pamphlets.length;
+      if (remaining <= 0) return;
+
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: true,
+        withData: true,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final files = result.files.take(remaining);
+      for (final file in files) {
+        if (file.bytes == null) continue;
+
+        var bytes = file.bytes!;
+        final name = file.name;
+
+        // 3MB 초과 시 거부
+        if (bytes.length > _maxPamphletBytes) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$name: 3MB 초과 (${(bytes.length / 1024 / 1024).toStringAsFixed(1)}MB). 이미지를 줄여주세요.'),
+                backgroundColor: AdminTheme.error,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4)),
+              ),
+            );
+          }
+          continue;
+        }
+
+        _pamphlets.add(_PamphletItem(
+          id: '${DateTime.now().microsecondsSinceEpoch}_${_pamphlets.length}',
+          bytes: bytes,
+          fileName: name,
+        ));
+      }
+
+      if (mounted) setState(() {});
+    } catch (_) {
+      // 취소됨
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2350,6 +2575,25 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         );
       }
 
+      // 팜플렛 업로드
+      if (_pamphlets.isNotEmpty) {
+        final pamphletUrls = <String>[];
+        for (var i = 0; i < _pamphlets.length; i++) {
+          final item = _pamphlets[i];
+          final url = await ref.read(storageServiceProvider).uploadPamphletImage(
+                bytes: item.bytes,
+                eventId: eventId,
+                fileName: item.fileName,
+                index: i,
+              );
+          pamphletUrls.add(url);
+        }
+        await ref.read(eventRepositoryProvider).updateEvent(
+          eventId,
+          {'pamphletUrls': pamphletUrls},
+        );
+      }
+
       // 좌석 생성
       await _createSeatsFromSeatMap(eventId);
 
@@ -2634,6 +2878,18 @@ class _ThousandsSeparatorFormatter extends TextInputFormatter {
       selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
+}
+
+/// 팜플렛 아이템
+class _PamphletItem {
+  final String id;
+  final Uint8List bytes;
+  final String fileName;
+  const _PamphletItem({
+    required this.id,
+    required this.bytes,
+    required this.fileName,
+  });
 }
 
 /// Dashed border painter for editorial poster upload area

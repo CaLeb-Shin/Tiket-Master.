@@ -119,6 +119,20 @@ class StorageService {
     );
   }
 
+  /// 팜플렛 이미지 업로드 (개별)
+  Future<String> uploadPamphletImage({
+    required Uint8List bytes,
+    required String eventId,
+    required String fileName,
+    required int index,
+  }) async {
+    return uploadImageBytes(
+      bytes: bytes,
+      folder: 'pamphlets/$eventId',
+      fileName: 'page_${index}_$fileName',
+    );
+  }
+
   /// 좌석배치도 이미지 업로드
   Future<String> uploadSeatMapImage({
     required Uint8List bytes,

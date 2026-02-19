@@ -33,6 +33,7 @@ class Event {
   final Map<String, int>? priceByGrade; // 등급별 가격 (VIP, R, S, A 등)
   final List<DiscountPolicy>? discountPolicies; // 구조화된 할인 정책
   final bool showRemainingSeats; // 잔여석 표시 여부
+  final List<String>? pamphletUrls; // 팜플렛 이미지 URL 목록 (최대 8장)
 
   Event({
     required this.id,
@@ -63,6 +64,7 @@ class Event {
     this.priceByGrade,
     this.discountPolicies,
     this.showRemainingSeats = true,
+    this.pamphletUrls,
   });
 
   /// 좌석 공개 여부
@@ -111,6 +113,9 @@ class Event {
               .toList()
           : null,
       showRemainingSeats: data['showRemainingSeats'] ?? true,
+      pamphletUrls: data['pamphletUrls'] != null
+          ? List<String>.from(data['pamphletUrls'])
+          : null,
     );
   }
 
@@ -143,6 +148,7 @@ class Event {
       'priceByGrade': priceByGrade,
       'discountPolicies': discountPolicies?.map((e) => e.toMap()).toList(),
       'showRemainingSeats': showRemainingSeats,
+      'pamphletUrls': pamphletUrls,
     };
   }
 }
