@@ -845,18 +845,38 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                             fontWeight: FontWeight.w600,
                             color: AdminTheme.textPrimary,
                           )),
-                      if (venue.hasSeatView) ...[
+                      if (venue.seatMapImageUrl != null &&
+                          venue.seatMapImageUrl!.isNotEmpty) ...[
                         const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
-                            border: Border.all(color: AdminTheme.gold.withValues(alpha: 0.4), width: 0.5),
+                            border: Border.all(
+                                color: AdminTheme.sage.withValues(alpha: 0.4),
+                                width: 0.5),
+                            borderRadius: BorderRadius.circular(2),
                           ),
-                          child: Text('VIEW',
+                          child: Text('2D VIEW',
                               style: AdminTheme.label(
                                 fontSize: 8,
-                                color: AdminTheme.gold,
+                                color: AdminTheme.textSecondary,
+                              )),
+                        ),
+                      ],
+                      if (venue.hasSeatView) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            gradient: AdminTheme.goldGradient,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          child: Text('3D VIEW',
+                              style: AdminTheme.label(
+                                fontSize: 8,
+                                color: AdminTheme.onAccent,
                               )),
                         ),
                       ],

@@ -231,14 +231,15 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AdminTheme.info.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                          color: AdminTheme.sage.withValues(alpha: 0.4),
+                                          width: 0.5),
+                                      borderRadius: BorderRadius.circular(2),
                                     ),
-                                    child: Text('배치도',
-                                        style: AdminTheme.sans(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w700,
-                                          color: AdminTheme.info,
+                                    child: Text('2D VIEW',
+                                        style: AdminTheme.label(
+                                          fontSize: 8,
+                                          color: AdminTheme.textSecondary,
                                         )),
                                   ),
                                 if (venue.hasSeatView)
@@ -246,14 +247,13 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AdminTheme.gold.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(4),
+                                      gradient: AdminTheme.goldGradient,
+                                      borderRadius: BorderRadius.circular(2),
                                     ),
-                                    child: Text('3D 시야',
-                                        style: AdminTheme.sans(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w700,
-                                          color: AdminTheme.gold,
+                                    child: Text('3D VIEW',
+                                        style: AdminTheme.label(
+                                          fontSize: 8,
+                                          color: AdminTheme.onAccent,
                                         )),
                                   ),
                               ],
