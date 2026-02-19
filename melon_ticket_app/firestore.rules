@@ -58,10 +58,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
-    // 좌석 (서버 함수만 쓰기 가능)
+    // 좌석 (관리자 쓰기 + 공개 읽기)
     match /seats/{seatId} {
       allow read: if true;
-      allow write: if false; // 클라이언트 쓰기 금지, Functions에서만
+      allow write: if isAdmin();
     }
     
     // 주문 (본인 것만)

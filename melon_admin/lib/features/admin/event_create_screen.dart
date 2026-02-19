@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -5,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../app/admin_theme.dart';
 import '../../widgets/premium_datetime_picker.dart';
 import 'package:melon_core/services/kakao_postcode_service.dart'
@@ -91,6 +94,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   bool _showRemainingSeats = true;
   bool _isSubmitting = false;
 
+  // ── 임시저장 (Draft) ──
+  static const _draftKey = 'event_create_draft';
+  Timer? _autoSaveTimer;
+  bool _hasDraft = false;
+  DateTime? _draftSavedAt;
+
   static const _categories = [
     '콘서트',
     '뮤지컬',
@@ -126,10 +135,14 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         text: priceFmt.format(SeatMapParser.getDefaultPrice(grade)),
       );
     }
+    _checkDraft();
+    // 30초마다 자동 저장
+    _autoSaveTimer = Timer.periodic(const Duration(seconds: 30), (_) => _saveDraft());
   }
 
   @override
   void dispose() {
+    _autoSaveTimer?.cancel();
     _titleCtrl.dispose();
     _venueNameCtrl.dispose();
     _venueAddressCtrl.dispose();
@@ -150,6 +163,154 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       c.dispose();
     }
     super.dispose();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DRAFT (임시저장)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> _checkDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = prefs.getString(_draftKey);
+    if (json != null && json.isNotEmpty) {
+      final data = jsonDecode(json) as Map<String, dynamic>;
+      final savedAt = data['savedAt'] != null
+          ? DateTime.tryParse(data['savedAt'] as String)
+          : null;
+      if (mounted) {
+        setState(() {
+          _hasDraft = true;
+          _draftSavedAt = savedAt;
+        });
+      }
+    }
+  }
+
+  Future<void> _saveDraft({bool silent = true}) async {
+    // 폼이 비어있으면 저장하지 않음
+    if (_titleCtrl.text.trim().isEmpty &&
+        _venueNameCtrl.text.trim().isEmpty &&
+        _descriptionCtrl.text.trim().isEmpty) {
+      return;
+    }
+
+    final data = <String, dynamic>{
+      'savedAt': DateTime.now().toIso8601String(),
+      'title': _titleCtrl.text,
+      'category': _category,
+      'ageLimit': _ageLimit,
+      'startAt': _startAt.toIso8601String(),
+      'venueName': _venueNameCtrl.text,
+      'venueAddress': _venueAddressCtrl.text,
+      'runningTime': _runningTimeCtrl.text,
+      'maxTickets': _maxTicketsCtrl.text,
+      'description': _descriptionCtrl.text,
+      'cast': _castCtrl.text,
+      'organizer': _organizerCtrl.text,
+      'planner': _plannerCtrl.text,
+      'notice': _noticeCtrl.text,
+      'enabledGrades': _enabledGrades.toList(),
+      'gradePrices': {
+        for (final e in _gradePriceControllers.entries) e.key: e.value.text,
+      },
+      'showRemainingSeats': _showRemainingSeats,
+      'discountPolicies':
+          _discountPolicies.map((p) => p.toMap()).toList(),
+      if (_selectedVenue != null) 'venueId': _selectedVenue!.id,
+    };
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_draftKey, jsonEncode(data));
+
+    if (mounted) {
+      setState(() {
+        _draftSavedAt = DateTime.now();
+        _hasDraft = true;
+      });
+    }
+
+    if (!silent && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '임시저장 완료 (${DateFormat('HH:mm').format(DateTime.now())})',
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: AdminTheme.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _loadDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = prefs.getString(_draftKey);
+    if (json == null || json.isEmpty) return;
+
+    final data = jsonDecode(json) as Map<String, dynamic>;
+
+    setState(() {
+      _hasDraft = false;
+      _titleCtrl.text = data['title'] as String? ?? '';
+      _category = data['category'] as String? ?? '콘서트';
+      _ageLimit = data['ageLimit'] as String? ?? '전체관람가';
+
+      if (data['startAt'] != null) {
+        _startAt = DateTime.tryParse(data['startAt'] as String) ?? _startAt;
+        _yearCtrl.text = _startAt.year.toString();
+        _monthCtrl.text = _startAt.month.toString();
+        _dayCtrl.text = _startAt.day.toString();
+        _hourCtrl.text = _startAt.hour.toString().padLeft(2, '0');
+        _minuteCtrl.text = _startAt.minute.toString().padLeft(2, '0');
+      }
+
+      _venueNameCtrl.text = data['venueName'] as String? ?? '';
+      _venueAddressCtrl.text = data['venueAddress'] as String? ?? '';
+      _runningTimeCtrl.text = data['runningTime'] as String? ?? '120';
+      _maxTicketsCtrl.text = data['maxTickets'] as String? ?? '0';
+      _descriptionCtrl.text = data['description'] as String? ?? '';
+      _castCtrl.text = data['cast'] as String? ?? '';
+      _organizerCtrl.text = data['organizer'] as String? ?? '';
+      _plannerCtrl.text = data['planner'] as String? ?? '';
+      _noticeCtrl.text = data['notice'] as String? ?? '';
+      _showRemainingSeats = data['showRemainingSeats'] as bool? ?? true;
+
+      if (data['enabledGrades'] != null) {
+        _enabledGrades
+          ..clear()
+          ..addAll(List<String>.from(data['enabledGrades'] as List));
+      }
+
+      if (data['gradePrices'] != null) {
+        final prices = data['gradePrices'] as Map<String, dynamic>;
+        for (final entry in prices.entries) {
+          _gradePriceControllers[entry.key]?.text = entry.value as String;
+        }
+      }
+
+      if (data['discountPolicies'] != null) {
+        _discountPolicies
+          ..clear()
+          ..addAll(
+            (data['discountPolicies'] as List)
+                .map((m) => DiscountPolicy.fromMap(m as Map<String, dynamic>)),
+          );
+      }
+    });
+  }
+
+  Future<void> _clearDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_draftKey);
+    if (mounted) {
+      setState(() {
+        _hasDraft = false;
+        _draftSavedAt = null;
+      });
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -237,6 +398,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       body: Column(
         children: [
           _buildAppBar(),
+          // ── 임시저장 복원 배너 ──
+          if (_hasDraft) _buildDraftBanner(),
           Expanded(
             child: Form(
               key: _formKey,
@@ -433,6 +596,126 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               fontSize: 17,
               fontWeight: FontWeight.w500,
               fontStyle: FontStyle.italic,
+            ),
+          ),
+          const Spacer(),
+          // ── 자동저장 시각 표시 ──
+          if (_draftSavedAt != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Text(
+                '${DateFormat('HH:mm').format(_draftSavedAt!)} 저장됨',
+                style: AdminTheme.sans(
+                  fontSize: 11,
+                  color: AdminTheme.textTertiary,
+                ),
+              ),
+            ),
+          // ── 임시저장 버튼 ──
+          GestureDetector(
+            onTap: () => _saveDraft(silent: false),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: AdminTheme.gold.withValues(alpha: 0.4),
+                  width: 0.5,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.save_outlined,
+                      size: 14,
+                      color: AdminTheme.gold.withValues(alpha: 0.8)),
+                  const SizedBox(width: 5),
+                  Text(
+                    '임시저장',
+                    style: AdminTheme.sans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AdminTheme.gold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDraftBanner() {
+    final timeStr = _draftSavedAt != null
+        ? DateFormat('M/d HH:mm').format(_draftSavedAt!)
+        : '';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: AdminTheme.gold.withValues(alpha: 0.08),
+        border: const Border(
+          bottom: BorderSide(color: AdminTheme.border, width: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.restore_rounded,
+              size: 18, color: AdminTheme.gold.withValues(alpha: 0.9)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '작성 중이던 임시저장본이 있습니다${timeStr.isNotEmpty ? ' ($timeStr)' : ''}',
+              style: AdminTheme.sans(
+                fontSize: 12,
+                color: AdminTheme.textSecondary,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () async {
+              await _loadDraft();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('임시저장본을 불러왔습니다'),
+                    backgroundColor: AdminTheme.success,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4)),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: AdminTheme.gold,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                '불러오기',
+                style: AdminTheme.sans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AdminTheme.onAccent,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () async {
+              await _clearDraft();
+            },
+            child: Text(
+              '삭제',
+              style: AdminTheme.sans(
+                fontSize: 11,
+                color: AdminTheme.textTertiary,
+              ),
             ),
           ),
         ],
@@ -2827,6 +3110,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
       // 좌석 생성
       await _createSeatsFromSeatMap(eventId);
+
+      // 등록 성공 → 임시저장 삭제
+      await _clearDraft();
 
       if (mounted) {
         _showSuccessDialog(eventId, _titleCtrl.text.trim(), totalSeats);
