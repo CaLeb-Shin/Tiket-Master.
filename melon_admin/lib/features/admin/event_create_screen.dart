@@ -1345,7 +1345,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 child: TextFormField(
                   controller: _runningTimeCtrl,
                   style: _inputStyle(),
-                  decoration: _inputDecoration(null),
+                  decoration: _inputDecoration('예) 120'),
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 ));
@@ -1374,7 +1374,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             child: TextFormField(
               controller: _venueNameCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration(null),
+              decoration: _inputDecoration('예) 세종문화회관 대극장'),
             )),
         const SizedBox(height: 20),
 
@@ -1405,13 +1405,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             child: TextFormField(
               controller: _organizerCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration(null),
+              decoration: _inputDecoration('예) (주)멜론엔터테인먼트'),
             ));
         final plannerField = _field('기획',
             child: TextFormField(
               controller: _plannerCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration(null),
+              decoration: _inputDecoration('예) 멜론기획'),
             ));
         if (isWide) {
           return Row(
@@ -1596,32 +1596,21 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             child: TextFormField(
               controller: _noticeCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration('예매 시 유의사항을 입력하세요'),
+              decoration: _inputDecoration(
+                  '예) 공연 시작 후 입장 불가\n     취소/환불은 공연 3일 전까지 가능'),
               maxLines: 3,
+              minLines: 2,
             )),
         const SizedBox(height: 20),
 
         // 최대 구매 수량
         _field('1인 최대 구매 수량',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextFormField(
-                  controller: _maxTicketsCtrl,
-                  style: _inputStyle(),
-                  decoration: _inputDecoration(null),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '0 입력 시 무제한',
-                  style: AdminTheme.sans(
-                    fontSize: 11,
-                    color: AdminTheme.sage.withValues(alpha: 0.6),
-                  ),
-                ),
-              ],
+            child: TextFormField(
+              controller: _maxTicketsCtrl,
+              style: _inputStyle(),
+              decoration: _inputDecoration('0 = 무제한'),
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             )),
 
         // 잔여석 표시 토글 — editorial bordered container
@@ -2311,11 +2300,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     return InputDecoration(
       hintText: hint,
       hintStyle: AdminTheme.sans(
-        fontSize: 14,
-        color: AdminTheme.sage.withValues(alpha: 0.5),
+        fontSize: 13,
+        color: AdminTheme.sage.withValues(alpha: 0.4),
       ),
       filled: false,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
       border: UnderlineInputBorder(
         borderSide: BorderSide(color: AdminTheme.sage.withValues(alpha: 0.4), width: 0.5),
       ),
