@@ -59,7 +59,7 @@ class TicketDetailScreen extends ConsumerWidget {
         foregroundColor: AppTheme.textPrimary,
         title: Text(
           '승차권 정보',
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             color: AppTheme.textPrimary,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.2,
@@ -201,7 +201,7 @@ class _TicketDetailBody extends ConsumerWidget {
             children: [
               Text(
                 '승차권 반환',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   fontWeight: FontWeight.w700,
                   fontSize: 18,
                   color: AppTheme.textPrimary,
@@ -210,7 +210,7 @@ class _TicketDetailBody extends ConsumerWidget {
               const SizedBox(height: 12),
               Text(
                 '해당 티켓을 반환하고 환불을 진행할까요?\n$policyText',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   height: 1.5,
                   fontSize: 14,
                   color: AppTheme.textSecondary,
@@ -222,7 +222,7 @@ class _TicketDetailBody extends ConsumerWidget {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.of(dialogContext).pop(false),
-                      child: Text('닫기', style: GoogleFonts.notoSans()),
+                      child: Text('닫기', style: AppTheme.nanum()),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -311,7 +311,7 @@ class _TicketTopCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     eventDate,
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       color: AppTheme.onAccent,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -327,7 +327,7 @@ class _TicketTopCard extends StatelessWidget {
                   ),
                   child: Text(
                     _statusLabel(ticket.status),
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       color: _statusTextColor(ticket.status),
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -344,7 +344,7 @@ class _TicketTopCard extends StatelessWidget {
               children: [
                 Text(
                   event.title,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     color: _textPrimary,
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
@@ -429,7 +429,7 @@ class _TicketReceiptCard extends StatelessWidget {
         children: [
           Text(
             '영수증',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 18,
               fontWeight: FontWeight.w800,
               color: _textPrimary,
@@ -500,7 +500,7 @@ class _TicketPolicyCard extends StatelessWidget {
         children: [
           Text(
             '이용안내',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 16,
               fontWeight: FontWeight.w800,
               color: _textPrimary,
@@ -512,7 +512,7 @@ class _TicketPolicyCard extends StatelessWidget {
             '• 화면 캡처/사진 이미지는 유효한 승차권이 아닙니다.\n'
             '• 입장 시 본인 확인이 필요할 수 있습니다.\n'
             '• 반환/취소 정책은 결제 시점과 동일하게 적용됩니다.',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 13,
               color: _textSecondary,
               height: 1.6,
@@ -535,7 +535,7 @@ class _TicketPolicyCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     refundHint,
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       color: AppTheme.warning,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -598,7 +598,7 @@ class _BottomActionBar extends StatelessWidget {
                 ),
                 child: Text(
                   cancelLabel,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
@@ -615,7 +615,7 @@ class _BottomActionBar extends StatelessWidget {
                 ),
                 child: Text(
                   '공연정보',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
@@ -740,7 +740,7 @@ class _QrSectionState extends ConsumerState<_QrSection> {
           children: [
             Text(
               '입장 QR',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: _textPrimary,
                 fontWeight: FontWeight.w700,
                 fontSize: 14,
@@ -758,7 +758,7 @@ class _QrSectionState extends ConsumerState<_QrSection> {
                     const SizedBox(width: 4),
                     Text(
                       '새로고침',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         color: _lineBlue,
                         fontWeight: FontWeight.w700,
                         fontSize: 12,
@@ -801,7 +801,7 @@ class _QrSectionState extends ConsumerState<_QrSection> {
                     : Text(
                         _errorText ?? 'QR을 불러올 수 없습니다',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           fontSize: 12,
                           color: _textSecondary,
                         ),
@@ -852,7 +852,7 @@ class _InactiveQrSection extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             label,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 13,
               color: color,
               fontWeight: FontWeight.w700,
@@ -881,7 +881,7 @@ class _TopMetaText extends StatelessWidget {
             width: 56,
             child: Text(
               label,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: _textSecondary,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -891,7 +891,7 @@ class _TopMetaText extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: _textPrimary,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -931,7 +931,7 @@ class _TopDataRow extends StatelessWidget {
           children: [
             Text(
               label,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 fontSize: 12,
                 color: _textSecondary,
                 fontWeight: FontWeight.w600,
@@ -950,7 +950,7 @@ class _TopDataRow extends StatelessWidget {
                         color: _textPrimary,
                         fontWeight: FontWeight.w600,
                       )
-                    : GoogleFonts.notoSans(
+                    : AppTheme.nanum(
                         fontSize: 12,
                         color: _textPrimary,
                         fontWeight: FontWeight.w700,
@@ -986,7 +986,7 @@ class _ReceiptRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 fontSize: emphasize ? 16 : 13,
                 color: emphasize ? _textPrimary : _textSecondary,
                 fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
@@ -996,7 +996,7 @@ class _ReceiptRow extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             value,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: emphasize ? 28 : 14,
               color: valueColor ?? _textPrimary,
               fontWeight: emphasize ? FontWeight.w800 : FontWeight.w700,
@@ -1036,7 +1036,7 @@ class _CenteredMessage extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               title,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: _textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -1046,7 +1046,7 @@ class _CenteredMessage extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               subtitle,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: color,
                 fontSize: 13,
               ),

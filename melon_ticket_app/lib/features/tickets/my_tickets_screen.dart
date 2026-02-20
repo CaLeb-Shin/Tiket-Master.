@@ -34,7 +34,7 @@ class MyTicketsScreen extends ConsumerWidget {
         foregroundColor: AppTheme.textPrimary,
         title: Text(
           '나의 티켓',
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             color: AppTheme.textPrimary,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.2,
@@ -103,7 +103,7 @@ class _TicketBody extends ConsumerWidget {
           child: Text(
             '티켓을 불러오지 못했습니다\n$error',
             textAlign: TextAlign.center,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               color: AppTheme.error,
               fontSize: 13,
             ),
@@ -137,7 +137,7 @@ class _TicketSummary extends StatelessWidget {
             Expanded(
               child: Text(
                 today,
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   fontSize: 13,
                   color: _textSecondary,
                   fontWeight: FontWeight.w600,
@@ -146,7 +146,7 @@ class _TicketSummary extends StatelessWidget {
             ),
             Text(
               '스마트티켓 $totalCount매',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 fontSize: 13,
                 color: _lineBlue,
                 fontWeight: FontWeight.w700,
@@ -220,7 +220,7 @@ class _TicketCard extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           dateText,
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                             color: AppTheme.onAccent,
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -238,7 +238,7 @@ class _TicketCard extends ConsumerWidget {
                         ),
                         child: Text(
                           statusMeta.label,
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                             color: statusMeta.foreground,
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -257,7 +257,7 @@ class _TicketCard extends ConsumerWidget {
                         event.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           color: _textPrimary,
                           fontSize: 19,
                           fontWeight: FontWeight.w800,
@@ -302,7 +302,7 @@ class _TicketCard extends ConsumerWidget {
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
                             '좌석은 ${DateFormat('M월 d일 HH:mm', 'ko_KR').format(event.revealAt)} 공개',
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontSize: 11,
                               color: _textMuted,
                             ),
@@ -333,7 +333,7 @@ class _TicketCard extends ConsumerWidget {
                           ),
                           child: Text(
                             'QR 보기',
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontWeight: FontWeight.w700,
                               fontSize: 15,
                             ),
@@ -358,7 +358,7 @@ class _TicketCard extends ConsumerWidget {
                           ),
                           child: Text(
                             '공연 정보',
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontWeight: FontWeight.w700,
                               fontSize: 15,
                             ),
@@ -396,7 +396,7 @@ class _TicketCard extends ConsumerWidget {
           children: [
             Text(
               label,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 fontSize: 12,
                 color: _textSecondary,
                 fontWeight: FontWeight.w600,
@@ -414,7 +414,7 @@ class _TicketCard extends ConsumerWidget {
                         color: _textPrimary,
                         fontWeight: FontWeight.w600,
                       )
-                    : GoogleFonts.notoSans(
+                    : AppTheme.nanum(
                         fontSize: 12,
                         color: _textPrimary,
                         fontWeight: FontWeight.w700,
@@ -438,7 +438,7 @@ class _TicketCard extends ConsumerWidget {
       children: [
         Text(
           title,
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             fontSize: 12,
             color: _textSecondary,
             fontWeight: FontWeight.w600,
@@ -449,7 +449,7 @@ class _TicketCard extends ConsumerWidget {
           subtitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             fontSize: 20,
             color: _textPrimary,
             fontWeight: FontWeight.w800,
@@ -526,7 +526,7 @@ class _LoginRequired extends StatelessWidget {
             const SizedBox(height: 18),
             Text(
               '로그인 후 모바일 티켓을 확인할 수 있습니다',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
                 color: _textPrimary,
@@ -548,7 +548,7 @@ class _LoginRequired extends StatelessWidget {
                 ),
                 child: Text(
                   '로그인',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -589,7 +589,7 @@ class _EmptyTicketState extends StatelessWidget {
             const SizedBox(height: 18),
             Text(
               '보유한 티켓이 없습니다',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: _textPrimary,
@@ -599,7 +599,7 @@ class _EmptyTicketState extends StatelessWidget {
             Text(
               '예매 후 발급된 모바일 티켓이 이곳에 표시됩니다.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 fontSize: 13,
                 color: _textSecondary,
               ),

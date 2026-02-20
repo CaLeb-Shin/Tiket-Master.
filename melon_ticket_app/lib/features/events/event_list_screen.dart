@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
@@ -38,7 +37,7 @@ class EventListScreen extends ConsumerWidget {
             const SizedBox(width: 8),
             Text(
               '멜론티켓',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.5,
               ),
@@ -82,7 +81,7 @@ class EventListScreen extends ConsumerWidget {
                       const Icon(Icons.qr_code_scanner_rounded,
                           color: AppTheme.textSecondary, size: 20),
                       const SizedBox(width: 12),
-                      Text('입장 스캐너', style: GoogleFonts.notoSans()),
+                      Text('입장 스캐너', style: AppTheme.nanum()),
                     ],
                   ),
                 ),
@@ -94,7 +93,7 @@ class EventListScreen extends ConsumerWidget {
                         const Icon(Icons.admin_panel_settings_rounded,
                             color: AppTheme.textSecondary, size: 20),
                         const SizedBox(width: 12),
-                        Text('관리자', style: GoogleFonts.notoSans()),
+                        Text('관리자', style: AppTheme.nanum()),
                       ],
                     ),
                   ),
@@ -144,7 +143,7 @@ class EventListScreen extends ConsumerWidget {
                   const SizedBox(height: 20),
                   Text(
                     '등록된 공연이 없습니다',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                       color: AppTheme.textSecondary,
@@ -153,7 +152,7 @@ class EventListScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                   Text(
                     '새로운 공연이 곧 등록될 예정입니다',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       fontSize: 14,
                       color: AppTheme.textTertiary,
                     ),
@@ -182,7 +181,7 @@ class EventListScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               Text(
                 '공연 목록을 불러오는 중...',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   color: AppTheme.textSecondary,
                   fontSize: 14,
                 ),
@@ -211,7 +210,7 @@ class EventListScreen extends ConsumerWidget {
                 const SizedBox(height: 20),
                 Text(
                   '오류가 발생했습니다',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textPrimary,
@@ -220,7 +219,7 @@ class EventListScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Text(
                   '$error',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 13,
                     color: AppTheme.textSecondary,
                   ),
@@ -330,7 +329,7 @@ class _EventCard extends StatelessWidget {
                           ),
                           child: Text(
                             '잔여 ${event.availableSeats}석',
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               color: event.availableSeats > 0
                                   ? Colors.white
                                   : const Color(0xFFFF6B6B),
@@ -354,7 +353,7 @@ class _EventCard extends StatelessWidget {
                     // 제목
                     Text(
                       event.title,
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                         color: AppTheme.textPrimary,
@@ -379,7 +378,7 @@ class _EventCard extends StatelessWidget {
                               const SizedBox(width: 6),
                               Text(
                                 dateFormat.format(event.startAt),
-                                style: GoogleFonts.notoSans(
+                                style: AppTheme.nanum(
                                   fontSize: 13,
                                   color: AppTheme.textSecondary,
                                   fontWeight: FontWeight.w500,
@@ -399,7 +398,7 @@ class _EventCard extends StatelessWidget {
                           ),
                           child: Text(
                             '${priceFormat.format(event.price)}원',
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                               color: AppTheme.primaryDark,
@@ -489,7 +488,7 @@ class _StatusBadge extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             text,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               color: textColor,
               fontSize: 12,
               fontWeight: FontWeight.w600,

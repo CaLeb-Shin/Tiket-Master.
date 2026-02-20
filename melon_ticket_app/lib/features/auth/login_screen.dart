@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/services/auth_service.dart';
 
@@ -72,7 +71,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             SnackBar(
               content: Text(
                 '티켓 어드민 승인 신청이 접수되었습니다. 오너 승인 후 관리자 권한이 활성화됩니다.',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
@@ -188,7 +187,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             Expanded(
               child: Text(
                 message,
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: Colors.white,
@@ -333,7 +332,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               AppTheme.goldGradient.createShader(bounds),
           child: Text(
             '멜론티켓',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 32,
               fontWeight: FontWeight.w800,
               color: Colors.white,
@@ -345,7 +344,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         const SizedBox(height: 8),
         Text(
           _isSignUp ? '새 계정을 만들어보세요' : '다시 만나서 반가워요',
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             fontSize: 15,
             fontWeight: FontWeight.w400,
             color: AppTheme.textSecondary,
@@ -386,7 +385,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 const Spacer(),
                 Text(
                   label,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: textColor,
@@ -447,7 +446,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 const Spacer(),
                 Text(
                   'Google로 계속하기',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textPrimary,
@@ -475,7 +474,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             '또는 이메일로 계속',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               color: AppTheme.textTertiary,
               fontSize: 13,
             ),
@@ -493,7 +492,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Widget _buildLabel(String text) {
     return Text(
       text,
-      style: GoogleFonts.notoSans(
+      style: AppTheme.nanum(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: AppTheme.textPrimary,
@@ -511,7 +510,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       focusNode: _emailFocus,
       keyboardType: TextInputType.emailAddress,
       textInputAction: TextInputAction.next,
-      style: GoogleFonts.notoSans(
+      style: AppTheme.nanum(
         fontSize: 15,
         color: AppTheme.textPrimary,
       ),
@@ -544,8 +543,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         hintStyle:
-            GoogleFonts.notoSans(fontSize: 15, color: AppTheme.textTertiary),
-        errorStyle: GoogleFonts.notoSans(fontSize: 12, color: AppTheme.error),
+            AppTheme.nanum(fontSize: 15, color: AppTheme.textTertiary),
+        errorStyle: AppTheme.nanum(fontSize: 12, color: AppTheme.error),
       ),
       onFieldSubmitted: (_) {
         FocusScope.of(context).requestFocus(_passwordFocus);
@@ -572,7 +571,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       focusNode: _passwordFocus,
       obscureText: _obscurePassword,
       textInputAction: TextInputAction.done,
-      style: GoogleFonts.notoSans(
+      style: AppTheme.nanum(
         fontSize: 15,
         color: AppTheme.textPrimary,
       ),
@@ -617,8 +616,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         hintStyle:
-            GoogleFonts.notoSans(fontSize: 15, color: AppTheme.textTertiary),
-        errorStyle: GoogleFonts.notoSans(fontSize: 12, color: AppTheme.error),
+            AppTheme.nanum(fontSize: 15, color: AppTheme.textTertiary),
+        errorStyle: AppTheme.nanum(fontSize: 12, color: AppTheme.error),
       ),
       onFieldSubmitted: (_) => _submit(),
       validator: (value) {
@@ -671,7 +670,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   )
                 : Text(
                     _isSignUp ? '회원가입' : '이메일로 로그인',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       color: const Color(0xFFFDF3F6),
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -704,7 +703,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         controlAffinity: ListTileControlAffinity.leading,
         title: Text(
           '티켓 어드민 승인 신청',
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             fontSize: 13,
             fontWeight: FontWeight.w700,
             color: AppTheme.textPrimary,
@@ -712,7 +711,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         ),
         subtitle: Text(
           '가입 시 바로 관리자 권한이 부여되지 않으며 오너 승인 후 활성화됩니다.',
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             fontSize: 11,
             color: AppTheme.textTertiary,
             height: 1.4,
@@ -732,7 +731,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       children: [
         Text(
           _isSignUp ? '이미 계정이 있으신가요?' : '계정이 없으신가요?',
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             color: AppTheme.textSecondary,
             fontSize: 14,
           ),
@@ -751,7 +750,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           ),
           child: Text(
             _isSignUp ? '로그인' : '회원가입',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               color: AppTheme.gold,
               fontSize: 14,
               fontWeight: FontWeight.w700,

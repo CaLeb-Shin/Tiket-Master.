@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
@@ -65,7 +64,7 @@ class MyOrdersScreen extends ConsumerWidget {
           ),
           Text(
             '주문 내역',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: AppTheme.textPrimary,
@@ -149,7 +148,7 @@ class _OrderCard extends ConsumerWidget {
                 const Spacer(),
                 Text(
                   dateFormat.format(order.createdAt),
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 12,
                     color: AppTheme.textTertiary,
                   ),
@@ -171,7 +170,7 @@ class _OrderCard extends ConsumerWidget {
                           onTap: () => context.push('/event/${event.id}'),
                           child: Text(
                             event.title,
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                               color: AppTheme.textPrimary,
@@ -182,7 +181,7 @@ class _OrderCard extends ConsumerWidget {
                         )
                       : Text(
                           '공연 정보 없음',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                             fontSize: 15,
                             color: AppTheme.textTertiary,
                           ),
@@ -197,7 +196,7 @@ class _OrderCard extends ConsumerWidget {
                   ),
                   error: (_, __) => Text(
                     '공연 정보 조회 실패',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                         fontSize: 14, color: AppTheme.textTertiary),
                   ),
                 ),
@@ -239,7 +238,7 @@ class _OrderCard extends ConsumerWidget {
                         const SizedBox(width: 6),
                         Text(
                           '환불완료 ${dateFormat.format(order.refundedAt!)}',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                             fontSize: 12,
                             color: AppTheme.error.withValues(alpha: 0.9),
                           ),
@@ -262,7 +261,7 @@ class _OrderCard extends ConsumerWidget {
                     ),
                     child: Text(
                       order.failReason!,
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         fontSize: 12,
                         color: AppTheme.warning,
                       ),
@@ -292,7 +291,7 @@ class _OrderCard extends ConsumerWidget {
                   ),
                   child: Text(
                     '내 티켓 보기',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -341,7 +340,7 @@ class _StatusBadge extends StatelessWidget {
       ),
       child: Text(
         status.displayName,
-        style: GoogleFonts.notoSans(
+        style: AppTheme.nanum(
           fontSize: 12,
           fontWeight: FontWeight.w700,
           color: fgColor,
@@ -369,14 +368,14 @@ class _InfoChip extends StatelessWidget {
         children: [
           Text(
             '$label ',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 11,
               color: AppTheme.textTertiary,
             ),
           ),
           Text(
             value,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppTheme.textPrimary,
@@ -403,7 +402,7 @@ class _CenteredMessage extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             text,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 14,
               color: AppTheme.textTertiary,
             ),

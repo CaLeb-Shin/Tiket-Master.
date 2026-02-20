@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:panorama_viewer/panorama_viewer.dart';
@@ -215,13 +214,13 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             child: CircularProgressIndicator(color: AppTheme.gold)),
         error: (e, _) => Center(
             child: Text('오류: $e',
-                style: GoogleFonts.notoSans(color: AppTheme.error))),
+                style: AppTheme.nanum(color: AppTheme.error))),
         data: (event) {
           if (event == null) {
             return Center(
                 child: Text('공연을 찾을 수 없습니다',
                     style:
-                        GoogleFonts.notoSans(color: AppTheme.textSecondary)));
+                        AppTheme.nanum(color: AppTheme.textSecondary)));
           }
 
           // 공연장 시점 이미지 로드
@@ -237,7 +236,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                 child: CircularProgressIndicator(color: AppTheme.gold)),
             error: (e, _) => Center(
                 child: Text('좌석 로딩 오류',
-                    style: GoogleFonts.notoSans(color: AppTheme.error))),
+                    style: AppTheme.nanum(color: AppTheme.error))),
             data: (seats) {
               if (seats.isEmpty) {
                 return _buildNoSeatsState(event);
@@ -271,7 +270,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         ),
         title: Text(
           event.title,
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             color: AppTheme.textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -291,7 +290,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               const SizedBox(height: 16),
               Text(
                 '좌석 준비 중',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   color: AppTheme.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -301,7 +300,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               Text(
                 '좌석 배치가 아직 등록되지 않았습니다.\n잠시 후 다시 시도해주세요.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   color: AppTheme.textSecondary,
                   fontSize: 14,
                   height: 1.5,
@@ -381,7 +380,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               children: [
                 Text(
                   event.title,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.textPrimary,
@@ -392,7 +391,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                   event.maxTicketsPerOrder > 0
                       ? '좌석을 선택해주세요 (최대 ${event.maxTicketsPerOrder}석)'
                       : '좌석을 선택해주세요',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 12,
                     color: AppTheme.textSecondary,
                   ),
@@ -455,7 +454,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: isActive
@@ -534,7 +533,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
           const SizedBox(height: 24),
           Text(
             '좌석 선별중~',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 20,
               fontWeight: FontWeight.w700,
               color: AppTheme.textPrimary,
@@ -543,7 +542,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
           const SizedBox(height: 6),
           Text(
             '최적의 좌석을 찾고 있습니다',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 13,
               color: AppTheme.textSecondary,
             ),
@@ -563,11 +562,11 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               size: 48, color: AppTheme.textTertiary.withValues(alpha: 0.3)),
           const SizedBox(height: 16),
           Text('조건에 맞는 연석 좌석이 없습니다',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                   fontSize: 15, color: AppTheme.textSecondary)),
           const SizedBox(height: 6),
           Text('등급이나 인원을 변경해보세요',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                   fontSize: 12, color: AppTheme.textTertiary)),
           const SizedBox(height: 20),
           _buildRetryButton(seats, event, isStageBottom),
@@ -685,7 +684,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                 ),
                 child: Text(
                   labels[index.clamp(0, 2)],
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFFFDF3F6),
@@ -719,7 +718,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                       const SizedBox(width: 4),
                       Text(
                         previewView.is360 ? '360° 터치' : '터치하여 확대',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           fontSize: 10,
                           fontWeight: FontWeight.w500,
                           color: Colors.white.withValues(alpha: 0.9),
@@ -767,7 +766,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                           ),
                           child: Text(
                             '${primarySeat.grade ?? "일반"}석',
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: seatColor,
@@ -777,7 +776,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                         const SizedBox(width: 8),
                         Text(
                           '${rec.zone}구역',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                             fontSize: 14,
                             color: Colors.white.withValues(alpha: 0.85),
                           ),
@@ -788,7 +787,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     // 열 + 좌석번호
                     Text(
                       '${rec.row}열 ${rec.seatRange}번',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -805,7 +804,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                       ),
                       child: Text(
                         '${fmt.format(rec.totalPrice)}원',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                           color: AppTheme.gold,
@@ -837,7 +836,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                             child: Text(
                               isLoggedIn ? '이 좌석 선택' : '로그인 후 선택',
                               textAlign: TextAlign.center,
-                              style: GoogleFonts.notoSans(
+                              style: AppTheme.nanum(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
                                 color: const Color(0xFFFDF3F6),
@@ -872,7 +871,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             const SizedBox(height: 12),
             Text(
               '${rec.zone}구역 · ${rec.row}열',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textSecondary,
@@ -881,7 +880,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             const SizedBox(height: 4),
             Text(
               '시야 이미지 준비중',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                   fontSize: 12, color: AppTheme.textTertiary),
             ),
           ],
@@ -962,7 +961,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       ),
       child: RichText(
         text: TextSpan(
-          style: GoogleFonts.notoSans(fontSize: 10),
+          style: AppTheme.nanum(fontSize: 10),
           children: [
             TextSpan(
               text: '$label ',
@@ -1000,7 +999,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
           label: Text(
             '다시 추천받기',
             style:
-                GoogleFonts.notoSans(fontSize: 13, fontWeight: FontWeight.w600),
+                AppTheme.nanum(fontSize: 13, fontWeight: FontWeight.w600),
           ),
           style: OutlinedButton.styleFrom(
             foregroundColor: AppTheme.gold,
@@ -1267,7 +1266,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             child: Text(
               'STAGE',
               textAlign: TextAlign.center,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFFFDF3F6),
@@ -1354,7 +1353,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                 Expanded(
                   child: Text(
                     zone,
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: available > 0
@@ -1427,7 +1426,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                                   size: 8, color: AppTheme.gold),
                               const SizedBox(width: 2),
                               Text('시야',
-                                  style: GoogleFonts.notoSans(
+                                  style: AppTheme.nanum(
                                     fontSize: 8,
                                     fontWeight: FontWeight.w600,
                                     color: AppTheme.gold,
@@ -1456,12 +1455,12 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                 const SizedBox(height: 6),
                 Text(
                   '잔여 $available / $total석',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                       fontSize: 11, color: AppTheme.textTertiary),
                 ),
                 Text(
                   '${fmt.format(price)}원',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: available > 0 ? color : AppTheme.textTertiary,
@@ -1533,7 +1532,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                           size: 12, color: AppTheme.textSecondary),
                       const SizedBox(width: 4),
                       Text('구역목록',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                               fontSize: 12, color: AppTheme.textSecondary)),
                     ],
                   ),
@@ -1547,13 +1546,13 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                       BoxDecoration(color: color, shape: BoxShape.circle)),
               const SizedBox(width: 6),
               Text(zone,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: AppTheme.textPrimary)),
               const SizedBox(width: 8),
               Text('잔여 $available석',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                       fontSize: 12, color: AppTheme.textTertiary)),
               const Spacer(),
               if (hasView)
@@ -1574,7 +1573,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                             size: 14, color: Color(0xFFFDF3F6)),
                         const SizedBox(width: 4),
                         Text('시야 보기',
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFFFDF3F6),
@@ -1601,7 +1600,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
           child: Text(
             '← STAGE →',
             textAlign: TextAlign.center,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: AppTheme.gold,
@@ -1633,7 +1632,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                             width: 32,
                             child: Text(
                               '$row열',
-                              style: GoogleFonts.notoSans(
+                              style: AppTheme.nanum(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w500,
                                 color: AppTheme.textTertiary,
@@ -1815,7 +1814,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         ),
         const SizedBox(width: 4),
         Text(label,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
                 fontSize: 11, color: AppTheme.textTertiary)),
       ],
     );
@@ -1862,7 +1861,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                   ? const Icon(Icons.check, size: 16, color: Color(0xFFFDF3F6))
                   : Text(
                       '${seat.number}',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
                         color: isAvailable
@@ -1941,7 +1940,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                 const SizedBox(height: 12),
                 Text(
                   '빠른 예매',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                     color: AppTheme.textPrimary,
@@ -1950,7 +1949,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                 const SizedBox(height: 4),
                 Text(
                   '최적의 좌석을 자동으로 배정합니다',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                       fontSize: 13, color: AppTheme.textTertiary),
                 ),
               ],
@@ -1983,7 +1982,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                   ),
                   child: Text(
                     g == '자동' ? '자동 배정' : '$g석',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: isActive
@@ -2012,7 +2011,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
                   '$_quickQuantity명',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.textPrimary,
@@ -2048,7 +2047,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                       const SizedBox(width: 8),
                       Text(
                         '배정될 좌석',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.gold,
@@ -2073,7 +2072,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                           const SizedBox(width: 8),
                           Text(
                             '${s.grade ?? "일반"}석 ${s.block} ${s.row ?? ""}열 ${s.number}번',
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontSize: 13,
                               color: AppTheme.textPrimary,
                             ),
@@ -2081,7 +2080,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                           const Spacer(),
                           Text(
                             '${fmt.format(_getGradePrice(s.grade, event))}원',
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontSize: 13,
                               color: AppTheme.textSecondary,
                             ),
@@ -2098,7 +2097,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     children: [
                       Text(
                         '합계',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.textSecondary,
@@ -2106,7 +2105,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                       ),
                       Text(
                         '${fmt.format(previewPrice)}원',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.gold,
@@ -2156,7 +2155,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                       const SizedBox(width: 8),
                       Text(
                         previewSeats.isEmpty ? '선택 가능한 좌석이 없습니다' : '이 좌석으로 선택',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                           color: previewSeats.isEmpty
@@ -2294,13 +2293,13 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                   selectedSeats.isEmpty
                       ? '좌석을 선택하세요'
                       : '${selectedSeats.length}석 선택',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                       fontSize: 13, color: AppTheme.textSecondary),
                 ),
                 if (selectedSeats.isNotEmpty)
                   Text(
                     '${fmt.format(totalPrice)}원',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                       color: AppTheme.gold,
@@ -2333,7 +2332,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                   child: Center(
                     child: Text(
                       selectedSeats.isEmpty ? '좌석을 선택하세요' : '선택 완료',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: selectedSeats.isEmpty
@@ -2386,7 +2385,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                 ),
                 child: Text(
                   floor,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                     color: isSelected
@@ -2445,7 +2444,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   Widget _sectionLabel(String label) {
     return Text(
       label,
-      style: GoogleFonts.notoSans(
+      style: AppTheme.nanum(
         fontSize: 13,
         fontWeight: FontWeight.w600,
         color: AppTheme.textTertiary,
@@ -2540,7 +2539,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       child: Text(
         'STAGE',
         textAlign: TextAlign.center,
-        style: GoogleFonts.notoSans(
+        style: AppTheme.nanum(
           fontSize: 14,
           fontWeight: FontWeight.w700,
           color: const Color(0xFFFDF3F6),
@@ -2603,7 +2602,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
           ),
           child: Text(
             blockName,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: AppTheme.textSecondary,
@@ -2677,7 +2676,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text('등급별 가격',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.textSecondary)),
@@ -2700,14 +2699,14 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text('$grade석',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                               color: AppTheme.textPrimary)),
                       const SizedBox(width: 8),
                       Text(
                           '${NumberFormat('#,###').format(_getGradePrice(grade, event))}원',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                               fontSize: 12, color: AppTheme.textSecondary)),
                     ],
                   ),
@@ -2727,7 +2726,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               ),
               const SizedBox(width: 8),
               Text('선택불가',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                       fontSize: 12, color: AppTheme.textTertiary)),
             ],
           ),
@@ -2800,7 +2799,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                           size: 18, color: AppTheme.gold.withValues(alpha: 0.4)),
                       const SizedBox(width: 8),
                       Text('좌석을 선택해주세요',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                               fontSize: 13, color: AppTheme.textTertiary)),
                     ],
                   )
@@ -2836,7 +2835,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                               const SizedBox(width: 6),
                               Text(
                                 '${seat.block} ${seat.row ?? ''}열 ${seat.number}번',
-                                style: GoogleFonts.notoSans(
+                                style: AppTheme.nanum(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   color: AppTheme.textPrimary,
@@ -2845,7 +2844,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                               const SizedBox(width: 6),
                               Text(
                                 '${priceFormat.format(price)}원',
-                                style: GoogleFonts.notoSans(
+                                style: AppTheme.nanum(
                                   fontSize: 11,
                                   color: AppTheme.textSecondary,
                                 ),
@@ -2875,7 +2874,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               if (selectedSeats.isNotEmpty)
                 Text(
                   '${selectedSeats.length}석 · ${priceFormat.format(totalPrice)}원',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.gold,
@@ -2907,7 +2906,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                   child: Center(
                     child: Text(
                       selectedSeats.isEmpty ? '좌석을 선택하세요' : '선택 완료 →',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: selectedSeats.isEmpty
@@ -3027,7 +3026,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                     children: [
                       Text(
                         locationInfo,
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: Colors.white.withValues(alpha: 0.9),
@@ -3036,7 +3035,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                       const SizedBox(height: 2),
                       Text(
                         '${fmt.format(widget.totalPrice)}원',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                           color: AppTheme.gold,
@@ -3071,7 +3070,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                       ),
                       child: Text(
                         '예매하기',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: const Color(0xFFFDF3F6),
@@ -3140,7 +3139,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                         children: [
                           Text(
                             _locationText,
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
                               color: AppTheme.textPrimary,
@@ -3160,7 +3159,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                               ),
                               child: Text(
                                 widget.grade!,
-                                style: GoogleFonts.notoSans(
+                                style: AppTheme.nanum(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                   color: widget.color,
@@ -3178,7 +3177,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                               ),
                               child: Text(
                                 '360°',
-                                style: GoogleFonts.notoSans(
+                                style: AppTheme.nanum(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
                                   color: AppTheme.gold,
@@ -3191,7 +3190,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                       const SizedBox(height: 2),
                       Text(
                         _subtitle,
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           fontSize: 12,
                           color: AppTheme.textTertiary,
                         ),
@@ -3252,7 +3251,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                   Expanded(
                     child: Text(
                       widget.view.description!,
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         fontSize: 12,
                         color: AppTheme.textSecondary,
                       ),
@@ -3302,7 +3301,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                       const SizedBox(height: 12),
                       Text(
                         '360° 이미지를 불러올 수 없습니다',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           fontSize: 13,
                           color: AppTheme.textTertiary,
                         ),
@@ -3334,7 +3333,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                   const SizedBox(height: 12),
                   Text(
                     '360° 파노라마 로딩 중...',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       fontSize: 13,
                       color: AppTheme.textTertiary,
                     ),
@@ -3366,7 +3365,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                     const SizedBox(width: 6),
                     Text(
                       '드래그하여 360° 둘러보기',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         fontSize: 11,
                         color: AppTheme.textSecondary,
                       ),
@@ -3422,7 +3421,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                       const SizedBox(height: 12),
                       Text(
                         '시야 이미지 로딩 중...',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           fontSize: 13,
                           color: AppTheme.textTertiary,
                         ),
@@ -3440,7 +3439,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                     const SizedBox(height: 12),
                     Text(
                       '이미지를 불러올 수 없습니다',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         fontSize: 13,
                         color: AppTheme.textTertiary,
                       ),
@@ -3474,7 +3473,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                     const SizedBox(width: 6),
                     Text(
                       '두 손가락으로 확대/축소',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         fontSize: 11,
                         color: AppTheme.textSecondary,
                       ),
@@ -3571,7 +3570,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                         const SizedBox(width: 6),
                         Text(
                           '$_locationText · ${widget.view.floor}',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
@@ -3588,7 +3587,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                             ),
                             child: Text(
                               '360°',
-                              style: GoogleFonts.notoSans(
+                              style: AppTheme.nanum(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w700,
                                 color: AppTheme.gold,
@@ -3643,7 +3642,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                     Expanded(
                       child: Text(
                         widget.view.description!,
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           fontSize: 12,
                           color: AppTheme.textSecondary,
                         ),

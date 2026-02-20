@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/event.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/services/auth_service.dart';
@@ -73,7 +74,7 @@ class HomeScreen extends ConsumerWidget {
                           children: [
                             Text(
                               '추천 공연',
-                              style: GoogleFonts.notoSans(
+                              style: AppTheme.nanum(
                                 color: _textPrimary,
                                 fontSize: 24,
                                 fontWeight: FontWeight.w800,
@@ -93,7 +94,7 @@ class HomeScreen extends ConsumerWidget {
                               ),
                               child: Text(
                                 'AI 좌석추천 + 360° 뷰',
-                                style: GoogleFonts.notoSans(
+                                style: AppTheme.nanum(
                                   color: _heroBlue,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
@@ -105,7 +106,7 @@ class HomeScreen extends ConsumerWidget {
                         const SizedBox(height: 4),
                         Text(
                           '지금 예매 가능한 공연을 확인하고 모바일 티켓까지 바로 발급받으세요.',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                             color: _textSecondary,
                             fontSize: 13,
                             height: 1.5,
@@ -216,7 +217,7 @@ class _TopBar extends StatelessWidget {
         const SizedBox(width: 10),
         Text(
           '멜론티켓',
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             color: _textPrimary,
             fontSize: 24,
             fontWeight: FontWeight.w900,
@@ -269,7 +270,7 @@ class _TopButton extends StatelessWidget {
               ),
               child: Text(
                 label,
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
                 ),
@@ -286,7 +287,7 @@ class _TopButton extends StatelessWidget {
               ),
               child: Text(
                 label,
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
                 ),
@@ -335,7 +336,7 @@ class _HeroSection extends StatelessWidget {
             const SizedBox(height: 14),
             Text(
               '공연 예매부터\n모바일 티켓 발권까지\n한 번에',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: Colors.white,
                 fontSize: wide ? 44 : 34,
                 height: 1.15,
@@ -346,7 +347,7 @@ class _HeroSection extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'AI 좌석 추천, 360° 시야 확인, 취소/환불 정책 안내까지\n실전 예매 흐름으로 바로 이어집니다.',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: const Color(0xFFD3E4F5),
                 fontSize: 14,
                 height: 1.6,
@@ -382,7 +383,7 @@ class _HeroSection extends StatelessWidget {
                   ),
                   child: Text(
                     '공연 둘러보기',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       fontWeight: FontWeight.w800,
                       fontSize: 14,
                     ),
@@ -403,7 +404,7 @@ class _HeroSection extends StatelessWidget {
                   ),
                   child: Text(
                     '내 티켓 열기',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
                     ),
@@ -468,7 +469,7 @@ class _HeroChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: GoogleFonts.notoSans(
+        style: AppTheme.nanum(
           color: Colors.white,
           fontSize: 12,
           fontWeight: FontWeight.w700,
@@ -502,7 +503,7 @@ class _TicketMockup extends StatelessWidget {
             ),
             child: Text(
               '2026년 2월 1일 (일) · 스마트티켓 1매',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: _heroBlue,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -546,7 +547,7 @@ class _TicketMockup extends StatelessWidget {
       children: [
         Text(
           title,
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             color: _textPrimary,
             fontSize: 28,
             fontWeight: FontWeight.w900,
@@ -572,7 +573,7 @@ class _TicketMockup extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               color: _textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -581,7 +582,7 @@ class _TicketMockup extends StatelessWidget {
           const Spacer(),
           Text(
             value,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               color: _textPrimary,
               fontSize: emphasize ? 16 : 12,
               fontWeight: emphasize ? FontWeight.w900 : FontWeight.w700,
@@ -693,7 +694,7 @@ class _FeatureCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     color: _textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -702,7 +703,7 @@ class _FeatureCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   desc,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     color: _textSecondary,
                     fontSize: 12,
                     height: 1.45,
@@ -755,7 +756,7 @@ class _EventGrid extends StatelessWidget {
         ),
         child: Text(
           '공연 목록을 불러오지 못했습니다.\n$error',
-          style: GoogleFonts.notoSans(color: _danger, fontSize: 13),
+          style: AppTheme.nanum(color: _danger, fontSize: 13),
         ),
       ),
       data: (events) {
@@ -778,7 +779,7 @@ class _EventGrid extends StatelessWidget {
                 const SizedBox(height: 10),
                 Text(
                   '등록된 공연이 없습니다',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     color: _textPrimary,
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
@@ -866,7 +867,7 @@ class _EventCard extends StatelessWidget {
                           event.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                             color: _textPrimary,
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
@@ -885,7 +886,7 @@ class _EventCard extends StatelessWidget {
                         ),
                         child: Text(
                           status.$1,
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                             color: status.$2,
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -910,7 +911,7 @@ class _EventCard extends StatelessWidget {
                         : '공연장 정보 없음',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       color: _textMuted,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -921,7 +922,7 @@ class _EventCard extends StatelessWidget {
                     children: [
                       Text(
                         '$priceText원~',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           color: _heroBlue,
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
@@ -1005,7 +1006,7 @@ class _PosterFallback extends StatelessWidget {
               event.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: Colors.white,
                 fontSize: 17,
                 fontWeight: FontWeight.w900,

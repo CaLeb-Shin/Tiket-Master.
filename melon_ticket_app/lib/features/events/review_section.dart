@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/review.dart';
@@ -35,7 +34,7 @@ class ReviewSection extends ConsumerWidget {
             children: [
               Text(
                 '관람 후기',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.textPrimary,
@@ -51,7 +50,7 @@ class ReviewSection extends ConsumerWidget {
                           const SizedBox(width: 2),
                           Text(
                             rating.toStringAsFixed(1),
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFFFFD700),
@@ -82,7 +81,7 @@ class ReviewSection extends ConsumerWidget {
                         const SizedBox(width: 4),
                         Text(
                           '후기 쓰기',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: AppTheme.onAccent,
@@ -138,7 +137,7 @@ class ReviewSection extends ConsumerWidget {
               child: Center(
                 child: Text(
                   '리뷰를 불러올 수 없습니다',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                       fontSize: 13, color: AppTheme.textTertiary),
                 ),
               ),
@@ -173,7 +172,7 @@ class ReviewSection extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           '후기 삭제',
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             fontSize: 16,
             fontWeight: FontWeight.w700,
             color: AppTheme.textPrimary,
@@ -181,14 +180,14 @@ class ReviewSection extends ConsumerWidget {
         ),
         content: Text(
           '이 후기를 삭제하시겠습니까?',
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
               fontSize: 14, color: AppTheme.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: Text('취소',
-                style: GoogleFonts.notoSans(color: AppTheme.textTertiary)),
+                style: AppTheme.nanum(color: AppTheme.textTertiary)),
           ),
           TextButton(
             onPressed: () async {
@@ -203,7 +202,7 @@ class ReviewSection extends ConsumerWidget {
               }
             },
             child: Text('삭제',
-                style: GoogleFonts.notoSans(color: AppTheme.error)),
+                style: AppTheme.nanum(color: AppTheme.error)),
           ),
         ],
       ),
@@ -236,7 +235,7 @@ class _EmptyReviews extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             '아직 후기가 없습니다',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: AppTheme.textTertiary,
@@ -246,7 +245,7 @@ class _EmptyReviews extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               '첫 번째 후기를 남겨보세요!',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 fontSize: 12,
                 color: AppTheme.textTertiary.withValues(alpha: 0.7),
               ),
@@ -316,7 +315,7 @@ class _ReviewCard extends StatelessWidget {
                   children: [
                     Text(
                       review.userDisplayName,
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textPrimary,
@@ -324,7 +323,7 @@ class _ReviewCard extends StatelessWidget {
                     ),
                     Text(
                       dateFormat.format(review.createdAt),
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         fontSize: 11,
                         color: AppTheme.textTertiary,
                       ),
@@ -368,13 +367,13 @@ class _ReviewCard extends StatelessWidget {
                     PopupMenuItem(
                       value: 'edit',
                       child: Text('수정',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                               fontSize: 13, color: AppTheme.textPrimary)),
                     ),
                     PopupMenuItem(
                       value: 'delete',
                       child: Text('삭제',
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                               fontSize: 13, color: AppTheme.error)),
                     ),
                   ],
@@ -394,7 +393,7 @@ class _ReviewCard extends StatelessWidget {
               ),
               child: Text(
                 review.seatInfo!,
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: AppTheme.gold,
@@ -407,7 +406,7 @@ class _ReviewCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             review.content,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 13,
               color: AppTheme.textSecondary,
               height: 1.6,
@@ -424,7 +423,7 @@ class _ReviewCard extends StatelessWidget {
         review.userDisplayName.isNotEmpty
             ? review.userDisplayName[0].toUpperCase()
             : '?',
-        style: GoogleFonts.notoSans(
+        style: AppTheme.nanum(
           fontSize: 14,
           fontWeight: FontWeight.w700,
           color: AppTheme.gold,
@@ -498,7 +497,7 @@ class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
           // ── 제목 ──
           Text(
             isEdit ? '후기 수정' : '후기 작성',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 18,
               fontWeight: FontWeight.w700,
               color: AppTheme.textPrimary,
@@ -509,7 +508,7 @@ class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
           // ── 별점 선택 ──
           Text(
             '별점을 선택하세요',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
                 fontSize: 13, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 8),
@@ -537,7 +536,7 @@ class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
           const SizedBox(height: 6),
           Text(
             _ratingLabel(_rating.round()),
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: const Color(0xFFFFD700),
@@ -550,11 +549,11 @@ class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
             controller: _contentCtrl,
             maxLines: 4,
             maxLength: 500,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
                 fontSize: 14, color: AppTheme.textPrimary),
             decoration: InputDecoration(
               hintText: '공연은 어떠셨나요? 솔직한 후기를 남겨주세요',
-              hintStyle: GoogleFonts.notoSans(
+              hintStyle: AppTheme.nanum(
                   fontSize: 14, color: AppTheme.textTertiary),
               filled: true,
               fillColor: AppTheme.card,
@@ -571,7 +570,7 @@ class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
                 borderSide: const BorderSide(color: AppTheme.gold, width: 1.5),
               ),
               counterStyle:
-                  GoogleFonts.notoSans(fontSize: 11, color: AppTheme.textTertiary),
+                  AppTheme.nanum(fontSize: 11, color: AppTheme.textTertiary),
             ),
           ),
           const SizedBox(height: 16),
@@ -607,7 +606,7 @@ class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
                           )
                         : Text(
                             isEdit ? '수정 완료' : '후기 등록',
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                               color: _contentCtrl.text.trim().isNotEmpty

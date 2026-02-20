@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/discount_policy.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/services/auth_service.dart';
@@ -110,7 +111,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           foregroundColor: Colors.white,
           title: Text(
             '결제하기',
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               color: Colors.white,
               fontWeight: FontWeight.w700,
             ),
@@ -129,7 +130,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         foregroundColor: Colors.white,
         title: Text(
           '결제하기',
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             color: Colors.white,
             fontWeight: FontWeight.w700,
           ),
@@ -257,7 +258,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             Expanded(
                               child: Text(
                                 '$quantity장 연속 좌석 우선 배정',
-                                style: GoogleFonts.notoSans(
+                                style: AppTheme.nanum(
                                   color: _success,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
@@ -380,7 +381,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         SnackBar(
           content: Text(
             '결제 실패: $error',
-            style: GoogleFonts.notoSans(fontSize: 13),
+            style: AppTheme.nanum(fontSize: 13),
           ),
           backgroundColor: _danger,
         ),
@@ -461,7 +462,7 @@ class _StepNode extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           label,
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             color: active ? _lineBlue : _textMuted,
             fontSize: 11,
             fontWeight: active ? FontWeight.w700 : FontWeight.w500,
@@ -504,7 +505,7 @@ class _EventSummaryCard extends StatelessWidget {
             title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               color: _textPrimary,
               fontWeight: FontWeight.w800,
               fontSize: 18,
@@ -542,7 +543,7 @@ class _InfoLine extends StatelessWidget {
             width: 56,
             child: Text(
               label,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: _textSecondary,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -554,7 +555,7 @@ class _InfoLine extends StatelessWidget {
               value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: _textPrimary,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -576,7 +577,7 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: GoogleFonts.notoSans(
+      style: AppTheme.nanum(
         color: _textPrimary,
         fontSize: 16,
         fontWeight: FontWeight.w800,
@@ -624,7 +625,7 @@ class _QuantityCard extends StatelessWidget {
                 ),
                 Text(
                   '최대 $maxQty매',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     color: _textMuted,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -744,7 +745,7 @@ class _PaymentChip extends StatelessWidget {
             Expanded(
               child: Text(
                 method.label,
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   color: _textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -852,7 +853,7 @@ class _AmountRow extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             color: emphasize ? _textPrimary : _textSecondary,
             fontSize: emphasize ? 15 : 13,
             fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
@@ -861,7 +862,7 @@ class _AmountRow extends StatelessWidget {
         const Spacer(),
         Text(
           value,
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             color: valueColor ?? (emphasize ? _lineBlue : _textPrimary),
             fontSize: emphasize ? 24 : 14,
             fontWeight: emphasize ? FontWeight.w800 : FontWeight.w700,
@@ -1010,7 +1011,7 @@ class _DiscountOption extends StatelessWidget {
                           padding: const EdgeInsets.only(right: 6),
                           child: Text(
                             discountRate!,
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
                               color: _danger,
@@ -1020,7 +1021,7 @@ class _DiscountOption extends StatelessWidget {
                       Expanded(
                         child: Text(
                           name,
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: _textPrimary,
@@ -1037,7 +1038,7 @@ class _DiscountOption extends StatelessWidget {
                           ),
                           child: Text(
                             '자동적용',
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                               color: _success,
@@ -1051,7 +1052,7 @@ class _DiscountOption extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         description!,
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           fontSize: 11,
                           color: _textMuted,
                         ),
@@ -1063,7 +1064,7 @@ class _DiscountOption extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               price,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
                 color: _textPrimary,
@@ -1120,7 +1121,7 @@ class _TermsCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     '구매 조건 및 취소/환불 규정에 동의합니다',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       color: _textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -1141,7 +1142,7 @@ class _TermsCard extends StatelessWidget {
             ),
             child: Text(
               '취소/환불 기준: 공연 24시간 전까지 100%, 공연 3시간 전까지 70%, 이후 환불 불가',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: _textSecondary,
                 fontSize: 12,
                 height: 1.5,
@@ -1207,7 +1208,7 @@ class _BottomPayBar extends StatelessWidget {
                   )
                 : Text(
                     '${priceFormat.format(totalPrice)}원 결제/발권',
-                    style: GoogleFonts.notoSans(
+                    style: AppTheme.nanum(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
                     ),
@@ -1249,7 +1250,7 @@ class _AuthRequiredState extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               '로그인 후 결제를 진행할 수 있습니다',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: _textPrimary,
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
@@ -1271,7 +1272,7 @@ class _AuthRequiredState extends StatelessWidget {
                 ),
                 child: Text(
                   '로그인',
-                  style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                  style: AppTheme.nanum(fontWeight: FontWeight.w700),
                 ),
               ),
             ),
@@ -1313,7 +1314,7 @@ class _CenteredMessage extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               title,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: _textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -1323,7 +1324,7 @@ class _CenteredMessage extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               subtitle,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: color,
                 fontSize: 13,
               ),
@@ -1336,7 +1337,7 @@ class _CenteredMessage extends StatelessWidget {
                 style: FilledButton.styleFrom(backgroundColor: _lineBlue),
                 child: Text(
                   actionLabel!,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
                   ),

@@ -299,7 +299,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                 const SizedBox(width: 10),
                 Text(
                   '입장 스캐너',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.textPrimary,
@@ -404,7 +404,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               const SizedBox(height: 20),
               Text(
                 '카메라를 사용할 수 없습니다',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.textPrimary,
@@ -413,7 +413,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               const SizedBox(height: 8),
               Text(
                 '설정에서 카메라 권한을 허용해주세요',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   fontSize: 14,
                   color: AppTheme.textSecondary,
                 ),
@@ -429,7 +429,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: Text(
                   '다시 시도',
-                  style: GoogleFonts.notoSans(fontWeight: FontWeight.w600),
+                  style: AppTheme.nanum(fontWeight: FontWeight.w600),
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.gold,
@@ -501,7 +501,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               const SizedBox(width: 8),
               Text(
                 '$stageLabel QR을 영역 안에 맞춰주세요',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   color: AppTheme.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -543,7 +543,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               const SizedBox(height: 16),
               Text(
                 '확인 중...',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.textSecondary,
@@ -593,7 +593,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               const SizedBox(height: 12),
               Text(
                 title,
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   color: AppTheme.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
@@ -603,7 +603,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               Text(
                 description,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   color: AppTheme.textSecondary,
                   fontSize: 12,
                   height: 1.5,
@@ -628,7 +628,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                       : () => _registerCurrentDevice(silent: true),
                   child: Text(
                     _isDeviceLoading ? '확인 중...' : '승인 상태 새로고침',
-                    style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+                    style: AppTheme.nanum(fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
@@ -696,7 +696,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                 // Title
                 Text(
                   result.title,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: color,
@@ -707,7 +707,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                 // Message
                 Text(
                   result.message,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 14,
                     color: AppTheme.textSecondary,
                   ),
@@ -736,7 +736,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                         const SizedBox(width: 10),
                         Text(
                           result.seatInfo!,
-                          style: GoogleFonts.notoSans(
+                          style: AppTheme.nanum(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
                             color: AppTheme.textPrimary,
@@ -773,7 +773,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                         child: Center(
                           child: Text(
                             '다음 스캔',
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                               color: result.isSuccess
@@ -843,7 +843,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                   children: [
                     Text(
                       '티켓 QR을 스캔하세요',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textPrimary,
@@ -854,7 +854,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                       _checkinStage == 'intermission'
                           ? '인터미션 재입장 체크 모드'
                           : '초기 입장 체크 모드',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         fontSize: 12,
                         color: AppTheme.textTertiary,
                       ),
@@ -933,7 +933,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                 ),
                 child: Text(
                   '기기 확인',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),

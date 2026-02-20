@@ -54,14 +54,14 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
       appBar: AppBar(
         title: Text(
           '데모 플로우',
-          style: GoogleFonts.notoSans(fontWeight: FontWeight.w700),
+          style: AppTheme.nanum(fontWeight: FontWeight.w700),
         ),
         actions: [
           TextButton(
             onPressed: _resetAll,
             child: Text(
               '초기화',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: AppTheme.gold,
                 fontWeight: FontWeight.w700,
               ),
@@ -81,7 +81,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
             ),
             child: Text(
               '실서비스 연동 없이, 공연등록 → 공유 → 구매(가상결제) → QR스캔 → 입장확인까지 혼자 테스트하는 모드입니다.',
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 color: AppTheme.textPrimary,
                 fontSize: 12,
                 height: 1.45,
@@ -139,7 +139,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
                       ),
                       child: Text(
                         dateText,
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           color: AppTheme.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -249,7 +249,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
                   children: [
                     Text(
                       '수량',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         color: AppTheme.textSecondary,
                         fontWeight: FontWeight.w600,
                       ),
@@ -267,7 +267,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
                       alignment: Alignment.center,
                       child: Text(
                         '$_quantity',
-                        style: GoogleFonts.notoSans(
+                        style: AppTheme.nanum(
                           color: AppTheme.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -333,7 +333,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
                           children: [
                             Text(
                               _event?.title ?? '',
-                              style: GoogleFonts.notoSans(
+                              style: AppTheme.nanum(
                                 color: const Color(0xFF111827),
                                 fontWeight: FontWeight.w700,
                               ),
@@ -380,7 +380,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
                     ),
                     child: Text(
                       '현재 티켓 상태: ${_ticketStatusLabel(_ticket!)}',
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         fontWeight: FontWeight.w700,
                         color: _ticketStatusColor(_ticket!),
                         fontSize: 13,
@@ -433,7 +433,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
                     ),
                     child: Text(
                       _scanMessage!,
-                      style: GoogleFonts.notoSans(
+                      style: AppTheme.nanum(
                         color: _scanSuccess ? AppTheme.success : AppTheme.error,
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
@@ -470,7 +470,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
                           ),
                           label: Text(
                             _ticket!.isRefunded ? '이미 환불된 티켓' : '티켓 환불 처리',
-                            style: GoogleFonts.notoSans(
+                            style: AppTheme.nanum(
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -785,7 +785,7 @@ class _SectionCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     color: AppTheme.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -815,7 +815,7 @@ class _LabeledField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             color: AppTheme.textSecondary,
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -851,7 +851,7 @@ class _InfoBox extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 3),
               child: Text(
                 line,
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   color: AppTheme.textPrimary,
                   fontSize: 12,
                   height: 1.45,
@@ -881,7 +881,7 @@ class _DisabledHint extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: GoogleFonts.notoSans(
+        style: AppTheme.nanum(
           color: AppTheme.textSecondary,
           fontSize: 12,
           fontWeight: FontWeight.w600,
@@ -913,7 +913,7 @@ class _QtyButton extends StatelessWidget {
         child: Center(
           child: Text(
             label,
-            style: GoogleFonts.notoSans(
+            style: AppTheme.nanum(
               color:
                   onTap == null ? AppTheme.textTertiary : AppTheme.textPrimary,
               fontSize: 18,

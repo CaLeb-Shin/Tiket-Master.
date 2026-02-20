@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:melon_core/app/theme.dart';
 
 /// 웹에서만 표시되는 앱 다운로드 유도 배너
@@ -63,7 +62,7 @@ class _AppDownloadBannerState extends State<AppDownloadBanner> {
               children: [
                 Text(
                   '멜론티켓 앱으로 더 편하게!',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.textPrimary,
@@ -71,7 +70,7 @@ class _AppDownloadBannerState extends State<AppDownloadBanner> {
                 ),
                 Text(
                   'QR 티켓 · 푸시 알림 · 빠른 예매',
-                  style: GoogleFonts.notoSans(
+                  style: AppTheme.nanum(
                     fontSize: 11,
                     color: AppTheme.textTertiary,
                   ),
@@ -91,7 +90,7 @@ class _AppDownloadBannerState extends State<AppDownloadBanner> {
               ),
               child: Text(
                 '열기',
-                style: GoogleFonts.notoSans(
+                style: AppTheme.nanum(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.onAccent,
@@ -120,7 +119,7 @@ class _AppDownloadBannerState extends State<AppDownloadBanner> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           '앱 다운로드',
-          style: GoogleFonts.notoSans(
+          style: AppTheme.nanum(
             fontSize: 16,
             fontWeight: FontWeight.w700,
             color: AppTheme.textPrimary,
@@ -187,7 +186,7 @@ class _StoreButton extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               label,
-              style: GoogleFonts.notoSans(
+              style: AppTheme.nanum(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: color,
