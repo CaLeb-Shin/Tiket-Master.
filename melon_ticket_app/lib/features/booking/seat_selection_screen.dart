@@ -241,6 +241,9 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                 child: Text('좌석 로딩 오류',
                     style: GoogleFonts.notoSans(color: AppTheme.error))),
             data: (seats) {
+              if (seats.isEmpty) {
+                return _buildNoSeatsState(event);
+              }
               final floors = seats.map((s) => s.floor).toSet().toList()..sort();
               if (_selectedFloor == null && floors.isNotEmpty) {
                 _selectedFloor = floors.first;
@@ -254,6 +257,64 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             },
           );
         },
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // NO SEATS STATE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildNoSeatsState(Event event) {
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      appBar: AppBar(
+        backgroundColor: AppTheme.background,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          event.title,
+          style: GoogleFonts.notoSans(
+            color: AppTheme.textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.event_seat_outlined,
+                  size: 64, color: AppTheme.textTertiary.withValues(alpha: 0.5)),
+              const SizedBox(height: 16),
+              Text(
+                '좌석 준비 중',
+                style: GoogleFonts.notoSans(
+                  color: AppTheme.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '좌석 배치가 아직 등록되지 않았습니다.\n잠시 후 다시 시도해주세요.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.notoSans(
+                  color: AppTheme.textSecondary,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

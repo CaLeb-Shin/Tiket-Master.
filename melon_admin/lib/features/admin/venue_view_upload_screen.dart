@@ -2104,7 +2104,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
         );
 
         views.add(VenueZoneView(
-          zone: zone,
+          zone: zone.toUpperCase(),
           floor: entry.floorCtrl.text.trim().isEmpty
               ? '1층'
               : entry.floorCtrl.text.trim(),

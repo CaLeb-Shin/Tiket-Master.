@@ -51,6 +51,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const EventCreateScreen(),
           ),
           GoRoute(
+            path: 'events/:eventId/edit',
+            name: 'adminEventEdit',
+            builder: (context, state) {
+              final eventId = state.pathParameters['eventId']!;
+              return EventCreateScreen(editEventId: eventId);
+            },
+          ),
+          GoRoute(
             path: 'events/:eventId/seats',
             name: 'adminSeatUpload',
             builder: (context, state) {
