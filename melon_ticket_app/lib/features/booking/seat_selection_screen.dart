@@ -786,7 +786,9 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     const SizedBox(height: 6),
                     // 열 + 좌석번호
                     Text(
-                      '${rec.row}열 ${rec.seatRange}번',
+                      rec.seats.length >= 3
+                          ? '${rec.row}열 ${rec.seatRange}번 좌석'
+                          : '${rec.row}열 ${rec.seatRange}번',
                       style: AppTheme.nanum(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
@@ -797,17 +799,21 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     // 가격 — 밝은 배경으로 강조
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppTheme.gold.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
+                        color: AppTheme.gold.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppTheme.gold.withValues(alpha: 0.5),
+                          width: 1,
+                        ),
                       ),
                       child: Text(
-                        '${fmt.format(rec.totalPrice)}원',
+                        '총 ${fmt.format(rec.totalPrice)}원',
                         style: AppTheme.nanum(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.gold,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -1065,7 +1071,11 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
           totalPrice: totalPrice,
           zone: seq.first.block,
           row: seq.first.row ?? '1',
-          seatRange: firstNum == lastNum ? '$firstNum' : '$firstNum-$lastNum',
+          seatRange: seq.length == 1
+              ? '$firstNum'
+              : seq.length == 2
+                  ? '$firstNum-$lastNum'
+                  : seq.map((s) => '${s.number}').join(', '),
         ));
       }
     }
