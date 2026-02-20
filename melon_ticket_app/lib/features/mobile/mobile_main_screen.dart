@@ -527,10 +527,6 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                             height: 0.5,
                             color: AppTheme.border),
 
-                        // ── 문의 배너 (optional) ──
-                        if (event.description.isNotEmpty)
-                          _buildContactBanner(event.description),
-
                         // ── Expandable details ──
                         _buildExpandableDetails(event),
 
@@ -607,6 +603,10 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                             ),
                           ),
                         ),
+
+                        // ── 문의 배너 (optional) ──
+                        if (event.description.isNotEmpty)
+                          _buildContactBanner(event.description),
 
                         // Bottom padding for CTA
                         SizedBox(height: 80 + safeBottom),
@@ -862,16 +862,30 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
           if (hasGrades)
             ..._sortedGrades(grades).map((entry) {
               return Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Text(
-                  '${entry.key} ${fmt.format(entry.value)}',
-                  textAlign: TextAlign.center,
-                  style: AppTheme.sans(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
-                    height: 1.3,
-                  ),
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 5,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: _gradeColor(entry.key),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${entry.key} ${fmt.format(entry.value)}',
+                      style: AppTheme.sans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
                 ),
               );
             })
@@ -888,6 +902,21 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
         ],
       ),
     );
+  }
+
+  Color _gradeColor(String grade) {
+    switch (grade.toUpperCase()) {
+      case 'VIP':
+        return AppTheme.gold;
+      case 'R':
+        return const Color(0xFF2D6A4F);
+      case 'S':
+        return const Color(0xFF3A6B9F);
+      case 'A':
+        return const Color(0xFFC08B5C);
+      default:
+        return AppTheme.sage;
+    }
   }
 
   Widget _buildContactBanner(String description) {
