@@ -1106,7 +1106,6 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
   }) async {
     int quantity = 2;
     const guestOptions = [1, 2, 3, 4, 5];
-    int maxBudget = 0;
     String position = '가운데';
     String instrument = '상관없음';
 
@@ -1115,13 +1114,21 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
       return <int>[0, base, (base * 1.4).round(), base * 2];
     }
 
-    String budgetLabel(int value, int qty) {
-      if (value <= 0) return '예산 상관없음';
-      final fmt = NumberFormat('#,###', 'ko_KR');
+    // 기본값: "완벽한 공연" (표준가, index 2)
+    int maxBudget = budgetOptionsForQty(quantity)[2];
+
+    String budgetStyleName(int value, int qty) {
+      if (value <= 0) return 'AI 추천';
       final base = event.price * qty;
-      if (value <= base) return '가성비 (${fmt.format(value)}원)';
-      if (value <= (base * 1.4).round()) return '표준 (${fmt.format(value)}원)';
-      return '프리미엄 (${fmt.format(value)}원)';
+      if (value <= base) return '가볍게 즐기기';
+      if (value <= (base * 1.4).round()) return '완벽한 공연';
+      return '아티스트와 눈맞춤';
+    }
+
+    String budgetSubtext(int value, int qty) {
+      if (value <= 0) return '최적 배치';
+      final fmt = NumberFormat('#,###', 'ko_KR');
+      return '~${fmt.format(value)}원';
     }
 
     final result = await showSlideUpSheet<_AIQuickCondition>(
@@ -1211,9 +1218,9 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                   ),
                   const SizedBox(height: 18),
 
-                  // ── 예산 ──
+                  // ── 관람 스타일 ──
                   Text(
-                    '예산',
+                    '관람 스타일',
                     style: AppTheme.sans(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -1227,8 +1234,25 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                     runSpacing: 8,
                     children: budgetOptions.map((value) {
                       final selected = value == maxBudget;
+                      final name = budgetStyleName(value, quantity);
+                      final sub = budgetSubtext(value, quantity);
                       return ChoiceChip(
-                        label: Text(budgetLabel(value, quantity)),
+                        label: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(name),
+                            Text(
+                              sub,
+                              style: AppTheme.sans(
+                                fontSize: 9,
+                                color: selected
+                                    ? AppTheme.onAccent
+                                        .withValues(alpha: 0.7)
+                                    : AppTheme.textTertiary,
+                              ),
+                            ),
+                          ],
+                        ),
                         selected: selected,
                         showCheckmark: false,
                         onSelected: (_) =>

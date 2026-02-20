@@ -610,7 +610,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     return Column(
       children: [
         // 조건 요약 바
-        _buildCompactConditionBar(),
+        _buildCompactConditionBar(event),
         // 카드 영역
         Expanded(
           child: Stack(
@@ -950,7 +950,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   }
 
   // ── 조건 요약 바 ──
-  Widget _buildCompactConditionBar() {
+  Widget _buildCompactConditionBar(Event event) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: const BoxDecoration(
@@ -975,7 +975,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                   if (_aiMaxBudget > 0) ...[
                     const SizedBox(width: 6),
                     _conditionChip(
-                        '예산', '${NumberFormat('#,###').format(_aiMaxBudget)}원'),
+                        '스타일', _getBudgetStyleLabel(event)),
                   ],
                 ],
               ),
@@ -984,6 +984,16 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         ],
       ),
     );
+  }
+
+  String _getBudgetStyleLabel(Event event) {
+    if (_aiMaxBudget <= 0) return 'AI 추천';
+    final base = event.price * _aiQuantity;
+    if (base <= 0) return 'AI 추천';
+    final ratio = _aiMaxBudget / base;
+    if (ratio <= 1.1) return '가볍게';
+    if (ratio <= 1.6) return '완벽한 공연';
+    return '눈맞춤';
   }
 
   Widget _conditionChip(String label, String value) {
