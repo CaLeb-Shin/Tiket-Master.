@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -44,6 +45,7 @@ class SeatSelectionScreen extends ConsumerStatefulWidget {
   final int? initialAIQuantity;
   final int? initialAIMaxBudget;
   final String? initialAIInstrument;
+  final String? initialAIPosition;
 
   const SeatSelectionScreen({
     super.key,
@@ -52,6 +54,7 @@ class SeatSelectionScreen extends ConsumerStatefulWidget {
     this.initialAIQuantity,
     this.initialAIMaxBudget,
     this.initialAIInstrument,
+    this.initialAIPosition,
   });
 
   @override
@@ -145,6 +148,12 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     if (instrument != null) {
       _aiInstrument = instrument;
       _aiPosition = _suggestPositionForInstrument(instrument);
+    }
+
+    // 팝업에서 명시적으로 선택한 position이 있으면 악기 자동추천보다 우선
+    final pos = widget.initialAIPosition;
+    if (pos != null && pos.isNotEmpty) {
+      _aiPosition = pos;
     }
   }
 
@@ -779,6 +788,9 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               primarySeat.grade,
               seatColor,
               primarySeat.row,
+              rec.seatRange,
+              rec.totalPrice,
+              rec.seats.map((s) => s.id).toList(),
             );
           }
         },
@@ -890,6 +902,9 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     primarySeat.grade,
                     seatColor,
                     primarySeat.row,
+                    rec.seatRange,
+                    rec.totalPrice,
+                    rec.seats.map((s) => s.id).toList(),
                   ),
                   child: Container(
                     width: double.infinity,
@@ -970,6 +985,9 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                                 primarySeat.grade,
                                 seatColor,
                                 primarySeat.row,
+                                rec.seatRange,
+                                rec.totalPrice,
+                                rec.seats.map((s) => s.id).toList(),
                               ),
                       child: Text(
                         previewView == null ? '시야 없음' : '시야 확인',
@@ -1759,8 +1777,15 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   }
 
   void _showSeatView(
-      VenueSeatView view, String zone, String? grade, Color color,
-      [String? row]) {
+    VenueSeatView view,
+    String zone,
+    String? grade,
+    Color color, [
+    String? row,
+    String? seatRange,
+    int? totalPrice,
+    List<String>? seatIds,
+  ]) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1771,6 +1796,10 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         grade: grade,
         color: color,
         row: row,
+        seatRange: seatRange,
+        totalPrice: totalPrice,
+        seatIds: seatIds,
+        eventId: seatRange != null ? widget.eventId : null,
       ),
     );
   }
@@ -2919,6 +2948,11 @@ class _SeatViewBottomSheet extends StatefulWidget {
   final String? grade;
   final Color color;
   final String? row;
+  // 예매 바 (AI 추천에서만 표시)
+  final String? seatRange;
+  final int? totalPrice;
+  final List<String>? seatIds;
+  final String? eventId;
 
   const _SeatViewBottomSheet({
     required this.view,
@@ -2926,6 +2960,10 @@ class _SeatViewBottomSheet extends StatefulWidget {
     required this.grade,
     required this.color,
     this.row,
+    this.seatRange,
+    this.totalPrice,
+    this.seatIds,
+    this.eventId,
   });
 
   @override
@@ -2962,6 +3000,104 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
   String get _subtitle {
     final rowInfo = widget.row != null ? '${widget.row}열 · ' : '';
     return '${widget.view.floor} · $rowInfo실제 좌석에서 바라본 무대';
+  }
+
+  bool get _hasBookingInfo =>
+      widget.seatRange != null &&
+      widget.totalPrice != null &&
+      widget.seatIds != null &&
+      widget.eventId != null;
+
+  Widget _buildBookingBar() {
+    final fmt = NumberFormat('#,###');
+    final gradeText = widget.grade != null ? ' · ${widget.grade}석' : '';
+    final locationInfo =
+        '${widget.zone}구역 ${widget.row ?? ''}열 ${widget.seatRange}$gradeText';
+
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 14, 16, 14),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.75),
+              border: const Border(
+                top: BorderSide(
+                    color: Color(0x33C9A84C), width: 0.5),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        locationInfo,
+                        style: GoogleFonts.notoSans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${fmt.format(widget.totalPrice)}원',
+                        style: GoogleFonts.notoSans(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.gold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                      if (context.mounted) {
+                        context.push(
+                          '/checkout/${widget.eventId}',
+                          extra: {
+                            'seatIds': widget.seatIds,
+                            'quantity': widget.seatIds!.length,
+                          },
+                        );
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.goldGradient,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '예매하기',
+                        style: GoogleFonts.notoSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFFFDF3F6),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildBottomSheet() {
@@ -3096,9 +3232,17 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
             color: AppTheme.border,
           ),
 
-          // Image / 360° Viewer
+          // Image / 360° Viewer + booking overlay
           Expanded(
-            child: is360 ? _build360Viewer() : _buildFlatViewer(),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: is360 ? _build360Viewer() : _buildFlatViewer(),
+                ),
+                // 예매 바 (AI 추천에서 진입 시에만 표시)
+                if (_hasBookingInfo) _buildBookingBar(),
+              ],
+            ),
           ),
 
           // Description

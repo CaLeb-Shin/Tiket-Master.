@@ -87,6 +87,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               final budget =
                   int.tryParse(state.uri.queryParameters['budget'] ?? '');
               final instrument = state.uri.queryParameters['inst'];
+              final position = state.uri.queryParameters['pos'];
               final aiFromQuick = state.uri.queryParameters['ai'] == '1';
               return SeatSelectionScreen(
                 eventId: eventId,
@@ -94,6 +95,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 initialAIQuantity: qty,
                 initialAIMaxBudget: budget,
                 initialAIInstrument: instrument,
+                initialAIPosition: position,
               );
             },
           ),

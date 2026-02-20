@@ -1009,6 +1009,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
     int quantity = 2;
     const guestOptions = [1, 2, 3, 4, 5];
     int maxBudget = 0;
+    String position = '가운데';
     String instrument = '상관없음';
 
     budgetOptionsForQty(int qty) {
@@ -1067,12 +1068,14 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                   ),
                   const SizedBox(height: 20),
 
-                  // ── 인원 ──
+                  // ── 예매 인원 ──
                   Text(
-                    'GUESTS',
-                    style: AppTheme.label(
-                      fontSize: 9,
+                    '예매 인원',
+                    style: AppTheme.sans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
                       color: AppTheme.sage,
+                      letterSpacing: 0.3,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1110,12 +1113,14 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                   ),
                   const SizedBox(height: 18),
 
-                  // ── 총 예산 ──
+                  // ── 예산 ──
                   Text(
-                    'BUDGET',
-                    style: AppTheme.label(
-                      fontSize: 9,
+                    '예산',
+                    style: AppTheme.sans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
                       color: AppTheme.sage,
+                      letterSpacing: 0.3,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1132,6 +1137,55 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                             setSheetState(() => maxBudget = value),
                         labelStyle: AppTheme.sans(
                           fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: selected
+                              ? AppTheme.onAccent
+                              : AppTheme.textSecondary,
+                        ),
+                        selectedColor: AppTheme.gold,
+                        backgroundColor: AppTheme.surface,
+                        side: BorderSide(
+                          color:
+                              selected ? AppTheme.gold : AppTheme.border,
+                          width: 0.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // ── 선호 좌석 ──
+                  Text(
+                    '선호 좌석',
+                    style: AppTheme.sans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.sage,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: const [
+                      '가운데',
+                      '앞쪽',
+                      '통로',
+                      '상관없음',
+                    ].map((pos) {
+                      final selected = pos == position;
+                      return ChoiceChip(
+                        label: Text(pos),
+                        selected: selected,
+                        showCheckmark: false,
+                        onSelected: (_) =>
+                            setSheetState(() => position = pos),
+                        labelStyle: AppTheme.sans(
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: selected
                               ? AppTheme.onAccent
@@ -1214,6 +1268,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                         _AIQuickCondition(
                           quantity: quantity,
                           maxBudget: maxBudget,
+                          position: position,
                           instrument: instrument,
                         ),
                       ),
@@ -1241,6 +1296,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
     final query = <String, String>{
       'ai': '1',
       'qty': '${result.quantity}',
+      'pos': result.position,
       'inst': result.instrument,
     };
     if (result.maxBudget > 0) {
@@ -1419,11 +1475,13 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
 class _AIQuickCondition {
   final int quantity;
   final int maxBudget;
+  final String position;
   final String instrument;
 
   const _AIQuickCondition({
     required this.quantity,
     required this.maxBudget,
+    required this.position,
     required this.instrument,
   });
 }
