@@ -391,6 +391,14 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         _posterUrl = event.imageUrl;
         _pamphletUrls = List<String>.from(event.pamphletUrls ?? []);
       });
+
+      // 공연장의 좌석 맵 데이터 자동 로드
+      if (event.venueId.isNotEmpty) {
+        final venue = await ref.read(venueRepositoryProvider).getVenue(event.venueId);
+        if (venue != null && mounted) {
+          _selectVenue(venue);
+        }
+      }
     } catch (e) {
       if (mounted) _showError('공연 데이터 로드 실패: $e');
     } finally {
@@ -3300,6 +3308,27 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         updateData['pamphletUrls'] = _pamphletUrls.isNotEmpty ? _pamphletUrls : null;
 
         await ref.read(eventRepositoryProvider).updateEvent(eventId, updateData);
+        if (mounted) setState(() { _submitProgress = 0.50; _submitStage = '좌석 확인 중...'; });
+
+        // 좌석이 없으면 자동 생성
+        final existingSeats = await ref.read(seatRepositoryProvider).getSeatsByEvent(eventId);
+        if (existingSeats.isEmpty && _seatMapData != null) {
+          if (mounted) setState(() { _submitProgress = 0.60; _submitStage = '좌석 생성 중...'; });
+          await _createSeatsFromSeatMap(eventId);
+          // totalSeats 업데이트
+          var totalSeats = 0;
+          for (final floor in _seatMapData!.floors) {
+            for (final block in floor.blocks) {
+              if (block.grade == null || _enabledGrades.contains(block.grade)) {
+                totalSeats += block.totalSeats;
+              }
+            }
+          }
+          await ref.read(eventRepositoryProvider).updateEvent(eventId, {
+            'totalSeats': totalSeats,
+            'availableSeats': totalSeats,
+          });
+        }
         if (mounted) setState(() => _submitProgress = 0.90);
 
         if (mounted) setState(() { _submitProgress = 1.0; _submitStage = '수정 완료!'; });
