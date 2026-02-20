@@ -175,7 +175,8 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     });
   }
 
-  void _toggleSeat(Seat seat, Event event) {
+  void _toggleSeat(Seat seat, Event event,
+      [Map<String, VenueSeatView>? venueViews]) {
     final maxTickets = event.maxTicketsPerOrder > 0
         ? event.maxTicketsPerOrder
         : 10; // 0이면 기본 10석 제한
@@ -185,6 +186,16 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       } else {
         if (_selectedSeatIds.length < maxTickets) {
           _selectedSeatIds.add(seat.id);
+          // 사진 있는 좌석 선택 시 자동으로 시야 팝업
+          if (venueViews != null) {
+            final view = _findBestView(venueViews, seat);
+            if (view != null) {
+              Future.microtask(() {
+                final color = _getGradeColor(seat.grade);
+                _showSeatView(view, seat.block, seat.grade, color, seat.row);
+              });
+            }
+          }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1725,9 +1736,9 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             children: [
               _legendItem(color.withValues(alpha: 0.15), color, '선택 가능'),
               const SizedBox(width: 16),
-              _legendItem(AppTheme.gold, AppTheme.gold, '선택됨'),
-              const SizedBox(width: 16),
               _legendItem(AppTheme.border, AppTheme.border, '선택 불가'),
+              const SizedBox(width: 16),
+              _legendDot('사진있음'),
             ],
           ),
         ),
@@ -1857,13 +1868,6 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     );
   }
 
-  void _showSeatViewForSeat(
-      Seat seat, Map<String, VenueSeatView> venueViews, Event event) {
-    final view = _findBestView(venueViews, seat);
-    if (view == null) return;
-    final color = _getGradeColor(seat.grade);
-    _showSeatView(view, seat.block, seat.grade, color, seat.row);
-  }
 
   Widget _legendItem(Color bg, Color border, String label) {
     return Row(
@@ -1876,6 +1880,37 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             color: bg,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: border, width: 1),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label,
+            style: AppTheme.nanum(
+                fontSize: 11, color: AppTheme.textTertiary)),
+      ],
+    );
+  }
+
+  Widget _legendDot(String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: AppTheme.card,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: AppTheme.border, width: 1),
+          ),
+          child: const Align(
+            alignment: Alignment.topRight,
+            child: Padding(
+              padding: EdgeInsets.all(1),
+              child: CircleAvatar(
+                radius: 3,
+                backgroundColor: AppTheme.gold,
+              ),
+            ),
           ),
         ),
         const SizedBox(width: 4),
@@ -1908,9 +1943,9 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     }
 
     return GestureDetector(
-      onTap: isAvailable ? () => _toggleSeat(seat, event) : null,
-      onLongPress:
-          hasView ? () => _showSeatViewForSeat(seat, venueViews, event) : null,
+      onTap: isAvailable
+          ? () => _toggleSeat(seat, event, venueViews)
+          : null,
       child: Container(
         width: 38,
         height: 38,
