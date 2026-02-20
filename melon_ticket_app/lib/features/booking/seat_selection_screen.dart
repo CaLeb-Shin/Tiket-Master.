@@ -638,23 +638,39 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // 좌석 사진 (풀 배경)
-            if (previewView != null)
-              CachedNetworkImage(
-                imageUrl: previewView.imageUrl,
-                fit: BoxFit.cover,
-                placeholder: (_, __) => Container(
-                  color: AppTheme.surface,
-                  child: const Center(
-                    child: CircularProgressIndicator(
-                        color: AppTheme.gold, strokeWidth: 2),
-                  ),
-                ),
-                errorWidget: (_, __, ___) =>
-                    _buildNoPhotoPlaceholder(rec),
-              )
-            else
-              _buildNoPhotoPlaceholder(rec),
+            // 좌석 사진 (풀 배경) — 탭하면 전체화면 뷰어
+            GestureDetector(
+              onTap: previewView != null
+                  ? () {
+                      _applyRecommendation(rec);
+                      _showSeatView(
+                        previewView,
+                        rec.zone,
+                        primarySeat.grade,
+                        seatColor,
+                        primarySeat.row,
+                        rec.seatRange,
+                        rec.totalPrice,
+                        rec.seats.map((s) => s.id).toList(),
+                      );
+                    }
+                  : null,
+              child: previewView != null
+                  ? CachedNetworkImage(
+                      imageUrl: previewView.imageUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        color: AppTheme.surface,
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                              color: AppTheme.gold, strokeWidth: 2),
+                        ),
+                      ),
+                      errorWidget: (_, __, ___) =>
+                          _buildNoPhotoPlaceholder(rec),
+                    )
+                  : _buildNoPhotoPlaceholder(rec),
+            ),
 
             // 랭킹 배지 (top-left)
             Positioned(
@@ -678,30 +694,35 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               ),
             ),
 
-            // 360° 배지 (top-right)
-            if (previewView?.is360 == true)
+            // 360° / 탭 힌트 (top-right)
+            if (previewView != null)
               Positioned(
                 top: 16,
                 right: 16,
                 child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.threesixty_rounded,
-                          size: 14, color: AppTheme.gold),
+                      Icon(
+                        previewView.is360
+                            ? Icons.threesixty_rounded
+                            : Icons.zoom_in_rounded,
+                        size: 14,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
                       const SizedBox(width: 4),
                       Text(
-                        '360°',
+                        previewView.is360 ? '360° 터치' : '터치하여 확대',
                         style: GoogleFonts.notoSans(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.gold,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withValues(alpha: 0.9),
                         ),
                       ),
                     ],
@@ -715,15 +736,15 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               left: 0,
               right: 0,
               child: Container(
-                padding: const EdgeInsets.fromLTRB(20, 48, 20, 20),
+                padding: const EdgeInsets.fromLTRB(20, 56, 20, 20),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withValues(alpha: 0.45),
-                      Colors.black.withValues(alpha: 0.88),
+                      Colors.black.withValues(alpha: 0.5),
+                      Colors.black.withValues(alpha: 0.92),
                     ],
                     stops: const [0.0, 0.3, 1.0],
                   ),
@@ -758,7 +779,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                           '${rec.zone}구역',
                           style: GoogleFonts.notoSans(
                             fontSize: 14,
-                            color: Colors.white.withValues(alpha: 0.8),
+                            color: Colors.white.withValues(alpha: 0.85),
                           ),
                         ),
                       ],
@@ -773,63 +794,39 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                         color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    // 가격
-                    Text(
-                      '${fmt.format(rec.totalPrice)}원',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.gold,
+                    const SizedBox(height: 6),
+                    // 가격 — 밝은 배경으로 강조
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.gold.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${fmt.format(rec.totalPrice)}원',
+                        style: GoogleFonts.notoSans(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.gold,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    // 버튼
-                    Row(
-                      children: [
-                        if (previewView != null)
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                _applyRecommendation(rec);
-                                _showSeatView(
-                                  previewView,
-                                  rec.zone,
-                                  primarySeat.grade,
-                                  seatColor,
-                                  primarySeat.row,
-                                  rec.seatRange,
-                                  rec.totalPrice,
-                                  rec.seats.map((s) => s.id).toList(),
-                                );
-                              },
-                              icon: Icon(
-                                previewView.is360
-                                    ? Icons.threesixty_rounded
-                                    : Icons.visibility_rounded,
-                                size: 16,
-                              ),
-                              label: Text(
-                                previewView.is360 ? '360° 시야' : '시야 확인',
-                                style: GoogleFonts.notoSans(
-                                    fontSize: 13, fontWeight: FontWeight.w600),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.4)),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10)),
-                              ),
-                            ),
+                    const SizedBox(height: 16),
+                    // 버튼 — 세련된 글래스 스타일
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            gradient: AppTheme.goldGradient,
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                        if (previewView != null) const SizedBox(width: 10),
-                        Expanded(
-                          flex: previewView != null ? 1 : 2,
-                          child: ElevatedButton(
-                            onPressed: () {
+                          child: GestureDetector(
+                            onTap: () {
                               _applyRecommendation(rec);
                               _goCheckoutWithSeats(
                                 rec.seats.map((s) => s.id).toList(),
@@ -837,22 +834,19 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                                 isLoggedIn,
                               );
                             },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.gold,
-                              foregroundColor: const Color(0xFFFDF3F6),
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                            ),
                             child: Text(
                               isLoggedIn ? '이 좌석 선택' : '로그인 후 선택',
+                              textAlign: TextAlign.center,
                               style: GoogleFonts.notoSans(
-                                  fontSize: 14, fontWeight: FontWeight.w700),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFFFDF3F6),
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
