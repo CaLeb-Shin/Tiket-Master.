@@ -1322,17 +1322,36 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     for (final seat in floorSeats) {
       zones.putIfAbsent(seat.block, () => []).add(seat);
     }
-    final sortedZones = zones.keys.toList()..sort();
+    // VIP → R → S → A 등급순 정렬, 같은 등급이면 이름순
+    const gradeOrder = ['VIP', 'R', 'S', 'A'];
+    final sortedZones = zones.keys.toList()
+      ..sort((a, b) {
+        final gradeA = zones[a]!
+            .firstWhere((s) => s.grade != null, orElse: () => zones[a]!.first)
+            .grade
+            ?.toUpperCase();
+        final gradeB = zones[b]!
+            .firstWhere((s) => s.grade != null, orElse: () => zones[b]!.first)
+            .grade
+            ?.toUpperCase();
+        final idxA = gradeOrder.indexOf(gradeA ?? '');
+        final idxB = gradeOrder.indexOf(gradeB ?? '');
+        final orderA = idxA >= 0 ? idxA : gradeOrder.length;
+        final orderB = idxB >= 0 ? idxB : gradeOrder.length;
+        if (orderA != orderB) return orderA.compareTo(orderB);
+        return a.compareTo(b);
+      });
+    final fmt = NumberFormat('#,###');
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Column(
         children: [
           // Stage
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 14),
-            margin: const EdgeInsets.only(bottom: 20),
+            margin: const EdgeInsets.only(bottom: 24),
             decoration: const BoxDecoration(
               gradient: AppTheme.goldGradient,
               borderRadius: BorderRadius.only(
@@ -1352,204 +1371,134 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             ),
           ),
 
-          // Zone cards
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 1.2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-            ),
-            itemCount: sortedZones.length,
-            itemBuilder: (context, index) {
-              final zone = sortedZones[index];
-              return _buildZoneCard(zone, zones[zone]!, event, venueViews);
-            },
-          ),
+          // Zone rows — 실제 배치도 스타일
+          ...sortedZones.map((zone) {
+            final zoneSeats = zones[zone]!;
+            final available =
+                zoneSeats.where((s) => s.status == SeatStatus.available).length;
+            final total = zoneSeats.length;
+            final grade = zoneSeats
+                .firstWhere((s) => s.grade != null,
+                    orElse: () => zoneSeats.first)
+                .grade;
+            final color = _getGradeColor(grade);
+            final price = _getGradePrice(grade, event);
+
+            // 좌석 배열 (행별로 묶기)
+            final rowMap = <String, List<Seat>>{};
+            for (final s in zoneSeats) {
+              rowMap.putIfAbsent(s.row ?? '1', () => []).add(s);
+            }
+            final sortedRows = rowMap.keys.toList()
+              ..sort((a, b) =>
+                  (int.tryParse(a) ?? 0).compareTo(int.tryParse(b) ?? 0));
+
+            return GestureDetector(
+              onTap: available > 0
+                  ? () => setState(() => _selectedZone = zone)
+                  : null,
+              child: Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: available > 0
+                      ? AppTheme.card
+                      : AppTheme.card.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: available > 0
+                        ? color.withValues(alpha: 0.4)
+                        : AppTheme.border,
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    // 구역 라벨
+                    Text(
+                      '$zone구역',
+                      style: AppTheme.nanum(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: available > 0
+                            ? AppTheme.textSecondary
+                            : AppTheme.textTertiary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // 좌석 도트 표시 (행별)
+                    ...sortedRows.map((row) {
+                      final seats = rowMap[row]!
+                        ..sort((a, b) => a.number.compareTo(b.number));
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: seats.map((s) {
+                            final isAvail =
+                                s.status == SeatStatus.available;
+                            return Container(
+                              width: 10,
+                              height: 10,
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 2),
+                              decoration: BoxDecoration(
+                                color: isAvail
+                                    ? color
+                                    : AppTheme.border,
+                                shape: BoxShape.circle,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 6),
+                    // 정보 행
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '${sortedRows.length}열 x $total · ',
+                          style: AppTheme.nanum(
+                            fontSize: 10,
+                            color: AppTheme.textTertiary,
+                          ),
+                        ),
+                        Text(
+                          '잔여 $available석',
+                          style: AppTheme.nanum(
+                            fontSize: 10,
+                            color: available > 0
+                                ? color
+                                : AppTheme.textTertiary,
+                          ),
+                        ),
+                        Text(
+                          ' · ${fmt.format(price)}원',
+                          style: AppTheme.nanum(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: available > 0
+                                ? color
+                                : AppTheme.textTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );
   }
 
-  Widget _buildZoneCard(String zone, List<Seat> zoneSeats, Event event,
-      Map<String, VenueZoneView> venueViews) {
-    final available =
-        zoneSeats.where((s) => s.status == SeatStatus.available).length;
-    final total = zoneSeats.length;
-    final grade = zoneSeats
-        .firstWhere((s) => s.grade != null, orElse: () => zoneSeats.first)
-        .grade;
-    final color = _getGradeColor(grade);
-    final price = _getGradePrice(grade, event);
-    final fmt = NumberFormat('#,###');
-    final ratio = total > 0 ? available / total : 0.0;
-    final floor = _selectedFloor ?? '1층';
-    // 구역 대표 시야 찾기 (buildKey 정규화 사용)
-    final viewKey = VenueSeatView.buildKey(zone: zone, floor: floor);
-    final zoneView = venueViews[viewKey] ??
-        venueViews.values.cast<VenueSeatView?>().firstWhere(
-              (v) =>
-                  v != null &&
-                  v.zone.trim().toUpperCase() == zone.trim().toUpperCase() &&
-                  v.floor.trim() == floor.trim() &&
-                  (v.row ?? '').trim().isEmpty &&
-                  v.seat == null,
-              orElse: () => null,
-            );
-    final hasView = zoneView != null;
 
-    return GestureDetector(
-      onTap: available > 0 ? () => setState(() => _selectedZone = zone) : null,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: available > 0 ? AppTheme.card : AppTheme.card.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: available > 0 ? color.withValues(alpha: 0.4) : AppTheme.border,
-            width: 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: available > 0 ? color : AppTheme.textTertiary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    zone,
-                    style: AppTheme.nanum(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: available > 0
-                          ? AppTheme.textPrimary
-                          : AppTheme.textTertiary,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (hasView)
-                  GestureDetector(
-                    onTap: () =>
-                        _showSeatView(zoneView, zone, grade, color),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: AppTheme.gold.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.visibility_rounded,
-                        size: 16,
-                        color: AppTheme.gold,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-
-            // 시점 미리보기 썸네일
-            if (hasView)
-              GestureDetector(
-                onTap: () =>
-                    _showSeatView(zoneView, zone, grade, color),
-                child: Container(
-                  width: double.infinity,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                        color: AppTheme.gold.withValues(alpha: 0.3), width: 0.5),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.network(
-                        zoneView.imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppTheme.surface,
-                          child: const Icon(Icons.image_not_supported,
-                              size: 16, color: AppTheme.textTertiary),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 2,
-                        right: 4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.visibility_rounded,
-                                  size: 8, color: AppTheme.gold),
-                              const SizedBox(width: 2),
-                              Text('시야',
-                                  style: AppTheme.nanum(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.gold,
-                                  )),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: LinearProgressIndicator(
-                    value: ratio,
-                    backgroundColor: AppTheme.border,
-                    valueColor: AlwaysStoppedAnimation(color),
-                    minHeight: 3,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '잔여 $available / $total석',
-                  style: AppTheme.nanum(
-                      fontSize: 11, color: AppTheme.textTertiary),
-                ),
-                Text(
-                  '${fmt.format(price)}원',
-                  style: AppTheme.nanum(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: available > 0 ? color : AppTheme.textTertiary,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildZoneDetail(String zone, List<Seat> zoneSeats, Event event,
       Map<String, VenueZoneView> venueViews) {
