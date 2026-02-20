@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -13,22 +14,34 @@ import 'package:melon_core/widgets/premium_effects.dart';
 
 enum PaymentMethod { naverPay, tossPay, kakaoPay }
 
-const _navy = Color(0xFF0D3E67);
-const _lineBlue = Color(0xFF2F6FB2);
-const _surface = Color(0xFFF3F5F8);
-const _softBlue = Color(0xFFE7F0FA);
-const _cardBorder = Color(0xFFD7DFE8);
-const _textPrimary = Color(0xFF111827);
-const _textSecondary = Color(0xFF6B7280);
-const _textMuted = Color(0xFF94A3B8);
-const _danger = Color(0xFFB42318);
-const _success = Color(0xFF027A48);
+// ─── Editorial Theme Colors ───
+const _navy = Color(0xFF3B0D11);
+const _lineBlue = Color(0xFF3B0D11);
+const _surface = Color(0xFFFAF8F5);
+const _softBlue = Color(0xFFF5EEED);
+const _cardBorder = Color(0x40748386);
+const _textPrimary = Color(0xFF3B0D11);
+const _textSecondary = Color(0xFF748386);
+const _textMuted = Color(0x99748386);
+const _danger = Color(0xFFC42A4D);
+const _success = Color(0xFF2D6A4F);
+
+// ─── Brand Logo SVGs ───
+const _naverLogoSvg =
+    '<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">'
+    '<path d="M13.56 10.07L6.28 0H0v20h6.44V9.93L13.72 20H20V0h-6.44v10.07z" fill="white"/>'
+    '</svg>';
+
+const _kakaoLogoSvg =
+    '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
+    '<path d="M12 3C6.48 3 2 6.36 2 10.5c0 2.69 1.82 5.04 4.55 6.35l-.97 3.54c-.08.28.18.52.41.35l3.66-2.45c.77.12 1.57.17 2.38.17 5.52 0 10-3.33 10-7.46S17.52 3 12 3z" fill="#191600"/>'
+    '</svg>';
 
 extension on PaymentMethod {
   String get label {
     switch (this) {
       case PaymentMethod.naverPay:
-        return 'Npay';
+        return '네이버페이';
       case PaymentMethod.tossPay:
         return '토스페이';
       case PaymentMethod.kakaoPay:
@@ -47,24 +60,23 @@ extension on PaymentMethod {
     }
   }
 
-  Color get textColor {
-    switch (this) {
-      case PaymentMethod.kakaoPay:
-        return const Color(0xFF1F2937);
-      case PaymentMethod.naverPay:
-      case PaymentMethod.tossPay:
-        return Colors.white;
-    }
-  }
-
-  IconData get icon {
+  Widget get logoMark {
     switch (this) {
       case PaymentMethod.naverPay:
-        return Icons.account_balance_wallet_rounded;
+        return SvgPicture.string(_naverLogoSvg, width: 16, height: 16);
       case PaymentMethod.tossPay:
-        return Icons.bolt_rounded;
+        return const Text(
+          'toss',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5,
+            height: 1,
+          ),
+        );
       case PaymentMethod.kakaoPay:
-        return Icons.chat_bubble_rounded;
+        return SvgPicture.string(_kakaoLogoSvg, width: 18, height: 18);
     }
   }
 }
@@ -444,7 +456,7 @@ class _StepNode extends StatelessWidget {
           height: 28,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: active ? _lineBlue : const Color(0xFFE5EAF0),
+            color: active ? _lineBlue : const Color(0xFFE8E2DF),
           ),
           child: Center(
             child: isComplete
@@ -658,7 +670,7 @@ class _QuantityButton extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: enabled ? _lineBlue : const Color(0xFFE5EAF0),
+          color: enabled ? _lineBlue : const Color(0xFFE8E2DF),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(
@@ -733,13 +745,13 @@ class _PaymentChip extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
                 color: method.color,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(method.icon, size: 17, color: method.textColor),
+              child: Center(child: method.logoMark),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -1136,9 +1148,9 @@ class _TermsCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: const Color(0xFFF5F0EE),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFDDE3EA)),
+              border: Border.all(color: const Color(0xFFD9D0CC)),
             ),
             child: Text(
               '취소/환불 기준: 공연 24시간 전까지 100%, 공연 3시간 전까지 70%, 이후 환불 불가',
@@ -1191,7 +1203,7 @@ class _BottomPayBar extends StatelessWidget {
           child: FilledButton(
             onPressed: canPay ? onPay : null,
             style: FilledButton.styleFrom(
-              backgroundColor: canPay ? _lineBlue : const Color(0xFFBFCAD6),
+              backgroundColor: canPay ? _lineBlue : const Color(0xFFB8ADAA),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
