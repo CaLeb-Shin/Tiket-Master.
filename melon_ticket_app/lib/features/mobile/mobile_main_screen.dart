@@ -159,8 +159,8 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-// ─── Quick Booking Tab ───
-class _QuickBookingTab extends ConsumerWidget {
+// ─── Quick Booking Tab (Poster-Centric) ───
+class _QuickBookingTab extends ConsumerStatefulWidget {
   final String? focusEventId;
   final VoidCallback onOpenDiscover;
 
@@ -170,244 +170,452 @@ class _QuickBookingTab extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final normalizedFocusId = focusEventId?.trim();
-    if (normalizedFocusId != null && normalizedFocusId.isNotEmpty) {
-      final focusedEventAsync =
-          ref.watch(eventStreamProvider(normalizedFocusId));
-      return focusedEventAsync.when(
-        data: (event) => _buildQuickBookingContent(
-          context,
-          event,
-          fromLink: true,
-        ),
-        loading: () => _buildQuickBookingScaffold(
-          context,
-          child: const Center(
-            child: CircularProgressIndicator(color: AppTheme.gold),
-          ),
-        ),
-        error: (_, __) => _buildQuickBookingContent(
-          context,
-          null,
-          fromLink: true,
-        ),
-      );
-    }
+  ConsumerState<_QuickBookingTab> createState() => _QuickBookingTabState();
+}
 
-    final eventsAsync = ref.watch(eventsStreamProvider);
-    return eventsAsync.when(
-      data: (events) => _buildQuickBookingContent(
-        context,
-        _selectPrimaryEvent(events),
-        fromLink: false,
-      ),
-      loading: () => _buildQuickBookingScaffold(
-        context,
-        child: const Center(
-          child: CircularProgressIndicator(color: AppTheme.gold),
-        ),
-      ),
-      error: (_, __) =>
-          _buildQuickBookingContent(context, null, fromLink: false),
+class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _slideCtrl;
+  late Animation<Offset> _slideAnim;
+  bool _hasAnimated = false;
+  bool _detailsExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _slideCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
     );
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOutCubic));
+  }
+
+  @override
+  void dispose() {
+    _slideCtrl.dispose();
+    super.dispose();
+  }
+
+  void _triggerSlideUp() {
+    if (!_hasAnimated) {
+      _hasAnimated = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _slideCtrl.forward();
+      });
+    }
   }
 
   Event? _selectPrimaryEvent(List<Event> events) {
     if (events.isEmpty) return null;
-
     final sorted = [...events]..sort((a, b) => a.startAt.compareTo(b.startAt));
     for (final event in sorted) {
-      if (event.isOnSale && event.availableSeats > 0) {
-        return event;
-      }
+      if (event.isOnSale && event.availableSeats > 0) return event;
     }
     return sorted.first;
   }
 
-  Widget _buildQuickBookingScaffold(
-    BuildContext context, {
-    required Widget child,
-  }) {
-    return Scaffold(
+  @override
+  Widget build(BuildContext context) {
+    final normalizedFocusId = widget.focusEventId?.trim();
+    if (normalizedFocusId != null && normalizedFocusId.isNotEmpty) {
+      final focusedAsync = ref.watch(eventStreamProvider(normalizedFocusId));
+      return focusedAsync.when(
+        data: (event) => _buildContent(event, fromLink: true),
+        loading: () => _buildLoading(),
+        error: (_, __) => _buildContent(null, fromLink: true),
+      );
+    }
+    final eventsAsync = ref.watch(eventsStreamProvider);
+    return eventsAsync.when(
+      data: (events) =>
+          _buildContent(_selectPrimaryEvent(events), fromLink: false),
+      loading: () => _buildLoading(),
+      error: (_, __) => _buildContent(null, fromLink: false),
+    );
+  }
+
+  Widget _buildLoading() {
+    return const Scaffold(
       backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Editorial Header ──
-            Container(
-              width: double.infinity,
-              color: AppTheme.surface,
-              padding: const EdgeInsets.fromLTRB(24, 18, 20, 18),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'PREMIUM SELECTION',
-                          style: AppTheme.label(
-                            fontSize: 10,
-                            color: AppTheme.sage,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '바로 예매',
-                          style: AppTheme.serif(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(
-                      Icons.search_rounded,
-                      color: AppTheme.textPrimary,
-                      size: 24,
-                    ),
-                    style: IconButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                        side: BorderSide(
-                          color: AppTheme.border,
-                          width: 0.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(height: 0.5, color: AppTheme.border),
-            Expanded(child: child),
-          ],
-        ),
+      body: Center(
+        child: CircularProgressIndicator(color: AppTheme.gold),
       ),
     );
   }
 
-  Widget _buildQuickBookingContent(
-    BuildContext context,
-    Event? event, {
-    required bool fromLink,
-  }) {
-    if (event == null) {
-      return _buildQuickBookingScaffold(
-        context,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.event_busy_outlined,
-                  color: AppTheme.sage,
-                  size: 44,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  fromLink ? '링크 공연을 찾을 수 없습니다' : '현재 예매 가능한 공연이 없습니다',
-                  style: AppTheme.serif(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '다른 공연 탭에서 등록된 공연을 확인하세요.',
-                  textAlign: TextAlign.center,
-                  style: AppTheme.sans(
-                    fontSize: 13,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                OutlinedButton(
-                  onPressed: onOpenDiscover,
-                  child: const Text('다른 공연 보기'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+  Widget _buildContent(Event? event, {required bool fromLink}) {
+    if (event == null) return _buildEmpty(fromLink: fromLink);
+    _triggerSlideUp();
 
-    return _buildQuickBookingScaffold(
-      context,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 120),
+    final screenH = MediaQuery.of(context).size.height;
+    final safeTop = MediaQuery.of(context).padding.top;
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+    final priceText = NumberFormat('#,###', 'ko_KR').format(event.price);
+    final dateText =
+        DateFormat('M/d (E) HH:mm', 'ko_KR').format(event.startAt);
+
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      extendBodyBehindAppBar: true,
+      body: Stack(
         children: [
-          // ── Priority badge ──
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(2),
-              border: Border.all(color: AppTheme.border, width: 0.5),
-            ),
-            child: Row(
+          // ── Scrollable content ──
+          SingleChildScrollView(
+            child: Column(
               children: [
-                Icon(
-                  fromLink ? Icons.link_rounded : Icons.star_outline_rounded,
-                  size: 14,
-                  color: AppTheme.gold,
+                // ═══ Hero Poster ═══
+                SizedBox(
+                  height: screenH * 0.55,
+                  width: double.infinity,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Poster image
+                      if (event.imageUrl != null &&
+                          event.imageUrl!.isNotEmpty)
+                        CachedNetworkImage(
+                          imageUrl: event.imageUrl!,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(
+                            color: AppTheme.cardElevated,
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                color: AppTheme.gold,
+                                strokeWidth: 1.5,
+                              ),
+                            ),
+                          ),
+                          errorWidget: (_, __, ___) =>
+                              Container(color: AppTheme.cardElevated),
+                        )
+                      else
+                        Container(
+                          color: AppTheme.cardElevated,
+                          child: Center(
+                            child: Text(
+                              event.title.isNotEmpty
+                                  ? event.title[0].toUpperCase()
+                                  : 'M',
+                              style: AppTheme.serif(
+                                fontSize: 64,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.gold,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      // Top gradient (status bar)
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: safeTop + 44,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.black.withValues(alpha: 0.4),
+                                Colors.transparent,
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Bottom gradient
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.transparent,
+                                Colors.transparent,
+                                Colors.black.withValues(alpha: 0.35),
+                                Colors.black.withValues(alpha: 0.75),
+                              ],
+                              stops: const [0.0, 0.35, 0.65, 1.0],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // PRIORITY badge (top-left)
+                      Positioned(
+                        top: safeTop + 12,
+                        left: 20,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: AppTheme.gold,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                fromLink
+                                    ? Icons.link_rounded
+                                    : Icons.star_rounded,
+                                size: 10,
+                                color: AppTheme.onAccent,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                fromLink ? 'LINKED' : 'PRIORITY',
+                                style: AppTheme.label(
+                                  fontSize: 8,
+                                  color: AppTheme.onAccent,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Title + date overlay (bottom)
+                      Positioned(
+                        left: 24,
+                        right: 24,
+                        bottom: 28,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Category tag
+                            if (event.category?.isNotEmpty == true)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        Colors.white.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                  child: Text(
+                                    event.category!,
+                                    style: AppTheme.sans(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white
+                                          .withValues(alpha: 0.85),
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            // Title
+                            Text(
+                              event.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTheme.serif(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                height: 1.2,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            // Date
+                            Text(
+                              dateText,
+                              style: AppTheme.sans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Sold out overlay
+                      if (event.status == EventStatus.soldOut ||
+                          event.availableSeats <= 0)
+                        Positioned.fill(
+                          child: Container(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 8),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                      color: Colors.white
+                                          .withValues(alpha: 0.6)),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                                child: Text(
+                                  'SOLD OUT',
+                                  style: AppTheme.label(
+                                    fontSize: 16,
+                                    color:
+                                        Colors.white.withValues(alpha: 0.9),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    fromLink ? '링크로 접속한 공연' : '현재 우선 예매 공연',
-                    style: AppTheme.label(
-                      fontSize: 10,
-                      color: AppTheme.gold,
+
+                // ═══ Content Area (white) ═══
+                SlideTransition(
+                  position: _slideAnim,
+                  child: Container(
+                    width: double.infinity,
+                    color: AppTheme.surface,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── 3-column info row ──
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(0, 20, 0, 16),
+                          child: IntrinsicHeight(
+                            child: Row(
+                              children: [
+                                // Price
+                                Expanded(
+                                  child: _InfoColumn(
+                                    label: 'PRICE',
+                                    value: '$priceText원',
+                                    valueColor: AppTheme.gold,
+                                  ),
+                                ),
+                                Container(
+                                    width: 0.5,
+                                    color: AppTheme.border),
+                                // Venue
+                                Expanded(
+                                  child: _InfoColumn(
+                                    label: 'VENUE',
+                                    value:
+                                        event.venueName ?? '장소 미정',
+                                  ),
+                                ),
+                                Container(
+                                    width: 0.5,
+                                    color: AppTheme.border),
+                                // Seats
+                                Expanded(
+                                  child: _InfoColumn(
+                                    label: 'SEATS',
+                                    value: _seatsText(event),
+                                    valueColor: event.isOnSale
+                                        ? AppTheme.success
+                                        : AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        Container(
+                            height: 0.5,
+                            color: AppTheme.border),
+
+                        // ── Description (optional) ──
+                        if (event.description.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                                24, 18, 24, 0),
+                            child: Text(
+                              event.description,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTheme.sans(
+                                fontSize: 13,
+                                color: AppTheme.textSecondary,
+                                height: 1.6,
+                              ),
+                            ),
+                          ),
+
+                        // ── Expandable details ──
+                        _buildExpandableDetails(event),
+
+                        Container(
+                            height: 0.5,
+                            color: AppTheme.border),
+
+                        // ── Discover link ──
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+                          child: Center(
+                            child: TextButton(
+                              onPressed: widget.onOpenDiscover,
+                              child: Text(
+                                '다른 공연 둘러보기',
+                                style: AppTheme.sans(
+                                  fontSize: 13,
+                                  color: AppTheme.sage,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // Bottom padding for CTA
+                        SizedBox(height: 80 + safeBottom),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
 
-          // ── Event Card ──
-          _QuickBookingEventCard(event: event),
-          const SizedBox(height: 20),
-
-          // ── 2x2 Grid info cards ──
-          _buildEventDetailGrid(event),
-          const SizedBox(height: 20),
-
-          // ── CTA Button ──
-          _buildBookingButton(context, event, fromLink: fromLink),
-          const SizedBox(height: 10),
-
-          // ── Outlined secondary button ──
-          OutlinedButton(
-            onPressed: () => context.push('/event/${event.id}'),
-            child: const Text('공연 상세 보기'),
-          ),
-          const SizedBox(height: 6),
-          TextButton(
-            onPressed: onOpenDiscover,
-            child: const Text('다른 공연 둘러보기'),
+          // ═══ Fixed Bottom CTA ═══
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                border: const Border(
+                  top: BorderSide(color: AppTheme.border, width: 0.5),
+                ),
+              ),
+              padding:
+                  EdgeInsets.fromLTRB(20, 10, 20, safeBottom + 10),
+              child: _buildCTA(event, fromLink: fromLink),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBookingButton(
-    BuildContext context,
-    Event event, {
-    required bool fromLink,
-  }) {
+  String _seatsText(Event event) {
+    final isSoldOut =
+        event.status == EventStatus.soldOut || event.availableSeats <= 0;
+    if (isSoldOut) return '매진';
+    if (event.showRemainingSeats) return '잔여 ${event.availableSeats}석';
+    if (event.isOnSale) return '예매 가능';
+    final now = DateTime.now();
+    if (now.isBefore(event.saleStartAt)) {
+      return '오픈 ${DateFormat('M/d HH:mm').format(event.saleStartAt)}';
+    }
+    return '종료';
+  }
+
+  Widget _buildCTA(Event event, {required bool fromLink}) {
     final now = DateTime.now();
     final isSoldOut =
         event.status == EventStatus.soldOut || event.availableSeats <= 0;
@@ -430,76 +638,185 @@ class _QuickBookingTab extends ConsumerWidget {
     }
 
     return ShimmerButton(
-      text: label.toUpperCase(),
+      text: label,
       onPressed: onPressed,
-      height: 52,
-      borderRadius: 4,
+      height: 54,
+      borderRadius: 10,
     );
   }
 
-  Widget _buildEventDetailGrid(Event event) {
+  Widget _buildExpandableDetails(Event event) {
     final dateText =
-        DateFormat('M/d (E) HH:mm', 'ko_KR').format(event.startAt);
-    final saleText =
-        DateFormat('M/d HH:mm', 'ko_KR').format(event.saleStartAt);
-    final priceText = NumberFormat('#,###', 'ko_KR').format(event.price);
+        DateFormat('yyyy.MM.dd (E) HH:mm', 'ko_KR').format(event.startAt);
 
-    final cards = <_QuickInfoCard>[
-      _QuickInfoCard(
-        title: 'SCHEDULE',
-        value: dateText,
-        hint: event.venueName?.isNotEmpty == true
-            ? event.venueName!
-            : '장소 정보 없음',
-        icon: Icons.schedule_outlined,
-      ),
-      _QuickInfoCard(
-        title: 'PRICE',
-        value: '$priceText원',
-        hint: event.showRemainingSeats ? '잔여 ${event.availableSeats}석' : '~부터',
-        icon: Icons.confirmation_number_outlined,
-      ),
-      _QuickInfoCard(
-        title: 'CURATION',
-        value: '예산 + 악기 기준',
-        hint: '좌석 3개 자동 추천',
-        icon: Icons.auto_awesome_outlined,
-      ),
-      _QuickInfoCard(
-        title: 'PREVIEW',
-        value: '360° 프리뷰',
-        hint: event.isOnSale ? '바로 체험 가능' : '오픈 $saleText',
-        icon: Icons.threesixty_outlined,
-      ),
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: AppTheme.border, width: 0.5),
-      ),
-      child: Column(
-        children: [
-          // Top row
-          IntrinsicHeight(
+    return Column(
+      children: [
+        // Tap target
+        GestureDetector(
+          onTap: () => setState(() => _detailsExpanded = !_detailsExpanded),
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 18, 24, 18),
             child: Row(
               children: [
-                Expanded(child: _buildGridCell(cards[0])),
-                Container(width: 0.5, color: AppTheme.border),
-                Expanded(child: _buildGridCell(cards[1])),
+                Container(
+                  width: 3,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: AppTheme.gold,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '상세 정보',
+                  style: AppTheme.sans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                AnimatedRotation(
+                  turns: _detailsExpanded ? 0.5 : 0.0,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                  child: const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 22,
+                    color: AppTheme.sage,
+                  ),
+                ),
               ],
             ),
           ),
-          Container(height: 0.5, color: AppTheme.border),
-          // Bottom row
-          IntrinsicHeight(
-            child: Row(
-              children: [
-                Expanded(child: _buildGridCell(cards[2])),
-                Container(width: 0.5, color: AppTheme.border),
-                Expanded(child: _buildGridCell(cards[3])),
-              ],
+        ),
+
+        // Expandable content
+        AnimatedSize(
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: _detailsExpanded
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Pamphlet carousel
+                    if (event.pamphletUrls != null &&
+                        event.pamphletUrls!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: SizedBox(
+                          height: 200,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 24),
+                            itemCount: event.pamphletUrls!.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(width: 10),
+                            itemBuilder: (context, index) {
+                              final url = event.pamphletUrls![index];
+                              return PressableScale(
+                                onTap: () => _showFullImage(context, url),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: CachedNetworkImage(
+                                    imageUrl: url,
+                                    fit: BoxFit.cover,
+                                    width: 140,
+                                    height: 200,
+                                    placeholder: (_, __) => Container(
+                                      width: 140,
+                                      color: AppTheme.cardElevated,
+                                    ),
+                                    errorWidget: (_, __, ___) => Container(
+                                      width: 140,
+                                      color: AppTheme.cardElevated,
+                                      child: const Icon(
+                                          Icons.broken_image_rounded,
+                                          color: AppTheme.sage),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+
+                    // Detail rows
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                      child: Column(
+                        children: [
+                          _detailRow('일시', dateText),
+                          if (event.venueName?.isNotEmpty == true)
+                            _detailRow('장소', event.venueName!),
+                          if (event.runningTime != null)
+                            _detailRow(
+                                '러닝타임', '${event.runningTime}분'),
+                          if (event.ageLimit?.isNotEmpty == true)
+                            _detailRow('관람등급', event.ageLimit!),
+                        ],
+                      ),
+                    ),
+
+                    // Link to full detail page
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
+                      child: PressableScale(
+                        onTap: () =>
+                            context.push('/event/${event.id}'),
+                        child: Row(
+                          children: [
+                            Text(
+                              '공연 상세 보기',
+                              style: AppTheme.sans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.gold,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.arrow_forward_ios_rounded,
+                                size: 12, color: AppTheme.gold),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 64,
+            child: Text(
+              label,
+              style: AppTheme.sans(
+                fontSize: 12,
+                color: AppTheme.sage,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: AppTheme.sans(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textPrimary,
+              ),
             ),
           ),
         ],
@@ -507,45 +824,61 @@ class _QuickBookingTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildGridCell(_QuickInfoCard card) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(card.icon, size: 20, color: AppTheme.sage),
-          const SizedBox(height: 10),
-          Text(
-            card.title,
-            style: AppTheme.label(
-              fontSize: 9,
-              color: AppTheme.sage,
+  void _showFullImage(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (ctx) => GestureDetector(
+        onTap: () => Navigator.of(ctx).pop(),
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.9),
+          child: Center(
+            child: CachedNetworkImage(
+              imageUrl: url,
+              fit: BoxFit.contain,
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            card.value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: AppTheme.sans(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
-            ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmpty({required bool fromLink}) {
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.event_busy_outlined,
+                  color: AppTheme.sage, size: 44),
+              const SizedBox(height: 16),
+              Text(
+                fromLink ? '링크 공연을 찾을 수 없습니다' : '현재 예매 가능한 공연이 없습니다',
+                style: AppTheme.serif(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '다른 공연 탭에서 등록된 공연을 확인하세요.',
+                textAlign: TextAlign.center,
+                style: AppTheme.sans(
+                  fontSize: 13,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton(
+                onPressed: widget.onOpenDiscover,
+                child: const Text('다른 공연 보기'),
+              ),
+            ],
           ),
-          const SizedBox(height: 2),
-          Text(
-            card.hint,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: AppTheme.sans(
-              fontSize: 11,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -801,18 +1134,45 @@ class _QuickBookingTab extends ConsumerWidget {
   }
 }
 
-class _QuickInfoCard {
-  final String title;
+// ─── Info Column (3-col layout) ───
+class _InfoColumn extends StatelessWidget {
+  final String label;
   final String value;
-  final String hint;
-  final IconData icon;
+  final Color? valueColor;
 
-  const _QuickInfoCard({
-    required this.title,
+  const _InfoColumn({
+    required this.label,
     required this.value,
-    required this.hint,
-    required this.icon,
+    this.valueColor,
   });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: AppTheme.label(fontSize: 9, color: AppTheme.sage),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: AppTheme.sans(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: valueColor ?? AppTheme.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _AIQuickCondition {
@@ -825,171 +1185,6 @@ class _AIQuickCondition {
     required this.maxBudget,
     required this.instrument,
   });
-}
-
-// ─── Quick Booking Event Card (Editorial) ───
-class _QuickBookingEventCard extends StatelessWidget {
-  final Event event;
-
-  const _QuickBookingEventCard({required this.event});
-
-  @override
-  Widget build(BuildContext context) {
-    final dateText =
-        DateFormat('yyyy.MM.dd (E) HH:mm', 'ko_KR').format(event.startAt);
-    final saleOpenText =
-        DateFormat('M/d HH:mm', 'ko_KR').format(event.saleStartAt);
-    final priceText = NumberFormat('#,###', 'ko_KR').format(event.price);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: AppTheme.border, width: 0.5),
-        boxShadow: AppShadows.card,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Poster with Priority badge ──
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: SizedBox(
-              width: 96,
-              height: 132,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (event.imageUrl != null && event.imageUrl!.isNotEmpty)
-                    CachedNetworkImage(
-                      imageUrl: event.imageUrl!,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        color: AppTheme.cardElevated,
-                        child: const Center(
-                          child: CircularProgressIndicator(
-                            color: AppTheme.gold,
-                            strokeWidth: 1.5,
-                          ),
-                        ),
-                      ),
-                      errorWidget: (_, __, ___) => _PosterPlaceholder(),
-                    )
-                  else
-                    _PosterPlaceholder(),
-                  // Priority badge
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      color: AppTheme.gold,
-                      child: Text(
-                        'PRIORITY',
-                        style: AppTheme.label(
-                          fontSize: 8,
-                          color: AppTheme.onAccent,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-
-          // ── Info ──
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (event.category?.isNotEmpty == true)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      event.category!.toUpperCase(),
-                      style: AppTheme.label(
-                        fontSize: 9,
-                        color: AppTheme.sage,
-                      ),
-                    ),
-                  ),
-                Text(
-                  event.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTheme.serif(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _metaLine(Icons.schedule_outlined, dateText),
-                if (event.venueName?.isNotEmpty == true) ...[
-                  const SizedBox(height: 3),
-                  _metaLine(Icons.location_on_outlined, event.venueName!),
-                ],
-                if (event.showRemainingSeats) ...[
-                  const SizedBox(height: 3),
-                  _metaLine(
-                    Icons.confirmation_number_outlined,
-                    '잔여 ${event.availableSeats}석',
-                  ),
-                ],
-                const SizedBox(height: 12),
-                Text(
-                  '$priceText원',
-                  style: AppTheme.serif(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.gold,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  event.isOnSale ? '지금 바로 예매 가능' : '오픈: $saleOpenText',
-                  style: AppTheme.sans(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: event.isOnSale
-                        ? AppTheme.success
-                        : AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _metaLine(IconData icon, String text) {
-    return Row(
-      children: [
-        Icon(icon, size: 13, color: AppTheme.sage),
-        const SizedBox(width: 5),
-        Expanded(
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTheme.sans(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 // ─── Home Tab (Editorial) ───
