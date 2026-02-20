@@ -87,6 +87,27 @@ class AppTheme {
   );
 
   // ─── Font Helpers ───
+  /// 나눔바른고딕 (bundled, not Google Fonts)
+  static TextStyle nanum({
+    double? fontSize,
+    FontWeight? fontWeight,
+    Color? color,
+    double? letterSpacing,
+    double? height,
+    TextDecoration? decoration,
+    FontStyle? fontStyle,
+  }) =>
+      TextStyle(
+        fontFamily: 'NanumBarunGothic',
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: letterSpacing,
+        height: height,
+        decoration: decoration,
+        fontStyle: fontStyle,
+      );
+
   static TextStyle serif({
     double fontSize = 16,
     FontWeight fontWeight = FontWeight.w700,

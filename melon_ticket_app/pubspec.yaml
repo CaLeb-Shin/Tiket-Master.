@@ -54,3 +54,13 @@ flutter:
 
   assets:
     - assets/images/
+
+  fonts:
+    - family: NanumBarunGothic
+      fonts:
+        - asset: assets/fonts/NanumBarunGothicLight.otf
+          weight: 300
+        - asset: assets/fonts/NanumBarunGothic.otf
+          weight: 400
+        - asset: assets/fonts/NanumBarunGothicBold.otf
+          weight: 700
