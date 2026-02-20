@@ -398,7 +398,7 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('yyyy.MM.dd', 'ko_KR');
+    final dateFormat = DateFormat('yyyy.MM.dd (E)', 'ko_KR');
     final timeFormat = DateFormat('HH:mm', 'ko_KR');
 
     String statusText;
@@ -555,7 +555,7 @@ class _AdmissionSection extends StatelessWidget {
           const SizedBox(height: 20),
 
           if (hasGrades)
-            ...grades.entries.map((entry) {
+            ..._sortedGrades(grades).map((entry) {
               return _AdmissionRow(
                 grade: entry.key,
                 price: '${priceFormat.format(entry.value)}원',
@@ -571,6 +571,19 @@ class _AdmissionSection extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  static const _gradeOrder = ['VIP', 'R', 'S', 'A'];
+
+  List<MapEntry<String, int>> _sortedGrades(Map<String, int> grades) {
+    return grades.entries.toList()
+      ..sort((a, b) {
+        final ai = _gradeOrder.indexOf(a.key);
+        final bi = _gradeOrder.indexOf(b.key);
+        final aIdx = ai == -1 ? _gradeOrder.length : ai;
+        final bIdx = bi == -1 ? _gradeOrder.length : bi;
+        return aIdx.compareTo(bIdx);
+      });
   }
 
   Color _gradeColor(String grade) {
