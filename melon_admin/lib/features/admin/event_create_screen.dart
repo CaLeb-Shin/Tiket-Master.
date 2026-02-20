@@ -3633,78 +3633,110 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   }
 
   void _showEditSuccessDialog(String eventId, String title) {
-    showAnimatedDialog(
+    showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AnimatedDialogContent(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: AdminTheme.goldGradient,
-                boxShadow: [
-                  BoxShadow(
-                    color: AdminTheme.gold.withValues(alpha: 0.3),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                  ),
-                ],
+      barrierColor: Colors.black54,
+      builder: (ctx) => Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 380),
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: AdminTheme.surface,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: AdminTheme.gold.withValues(alpha: 0.15),
+                width: 0.5,
               ),
-              child: const Icon(Icons.check_rounded,
-                  color: Color(0xFFFDF3F6), size: 36),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              '공연이 수정되었습니다!',
-              style: AdminTheme.serif(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: AdminTheme.sans(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AdminTheme.gold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  context.go('/');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AdminTheme.gold,
-                  foregroundColor: AdminTheme.onAccent,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  blurRadius: 40,
+                  spreadRadius: 4,
                 ),
-                child: Text(
-                  'DASHBOARD',
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AdminTheme.success.withValues(alpha: 0.12),
+                    border: Border.all(
+                      color: AdminTheme.success.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(Icons.check_rounded,
+                      color: AdminTheme.success, size: 28),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  '수정 완료',
                   style: AdminTheme.serif(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AdminTheme.onAccent,
-                    letterSpacing: 2.0,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AdminTheme.textPrimary,
                   ),
                 ),
-              ),
+                const SizedBox(height: 10),
+                Text(
+                  title,
+                  style: AdminTheme.sans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AdminTheme.gold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '공연 정보가 성공적으로 업데이트되었습니다.',
+                  style: AdminTheme.sans(
+                    fontSize: 12,
+                    color: AdminTheme.textTertiary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 28),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      context.go('/');
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AdminTheme.textPrimary,
+                      side: BorderSide(
+                        color: AdminTheme.border,
+                        width: 0.5,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    child: Text(
+                      'DASHBOARD',
+                      style: AdminTheme.sans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AdminTheme.textSecondary,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
