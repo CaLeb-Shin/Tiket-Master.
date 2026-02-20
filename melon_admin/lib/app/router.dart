@@ -96,6 +96,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const VenueManageScreen(),
           ),
           GoRoute(
+            path: 'venues/:venueId',
+            name: 'adminVenueDetail',
+            builder: (context, state) {
+              final venueId = state.pathParameters['venueId']!;
+              return VenueDetailScreen(venueId: venueId);
+            },
+          ),
+          GoRoute(
             path: 'venues/:venueId/views',
             name: 'adminVenueViews',
             builder: (context, state) {

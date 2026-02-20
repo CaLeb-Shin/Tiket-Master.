@@ -305,12 +305,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
   }
 
   void _showVenueDetail(Venue venue) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _VenueDetailSheet(venue: venue),
-    );
+    context.push('/venues/${venue.id}');
   }
 }
 
@@ -2110,56 +2105,69 @@ class _GeneratedSeatRow {
 // 공연장 상세 바텀시트
 // =============================================================================
 
-class _VenueDetailSheet extends ConsumerStatefulWidget {
-  final Venue venue;
-  const _VenueDetailSheet({required this.venue});
+class VenueDetailScreen extends ConsumerStatefulWidget {
+  final String venueId;
+  const VenueDetailScreen({super.key, required this.venueId});
 
   @override
-  ConsumerState<_VenueDetailSheet> createState() => _VenueDetailSheetState();
+  ConsumerState<VenueDetailScreen> createState() => _VenueDetailScreenState();
 }
 
-class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
+class _VenueDetailScreenState extends ConsumerState<VenueDetailScreen> {
   bool _isUploadingSeatMap = false;
   bool _isSavingLayout = false;
   String? _seatMapUrl;
-  late List<VenueFloor> _floors;
-  late String _stagePosition;
+  List<VenueFloor>? _floors;
+  String? _stagePosition;
 
-  @override
-  void initState() {
-    super.initState();
-    _seatMapUrl = widget.venue.seatMapImageUrl;
-    _floors = widget.venue.floors;
-    _stagePosition = _normalizeStagePosition(widget.venue.stagePosition);
+  void _initFromVenue(Venue venue) {
+    _seatMapUrl ??= venue.seatMapImageUrl;
+    _floors ??= venue.floors;
+    _stagePosition ??= _normalizeStagePosition(venue.stagePosition);
   }
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat('#,###');
-    final venue = widget.venue;
-    final totalSeats = _calcTotalSeats(_floors);
+    final venueAsync = ref.watch(venueStreamProvider(widget.venueId));
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.72,
-      decoration: const BoxDecoration(
-        color: AdminTheme.background,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
+    return Scaffold(
+      backgroundColor: AdminTheme.background,
+      appBar: AppBar(
+        backgroundColor: AdminTheme.surface,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded,
+              color: AdminTheme.textPrimary),
+          onPressed: () => context.pop(),
+        ),
+        title: Text('공연장 상세',
+            style: AdminTheme.serif(fontSize: 16)),
+        centerTitle: false,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
       ),
-      child: Column(
-        children: [
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(top: 10, bottom: 6),
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AdminTheme.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
+      body: venueAsync.when(
+        loading: () => const Center(
+            child: CircularProgressIndicator(color: AdminTheme.gold)),
+        error: (e, _) => Center(child: Text('오류: $e')),
+        data: (venue) {
+          if (venue == null) {
+            return const Center(child: Text('공연장을 찾을 수 없습니다'));
+          }
+          _initFromVenue(venue);
+          return _buildBody(venue);
+        },
+      ),
+    );
+  }
+
+  Widget _buildBody(Venue venue) {
+    final fmt = NumberFormat('#,###');
+    final totalSeats = _calcTotalSeats(_floors!);
+
+    return Column(
+      children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
             child: Row(
               children: [
                 Container(
@@ -2201,8 +2209,8 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                   Row(
                     children: [
                       _stat('총 좌석', '${fmt.format(totalSeats)}석'),
-                      _stat('층수', '${_floors.length}층'),
-                      _stat('무대', _stagePositionLabel(_stagePosition)),
+                      _stat('층수', '${_floors!.length}층'),
+                      _stat('무대', _stagePositionLabel(_stagePosition ?? 'top')),
                       _stat('3D 시야', venue.hasSeatView ? '등록됨' : '미등록'),
                     ],
                   ),
@@ -2223,7 +2231,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                         color: AdminTheme.textPrimary,
                       )),
                   const SizedBox(height: 8),
-                  if (_floors.isEmpty)
+                  if (_floors!.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -2240,7 +2248,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                       ),
                     )
                   else
-                    ..._floors.map((floor) => Column(
+                    ..._floors!.map((floor) => Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(floor.name,
@@ -2356,7 +2364,6 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () {
-                          Navigator.pop(context);
                           context.push(
                             '/venues/${venue.id}/views?name=${Uri.encodeComponent(venue.name)}',
                           );
@@ -2378,10 +2385,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _deleteVenue(context, ref, venue);
-                    },
+                    onPressed: () => _deleteVenue(context, ref, venue),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AdminTheme.error.withValues(alpha: 0.15),
                       foregroundColor: AdminTheme.error,
@@ -2395,8 +2399,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
               ],
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -2414,8 +2417,8 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
             widthFactor: widthFactor,
             child: _VenueLayoutEditorSheet(
               venueName: venue.name,
-              initialFloors: _floors,
-              initialStagePosition: _stagePosition,
+              initialFloors: _floors!,
+              initialStagePosition: _stagePosition!,
             ),
           ),
         );
@@ -2463,8 +2466,8 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
 
   Widget _buildSeatMapAssetCard(Venue venue) {
     final hasSeatMap = _seatMapUrl != null && _seatMapUrl!.isNotEmpty;
-    final hasGeneratedMap = !hasSeatMap && _floors.isNotEmpty;
-    final hasLayout = _floors.isNotEmpty;
+    final hasGeneratedMap = !hasSeatMap && _floors!.isNotEmpty;
+    final hasLayout = _floors!.isNotEmpty;
 
     return Container(
       width: double.infinity,
@@ -2567,7 +2570,7 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
           if (hasGeneratedMap) ...[
             const SizedBox(height: 8),
             Text(
-              '이미지가 없어도 좌석 구조 데이터로 배치도를 자동 생성합니다. STAGE(무대)는 ${_stagePositionLabel(_stagePosition)}에 표시됩니다.',
+              '이미지가 없어도 좌석 구조 데이터로 배치도를 자동 생성합니다. STAGE(무대)는 ${_stagePositionLabel(_stagePosition ?? 'top')}에 표시됩니다.',
               style: AdminTheme.sans(
                 fontSize: 11,
                 color: AdminTheme.textTertiary,
@@ -2581,8 +2584,8 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
 
   Widget _buildGeneratedSeatMapPreview() {
     return _GeneratedSeatMapDiagram(
-      floors: _floors,
-      stagePosition: _stagePosition,
+      floors: _floors!,
+      stagePosition: _stagePosition!,
       compact: true,
       showSummaryLabel: true,
     );
@@ -2730,6 +2733,9 @@ class _VenueDetailSheetState extends ConsumerState<_VenueDetailSheet> {
     );
     if (confirm == true) {
       await ref.read(venueRepositoryProvider).deleteVenue(venue.id);
+      if (context.mounted) {
+        context.go('/venues');
+      }
     }
   }
 }
