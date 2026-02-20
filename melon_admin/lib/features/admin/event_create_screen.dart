@@ -81,14 +81,14 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   final Set<String> _enabledGrades = {'VIP', 'R', 'S', 'A'};
   final Map<String, TextEditingController> _gradePriceControllers = {};
 
-  Uint8List? _posterBytes;
-  String? _posterFileName;
-  String? _existingPosterUrl; // 수정 모드: 기존 포스터 URL
+  Uint8List? _posterBytes; // 업로드 중 임시 미리보기용
+  String? _posterUrl; // 서버에 업로드된 포스터 URL
+  bool _isUploadingPoster = false;
 
   // ── 팜플렛 (최대 8장, 장당 3MB) ──
-  final List<_PamphletItem> _pamphlets = [];
   final ScrollController _pamphletScrollCtrl = ScrollController();
-  List<String> _existingPamphletUrls = []; // 수정 모드: 기존 팜플렛 URLs
+  List<String> _pamphletUrls = []; // 서버에 업로드된 팜플렛 URLs
+  bool _isUploadingPamphlet = false;
   static const _maxPamphlets = 8;
   static const _maxPamphletBytes = 3 * 1024 * 1024; // 3MB per image
 
@@ -233,6 +233,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       'discountPolicies':
           _discountPolicies.map((p) => p.toMap()).toList(),
       if (_selectedVenue != null) 'venueId': _selectedVenue!.id,
+      if (_posterUrl != null) 'posterUrl': _posterUrl,
+      'pamphletUrls': _pamphletUrls,
     };
 
     final prefs = await SharedPreferences.getInstance();
@@ -315,6 +317,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 .map((m) => DiscountPolicy.fromMap(m as Map<String, dynamic>)),
           );
       }
+
+      // 포스터/팜플렛 URL 복원
+      _posterUrl = data['posterUrl'] as String?;
+      if (data['pamphletUrls'] != null) {
+        _pamphletUrls = List<String>.from(data['pamphletUrls'] as List);
+      }
     });
   }
 
@@ -380,8 +388,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         }
 
         // 기존 포스터/팜플렛 URL 로드
-        _existingPosterUrl = event.imageUrl;
-        _existingPamphletUrls = event.pamphletUrls ?? [];
+        _posterUrl = event.imageUrl;
+        _pamphletUrls = List<String>.from(event.pamphletUrls ?? []);
       });
     } catch (e) {
       if (mounted) _showError('공연 데이터 로드 실패: $e');
@@ -2555,35 +2563,48 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   }
 
   Widget _buildPosterPicker() {
-    // 새로 업로드한 포스터
-    if (_posterBytes != null) {
+    // 업로드 중 (bytes 미리보기 + 프로그레스)
+    if (_posterBytes != null && _isUploadingPoster) {
       return Container(
         decoration: BoxDecoration(
-          border: Border.all(color: AdminTheme.gold, width: 0.5),
+          border: Border.all(color: AdminTheme.gold.withValues(alpha: 0.5), width: 0.5),
           borderRadius: BorderRadius.circular(2),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
           children: [
-            Image.memory(
-              _posterBytes!,
-              width: double.infinity,
-              fit: BoxFit.contain,
+            Opacity(
+              opacity: 0.5,
+              child: Image.memory(
+                _posterBytes!,
+                width: double.infinity,
+                fit: BoxFit.contain,
+              ),
             ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Row(
-                children: [
-                  _posterActionBtn(Icons.edit_rounded, 'CHANGE', _pickPosterImage),
-                  const SizedBox(width: 6),
-                  _posterActionBtn(Icons.close_rounded, 'REMOVE', () {
-                    setState(() {
-                      _posterBytes = null;
-                      _posterFileName = null;
-                    });
-                  }),
-                ],
+            Positioned.fill(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AdminTheme.gold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '업로드 중...',
+                      style: AdminTheme.sans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AdminTheme.gold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -2591,8 +2612,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       );
     }
 
-    // 기존 포스터 URL (수정 모드)
-    if (_existingPosterUrl != null && _existingPosterUrl!.isNotEmpty) {
+    // 서버에 업로드 완료된 포스터 URL
+    if (_posterUrl != null && _posterUrl!.isNotEmpty) {
       return Container(
         decoration: BoxDecoration(
           border: Border.all(color: AdminTheme.gold, width: 0.5),
@@ -2602,7 +2623,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         child: Stack(
           children: [
             Image.network(
-              _existingPosterUrl!,
+              _posterUrl!,
               width: double.infinity,
               fit: BoxFit.contain,
               errorBuilder: (_, __, ___) => Container(
@@ -2623,7 +2644,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   const SizedBox(width: 6),
                   _posterActionBtn(Icons.close_rounded, 'REMOVE', () {
                     setState(() {
-                      _existingPosterUrl = null;
+                      _posterUrl = null;
+                      _posterBytes = null;
                     });
                   }),
                 ],
@@ -2712,88 +2734,90 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildPamphletPicker() {
-    final hasExisting = _existingPamphletUrls.isNotEmpty;
-    final hasNew = _pamphlets.isNotEmpty;
-    final totalCount = _existingPamphletUrls.length + _pamphlets.length;
+    final totalCount = _pamphletUrls.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 기존 팜플렛 URL 이미지 (수정 모드)
-        if (hasExisting) ...[
-          Text(
-            '등록된 팜플렛',
-            style: AdminTheme.sans(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AdminTheme.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
+        // 업로드된 팜플렛 이미지 (URL)
+        if (_pamphletUrls.isNotEmpty) ...[
           SizedBox(
             height: 140,
-            child: ListView.builder(
+            child: ReorderableListView.builder(
+              scrollController: _pamphletScrollCtrl,
               scrollDirection: Axis.horizontal,
-              itemCount: _existingPamphletUrls.length,
+              buildDefaultDragHandles: false,
+              itemCount: _pamphletUrls.length,
+              onReorder: (oldIndex, newIndex) {
+                setState(() {
+                  if (newIndex > oldIndex) newIndex--;
+                  final url = _pamphletUrls.removeAt(oldIndex);
+                  _pamphletUrls.insert(newIndex, url);
+                });
+              },
               itemBuilder: (context, index) {
-                final url = _existingPamphletUrls[index];
-                return Container(
-                  width: 100,
-                  margin: const EdgeInsets.only(right: 8),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                        color: AdminTheme.sage.withValues(alpha: 0.2),
-                        width: 0.5),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.network(url, fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                                color: AdminTheme.surface,
-                                child: const Icon(Icons.broken_image_rounded,
-                                    size: 24, color: AdminTheme.textTertiary),
-                              )),
-                      Positioned(
-                        left: 4,
-                        bottom: 4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color:
-                                AdminTheme.background.withValues(alpha: 0.8),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                          child: Text('${index + 1}',
-                              style: AdminTheme.label(
-                                fontSize: 9,
-                                color: AdminTheme.textPrimary,
-                              )),
-                        ),
-                      ),
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: GestureDetector(
-                          onTap: () => setState(
-                              () => _existingPamphletUrls.removeAt(index)),
+                final url = _pamphletUrls[index];
+                return ReorderableDragStartListener(
+                  key: ValueKey(url),
+                  index: index,
+                  child: Container(
+                    width: 100,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                          color: AdminTheme.sage.withValues(alpha: 0.2),
+                          width: 0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.network(url, fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                                  color: AdminTheme.surface,
+                                  child: const Icon(Icons.broken_image_rounded,
+                                      size: 24, color: AdminTheme.textTertiary),
+                                )),
+                        Positioned(
+                          left: 4,
+                          bottom: 4,
                           child: Container(
-                            width: 20,
-                            height: 20,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 2),
                             decoration: BoxDecoration(
                               color:
-                                  AdminTheme.error.withValues(alpha: 0.85),
-                              shape: BoxShape.circle,
+                                  AdminTheme.background.withValues(alpha: 0.8),
+                              borderRadius: BorderRadius.circular(2),
                             ),
-                            child: const Icon(Icons.close_rounded,
-                                size: 12, color: Colors.white),
+                            child: Text('${index + 1}',
+                                style: AdminTheme.label(
+                                  fontSize: 9,
+                                  color: AdminTheme.textPrimary,
+                                )),
                           ),
                         ),
-                      ),
-                    ],
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: GestureDetector(
+                            onTap: () => setState(
+                                () => _pamphletUrls.removeAt(index)),
+                            child: Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color:
+                                    AdminTheme.error.withValues(alpha: 0.85),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close_rounded,
+                                  size: 12, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -2801,153 +2825,18 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           ),
           Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              '${_existingPamphletUrls.length}장 등록됨',
-              style: AdminTheme.sans(
-                fontSize: 10,
-                color: AdminTheme.textTertiary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-
-        // 새로 추가한 이미지 그리드 + 좌우 스크롤 버튼
-        if (hasNew) ...[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // 왼쪽 스크롤 버튼
-              _pamphletScrollButton(Icons.chevron_left, isLeft: true),
-              const SizedBox(width: 6),
-              // 리스트
-              Expanded(
-                child: SizedBox(
-                  height: 140,
-                  child: ReorderableListView.builder(
-                    scrollController: _pamphletScrollCtrl,
-                    scrollDirection: Axis.horizontal,
-                    buildDefaultDragHandles: false,
-                    itemCount: _pamphlets.length,
-                    onReorder: (oldIndex, newIndex) {
-                      setState(() {
-                        if (newIndex > oldIndex) newIndex--;
-                        final item = _pamphlets.removeAt(oldIndex);
-                        _pamphlets.insert(newIndex, item);
-                      });
-                    },
-                    itemBuilder: (context, index) {
-                      final item = _pamphlets[index];
-                      return ReorderableDragStartListener(
-                        key: ValueKey(item.id),
-                        index: index,
-                        child: Container(
-                          width: 100,
-                          margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                                color:
-                                    AdminTheme.sage.withValues(alpha: 0.2),
-                                width: 0.5),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Image.memory(
-                                item.bytes,
-                                fit: BoxFit.cover,
-                              ),
-                              // 페이지 번호
-                              Positioned(
-                                left: 4,
-                                bottom: 4,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 5, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AdminTheme.background
-                                        .withValues(alpha: 0.8),
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                  child: Text('${index + 1}',
-                                      style: AdminTheme.label(
-                                        fontSize: 9,
-                                        color: AdminTheme.textPrimary,
-                                      )),
-                                ),
-                              ),
-                              // 삭제 버튼
-                              Positioned(
-                                top: 4,
-                                right: 4,
-                                child: GestureDetector(
-                                  onTap: () => setState(
-                                      () => _pamphlets.removeAt(index)),
-                                  child: Container(
-                                    width: 20,
-                                    height: 20,
-                                    decoration: BoxDecoration(
-                                      color: AdminTheme.error
-                                          .withValues(alpha: 0.85),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(Icons.close_rounded,
-                                        size: 12, color: Colors.white),
-                                  ),
-                                ),
-                              ),
-                              // 용량 표시
-                              if (item.bytes.length > 1 * 1024 * 1024)
-                                Positioned(
-                                  right: 4,
-                                  bottom: 4,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 4, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: AdminTheme.warning
-                                          .withValues(alpha: 0.85),
-                                      borderRadius:
-                                          BorderRadius.circular(2),
-                                    ),
-                                    child: Text(
-                                      '${(item.bytes.length / 1024 / 1024).toStringAsFixed(1)}MB',
-                                      style: AdminTheme.label(
-                                          fontSize: 7,
-                                          color: AdminTheme.onAccent),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              // 오른쪽 스크롤 버튼
-              _pamphletScrollButton(Icons.chevron_right, isLeft: false),
-            ],
-          ),
-          // 힌트 텍스트
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '이미지를 드래그하여 순서 변경',
+                  '드래그하여 순서 변경',
                   style: AdminTheme.sans(
                     fontSize: 10,
                     color: AdminTheme.textTertiary,
                   ),
                 ),
                 Text(
-                  '${_pamphlets.length}/$_maxPamphlets장',
+                  '$totalCount/$_maxPamphlets장',
                   style: AdminTheme.sans(
                     fontSize: 10,
                     color: AdminTheme.textTertiary,
@@ -2959,8 +2848,37 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           const SizedBox(height: 12),
         ],
 
+        // 업로드 중 표시
+        if (_isUploadingPamphlet) ...[
+          Container(
+            width: double.infinity,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AdminTheme.gold.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: AdminTheme.gold.withValues(alpha: 0.2), width: 0.5),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 1.5, color: AdminTheme.gold),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '업로드 중...',
+                  style: AdminTheme.sans(fontSize: 12, color: AdminTheme.gold),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
         // 추가 버튼
-        if (totalCount < _maxPamphlets)
+        if (totalCount < _maxPamphlets && !_isUploadingPamphlet)
           InkWell(
             onTap: _pickPamphletImages,
             child: Container(
@@ -3006,43 +2924,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     );
   }
 
-  Widget _pamphletScrollButton(IconData icon, {required bool isLeft}) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () {
-          final offset = _pamphletScrollCtrl.offset +
-              (isLeft ? -216 : 216); // 2장분 (100+8)*2
-          _pamphletScrollCtrl.animateTo(
-            offset.clamp(
-              0.0,
-              _pamphletScrollCtrl.position.maxScrollExtent,
-            ),
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOutCubic,
-          );
-        },
-        child: Container(
-          width: 28,
-          height: 48,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: AdminTheme.surface,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: AdminTheme.sage.withValues(alpha: 0.2),
-              width: 0.5,
-            ),
-          ),
-          child: Icon(icon, size: 18, color: AdminTheme.textSecondary),
-        ),
-      ),
-    );
-  }
-
   Future<void> _pickPamphletImages() async {
     try {
-      final remaining = _maxPamphlets - _pamphlets.length;
+      final remaining = _maxPamphlets - _pamphletUrls.length;
       if (remaining <= 0) return;
 
       final result = await FilePicker.platform.pickFiles(
@@ -3053,7 +2937,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
       if (result == null || result.files.isEmpty) return;
 
-      // 이름순 정렬 후 추가
+      setState(() => _isUploadingPamphlet = true);
+
+      final userId = ref.read(authServiceProvider).currentUser?.uid ?? 'unknown';
+
+      // 이름순 정렬 후 업로드
       final sortedFiles = result.files.take(remaining).toList()
         ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
       for (final file in sortedFiles) {
@@ -3078,16 +2966,31 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           continue;
         }
 
-        _pamphlets.add(_PamphletItem(
-          id: '${DateTime.now().microsecondsSinceEpoch}_${_pamphlets.length}',
-          bytes: bytes,
-          fileName: name,
-        ));
+        // 서버에 즉시 업로드
+        final url = await ref.read(storageServiceProvider).uploadDraftImage(
+              bytes: bytes,
+              userId: userId,
+              fileName: name,
+              type: 'pamphlet',
+            );
+        if (mounted) {
+          setState(() => _pamphletUrls.add(url));
+        }
       }
 
-      if (mounted) setState(() {});
-    } catch (_) {
-      // 취소됨
+      if (mounted) setState(() => _isUploadingPamphlet = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploadingPamphlet = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('팜플렛 업로드 실패: $e'),
+            backgroundColor: AdminTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
     }
   }
 
@@ -3266,13 +3169,41 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           }
           return;
         }
+        // 미리보기 즉시 표시
         setState(() {
           _posterBytes = bytes;
-          _posterFileName = result.files.single.name;
+          _isUploadingPoster = true;
         });
+
+        // 서버에 즉시 업로드
+        final userId = ref.read(authServiceProvider).currentUser?.uid ?? 'unknown';
+        final url = await ref.read(storageServiceProvider).uploadDraftImage(
+              bytes: bytes,
+              userId: userId,
+              fileName: result.files.single.name,
+              type: 'poster',
+            );
+
+        if (mounted) {
+          setState(() {
+            _posterUrl = url;
+            _posterBytes = null; // bytes 해제, URL로 표시 전환
+            _isUploadingPoster = false;
+          });
+        }
       }
-    } catch (_) {
-      // 취소됨
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploadingPoster = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('포스터 업로드 실패: $e'),
+            backgroundColor: AdminTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
     }
   }
 
@@ -3364,58 +3295,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           'showRemainingSeats': _showRemainingSeats,
         };
 
+        // 포스터/팜플렛은 이미 서버에 업로드되어 URL 보유
+        updateData['imageUrl'] = _posterUrl;
+        updateData['pamphletUrls'] = _pamphletUrls.isNotEmpty ? _pamphletUrls : null;
+
         await ref.read(eventRepositoryProvider).updateEvent(eventId, updateData);
-        if (mounted) setState(() => _submitProgress = 0.40);
-
-        // 포스터 처리
-        if (_posterBytes != null && _posterFileName != null) {
-          // 새로 업로드
-          if (mounted) setState(() { _submitProgress = 0.50; _submitStage = '포스터 업로드 중...'; });
-          final imageUrl =
-              await ref.read(storageServiceProvider).uploadPosterImage(
-                    bytes: _posterBytes!,
-                    eventId: eventId,
-                    fileName: _posterFileName!,
-                  );
-          await ref.read(eventRepositoryProvider).updateEvent(
-            eventId,
-            {'imageUrl': imageUrl},
-          );
-        } else if (_existingPosterUrl == null) {
-          // 기존 포스터 삭제됨
-          await ref.read(eventRepositoryProvider).updateEvent(
-            eventId,
-            {'imageUrl': null},
-          );
-        }
-        if (mounted) setState(() => _submitProgress = 0.70);
-
-        // 팜플렛 처리: 기존 URL + 새로 업로드
-        final finalPamphletUrls = <String>[..._existingPamphletUrls];
-        if (_pamphlets.isNotEmpty) {
-          if (mounted) setState(() => _submitStage = '팜플렛 업로드 중...');
-          for (var i = 0; i < _pamphlets.length; i++) {
-            final item = _pamphlets[i];
-            if (mounted) {
-              setState(() {
-                _submitProgress = 0.70 + (0.25 * (i / _pamphlets.length));
-                _submitStage = '팜플렛 업로드 중... (${i + 1}/${_pamphlets.length})';
-              });
-            }
-            final url = await ref.read(storageServiceProvider).uploadPamphletImage(
-                  bytes: item.bytes,
-                  eventId: eventId,
-                  fileName: item.fileName,
-                  index: _existingPamphletUrls.length + i,
-                );
-            finalPamphletUrls.add(url);
-          }
-        }
-        // 기존 팜플렛이 변경되었거나 새로 추가한 경우 업데이트
-        await ref.read(eventRepositoryProvider).updateEvent(
-          eventId,
-          {'pamphletUrls': finalPamphletUrls.isNotEmpty ? finalPamphletUrls : null},
-        );
+        if (mounted) setState(() => _submitProgress = 0.90);
 
         if (mounted) setState(() { _submitProgress = 1.0; _submitStage = '수정 완료!'; });
 
@@ -3492,51 +3377,18 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           await ref.read(eventRepositoryProvider).createEvent(event);
       if (mounted) setState(() => _submitProgress = 0.15);
 
-      // ── Step 2: 포스터 업로드 (15% → 35%)
-      if (_posterBytes != null && _posterFileName != null) {
-        if (mounted) setState(() { _submitProgress = 0.20; _submitStage = '포스터 업로드 중...'; });
-        final imageUrl =
-            await ref.read(storageServiceProvider).uploadPosterImage(
-                  bytes: _posterBytes!,
-                  eventId: eventId,
-                  fileName: _posterFileName!,
-                );
-        await ref.read(eventRepositoryProvider).updateEvent(
-          eventId,
-          {'imageUrl': imageUrl},
-        );
+      // ── Step 2: 포스터/팜플렛 URL 저장 (이미 서버에 업로드됨)
+      if (_posterUrl != null || _pamphletUrls.isNotEmpty) {
+        if (mounted) setState(() { _submitProgress = 0.25; _submitStage = '이미지 정보 저장 중...'; });
+        final imageData = <String, dynamic>{};
+        if (_posterUrl != null) imageData['imageUrl'] = _posterUrl;
+        if (_pamphletUrls.isNotEmpty) imageData['pamphletUrls'] = _pamphletUrls;
+        await ref.read(eventRepositoryProvider).updateEvent(eventId, imageData);
       }
       if (mounted) setState(() => _submitProgress = 0.35);
 
-      // ── Step 3: 팜플렛 업로드 (35% → 65%)
-      if (_pamphlets.isNotEmpty) {
-        if (mounted) setState(() => _submitStage = '팜플렛 업로드 중...');
-        final pamphletUrls = <String>[];
-        for (var i = 0; i < _pamphlets.length; i++) {
-          final item = _pamphlets[i];
-          if (mounted) {
-            setState(() {
-              _submitProgress = 0.35 + (0.30 * (i / _pamphlets.length));
-              _submitStage = '팜플렛 업로드 중... (${i + 1}/${_pamphlets.length})';
-            });
-          }
-          final url = await ref.read(storageServiceProvider).uploadPamphletImage(
-                bytes: item.bytes,
-                eventId: eventId,
-                fileName: item.fileName,
-                index: i,
-              );
-          pamphletUrls.add(url);
-        }
-        await ref.read(eventRepositoryProvider).updateEvent(
-          eventId,
-          {'pamphletUrls': pamphletUrls},
-        );
-      }
-      if (mounted) setState(() => _submitProgress = 0.65);
-
-      // ── Step 4: 좌석 생성 (65% → 95%)
-      if (mounted) setState(() { _submitProgress = 0.70; _submitStage = '좌석 생성 중...'; });
+      // ── Step 3: 좌석 생성 (35% → 95%)
+      if (mounted) setState(() { _submitProgress = 0.40; _submitStage = '좌석 생성 중...'; });
       await _createSeatsFromSeatMap(eventId);
       if (mounted) setState(() { _submitProgress = 1.0; _submitStage = '완료!'; });
 
@@ -3902,18 +3754,6 @@ class _ThousandsSeparatorFormatter extends TextInputFormatter {
       selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
-}
-
-/// 팜플렛 아이템
-class _PamphletItem {
-  final String id;
-  final Uint8List bytes;
-  final String fileName;
-  const _PamphletItem({
-    required this.id,
-    required this.bytes,
-    required this.fileName,
-  });
 }
 
 /// Dashed border painter for editorial poster upload area

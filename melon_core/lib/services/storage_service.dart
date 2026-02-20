@@ -133,6 +133,20 @@ class StorageService {
     );
   }
 
+  /// 즉시 업로드 (임시 경로 — 선택 즉시 서버로)
+  Future<String> uploadDraftImage({
+    required Uint8List bytes,
+    required String userId,
+    required String fileName,
+    required String type, // 'poster' or 'pamphlet'
+  }) async {
+    return uploadImageBytes(
+      bytes: bytes,
+      folder: 'drafts/$userId/$type',
+      fileName: fileName,
+    );
+  }
+
   /// 좌석배치도 이미지 업로드
   Future<String> uploadSeatMapImage({
     required Uint8List bytes,
