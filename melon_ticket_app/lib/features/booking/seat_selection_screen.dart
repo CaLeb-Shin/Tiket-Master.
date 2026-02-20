@@ -1054,7 +1054,8 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
           continue;
         }
         final score = _scoreSequence(seq, seats, _aiPosition, isStageBottom) +
-            _instrumentZoneBonus(seq.first.block, filtered, _aiInstrument);
+            _instrumentZoneBonus(seq.first.block, filtered, _aiInstrument) +
+            _budgetGradeBonus(seq, event);
         final firstNum = seq.first.number;
         final lastNum = seq.last.number;
 
@@ -1220,6 +1221,61 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       default:
         return centerAffinity * 10;
     }
+  }
+
+  /// 예산 티어에 따른 등급 보너스
+  /// 프리미엄 → VIP 강하게 선호, 가성비 → 저렴한 좌석 선호
+  double _budgetGradeBonus(List<Seat> seats, Event event) {
+    if (_aiMaxBudget <= 0) return 0; // 예산 상관없음 → 추가 보너스 없음
+
+    final base = event.price * _aiQuantity;
+    if (base <= 0) return 0;
+    final ratio = _aiMaxBudget / base;
+
+    double bonus = 0;
+    for (final seat in seats) {
+      final grade = seat.grade?.toUpperCase() ?? '';
+      if (ratio >= 1.8) {
+        // 프리미엄: VIP석 강하게 선호
+        switch (grade) {
+          case 'VIP':
+            bonus += 40;
+          case 'R':
+            bonus += 20;
+          case 'S':
+            bonus += 5;
+          default:
+            bonus += 0;
+        }
+      } else if (ratio >= 1.2) {
+        // 표준: R석 위주
+        switch (grade) {
+          case 'VIP':
+            bonus += 20;
+          case 'R':
+            bonus += 25;
+          case 'S':
+            bonus += 10;
+          default:
+            bonus += 0;
+        }
+      } else {
+        // 가성비: 저렴한 좌석 선호
+        switch (grade) {
+          case 'VIP':
+            bonus += 0;
+          case 'R':
+            bonus += 5;
+          case 'S':
+            bonus += 15;
+          case 'A':
+            bonus += 25;
+          default:
+            bonus += 15;
+        }
+      }
+    }
+    return bonus / seats.length;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
