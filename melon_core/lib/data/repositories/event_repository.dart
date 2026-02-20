@@ -70,6 +70,30 @@ class EventRepository {
     await _firestoreService.events.doc(eventId).update(data);
   }
 
+  /// 공연 삭제 (오너 전용) — 연결된 좌석도 함께 삭제
+  Future<void> deleteEvent(String eventId) async {
+    // 좌석 컬렉션에서 해당 이벤트 좌석 조회 후 일괄 삭제
+    final seatsSnapshot = await _firestoreService.instance
+        .collection('seats')
+        .where('eventId', isEqualTo: eventId)
+        .get();
+
+    var batch = _firestoreService.instance.batch();
+    var pending = 0;
+    for (final doc in seatsSnapshot.docs) {
+      batch.delete(doc.reference);
+      pending++;
+      if (pending == 500) {
+        await batch.commit();
+        batch = _firestoreService.instance.batch();
+        pending = 0;
+      }
+    }
+    // 이벤트 문서도 삭제
+    batch.delete(_firestoreService.events.doc(eventId));
+    await batch.commit();
+  }
+
   /// 남은 좌석 수 감소
   Future<void> decreaseAvailableSeats(String eventId, int count) async {
     await _firestoreService.events.doc(eventId).update({
