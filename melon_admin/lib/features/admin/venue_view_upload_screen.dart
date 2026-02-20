@@ -35,6 +35,10 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
   final Set<String> _expandedExistingGroups = <String>{};
   bool _isUploading = false;
   String? _uploadStatus;
+  int _uploadCompleted = 0;
+  int _uploadTotal = 0;
+  String _uploadCurrentItem = '';
+  bool _isUploadComplete = false;
   String? _selectedLayoutFloor;
   String? _selectedLayoutZone;
 
@@ -108,27 +112,14 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                   _buildAddButton(),
                   const SizedBox(height: 24),
 
-                  // 업로드 상태
-                  if (_uploadStatus != null)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: AdminTheme.gold.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
-                        border:
-                            Border.all(color: AdminTheme.gold.withValues(alpha: 0.3)),
-                      ),
-                      child: Text(
-                        _uploadStatus!,
-                        style: AdminTheme.sans(
-                          fontSize: 13,
-                          color: AdminTheme.gold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
+                  // 업로드 진행 / 완료 상태
+                  if (_isUploading) _buildUploadProgressCard(),
+                  if (_isUploadComplete) _buildUploadCompleteCard(),
+                  if (_uploadStatus != null &&
+                      !_isUploading &&
+                      !_isUploadComplete &&
+                      _uploadStatus!.contains('실패'))
+                    _buildUploadErrorCard(),
 
                   const SizedBox(height: 80),
                 ],
@@ -139,7 +130,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
       ),
 
       // 업로드 버튼
-      bottomNavigationBar: _entries.isNotEmpty
+      bottomNavigationBar: _entries.isNotEmpty || _isUploading
           ? Container(
               padding: EdgeInsets.fromLTRB(
                   16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
@@ -148,37 +139,29 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                 border:
                     Border(top: BorderSide(color: AdminTheme.border, width: 0.5)),
               ),
-              child: SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isUploading ? null : _uploadAll,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AdminTheme.gold,
-                    foregroundColor: AdminTheme.onAccent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    disabledBackgroundColor: AdminTheme.border,
-                  ),
-                  child: _isUploading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AdminTheme.onAccent,
+              child: _isUploading
+                  ? _buildUploadingBottomBar()
+                  : SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _uploadAll,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AdminTheme.gold,
+                          foregroundColor: AdminTheme.onAccent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
                           ),
-                        )
-                      : Text(
+                        ),
+                        child: Text(
                           '${_entries.length}개 이미지 업로드',
                           style: AdminTheme.sans(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                ),
-              ),
+                      ),
+                    ),
             )
           : null,
     );
@@ -849,6 +832,288 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
     setState(() {
       _entries.add(_ZoneViewEntry());
     });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // UPLOAD PROGRESS / COMPLETE UI
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildUploadingBottomBar() {
+    final progress =
+        _uploadTotal > 0 ? _uploadCompleted / _uploadTotal : 0.0;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 프로그레스 바
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 6,
+            backgroundColor: AdminTheme.border,
+            valueColor: const AlwaysStoppedAnimation(AdminTheme.gold),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AdminTheme.gold,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$_uploadCompleted / $_uploadTotal 업로드 중...',
+                    style: AdminTheme.sans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AdminTheme.textPrimary,
+                    ),
+                  ),
+                  if (_uploadCurrentItem.isNotEmpty)
+                    Text(
+                      _uploadCurrentItem,
+                      style: AdminTheme.sans(
+                        fontSize: 11,
+                        color: AdminTheme.textTertiary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+            Text(
+              '${(progress * 100).toInt()}%',
+              style: AdminTheme.sans(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AdminTheme.gold,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUploadProgressCard() {
+    final progress =
+        _uploadTotal > 0 ? _uploadCompleted / _uploadTotal : 0.0;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: AdminTheme.gold.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AdminTheme.gold.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AdminTheme.gold.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: AdminTheme.gold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '이미지 업로드 중',
+                      style: AdminTheme.sans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AdminTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$_uploadCompleted / $_uploadTotal 완료${_uploadCurrentItem.isNotEmpty ? ' · $_uploadCurrentItem' : ''}',
+                      style: AdminTheme.sans(
+                        fontSize: 12,
+                        color: AdminTheme.textSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '${(progress * 100).toInt()}%',
+                style: AdminTheme.sans(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AdminTheme.gold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              backgroundColor: AdminTheme.border,
+              valueColor: const AlwaysStoppedAnimation(AdminTheme.gold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUploadCompleteCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: AdminTheme.success.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AdminTheme.success.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: AdminTheme.success.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_circle_rounded,
+              size: 32,
+              color: AdminTheme.success,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '업로드 완료!',
+            style: AdminTheme.serif(
+              fontSize: 18,
+              color: AdminTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$_uploadTotal개 시점 이미지가 성공적으로 등록되었습니다',
+            style: AdminTheme.sans(
+              fontSize: 13,
+              color: AdminTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '예매 화면에서 좌석 시야를 바로 확인할 수 있습니다',
+            style: AdminTheme.sans(
+              fontSize: 11,
+              color: AdminTheme.textTertiary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          GestureDetector(
+            onTap: () => setState(() => _isUploadComplete = false),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              decoration: BoxDecoration(
+                color: AdminTheme.success.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                    color: AdminTheme.success.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                '확인',
+                style: AdminTheme.sans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AdminTheme.success,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUploadErrorCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: AdminTheme.error.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AdminTheme.error.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded,
+              size: 24, color: AdminTheme.error),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '업로드 실패',
+                  style: AdminTheme.sans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AdminTheme.error,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _uploadStatus ?? '',
+                  style: AdminTheme.sans(
+                    fontSize: 11,
+                    color: AdminTheme.textSecondary,
+                    height: 1.4,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => setState(() => _uploadStatus = null),
+            icon: const Icon(Icons.close_rounded,
+                size: 18, color: AdminTheme.textTertiary),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildLayoutTemplateCard(
@@ -2077,7 +2342,11 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
 
     setState(() {
       _isUploading = true;
-      _uploadStatus = '업로드 준비 중...';
+      _isUploadComplete = false;
+      _uploadStatus = null;
+      _uploadCompleted = 0;
+      _uploadTotal = _entries.length;
+      _uploadCurrentItem = '준비 중...';
     });
 
     try {
@@ -2085,17 +2354,17 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
       final repo = ref.read(venueViewRepositoryProvider);
       final venueRepo = ref.read(venueRepositoryProvider);
       final views = <VenueZoneView>[];
-      final total = _entries.length;
-      int completed = 0;
 
       Future<void> uploadEntry(_ZoneViewEntry entry) async {
         final zone = entry.zoneCtrl.text.trim();
         final rowText = entry.rowCtrl.text.trim();
+        final seatText = entry.seatCtrl.text.trim();
         final seatNumber = _seatFromText(entry.seatCtrl.text);
 
         if (!mounted) return;
+        final itemLabel = '$zone구역${rowText.isNotEmpty ? ' $rowText열' : ''}${seatText.isNotEmpty ? ' $seatText번' : ''}';
         setState(() {
-          _uploadStatus = '$completed/$total 업로드 완료... ($zone 구역 처리 중)';
+          _uploadCurrentItem = '$itemLabel 업로드 중...';
         });
 
         final imageUrl = await _uploadVenueViewWithRetry(
@@ -2118,9 +2387,8 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
         ));
 
         if (!mounted) return;
-        completed += 1;
         setState(() {
-          _uploadStatus = '$completed/$total 업로드 완료';
+          _uploadCompleted += 1;
         });
       }
 
@@ -2132,44 +2400,34 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
         await Future.wait(batch.map(uploadEntry));
       }
 
+      if (!mounted) return;
+      setState(() {
+        _uploadCurrentItem = 'Firestore 저장 중...';
+      });
+
       await repo.setVenueViews(widget.venueId, views);
       await venueRepo.updateVenue(widget.venueId, {'hasSeatView': true});
 
       setState(() {
-        _uploadStatus = '${views.length}개 시점 이미지가 등록되었습니다!';
         _isUploading = false;
+        _isUploadComplete = true;
+        _uploadStatus = null;
         for (final entry in _entries) {
           entry.dispose();
         }
         _entries.clear();
       });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${views.length}개 시점 이미지 등록 완료'),
-            backgroundColor: AdminTheme.success,
-          ),
-        );
-      }
     } catch (e) {
       final rawMessage = '$e';
       final isRetryLimit = rawMessage.contains('retry-limit-exceeded');
       final failMessage = isRetryLimit
-          ? '업로드 실패: Storage 재시도 제한 초과. Firebase Storage 버킷/CORS/권한 설정을 확인해주세요.'
-          : '업로드 실패: $e';
+          ? '업로드 실패: Storage 재시도 제한 초과.\nFirebase Storage 버킷/CORS/권한 설정을 확인해주세요.'
+          : '업로드 실패: $rawMessage';
       setState(() {
         _uploadStatus = failMessage;
         _isUploading = false;
+        _isUploadComplete = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(failMessage),
-            backgroundColor: AdminTheme.error,
-          ),
-        );
-      }
     }
   }
 }
