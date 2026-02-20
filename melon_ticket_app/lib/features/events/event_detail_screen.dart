@@ -94,16 +94,16 @@ class _DetailBody extends StatelessWidget {
               // ── 공연 소개 ──
               if (event.description.isNotEmpty)
                 _EditorialContentSection(
-                    title: 'About', content: event.description),
+                    title: 'Information', content: event.description),
 
               // ── 출연진 ──
               if (event.cast != null && event.cast!.isNotEmpty)
-                _EditorialContentSection(title: '출연진', content: event.cast!),
+                _EditorialContentSection(title: 'Cast', content: event.cast!),
 
               // ── 주최/기획 ──
               if (event.organizer != null || event.planner != null)
                 _EditorialContentSection(
-                  title: '주최/기획',
+                  title: 'Organizer',
                   content: [
                     if (event.organizer != null && event.organizer!.isNotEmpty)
                       '주최: ${event.organizer}',
