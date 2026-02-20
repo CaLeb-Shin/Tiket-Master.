@@ -492,7 +492,8 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         await Future.delayed(const Duration(milliseconds: 500));
         if (!mounted) return;
         setState(() {
-          _aiResults = _generateRecommendations(seats, event, isStageBottom);
+          _aiResults = _generateRecommendations(
+              seats, event, isStageBottom, venueViews);
           _isAIRefreshQueued = false;
           _aiCurrentPage = 0;
         });
@@ -1021,7 +1022,8 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   // ── AI Recommendation Logic ──
 
   List<_SeatRecommendation> _generateRecommendations(
-      List<Seat> allSeats, Event event, bool isStageBottom) {
+      List<Seat> allSeats, Event event, bool isStageBottom,
+      Map<String, VenueSeatView> venueViews) {
     final available =
         allSeats.where((s) => s.status == SeatStatus.available).toList();
     final filtered = _aiGrade == '상관없음'
@@ -1076,10 +1078,19 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
 
     candidates.sort((a, b) => b.score.compareTo(a.score));
 
+    // 시야 사진 있는 좌석 우선, 없으면 전체 fallback
+    final withView = venueViews.isNotEmpty
+        ? candidates
+            .where((c) => _findBestView(venueViews, c.seats.first) != null)
+            .toList()
+        : <_SeatRecommendation>[];
+
+    final pool = withView.isNotEmpty ? withView : candidates;
+
     // Return top 3 with zone variety
     final result = <_SeatRecommendation>[];
     final seenZones = <String>{};
-    for (final c in candidates) {
+    for (final c in pool) {
       if (result.length >= 3) break;
       if (!seenZones.contains(c.zone) || result.length < 2) {
         result.add(c);
@@ -1087,7 +1098,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       }
     }
     if (result.length < 3) {
-      for (final c in candidates) {
+      for (final c in pool) {
         if (result.length >= 3) break;
         if (!result.contains(c)) result.add(c);
       }
@@ -1687,7 +1698,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
           view.floor.trim() == floor;
     }
 
-    // 1. 같은 구역+층+행+좌석
+    // 1. 같은 구역+층+행+좌석 (정확 매칭)
     for (final view in views.values) {
       if (!matchesZoneFloor(view)) continue;
       if (view.seat != seatNumber) continue;
@@ -1695,16 +1706,25 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       if (viewRow == row) return view;
     }
 
-    // 2. 같은 구역+층+행
+    // 2. 같은 구역+층+행 → 가장 가까운 좌석번호
     if (row.isNotEmpty) {
+      VenueSeatView? closestSeat;
+      int minSeatDist = 999;
       for (final view in views.values) {
         if (!matchesZoneFloor(view)) continue;
         final viewRow = (view.row ?? '').trim();
-        if (view.seat == null && viewRow == row) return view;
+        if (viewRow != row) continue;
+        if (view.seat == null) return view; // 행 대표 시야
+        final dist = (view.seat! - seatNumber).abs();
+        if (dist < minSeatDist) {
+          minSeatDist = dist;
+          closestSeat = view;
+        }
       }
+      if (closestSeat != null) return closestSeat;
     }
 
-    // 3. 같은 구역+층+가까운 행
+    // 3. 같은 구역+층 → 가장 가까운 행 (행/좌석 단위 모두 포함)
     if (row.isNotEmpty) {
       final rowNum = int.tryParse(row);
       if (rowNum != null) {
@@ -1712,8 +1732,9 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         int minDist = 999;
         for (final view in views.values) {
           if (!matchesZoneFloor(view)) continue;
-          if (view.seat != null || view.row == null) continue;
-          final vRow = int.tryParse(view.row!.trim());
+          final vRowStr = (view.row ?? '').trim();
+          if (vRowStr.isEmpty) continue;
+          final vRow = int.tryParse(vRowStr);
           if (vRow == null) continue;
           final dist = (vRow - rowNum).abs();
           if (dist < minDist) {
@@ -1738,6 +1759,12 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       if (!matchesZoneFloor(view)) continue;
       final viewRow = (view.row ?? '').trim();
       if (viewRow.isEmpty && view.seat == null) return view;
+    }
+
+    // 6. 같은 구역 (층 무관) — fallback
+    for (final view in views.values) {
+      if (view.zone.trim().toUpperCase() != zone) continue;
+      return view;
     }
 
     return null;
