@@ -527,6 +527,9 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                             height: 0.5,
                             color: AppTheme.border),
 
+                        // ── 할인 정보 ──
+                        _buildDiscountInfo(event),
+
                         // ── Expandable details ──
                         _buildExpandableDetails(event),
 
@@ -787,9 +790,6 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                         ],
                       ),
                     ),
-
-                    // 할인 정보
-                    _buildDiscountInfo(event),
 
                     const SizedBox(height: 8),
                   ],
