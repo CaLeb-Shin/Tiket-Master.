@@ -83,10 +83,12 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
   Uint8List? _posterBytes;
   String? _posterFileName;
+  String? _existingPosterUrl; // 수정 모드: 기존 포스터 URL
 
   // ── 팜플렛 (최대 8장, 장당 3MB) ──
   final List<_PamphletItem> _pamphlets = [];
   final ScrollController _pamphletScrollCtrl = ScrollController();
+  List<String> _existingPamphletUrls = []; // 수정 모드: 기존 팜플렛 URLs
   static const _maxPamphlets = 8;
   static const _maxPamphletBytes = 3 * 1024 * 1024; // 3MB per image
 
@@ -376,6 +378,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             ..clear()
             ..addAll(event.discountPolicies!);
         }
+
+        // 기존 포스터/팜플렛 URL 로드
+        _existingPosterUrl = event.imageUrl;
+        _existingPamphletUrls = event.pamphletUrls ?? [];
       });
     } catch (e) {
       if (mounted) _showError('공연 데이터 로드 실패: $e');
@@ -2549,6 +2555,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   }
 
   Widget _buildPosterPicker() {
+    // 새로 업로드한 포스터
     if (_posterBytes != null) {
       return Container(
         decoration: BoxDecoration(
@@ -2574,6 +2581,49 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                     setState(() {
                       _posterBytes = null;
                       _posterFileName = null;
+                    });
+                  }),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 기존 포스터 URL (수정 모드)
+    if (_existingPosterUrl != null && _existingPosterUrl!.isNotEmpty) {
+      return Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: AdminTheme.gold, width: 0.5),
+          borderRadius: BorderRadius.circular(2),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            Image.network(
+              _existingPosterUrl!,
+              width: double.infinity,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => Container(
+                height: 120,
+                color: AdminTheme.surface,
+                child: Center(
+                  child: Text('이미지 로드 실패',
+                      style: AdminTheme.sans(color: AdminTheme.textTertiary, fontSize: 13)),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Row(
+                children: [
+                  _posterActionBtn(Icons.edit_rounded, 'CHANGE', _pickPosterImage),
+                  const SizedBox(width: 6),
+                  _posterActionBtn(Icons.close_rounded, 'REMOVE', () {
+                    setState(() {
+                      _existingPosterUrl = null;
                     });
                   }),
                 ],
@@ -2662,11 +2712,108 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildPamphletPicker() {
+    final hasExisting = _existingPamphletUrls.isNotEmpty;
+    final hasNew = _pamphlets.isNotEmpty;
+    final totalCount = _existingPamphletUrls.length + _pamphlets.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 이미지 그리드 + 좌우 스크롤 버튼
-        if (_pamphlets.isNotEmpty) ...[
+        // 기존 팜플렛 URL 이미지 (수정 모드)
+        if (hasExisting) ...[
+          Text(
+            '등록된 팜플렛',
+            style: AdminTheme.sans(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AdminTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 140,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _existingPamphletUrls.length,
+              itemBuilder: (context, index) {
+                final url = _existingPamphletUrls[index];
+                return Container(
+                  width: 100,
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                        color: AdminTheme.sage.withValues(alpha: 0.2),
+                        width: 0.5),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(url, fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                                color: AdminTheme.surface,
+                                child: const Icon(Icons.broken_image_rounded,
+                                    size: 24, color: AdminTheme.textTertiary),
+                              )),
+                      Positioned(
+                        left: 4,
+                        bottom: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color:
+                                AdminTheme.background.withValues(alpha: 0.8),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          child: Text('${index + 1}',
+                              style: AdminTheme.label(
+                                fontSize: 9,
+                                color: AdminTheme.textPrimary,
+                              )),
+                        ),
+                      ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: GestureDetector(
+                          onTap: () => setState(
+                              () => _existingPamphletUrls.removeAt(index)),
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color:
+                                  AdminTheme.error.withValues(alpha: 0.85),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close_rounded,
+                                size: 12, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              '${_existingPamphletUrls.length}장 등록됨',
+              style: AdminTheme.sans(
+                fontSize: 10,
+                color: AdminTheme.textTertiary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // 새로 추가한 이미지 그리드 + 좌우 스크롤 버튼
+        if (hasNew) ...[
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -2813,7 +2960,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         ],
 
         // 추가 버튼
-        if (_pamphlets.length < _maxPamphlets)
+        if (totalCount < _maxPamphlets)
           InkWell(
             onTap: _pickPamphletImages,
             child: Container(
@@ -2842,9 +2989,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                         color: AdminTheme.sage.withValues(alpha: 0.5)),
                     const SizedBox(width: 8),
                     Text(
-                      _pamphlets.isEmpty
+                      totalCount == 0
                           ? '팜플렛 이미지 추가'
-                          : '추가 (${_pamphlets.length}/$_maxPamphlets)',
+                          : '추가 ($totalCount/$_maxPamphlets)',
                       style: AdminTheme.sans(
                         fontSize: 12,
                         color: AdminTheme.sage,
@@ -3220,8 +3367,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         await ref.read(eventRepositoryProvider).updateEvent(eventId, updateData);
         if (mounted) setState(() => _submitProgress = 0.40);
 
-        // 포스터 새로 업로드한 경우
+        // 포스터 처리
         if (_posterBytes != null && _posterFileName != null) {
+          // 새로 업로드
           if (mounted) setState(() { _submitProgress = 0.50; _submitStage = '포스터 업로드 중...'; });
           final imageUrl =
               await ref.read(storageServiceProvider).uploadPosterImage(
@@ -3233,13 +3381,19 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             eventId,
             {'imageUrl': imageUrl},
           );
+        } else if (_existingPosterUrl == null) {
+          // 기존 포스터 삭제됨
+          await ref.read(eventRepositoryProvider).updateEvent(
+            eventId,
+            {'imageUrl': null},
+          );
         }
         if (mounted) setState(() => _submitProgress = 0.70);
 
-        // 팜플렛 새로 업로드한 경우
+        // 팜플렛 처리: 기존 URL + 새로 업로드
+        final finalPamphletUrls = <String>[..._existingPamphletUrls];
         if (_pamphlets.isNotEmpty) {
           if (mounted) setState(() => _submitStage = '팜플렛 업로드 중...');
-          final pamphletUrls = <String>[];
           for (var i = 0; i < _pamphlets.length; i++) {
             final item = _pamphlets[i];
             if (mounted) {
@@ -3252,15 +3406,16 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   bytes: item.bytes,
                   eventId: eventId,
                   fileName: item.fileName,
-                  index: i,
+                  index: _existingPamphletUrls.length + i,
                 );
-            pamphletUrls.add(url);
+            finalPamphletUrls.add(url);
           }
-          await ref.read(eventRepositoryProvider).updateEvent(
-            eventId,
-            {'pamphletUrls': pamphletUrls},
-          );
         }
+        // 기존 팜플렛이 변경되었거나 새로 추가한 경우 업데이트
+        await ref.read(eventRepositoryProvider).updateEvent(
+          eventId,
+          {'pamphletUrls': finalPamphletUrls.isNotEmpty ? finalPamphletUrls : null},
+        );
 
         if (mounted) setState(() { _submitProgress = 1.0; _submitStage = '수정 완료!'; });
 
