@@ -556,8 +556,7 @@ class _QuickBookingTab extends ConsumerWidget {
     required bool fromLink,
   }) async {
     int quantity = 2;
-    final maxQty = event.maxTicketsPerOrder.clamp(1, 4);
-    if (quantity > maxQty) quantity = maxQty;
+    const guestOptions = [1, 2, 3, 4, 5];
     int maxBudget = 0;
     String instrument = '상관없음';
 
@@ -629,12 +628,13 @@ class _QuickBookingTab extends ConsumerWidget {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children:
-                        List.generate(maxQty, (i) => i + 1).map((n) {
+                    children: guestOptions.map((n) {
                       final selected = n == quantity;
+                      final label = n >= 5 ? '5명+' : '$n명';
                       return ChoiceChip(
-                        label: Text('$n명'),
+                        label: Text(label),
                         selected: selected,
+                        showCheckmark: false,
                         onSelected: (_) =>
                             setSheetState(() => quantity = n),
                         labelStyle: AppTheme.sans(
@@ -676,6 +676,7 @@ class _QuickBookingTab extends ConsumerWidget {
                       return ChoiceChip(
                         label: Text(budgetLabel(value, quantity)),
                         selected: selected,
+                        showCheckmark: false,
                         onSelected: (_) =>
                             setSheetState(() => maxBudget = value),
                         labelStyle: AppTheme.sans(
@@ -702,10 +703,12 @@ class _QuickBookingTab extends ConsumerWidget {
 
                   // ── 보고 싶은 악기 ──
                   Text(
-                    'INSTRUMENT',
-                    style: AppTheme.label(
-                      fontSize: 9,
+                    '보고 싶은 악기',
+                    style: AppTheme.sans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
                       color: AppTheme.sage,
+                      letterSpacing: 0.3,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -726,6 +729,7 @@ class _QuickBookingTab extends ConsumerWidget {
                       return ChoiceChip(
                         label: Text(inst),
                         selected: selected,
+                        showCheckmark: false,
                         onSelected: (_) =>
                             setSheetState(() => instrument = inst),
                         labelStyle: AppTheme.sans(
