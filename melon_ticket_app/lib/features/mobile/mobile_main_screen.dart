@@ -490,13 +490,12 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ── 3-column info row ──
+                        // ── 2-column info row (DATE | VENUE) ──
                         Padding(
                           padding: const EdgeInsets.fromLTRB(0, 20, 0, 16),
                           child: IntrinsicHeight(
                             child: Row(
                               children: [
-                                // 일시
                                 Expanded(
                                   child: _InfoColumn(
                                     label: 'DATE',
@@ -507,18 +506,6 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                                 Container(
                                     width: 0.5,
                                     color: AppTheme.border),
-                                // 가격
-                                Expanded(
-                                  child: _InfoColumn(
-                                    label: 'PRICE',
-                                    value: _priceDisplayShort(event),
-                                    valueColor: AppTheme.gold,
-                                  ),
-                                ),
-                                Container(
-                                    width: 0.5,
-                                    color: AppTheme.border),
-                                // 장소
                                 Expanded(
                                   child: _InfoColumn(
                                     label: 'VENUE',
@@ -534,76 +521,80 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                             height: 0.5,
                             color: AppTheme.border),
 
-                        // ── Description (optional) ──
+                        // ── 좌석별 가격 ──
+                        _buildPriceSection(event),
+
+                        Container(
+                            height: 0.5,
+                            color: AppTheme.border),
+
+                        // ── 문의 배너 (optional) ──
                         if (event.description.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                                24, 16, 24, 0),
-                            child: Text(
-                              event.description,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTheme.sans(
-                                fontSize: 13,
-                                color: AppTheme.textSecondary,
-                                height: 1.6,
-                              ),
-                            ),
-                          ),
+                          _buildContactBanner(event.description),
 
                         // ── Expandable details ──
                         _buildExpandableDetails(event),
 
-                        // ── 공연 상세 보기 card button ──
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
-                          child: PressableScale(
-                            onTap: () =>
-                                context.push('/event/${event.id}'),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: AppTheme.surface,
-                                border: Border.all(
-                                    color: AppTheme.border, width: 0.5),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.article_outlined,
-                                      size: 20, color: AppTheme.gold),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '공연 상세 보기',
-                                          style: AppTheme.sans(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppTheme.textPrimary,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          '할인 정보, 출연진, 유의사항',
-                                          style: AppTheme.sans(
-                                            fontSize: 11,
-                                            color: AppTheme.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                        // ── 공연 상세 보기 full-width button ──
+                        PressableScale(
+                          onTap: () =>
+                              context.push('/event/${event.id}'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 16),
+                            decoration: const BoxDecoration(
+                              color: AppTheme.cardElevated,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.gold.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  const Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 20,
-                                      color: AppTheme.sage),
-                                ],
-                              ),
+                                  child: const Icon(Icons.article_outlined,
+                                      size: 18, color: AppTheme.gold),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '공연 상세 보기',
+                                        style: AppTheme.sans(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '할인 정보 · 출연진 · 유의사항',
+                                        style: AppTheme.sans(
+                                          fontSize: 11,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.gold.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: const Icon(
+                                      Icons.arrow_forward_ios_rounded,
+                                      size: 12,
+                                      color: AppTheme.gold),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -862,16 +853,139 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
       });
   }
 
-  String _priceDisplayShort(Event event) {
+  Widget _buildPriceSection(Event event) {
     final fmt = NumberFormat('#,###', 'ko_KR');
-    if (event.priceByGrade != null && event.priceByGrade!.isNotEmpty) {
-      final sorted = _sortedGrades(event.priceByGrade!);
-      if (sorted.length <= 2) {
-        return sorted.map((e) => '${e.key} ${fmt.format(e.value)}').join('\n');
-      }
-      return '${sorted.first.key} ${fmt.format(sorted.first.value)}원~';
+    final grades = event.priceByGrade;
+    final hasGrades = grades != null && grades.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'PRICE',
+            style: AppTheme.label(
+              fontSize: 9,
+              color: AppTheme.sage,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (hasGrades)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _sortedGrades(grades).map((entry) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardElevated,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                        color: AppTheme.border, width: 0.5),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: _gradeColor(entry.key),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${entry.key}석',
+                        style: AppTheme.sans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${fmt.format(entry.value)}원',
+                        style: AppTheme.sans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            )
+          else
+            Text(
+              '전석 ${fmt.format(event.price)}원',
+              style: AppTheme.sans(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Color _gradeColor(String grade) {
+    switch (grade.toUpperCase()) {
+      case 'VIP':
+        return AppTheme.gold;
+      case 'R':
+        return const Color(0xFF2D6A4F);
+      case 'S':
+        return const Color(0xFF3A6B9F);
+      case 'A':
+        return const Color(0xFFC08B5C);
+      default:
+        return AppTheme.sage;
     }
-    return '${fmt.format(event.price)}원';
+  }
+
+  Widget _buildContactBanner(String description) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.gold.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: AppTheme.gold.withValues(alpha: 0.2),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.info_outline_rounded,
+              size: 16,
+              color: AppTheme.gold.withValues(alpha: 0.7),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTheme.sans(
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showFullImage(BuildContext context, List<String> urls, int initialIndex) {
@@ -1181,12 +1295,10 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
 class _InfoColumn extends StatelessWidget {
   final String label;
   final String value;
-  final Color? valueColor;
 
   const _InfoColumn({
     required this.label,
     required this.value,
-    this.valueColor,
   });
 
   @override
@@ -1212,7 +1324,7 @@ class _InfoColumn extends StatelessWidget {
             style: AppTheme.sans(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: valueColor ?? AppTheme.textPrimary,
+              color: AppTheme.textPrimary,
               height: 1.3,
             ),
           ),
