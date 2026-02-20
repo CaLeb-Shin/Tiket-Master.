@@ -208,8 +208,6 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     final seatsAsync = ref.watch(seatsStreamProvider(widget.eventId));
     final authState = ref.watch(authStateProvider);
     final isLoggedIn = authState.valueOrNull != null;
-    final isMobile = MediaQuery.of(context).size.width < 700;
-
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: eventAsync.when(
@@ -249,11 +247,8 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                 _selectedFloor = floors.first;
               }
 
-              if (isMobile) {
-                return _buildMobileLayout(event, seats, floors, isLoggedIn,
-                    venueViews, isStageBottom);
-              }
-              return _buildDesktopLayout(event, seats, floors, isLoggedIn);
+              return _buildMobileLayout(event, seats, floors, isLoggedIn,
+                  venueViews, isStageBottom);
             },
           );
         },
