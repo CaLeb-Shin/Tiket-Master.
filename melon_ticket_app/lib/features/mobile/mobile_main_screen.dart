@@ -490,7 +490,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ── 2-column info row (DATE | VENUE) ──
+                        // ── 3-column info row (DATE | PRICE | VENUE) ──
                         Padding(
                           padding: const EdgeInsets.fromLTRB(0, 20, 0, 16),
                           child: IntrinsicHeight(
@@ -507,6 +507,12 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                                     width: 0.5,
                                     color: AppTheme.border),
                                 Expanded(
+                                  child: _buildPriceColumn(event),
+                                ),
+                                Container(
+                                    width: 0.5,
+                                    color: AppTheme.border),
+                                Expanded(
                                   child: _InfoColumn(
                                     label: 'VENUE',
                                     value: event.venueName ?? '장소 미정',
@@ -516,13 +522,6 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                             ),
                           ),
                         ),
-
-                        Container(
-                            height: 0.5,
-                            color: AppTheme.border),
-
-                        // ── 좌석별 가격 ──
-                        _buildPriceSection(event),
 
                         Container(
                             height: 0.5,
@@ -547,17 +546,6 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                             ),
                             child: Row(
                               children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.gold.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(Icons.article_outlined,
-                                      size: 18, color: AppTheme.gold),
-                                ),
-                                const SizedBox(width: 14),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -853,15 +841,15 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
       });
   }
 
-  Widget _buildPriceSection(Event event) {
+  Widget _buildPriceColumn(Event event) {
     final fmt = NumberFormat('#,###', 'ko_KR');
     final grades = event.priceByGrade;
     final hasGrades = grades != null && grades.isNotEmpty;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             'PRICE',
@@ -870,61 +858,30 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
               color: AppTheme.sage,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           if (hasGrades)
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _sortedGrades(grades).map((entry) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardElevated,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                        color: AppTheme.border, width: 0.5),
+            ..._sortedGrades(grades).map((entry) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(
+                  '${entry.key} ${fmt.format(entry.value)}',
+                  textAlign: TextAlign.center,
+                  style: AppTheme.sans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                    height: 1.3,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: _gradeColor(entry.key),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${entry.key}석',
-                        style: AppTheme.sans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${fmt.format(entry.value)}원',
-                        style: AppTheme.sans(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            )
+                ),
+              );
+            })
           else
             Text(
-              '전석 ${fmt.format(event.price)}원',
+              '${fmt.format(event.price)}원',
+              textAlign: TextAlign.center,
               style: AppTheme.sans(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
                 color: AppTheme.textPrimary,
               ),
             ),
@@ -933,57 +890,32 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
     );
   }
 
-  Color _gradeColor(String grade) {
-    switch (grade.toUpperCase()) {
-      case 'VIP':
-        return AppTheme.gold;
-      case 'R':
-        return const Color(0xFF2D6A4F);
-      case 'S':
-        return const Color(0xFF3A6B9F);
-      case 'A':
-        return const Color(0xFFC08B5C);
-      default:
-        return AppTheme.sage;
-    }
-  }
-
   Widget _buildContactBanner(String description) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppTheme.gold.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: AppTheme.gold.withValues(alpha: 0.2),
-            width: 0.5,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      color: AppTheme.gold.withValues(alpha: 0.05),
+      child: Row(
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 15,
+            color: AppTheme.gold.withValues(alpha: 0.6),
           ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.info_outline_rounded,
-              size: 16,
-              color: AppTheme.gold.withValues(alpha: 0.7),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AppTheme.sans(
-                  fontSize: 12,
-                  color: AppTheme.textSecondary,
-                  height: 1.4,
-                ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTheme.sans(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+                height: 1.4,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
