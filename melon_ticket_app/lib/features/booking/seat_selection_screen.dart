@@ -210,6 +210,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                   '${selected.length}석 · $seatNums번',
                   totalPrice,
                   _selectedSeatIds.toList(),
+                  true, // isZoneMode
                 );
               });
             }
@@ -1659,6 +1660,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     String? seatRange,
     int? totalPrice,
     List<String>? seatIds,
+    bool isZoneMode = false,
   ]) {
     showModalBottomSheet(
       context: context,
@@ -1674,6 +1676,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         totalPrice: totalPrice,
         seatIds: seatIds,
         eventId: seatRange != null ? widget.eventId : null,
+        isZoneMode: isZoneMode,
       ),
     );
   }
@@ -2847,11 +2850,11 @@ class _SeatViewBottomSheet extends StatefulWidget {
   final String? grade;
   final Color color;
   final String? row;
-  // 예매 바 (AI 추천에서만 표시)
   final String? seatRange;
   final int? totalPrice;
   final List<String>? seatIds;
   final String? eventId;
+  final bool isZoneMode;
 
   const _SeatViewBottomSheet({
     required this.view,
@@ -2863,6 +2866,7 @@ class _SeatViewBottomSheet extends StatefulWidget {
     this.totalPrice,
     this.seatIds,
     this.eventId,
+    this.isZoneMode = false,
   });
 
   @override
@@ -2962,7 +2966,9 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                   child: InkWell(
                     onTap: () {
                       Navigator.pop(context);
-                      if (context.mounted) {
+                      if (!widget.isZoneMode &&
+                          widget.eventId != null &&
+                          context.mounted) {
                         context.push(
                           '/checkout/${widget.eventId}',
                           extra: {
@@ -2981,7 +2987,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        '예매하기',
+                        widget.isZoneMode ? '확인' : '예매하기',
                         style: AppTheme.nanum(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
