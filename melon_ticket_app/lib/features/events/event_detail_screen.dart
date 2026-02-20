@@ -85,34 +85,10 @@ class _DetailBody extends StatelessWidget {
               // ── Info Row (3-column) ──
               _InfoRow(event: event),
 
-              // ── Admission (가격 정보) ──
+              // ── 1. Admission (가격표) ──
               _AdmissionSection(event: event, priceFormat: priceFormat),
 
-              // ── Performance Details ──
-              _PerformanceDetailsSection(event: event),
-
-              // ── 공연 소개 ──
-              if (event.description.isNotEmpty)
-                _EditorialContentSection(
-                    title: 'Information', content: event.description),
-
-              // ── 출연진 ──
-              if (event.cast != null && event.cast!.isNotEmpty)
-                _EditorialContentSection(title: 'Cast', content: event.cast!),
-
-              // ── 주최/기획 ──
-              if (event.organizer != null || event.planner != null)
-                _EditorialContentSection(
-                  title: 'Organizer',
-                  content: [
-                    if (event.organizer != null && event.organizer!.isNotEmpty)
-                      '주최: ${event.organizer}',
-                    if (event.planner != null && event.planner!.isNotEmpty)
-                      '기획: ${event.planner}',
-                  ].join('\n'),
-                ),
-
-              // ── 할인 정책 (항상 표시) ──
+              // ── 2. Discount (할인정보) ──
               if (event.discountPolicies != null &&
                   event.discountPolicies!.isNotEmpty)
                 _DiscountSection(
@@ -134,6 +110,30 @@ class _DetailBody extends StatelessWidget {
                       ),
                     ),
                   ),
+                ),
+
+              // ── 3. Information (공연 정보) ──
+              _PerformanceDetailsSection(event: event),
+
+              // ── 공연 소개 (description) ──
+              if (event.description.isNotEmpty)
+                _EditorialContentSection(
+                    title: 'About', content: event.description),
+
+              // ── 4. Cast (출연진) ──
+              if (event.cast != null && event.cast!.isNotEmpty)
+                _EditorialContentSection(title: 'Cast', content: event.cast!),
+
+              // ── 5. Organizer (주최/기획) ──
+              if (event.organizer != null || event.planner != null)
+                _EditorialContentSection(
+                  title: 'Organizer',
+                  content: [
+                    if (event.organizer != null && event.organizer!.isNotEmpty)
+                      '주최: ${event.organizer}',
+                    if (event.planner != null && event.planner!.isNotEmpty)
+                      '기획: ${event.planner}',
+                  ].join('\n'),
                 ),
 
               // ── 유의사항 (Notice with accent border) ──
@@ -681,10 +681,6 @@ class _PerformanceDetailsSection extends StatelessWidget {
     if (event.ageLimit != null) {
       details.add(_DetailItem('관람등급', event.ageLimit!));
     }
-    if (event.cast != null && event.cast!.isNotEmpty) {
-      details.add(_DetailItem('출연진', event.cast!));
-    }
-
     if (details.isEmpty) return const SizedBox.shrink();
 
     return Padding(
@@ -692,8 +688,10 @@ class _PerformanceDetailsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(height: 0.5, color: AppTheme.border),
+          const SizedBox(height: 24),
           Text(
-            'Performance Details',
+            'Information',
             style: AppTheme.serif(
               fontSize: 20,
               fontWeight: FontWeight.w500,
