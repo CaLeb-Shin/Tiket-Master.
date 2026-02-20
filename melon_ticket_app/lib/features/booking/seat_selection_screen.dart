@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:panorama_viewer/panorama_viewer.dart';
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/event.dart';
@@ -72,13 +73,15 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
 
   // ── AI Mode ──
   int _aiQuantity = 2;
-  String _aiGrade = '상관없음';
+  final String _aiGrade = '상관없음';
   String _aiPosition = '가운데';
   int _aiMaxBudget = 0; // 0이면 제한 없음
   String _aiInstrument = '상관없음';
   List<_SeatRecommendation>? _aiResults;
   String? _lastAISignature;
   bool _isAIRefreshQueued = false;
+  final PageController _aiPageController = PageController(viewportFraction: 0.88);
+  int _aiCurrentPage = 0;
 
   // ── Zone Mode ──
   String? _selectedZone;
@@ -160,6 +163,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   @override
   void dispose() {
     _transformController.dispose();
+    _aiPageController.dispose();
     super.dispose();
   }
 
@@ -427,307 +431,374 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         !_isAIRefreshQueued) {
       _lastAISignature = signature;
       _isAIRefreshQueued = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await Future.delayed(const Duration(milliseconds: 500));
         if (!mounted) return;
         setState(() {
           _aiResults = _generateRecommendations(seats, event, isStageBottom);
           _isAIRefreshQueued = false;
+          _aiCurrentPage = 0;
         });
       });
     }
 
-    final availableGrades = seats
-        .where((s) => s.status == SeatStatus.available)
-        .map((s) => s.grade)
-        .where((g) => g != null)
-        .cast<String>()
-        .toSet()
-        .toList()
-      ..sort();
-    final fmt = NumberFormat('#,###');
+    // Phase 1: 로딩
+    if (_aiResults == null) {
+      return _buildAILoadingState();
+    }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+    // Phase 2: 결과 없음
+    if (_aiResults!.isEmpty) {
+      return _buildAINoResults(seats, event, isStageBottom);
+    }
+
+    // Phase 3: 스와이프 카드
+    return _buildAISwipeCards(event, venueViews, isLoggedIn, seats, isStageBottom);
+  }
+
+  // ── AI Loading State ──
+  Widget _buildAILoadingState() {
+    return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.goldSubtle,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.gold.withValues(alpha: 0.28)),
+          _PulsingIcon(
+            child: Container(
+              width: 72,
+              height: 72,
+              decoration: const BoxDecoration(
+                gradient: AppTheme.goldGradient,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.auto_awesome, size: 32, color: Color(0xFFFDF3F6)),
             ),
-            child: Text(
-              '추천 카드에서 좌석을 고르고, 시야를 확인한 뒤 바로 결제할 수 있습니다.',
+          ),
+          const SizedBox(height: 24),
+          Text(
+            '좌석 선별중~',
+            style: GoogleFonts.notoSans(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '최적의 좌석을 찾고 있습니다',
+            style: GoogleFonts.notoSans(
+              fontSize: 13,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── AI No Results ──
+  Widget _buildAINoResults(List<Seat> seats, Event event, bool isStageBottom) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.search_off_rounded,
+              size: 48, color: AppTheme.textTertiary.withValues(alpha: 0.3)),
+          const SizedBox(height: 16),
+          Text('조건에 맞는 연석 좌석이 없습니다',
               style: GoogleFonts.notoSans(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.gold,
-                height: 1.4,
+                  fontSize: 15, color: AppTheme.textSecondary)),
+          const SizedBox(height: 6),
+          Text('등급이나 인원을 변경해보세요',
+              style: GoogleFonts.notoSans(
+                  fontSize: 12, color: AppTheme.textTertiary)),
+          const SizedBox(height: 20),
+          _buildRetryButton(seats, event, isStageBottom),
+        ],
+      ),
+    );
+  }
+
+  // ── AI Swipe Cards Layout ──
+  Widget _buildAISwipeCards(Event event, Map<String, VenueZoneView> venueViews,
+      bool isLoggedIn, List<Seat> seats, bool isStageBottom) {
+    return Column(
+      children: [
+        // 조건 요약 바
+        _buildCompactConditionBar(),
+        // 카드 영역
+        Expanded(
+          child: Stack(
+            children: [
+              PageView.builder(
+                controller: _aiPageController,
+                itemCount: _aiResults!.length,
+                onPageChanged: (i) => setState(() => _aiCurrentPage = i),
+                itemBuilder: (context, index) {
+                  return _buildSwipeCard(
+                      index, _aiResults![index], event, venueViews, isLoggedIn);
+                },
+              ),
+              // 페이지 닷
+              Positioned(
+                bottom: 14,
+                left: 0,
+                right: 0,
+                child: _buildPageDots(),
+              ),
+            ],
+          ),
+        ),
+        // 다시 추천받기
+        _buildRetryButton(seats, event, isStageBottom),
+      ],
+    );
+  }
+
+  // ── 개별 스와이프 카드 ──
+  Widget _buildSwipeCard(int index, _SeatRecommendation rec, Event event,
+      Map<String, VenueZoneView> venueViews, bool isLoggedIn) {
+    final primarySeat = rec.seats.first;
+    final previewView = _findBestView(venueViews, primarySeat);
+    final seatColor = _getGradeColor(primarySeat.grade);
+    final fmt = NumberFormat('#,###');
+    final labels = ['1위 BEST', '2위 추천', '3위 추천'];
+    final labelColors = [
+      AppTheme.gold,
+      AppTheme.success,
+      const Color(0xFF0A84FF),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.border, width: 0.5),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 좌석 사진 (풀 배경)
+            if (previewView != null)
+              CachedNetworkImage(
+                imageUrl: previewView.imageUrl,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => Container(
+                  color: AppTheme.surface,
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                        color: AppTheme.gold, strokeWidth: 2),
+                  ),
+                ),
+                errorWidget: (_, __, ___) =>
+                    _buildNoPhotoPlaceholder(rec),
+              )
+            else
+              _buildNoPhotoPlaceholder(rec),
+
+            // 랭킹 배지 (top-left)
+            Positioned(
+              top: 16,
+              left: 16,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: labelColors[index.clamp(0, 2)].withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  labels[index.clamp(0, 2)],
+                  style: GoogleFonts.notoSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFFFDF3F6),
+                  ),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          _buildAIConditionSummary(event),
-          const SizedBox(height: 16),
 
-          // ── 인원 ──
-          _sectionLabel('인원'),
-          const SizedBox(height: 8),
-          Row(
-            children: List.generate(
-              event.maxTicketsPerOrder,
-              (i) {
-                final n = i + 1;
-                final isActive = _aiQuantity == n;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: GestureDetector(
-                    onTap: () => setState(() => _aiQuantity = n),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        gradient: isActive ? AppTheme.goldGradient : null,
-                        color: isActive ? null : AppTheme.card,
-                        borderRadius: BorderRadius.circular(10),
-                        border: isActive
-                            ? null
-                            : Border.all(color: AppTheme.border, width: 0.5),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '$n',
-                          style: GoogleFonts.notoSans(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: isActive
-                                ? const Color(0xFFFDF3F6)
-                                : AppTheme.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          // ── 등급 ──
-          _sectionLabel('등급'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: ['상관없음', ...availableGrades].map((g) {
-              final isActive = _aiGrade == g;
-              final color =
-                  g == '상관없음' ? AppTheme.textSecondary : _getGradeColor(g);
-              return GestureDetector(
-                onTap: () => setState(() => _aiGrade = g),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
+            // 360° 배지 (top-right)
+            if (previewView?.is360 == true)
+              Positioned(
+                top: 16,
+                right: 16,
+                child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: isActive ? color.withValues(alpha: 0.2) : AppTheme.card,
+                    color: Colors.black.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isActive ? color : AppTheme.border,
-                      width: isActive ? 1.5 : 0.5,
-                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (g != '상관없음') ...[
-                        Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                                color: color, shape: BoxShape.circle)),
-                        const SizedBox(width: 6),
-                      ],
+                      const Icon(Icons.threesixty_rounded,
+                          size: 14, color: AppTheme.gold),
+                      const SizedBox(width: 4),
                       Text(
-                        g == '상관없음' ? '상관없음' : '$g석',
+                        '360°',
                         style: GoogleFonts.notoSans(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: isActive
-                              ? AppTheme.textPrimary
-                              : AppTheme.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.gold,
                         ),
                       ),
-                      if (g != '상관없음') ...[
-                        const SizedBox(width: 4),
-                        Text(
-                          '${fmt.format(_getGradePrice(g, event))}원',
-                          style: GoogleFonts.notoSans(
-                              fontSize: 11, color: AppTheme.textTertiary),
-                        ),
-                      ],
                     ],
                   ),
                 ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 18),
+              ),
 
-          // ── 좌석 선호 ──
-          _sectionLabel('좌석 선호'),
-          const SizedBox(height: 8),
-          Row(
-            children: ['가운데', '앞쪽', '통로', '상관없음'].map((p) {
-              final isActive = _aiPosition == p;
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: GestureDetector(
-                    onTap: () => setState(() => _aiPosition = p),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        gradient: isActive ? AppTheme.goldGradient : null,
-                        color: isActive ? null : AppTheme.card,
-                        borderRadius: BorderRadius.circular(8),
-                        border: isActive
-                            ? null
-                            : Border.all(color: AppTheme.border, width: 0.5),
-                      ),
-                      child: Center(
-                        child: Text(
-                          p,
-                          style: GoogleFonts.notoSans(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isActive
-                                ? const Color(0xFFFDF3F6)
-                                : AppTheme.textSecondary,
+            // 하단 그라데이션 + 좌석 정보 오버레이
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 48, 20, 20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.45),
+                      Colors.black.withValues(alpha: 0.88),
+                    ],
+                    stops: const [0.0, 0.3, 1.0],
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 등급 배지 + 구역
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: seatColor.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                                color: seatColor.withValues(alpha: 0.5)),
+                          ),
+                          child: Text(
+                            '${primarySeat.grade ?? "일반"}석',
+                            style: GoogleFonts.notoSans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: seatColor,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${rec.zone}구역',
+                          style: GoogleFonts.notoSans(
+                            fontSize: 14,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // 열 + 좌석번호
+                    Text(
+                      '${rec.row}열 ${rec.seatRange}번',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
                       ),
                     ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 22),
-
-          // ── AI 추천 버튼 ──
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppTheme.goldGradient,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    final results =
-                        _generateRecommendations(seats, event, isStageBottom);
-                    setState(() {
-                      _aiResults = results;
-                      _selectedSeatIds.clear();
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.auto_awesome,
-                          size: 18, color: Color(0xFFFDF3F6)),
-                      const SizedBox(width: 8),
-                      Text(
-                        'AI 추천 받기',
-                        style: GoogleFonts.notoSans(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFFFDF3F6),
-                        ),
+                    const SizedBox(height: 4),
+                    // 가격
+                    Text(
+                      '${fmt.format(rec.totalPrice)}원',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.gold,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 14),
+                    // 버튼
+                    Row(
+                      children: [
+                        if (previewView != null)
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                _applyRecommendation(rec);
+                                _showSeatView(
+                                  previewView,
+                                  rec.zone,
+                                  primarySeat.grade,
+                                  seatColor,
+                                  primarySeat.row,
+                                  rec.seatRange,
+                                  rec.totalPrice,
+                                  rec.seats.map((s) => s.id).toList(),
+                                );
+                              },
+                              icon: Icon(
+                                previewView.is360
+                                    ? Icons.threesixty_rounded
+                                    : Icons.visibility_rounded,
+                                size: 16,
+                              ),
+                              label: Text(
+                                previewView.is360 ? '360° 시야' : '시야 확인',
+                                style: GoogleFonts.notoSans(
+                                    fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.4)),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                        if (previewView != null) const SizedBox(width: 10),
+                        Expanded(
+                          flex: previewView != null ? 1 : 2,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              _applyRecommendation(rec);
+                              _goCheckoutWithSeats(
+                                rec.seats.map((s) => s.id).toList(),
+                                rec.seats.length,
+                                isLoggedIn,
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.gold,
+                              foregroundColor: const Color(0xFFFDF3F6),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: Text(
+                              isLoggedIn ? '이 좌석 선택' : '로그인 후 선택',
+                              style: GoogleFonts.notoSans(
+                                  fontSize: 14, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
-            ),
-          ),
-
-          // ── 결과 ──
-          if (_aiResults != null) ...[
-            const SizedBox(height: 24),
-            if (_aiResults!.isEmpty)
-              _buildNoResults()
-            else
-              ..._aiResults!.asMap().entries.map((entry) =>
-                  _buildRecommendationCard(
-                      entry.key, entry.value, event, venueViews, isLoggedIn)),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAIConditionSummary(Event event) {
-    final fmt = NumberFormat('#,###');
-    final budgetText =
-        _aiMaxBudget > 0 ? '${fmt.format(_aiMaxBudget)}원 이하' : '제한 없음';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.border, width: 0.5),
-      ),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          _buildConditionChip('인원', '$_aiQuantity명'),
-          _buildConditionChip('예산', budgetText),
-          _buildConditionChip('악기', _aiInstrument),
-          _buildConditionChip('선호', _aiPosition),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildConditionChip(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppTheme.borderLight, width: 0.5),
-      ),
-      child: RichText(
-        text: TextSpan(
-          style: GoogleFonts.notoSans(fontSize: 11),
-          children: [
-            TextSpan(
-              text: '$label ',
-              style: const TextStyle(
-                color: AppTheme.textTertiary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            TextSpan(
-              text: value,
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
-                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -736,315 +807,155 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     );
   }
 
-  Widget _buildNoResults() {
+  // ── 사진 없을 때 플레이스홀더 ──
+  Widget _buildNoPhotoPlaceholder(_SeatRecommendation rec) {
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border, width: 0.5),
+      color: AppTheme.surface,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.event_seat_rounded,
+                size: 64,
+                color: AppTheme.textTertiary.withValues(alpha: 0.3)),
+            const SizedBox(height: 12),
+            Text(
+              '${rec.zone}구역 · ${rec.row}열',
+              style: GoogleFonts.notoSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '시야 이미지 준비중',
+              style: GoogleFonts.notoSans(
+                  fontSize: 12, color: AppTheme.textTertiary),
+            ),
+          ],
+        ),
       ),
-      child: Column(
+    );
+  }
+
+  // ── 페이지 닷 인디케이터 ──
+  Widget _buildPageDots() {
+    if (_aiResults == null || _aiResults!.length <= 1) {
+      return const SizedBox.shrink();
+    }
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(_aiResults!.length, (i) {
+        final isActive = i == _aiCurrentPage;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          width: isActive ? 24 : 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: isActive
+                ? AppTheme.gold
+                : Colors.white.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        );
+      }),
+    );
+  }
+
+  // ── 조건 요약 바 ──
+  Widget _buildCompactConditionBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
+      ),
+      child: Row(
         children: [
-          Icon(Icons.search_off_rounded,
-              size: 40, color: AppTheme.textTertiary.withValues(alpha: 0.3)),
-          const SizedBox(height: 12),
-          Text('조건에 맞는 연석 좌석이 없습니다',
-              style: GoogleFonts.notoSans(
-                  fontSize: 14, color: AppTheme.textSecondary)),
-          const SizedBox(height: 4),
-          Text('등급이나 인원을 변경해보세요',
-              style: GoogleFonts.notoSans(
-                  fontSize: 12, color: AppTheme.textTertiary)),
+          const Icon(Icons.auto_awesome, size: 14, color: AppTheme.gold),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _conditionChip('인원', '$_aiQuantity명'),
+                  const SizedBox(width: 6),
+                  _conditionChip('선호', _aiPosition),
+                  if (_aiInstrument != '상관없음') ...[
+                    const SizedBox(width: 6),
+                    _conditionChip('악기', _aiInstrument),
+                  ],
+                  if (_aiMaxBudget > 0) ...[
+                    const SizedBox(width: 6),
+                    _conditionChip(
+                        '예산', '${NumberFormat('#,###').format(_aiMaxBudget)}원'),
+                  ],
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildRecommendationCard(int index, _SeatRecommendation rec,
-      Event event, Map<String, VenueZoneView> venueViews, bool isLoggedIn) {
-    final isSelected = _selectedSeatIds.containsAll(rec.seats.map((s) => s.id));
-    final fmt = NumberFormat('#,###');
-    final stars = (rec.score / 25).clamp(1, 5).round();
-    final labels = ['BEST', '추천', '추천'];
-    final colors = [
-      AppTheme.gold,
-      AppTheme.success,
-      const Color(0xFF0A84FF),
-    ];
-    final primarySeat = rec.seats.first;
-    final previewView = _findBestView(venueViews, primarySeat);
-    final seatColor = _getGradeColor(primarySeat.grade);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: GestureDetector(
-        onTap: () {
-          _applyRecommendation(rec);
-          if (previewView != null) {
-            _showSeatView(
-              previewView,
-              rec.zone,
-              primarySeat.grade,
-              seatColor,
-              primarySeat.row,
-              rec.seatRange,
-              rec.totalPrice,
-              rec.seats.map((s) => s.id).toList(),
-            );
-          }
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isSelected ? AppTheme.goldSubtle : AppTheme.card,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isSelected ? AppTheme.gold : AppTheme.border,
-              width: isSelected ? 1.5 : 0.5,
+  Widget _conditionChip(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppTheme.borderLight, width: 0.5),
+      ),
+      child: RichText(
+        text: TextSpan(
+          style: GoogleFonts.notoSans(fontSize: 10),
+          children: [
+            TextSpan(
+              text: '$label ',
+              style: const TextStyle(
+                  color: AppTheme.textTertiary, fontWeight: FontWeight.w600),
             ),
+            TextSpan(
+              text: value,
+              style: const TextStyle(
+                  color: AppTheme.textPrimary, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── 다시 추천받기 ──
+  Widget _buildRetryButton(
+      List<Seat> seats, Event event, bool isStageBottom) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: SizedBox(
+        width: double.infinity,
+        height: 44,
+        child: OutlinedButton.icon(
+          onPressed: () {
+            setState(() {
+              _aiResults = null;
+              _lastAISignature = null;
+              _selectedSeatIds.clear();
+            });
+          },
+          icon: const Icon(Icons.refresh_rounded, size: 16),
+          label: Text(
+            '다시 추천받기',
+            style:
+                GoogleFonts.notoSans(fontSize: 13, fontWeight: FontWeight.w600),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: colors[index.clamp(0, 2)].withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      '${index + 1}위 ${labels[index.clamp(0, 2)]}',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: colors[index.clamp(0, 2)],
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  Row(
-                    children: List.generate(
-                        5,
-                        (i) => Icon(
-                              i < stars
-                                  ? Icons.star_rounded
-                                  : Icons.star_outline_rounded,
-                              size: 14,
-                              color: i < stars
-                                  ? AppTheme.gold
-                                  : AppTheme.textTertiary.withValues(alpha: 0.3),
-                            )),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Container(
-                    width: 6,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: _getGradeColor(rec.seats.first.grade),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${rec.seats.first.grade ?? "일반"}석 · ${rec.zone}',
-                          style: GoogleFonts.notoSans(
-                              fontSize: 12, color: AppTheme.textTertiary),
-                        ),
-                        Text(
-                          '${rec.row}열 ${rec.seatRange}번',
-                          style: GoogleFonts.notoSans(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        if (_aiInstrument != '상관없음')
-                          Text(
-                            '악기 선호 반영: $_aiInstrument',
-                            style: GoogleFonts.notoSans(
-                              fontSize: 11,
-                              color: AppTheme.goldLight,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    '${fmt.format(rec.totalPrice)}원',
-                    style: GoogleFonts.notoSans(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.gold,
-                    ),
-                  ),
-                ],
-              ),
-              if (previewView != null) ...[
-                const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: () => _showSeatView(
-                    previewView,
-                    rec.zone,
-                    primarySeat.grade,
-                    seatColor,
-                    primarySeat.row,
-                    rec.seatRange,
-                    rec.totalPrice,
-                    rec.seats.map((s) => s.id).toList(),
-                  ),
-                  child: Container(
-                    width: double.infinity,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: AppTheme.gold.withValues(alpha: 0.35),
-                        width: 0.7,
-                      ),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.network(
-                          previewView.imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: AppTheme.surface,
-                            child: const Center(
-                              child: Icon(
-                                Icons.image_not_supported_rounded,
-                                size: 18,
-                                color: AppTheme.textTertiary,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          right: 8,
-                          bottom: 6,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.6),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  previewView.is360
-                                      ? Icons.threesixty_rounded
-                                      : Icons.visibility_rounded,
-                                  size: 11,
-                                  color: AppTheme.gold,
-                                ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  previewView.is360 ? '360° 시야' : '시야 보기',
-                                  style: GoogleFonts.notoSans(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.gold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: previewView == null
-                          ? null
-                          : () => _showSeatView(
-                                previewView,
-                                rec.zone,
-                                primarySeat.grade,
-                                seatColor,
-                                primarySeat.row,
-                                rec.seatRange,
-                                rec.totalPrice,
-                                rec.seats.map((s) => s.id).toList(),
-                              ),
-                      child: Text(
-                        previewView == null ? '시야 없음' : '시야 확인',
-                        style: GoogleFonts.notoSans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        _applyRecommendation(rec);
-                        _goCheckoutWithSeats(
-                          rec.seats.map((s) => s.id).toList(),
-                          rec.seats.length,
-                          isLoggedIn,
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.gold,
-                        foregroundColor: const Color(0xFFFDF3F6),
-                      ),
-                      child: Text(
-                        isLoggedIn ? '이 좌석 결제' : '로그인 후 결제',
-                        style: GoogleFonts.notoSans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (isSelected)
-                Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.check_circle_rounded,
-                          size: 16, color: AppTheme.gold),
-                      const SizedBox(width: 6),
-                      Text(
-                        '선택됨',
-                        style: GoogleFonts.notoSans(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.gold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.gold,
+            side: BorderSide(color: AppTheme.gold.withValues(alpha: 0.3)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
           ),
         ),
       ),
@@ -3668,5 +3579,43 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
         ],
       ),
     );
+  }
+}
+
+// ── Pulsing animation widget ──
+class _PulsingIcon extends StatefulWidget {
+  final Widget child;
+  const _PulsingIcon({required this.child});
+
+  @override
+  State<_PulsingIcon> createState() => _PulsingIconState();
+}
+
+class _PulsingIconState extends State<_PulsingIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _scale = Tween<double>(begin: 0.85, end: 1.15).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(scale: _scale, child: widget.child);
   }
 }

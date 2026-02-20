@@ -841,8 +841,6 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
 
     if (!hasPolicies && !hasLegacy) return const SizedBox.shrink();
 
-    final fmt = NumberFormat('#,###', 'ko_KR');
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 10, 24, 2),
       child: Container(
