@@ -176,7 +176,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   }
 
   void _toggleSeat(Seat seat, Event event,
-      [Map<String, VenueSeatView>? venueViews]) {
+      [Map<String, VenueSeatView>? venueViews, List<Seat>? allSeats]) {
     final maxTickets = event.maxTicketsPerOrder > 0
         ? event.maxTicketsPerOrder
         : 10; // 0이면 기본 10석 제한
@@ -186,13 +186,31 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       } else {
         if (_selectedSeatIds.length < maxTickets) {
           _selectedSeatIds.add(seat.id);
-          // 사진 있는 좌석 선택 시 자동으로 시야 팝업
+          // 사진 있는 좌석 선택 시 자동으로 시야 팝업 + 예매 정보 전달
           if (venueViews != null) {
             final view = _findBestView(venueViews, seat);
             if (view != null) {
               Future.microtask(() {
                 final color = _getGradeColor(seat.grade);
-                _showSeatView(view, seat.block, seat.grade, color, seat.row);
+                // 선택된 좌석 정보 계산
+                final selected = allSeats
+                        ?.where((s) => _selectedSeatIds.contains(s.id))
+                        .toList() ??
+                    [];
+                final totalPrice = selected.fold<int>(
+                    0, (sum, s) => sum + _getGradePrice(s.grade, event));
+                final seatNums =
+                    selected.map((s) => '${s.number}').join(', ');
+                _showSeatView(
+                  view,
+                  seat.block,
+                  seat.grade,
+                  color,
+                  seat.row,
+                  '${selected.length}석 · $seatNums번',
+                  totalPrice,
+                  _selectedSeatIds.toList(),
+                );
               });
             }
           }
@@ -1490,7 +1508,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                                     ),
                                   ),
                                   ...seats.map((s) =>
-                                      _buildLargeSeat(s, event, venueViews)),
+                                      _buildLargeSeat(s, event, venueViews, floorSeats)),
                                 ],
                               ),
                             );
@@ -1704,7 +1722,8 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   }
 
   Widget _buildLargeSeat(
-      Seat seat, Event event, Map<String, VenueSeatView> venueViews) {
+      Seat seat, Event event, Map<String, VenueSeatView> venueViews,
+      [List<Seat>? allSeats]) {
     final isAvailable = seat.status == SeatStatus.available;
     final isSelected = _selectedSeatIds.contains(seat.id);
     final color = _getGradeColor(seat.grade);
@@ -1726,7 +1745,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
 
     return GestureDetector(
       onTap: isAvailable
-          ? () => _toggleSeat(seat, event, venueViews)
+          ? () => _toggleSeat(seat, event, venueViews, allSeats)
           : null,
       child: Container(
         width: 38,
