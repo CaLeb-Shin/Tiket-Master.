@@ -490,26 +490,43 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ── Event info rows ──
+                        // ── 3-column info row ──
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-                          child: Column(
-                            children: [
-                              _infoRow(
-                                '공연 일시',
-                                DateFormat('yyyy.MM.dd (E) HH:mm', 'ko_KR')
-                                    .format(event.startAt),
-                              ),
-                              _infoRow(
-                                '좌석 가격',
-                                _priceDisplay(event),
-                                valueColor: AppTheme.gold,
-                              ),
-                              _infoRow(
-                                '공연 장소',
-                                event.venueName ?? '장소 미정',
-                              ),
-                            ],
+                          padding: const EdgeInsets.fromLTRB(0, 20, 0, 16),
+                          child: IntrinsicHeight(
+                            child: Row(
+                              children: [
+                                // 일시
+                                Expanded(
+                                  child: _InfoColumn(
+                                    label: 'DATE',
+                                    value: DateFormat('M/d (E) HH:mm', 'ko_KR')
+                                        .format(event.startAt),
+                                  ),
+                                ),
+                                Container(
+                                    width: 0.5,
+                                    color: AppTheme.border),
+                                // 가격
+                                Expanded(
+                                  child: _InfoColumn(
+                                    label: 'PRICE',
+                                    value: _priceDisplayShort(event),
+                                    valueColor: AppTheme.gold,
+                                  ),
+                                ),
+                                Container(
+                                    width: 0.5,
+                                    color: AppTheme.border),
+                                // 장소
+                                Expanded(
+                                  child: _InfoColumn(
+                                    label: 'VENUE',
+                                    value: event.venueName ?? '장소 미정',
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
 
@@ -832,45 +849,29 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
     );
   }
 
-  String _priceDisplay(Event event) {
-    final fmt = NumberFormat('#,###', 'ko_KR');
-    if (event.priceByGrade != null && event.priceByGrade!.isNotEmpty) {
-      return event.priceByGrade!.entries
-          .map((e) => '${e.key}석 ${fmt.format(e.value)}원')
-          .join(' · ');
-    }
-    return '${fmt.format(event.price)}원';
+  static const _gradeOrder = ['VIP', 'R', 'S', 'A'];
+
+  List<MapEntry<String, int>> _sortedGrades(Map<String, int> grades) {
+    return grades.entries.toList()
+      ..sort((a, b) {
+        final ai = _gradeOrder.indexOf(a.key);
+        final bi = _gradeOrder.indexOf(b.key);
+        final aIdx = ai == -1 ? _gradeOrder.length : ai;
+        final bIdx = bi == -1 ? _gradeOrder.length : bi;
+        return aIdx.compareTo(bIdx);
+      });
   }
 
-  Widget _infoRow(String label, String value, {Color? valueColor}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 72,
-            child: Text(
-              label,
-              style: AppTheme.sans(
-                fontSize: 12,
-                color: AppTheme.sage,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: AppTheme.sans(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: valueColor ?? AppTheme.textPrimary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  String _priceDisplayShort(Event event) {
+    final fmt = NumberFormat('#,###', 'ko_KR');
+    if (event.priceByGrade != null && event.priceByGrade!.isNotEmpty) {
+      final sorted = _sortedGrades(event.priceByGrade!);
+      if (sorted.length <= 2) {
+        return sorted.map((e) => '${e.key} ${fmt.format(e.value)}').join('\n');
+      }
+      return '${sorted.first.key} ${fmt.format(sorted.first.value)}원~';
+    }
+    return '${fmt.format(event.price)}원';
   }
 
   void _showFullImage(BuildContext context, List<String> urls, int initialIndex) {
@@ -1177,6 +1178,50 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
 }
 
 // ─── Info Column (3-col layout) ───
+class _InfoColumn extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  const _InfoColumn({
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: AppTheme.label(
+              fontSize: 9,
+              color: AppTheme.sage,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: AppTheme.sans(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: valueColor ?? AppTheme.textPrimary,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── Full Screen Gallery (PageView swipe) ───
 class _FullScreenGallery extends StatefulWidget {
   final List<String> urls;
