@@ -178,7 +178,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
   late AnimationController _slideCtrl;
   late Animation<Offset> _slideAnim;
   bool _hasAnimated = false;
-  bool _detailsExpanded = false;
+  bool _detailsExpanded = true;
 
   @override
   void initState() {
@@ -788,6 +788,9 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                       ),
                     ),
 
+                    // 할인 정보
+                    _buildDiscountInfo(event),
+
                     const SizedBox(height: 8),
                   ],
                 )
@@ -824,6 +827,145 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDiscountInfo(Event event) {
+    final policies = event.discountPolicies;
+    final legacyDiscount = event.discount;
+
+    final hasPolicies = policies != null && policies.isNotEmpty;
+    final hasLegacy =
+        legacyDiscount != null && legacyDiscount.isNotEmpty;
+
+    if (!hasPolicies && !hasLegacy) return const SizedBox.shrink();
+
+    final fmt = NumberFormat('#,###', 'ko_KR');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 4),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.gold.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: AppTheme.gold.withValues(alpha: 0.15),
+            width: 0.5,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.local_offer_rounded,
+                    size: 14, color: AppTheme.gold.withValues(alpha: 0.8)),
+                const SizedBox(width: 6),
+                Text(
+                  '할인 정보',
+                  style: AppTheme.sans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.gold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (hasPolicies)
+              ...policies.map((p) {
+                final pct = (p.discountRate * 100).round();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.gold.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          '$pct%',
+                          style: AppTheme.sans(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.gold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              p.name,
+                              style: AppTheme.sans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                            if (p.description != null &&
+                                p.description!.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  p.description!,
+                                  style: AppTheme.sans(
+                                    fontSize: 10,
+                                    color: AppTheme.textTertiary,
+                                  ),
+                                ),
+                              ),
+                            // 등급별 할인가
+                            if (event.priceByGrade != null &&
+                                event.priceByGrade!.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 3),
+                                child: Wrap(
+                                  spacing: 8,
+                                  children: _sortedGrades(event.priceByGrade!)
+                                      .where((e) =>
+                                          p.applicableGrades == null ||
+                                          p.applicableGrades!
+                                              .contains(e.key))
+                                      .map((e) {
+                                    final discounted =
+                                        p.discountedPrice(e.value);
+                                    return Text(
+                                      '${e.key} ${fmt.format(discounted)}원',
+                                      style: AppTheme.sans(
+                                        fontSize: 10,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            if (!hasPolicies && hasLegacy)
+              Text(
+                legacyDiscount,
+                style: AppTheme.sans(
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
