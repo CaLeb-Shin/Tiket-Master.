@@ -94,7 +94,7 @@ class _DetailBody extends StatelessWidget {
               // ── 공연 소개 ──
               if (event.description.isNotEmpty)
                 _EditorialContentSection(
-                    title: '소개', content: event.description),
+                    title: 'About', content: event.description),
 
               // ── 출연진 ──
               if (event.cast != null && event.cast!.isNotEmpty)
