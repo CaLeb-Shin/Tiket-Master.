@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -1061,7 +1060,6 @@ class _EventRowState extends ConsumerState<_EventRow> {
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
                   onTap: () {
-                    final isOwner = FirebaseAuth.instance.currentUser?.email?.toLowerCase() == AuthService.ownerEmail;
                     shad.showDropdown(
                       context: context,
                       builder: (_) => shad.DropdownMenu(
@@ -1098,9 +1096,8 @@ class _EventRowState extends ConsumerState<_EventRow> {
                             onPressed: (_) =>
                                 context.push('/events/${event.id}/bookers'),
                           ),
-                          if (isOwner) ...[
-                            const shad.MenuDivider(),
-                            shad.MenuButton(
+                          const shad.MenuDivider(),
+                          shad.MenuButton(
                               child: Text(
                                 '공연 삭제',
                                 style: AdminTheme.sans(
@@ -1110,7 +1107,6 @@ class _EventRowState extends ConsumerState<_EventRow> {
                               ),
                               onPressed: (_) => _showDeleteDialog(event),
                             ),
-                          ],
                         ],
                       ),
                     );
@@ -1202,70 +1198,11 @@ class _DeleteEventDialog extends StatefulWidget {
 }
 
 class _DeleteEventDialogState extends State<_DeleteEventDialog> {
-  int _step = 1; // 1, 2, 3
-  final _passwordCtrl = TextEditingController();
   bool _isDeleting = false;
-  String? _passwordError;
-  bool _obscurePassword = true;
 
-  @override
-  void dispose() {
-    _passwordCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _verifyAndDelete() async {
-    final password = _passwordCtrl.text.trim();
-    if (password.isEmpty) {
-      setState(() => _passwordError = '비밀번호를 입력해주세요');
-      return;
-    }
-
-    setState(() {
-      _isDeleting = true;
-      _passwordError = null;
-    });
-
-    try {
-      // Firebase 재인증
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null || user.email == null) {
-        setState(() {
-          _passwordError = '로그인 상태를 확인해주세요';
-          _isDeleting = false;
-        });
-        return;
-      }
-
-      final credential = EmailAuthProvider.credential(
-        email: user.email!,
-        password: password,
-      );
-      await user.reauthenticateWithCredential(credential);
-
-      // 인증 성공 → 삭제 실행
-      await widget.onConfirmed();
-    } on FirebaseAuthException catch (e) {
-      setState(() {
-        _isDeleting = false;
-        switch (e.code) {
-          case 'wrong-password':
-          case 'invalid-credential':
-            _passwordError = '비밀번호가 올바르지 않습니다';
-            break;
-          case 'too-many-requests':
-            _passwordError = '너무 많은 시도입니다. 잠시 후 다시 시도해주세요';
-            break;
-          default:
-            _passwordError = '인증 실패: ${e.message}';
-        }
-      });
-    } catch (e) {
-      setState(() {
-        _isDeleting = false;
-        _passwordError = '오류: $e';
-      });
-    }
+  Future<void> _executeDelete() async {
+    setState(() => _isDeleting = true);
+    await widget.onConfirmed();
   }
 
   @override
@@ -1277,400 +1214,108 @@ class _DeleteEventDialogState extends State<_DeleteEventDialog> {
         constraints: const BoxConstraints(maxWidth: 420),
         child: Padding(
           padding: const EdgeInsets.all(28),
-          child: _isDeleting ? _buildDeletingState() : _buildStep(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDeletingState() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const SizedBox(
-          width: 48,
-          height: 48,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: AdminTheme.error,
-          ),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          '삭제 중...',
-          style: AdminTheme.serif(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AdminTheme.error,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '공연 데이터와 좌석을 삭제하고 있습니다.',
-          style: AdminTheme.sans(
-            fontSize: 13,
-            color: AdminTheme.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStep() {
-    switch (_step) {
-      case 1:
-        return _buildStep1();
-      case 2:
-        return _buildStep2();
-      case 3:
-        return _buildStep3();
-      default:
-        return const SizedBox.shrink();
-    }
-  }
-
-  // ── Step 1: 기본 확인 ──
-  Widget _buildStep1() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 경고 아이콘
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AdminTheme.error.withValues(alpha: 0.12),
-          ),
-          child: Icon(Icons.delete_forever_rounded,
-              size: 32, color: AdminTheme.error),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          '공연을 삭제하시겠습니까?',
-          style: AdminTheme.serif(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        // 공연 정보 카드
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AdminTheme.background,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AdminTheme.border, width: 0.5),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.event.title,
-                style: AdminTheme.sans(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AdminTheme.textPrimary,
+          child: _isDeleting
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(width: 48, height: 48,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AdminTheme.error)),
+                    const SizedBox(height: 20),
+                    Text('삭제 중...', style: AdminTheme.serif(fontSize: 18, fontWeight: FontWeight.w600, color: AdminTheme.error)),
+                    const SizedBox(height: 8),
+                    Text('공연 데이터와 좌석을 삭제하고 있습니다.',
+                        style: AdminTheme.sans(fontSize: 13, color: AdminTheme.textSecondary)),
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 64, height: 64,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AdminTheme.error.withValues(alpha: 0.12),
+                      ),
+                      child: Icon(Icons.delete_forever_rounded, size: 32, color: AdminTheme.error),
+                    ),
+                    const SizedBox(height: 20),
+                    Text('공연을 삭제하시겠습니까?',
+                        style: AdminTheme.serif(fontSize: 20, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AdminTheme.background,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AdminTheme.border, width: 0.5),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.event.title,
+                              style: AdminTheme.sans(fontSize: 15, fontWeight: FontWeight.w700, color: AdminTheme.textPrimary)),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${DateFormat('yyyy.MM.dd HH:mm').format(widget.event.startAt)}'
+                            ' · ${NumberFormat('#,###').format(widget.event.totalSeats)}석'
+                            '${widget.soldSeats > 0 ? ' · ${widget.soldSeats}석 판매됨' : ''}',
+                            style: AdminTheme.sans(fontSize: 12, color: AdminTheme.textTertiary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AdminTheme.error.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AdminTheme.error.withValues(alpha: 0.3), width: 0.5),
+                      ),
+                      child: Text(
+                        '이 작업은 되돌릴 수 없습니다. 공연 데이터와 모든 좌석이 영구 삭제됩니다.',
+                        style: AdminTheme.sans(fontSize: 12, color: AdminTheme.error, height: 1.4),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AdminTheme.textPrimary,
+                                side: BorderSide(color: AdminTheme.border, width: 0.5),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              ),
+                              child: Text('취소', style: AdminTheme.sans(fontSize: 13, fontWeight: FontWeight.w600, color: AdminTheme.textSecondary)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: ElevatedButton(
+                              onPressed: _executeDelete,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AdminTheme.error,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              ),
+                              child: Text('삭제', style: AdminTheme.sans(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${DateFormat('yyyy.MM.dd HH:mm').format(widget.event.startAt)}'
-                ' · ${NumberFormat('#,###').format(widget.event.totalSeats)}석'
-                '${widget.soldSeats > 0 ? ' · ${widget.soldSeats}석 판매됨' : ''}',
-                style: AdminTheme.sans(
-                  fontSize: 12,
-                  color: AdminTheme.textTertiary,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-        Row(
-          children: [
-            Expanded(
-              child: _dialogButton(
-                label: '취소',
-                onTap: () => Navigator.of(context).pop(),
-                isPrimary: false,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _dialogButton(
-                label: '삭제 진행',
-                onTap: () => setState(() => _step = 2),
-                isDanger: true,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ── Step 2: 경고 재확인 ──
-  Widget _buildStep2() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AdminTheme.error.withValues(alpha: 0.2),
-          ),
-          child: Icon(Icons.warning_amber_rounded,
-              size: 36, color: AdminTheme.error),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          '정말로 삭제하시겠습니까?',
-          style: AdminTheme.serif(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: AdminTheme.error,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AdminTheme.error.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-                color: AdminTheme.error.withValues(alpha: 0.3), width: 0.5),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _warningRow('이 작업은 되돌릴 수 없습니다'),
-              const SizedBox(height: 6),
-              _warningRow('공연 데이터와 모든 좌석이 영구 삭제됩니다'),
-              if (widget.soldSeats > 0) ...[
-                const SizedBox(height: 6),
-                _warningRow(
-                    '이미 ${widget.soldSeats}석이 판매되었습니다',
-                    isCritical: true),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-        Row(
-          children: [
-            Expanded(
-              child: _dialogButton(
-                label: '취소',
-                onTap: () => Navigator.of(context).pop(),
-                isPrimary: false,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _dialogButton(
-                label: '그래도 삭제',
-                onTap: () => setState(() => _step = 3),
-                isDanger: true,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ── Step 3: 비밀번호 입력 ──
-  Widget _buildStep3() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AdminTheme.error.withValues(alpha: 0.15),
-          ),
-          child: Icon(Icons.lock_rounded, size: 28, color: AdminTheme.error),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          '본인 인증',
-          style: AdminTheme.serif(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '삭제를 최종 확인하기 위해\n계정 비밀번호를 입력해주세요.',
-          textAlign: TextAlign.center,
-          style: AdminTheme.sans(
-            fontSize: 13,
-            color: AdminTheme.textSecondary,
-            height: 1.5,
-          ),
-        ),
-        const SizedBox(height: 20),
-        // 비밀번호 입력
-        TextFormField(
-          controller: _passwordCtrl,
-          obscureText: _obscurePassword,
-          style: AdminTheme.sans(
-            fontSize: 14,
-            color: AdminTheme.textPrimary,
-          ),
-          decoration: InputDecoration(
-            hintText: '비밀번호',
-            hintStyle: AdminTheme.sans(
-              fontSize: 14,
-              color: AdminTheme.textTertiary,
-            ),
-            errorText: _passwordError,
-            errorStyle: AdminTheme.sans(
-              fontSize: 11,
-              color: AdminTheme.error,
-            ),
-            filled: true,
-            fillColor: AdminTheme.background,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide:
-                  BorderSide(color: AdminTheme.border, width: 0.5),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide:
-                  BorderSide(color: AdminTheme.border, width: 0.5),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide:
-                  BorderSide(color: AdminTheme.error, width: 1),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide:
-                  BorderSide(color: AdminTheme.error, width: 0.5),
-            ),
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscurePassword
-                    ? Icons.visibility_off_rounded
-                    : Icons.visibility_rounded,
-                size: 18,
-                color: AdminTheme.textTertiary,
-              ),
-              onPressed: () =>
-                  setState(() => _obscurePassword = !_obscurePassword),
-            ),
-          ),
-          onFieldSubmitted: (_) => _verifyAndDelete(),
-        ),
-        const SizedBox(height: 24),
-        Row(
-          children: [
-            Expanded(
-              child: _dialogButton(
-                label: '취소',
-                onTap: () => Navigator.of(context).pop(),
-                isPrimary: false,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _dialogButton(
-                label: '최종 삭제',
-                onTap: _verifyAndDelete,
-                isDanger: true,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _warningRow(String text, {bool isCritical = false}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          isCritical ? Icons.error_rounded : Icons.info_outline_rounded,
-          size: 14,
-          color: AdminTheme.error,
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: AdminTheme.sans(
-              fontSize: 12,
-              fontWeight: isCritical ? FontWeight.w700 : FontWeight.w500,
-              color: isCritical
-                  ? AdminTheme.error
-                  : AdminTheme.textSecondary,
-              height: 1.4,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _dialogButton({
-    required String label,
-    required VoidCallback onTap,
-    bool isPrimary = true,
-    bool isDanger = false,
-  }) {
-    if (isDanger) {
-      return SizedBox(
-        height: 44,
-        child: ElevatedButton(
-          onPressed: onTap,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AdminTheme.error,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4)),
-          ),
-          child: Text(
-            label,
-            style: AdminTheme.sans(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      );
-    }
-    return SizedBox(
-      height: 44,
-      child: OutlinedButton(
-        onPressed: onTap,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AdminTheme.textPrimary,
-          side: BorderSide(color: AdminTheme.border, width: 0.5),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4)),
-        ),
-        child: Text(
-          label,
-          style: AdminTheme.sans(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AdminTheme.textSecondary,
-          ),
         ),
       ),
     );
