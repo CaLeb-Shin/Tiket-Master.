@@ -987,6 +987,12 @@ export const verifyAndCheckIn = functions.https.onCall(async (data: any, context
     };
   }
 
+  // 데모/어드민 테스트 디바이스는 스캐너 검증 스킵
+  const isDemoDevice = scannerDeviceId === "admin-demo-device";
+
+  if (isDemoDevice) {
+    // 스캐너 디바이스 검증 건너뛰기
+  } else {
   const scannerDeviceDoc = await db.collection("scannerDevices").doc(scannerDeviceId).get();
   const scannerDevice = scannerDeviceDoc.data();
   if (!scannerDeviceDoc.exists || !scannerDevice) {
@@ -1030,6 +1036,7 @@ export const verifyAndCheckIn = functions.https.onCall(async (data: any, context
     },
     { merge: true }
   );
+  } // end of !isDemoDevice else block
 
   // 토큰에서 실제 JWT 추출 (ticketId:token 형식)
   const tokenParts = qrToken.split(":");

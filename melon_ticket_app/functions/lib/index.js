@@ -824,45 +824,52 @@ exports.verifyAndCheckIn = functions.https.onCall(async (data, context) => {
             message: "승인된 스캐너 기기에서만 입장 체크가 가능합니다",
         };
     }
-    const scannerDeviceDoc = await db.collection("scannerDevices").doc(scannerDeviceId).get();
-    const scannerDevice = scannerDeviceDoc.data();
-    if (!scannerDeviceDoc.exists || !scannerDevice) {
-        await logCheckin(ticketId, actorStaffId, "notAllowedDevice", "등록되지 않은 기기", {
-            stage: checkinStage,
-            scannerDeviceId,
-        });
-        return {
-            success: false,
-            result: "notAllowedDevice",
-            message: "등록되지 않은 스캐너 기기입니다. 관리자 승인 후 사용해 주세요",
-        };
+    // 데모/어드민 테스트 디바이스는 스캐너 검증 스킵
+    const isDemoDevice = scannerDeviceId === "admin-demo-device";
+    if (isDemoDevice) {
+        // 스캐너 디바이스 검증 건너뛰기
     }
-    if (scannerDevice.ownerUid !== scannerUid) {
-        await logCheckin(ticketId, actorStaffId, "notAllowedDevice", "기기 소유자 불일치", {
-            stage: checkinStage,
-            scannerDeviceId,
-        });
-        return {
-            success: false,
-            result: "notAllowedDevice",
-            message: "현재 계정으로 승인된 스캐너 기기가 아닙니다",
-        };
-    }
-    if (scannerDevice.blocked === true || scannerDevice.approved !== true) {
-        await logCheckin(ticketId, actorStaffId, "notAllowedDevice", "미승인/차단 기기", {
-            stage: checkinStage,
-            scannerDeviceId,
-        });
-        return {
-            success: false,
-            result: "notAllowedDevice",
-            message: scannerDevice.blocked === true ? "차단된 스캐너 기기입니다" : "승인 대기 중인 스캐너 기기입니다",
-        };
-    }
-    await db.collection("scannerDevices").doc(scannerDeviceId).set({
-        lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+    else {
+        const scannerDeviceDoc = await db.collection("scannerDevices").doc(scannerDeviceId).get();
+        const scannerDevice = scannerDeviceDoc.data();
+        if (!scannerDeviceDoc.exists || !scannerDevice) {
+            await logCheckin(ticketId, actorStaffId, "notAllowedDevice", "등록되지 않은 기기", {
+                stage: checkinStage,
+                scannerDeviceId,
+            });
+            return {
+                success: false,
+                result: "notAllowedDevice",
+                message: "등록되지 않은 스캐너 기기입니다. 관리자 승인 후 사용해 주세요",
+            };
+        }
+        if (scannerDevice.ownerUid !== scannerUid) {
+            await logCheckin(ticketId, actorStaffId, "notAllowedDevice", "기기 소유자 불일치", {
+                stage: checkinStage,
+                scannerDeviceId,
+            });
+            return {
+                success: false,
+                result: "notAllowedDevice",
+                message: "현재 계정으로 승인된 스캐너 기기가 아닙니다",
+            };
+        }
+        if (scannerDevice.blocked === true || scannerDevice.approved !== true) {
+            await logCheckin(ticketId, actorStaffId, "notAllowedDevice", "미승인/차단 기기", {
+                stage: checkinStage,
+                scannerDeviceId,
+            });
+            return {
+                success: false,
+                result: "notAllowedDevice",
+                message: scannerDevice.blocked === true ? "차단된 스캐너 기기입니다" : "승인 대기 중인 스캐너 기기입니다",
+            };
+        }
+        await db.collection("scannerDevices").doc(scannerDeviceId).set({
+            lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+    } // end of !isDemoDevice else block
     // 토큰에서 실제 JWT 추출 (ticketId:token 형식)
     const tokenParts = qrToken.split(":");
     const actualToken = tokenParts.length > 1 ? tokenParts.slice(1).join(":") : qrToken;
