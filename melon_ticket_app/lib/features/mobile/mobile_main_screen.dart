@@ -2611,25 +2611,21 @@ class _MileageCard extends ConsumerWidget {
                 children: [
                   // 좌석 업그레이드
                   _guideItem(
-                    icon: Icons.event_seat_rounded,
                     title: '좌석 업그레이드',
-                    desc: '마일리지를 적립하면 등급이 올라가고,\n높은 등급일수록 좌석 업그레이드 혜택을\n받을 수 있습니다.',
+                    desc: '마일리지를 적립하면 등급이 올라가고, 높은 등급일수록 좌석 업그레이드 혜택을 받을 수 있습니다.',
                   ),
                   const SizedBox(height: 20),
 
                   // 공유 적립
                   _guideItem(
-                    icon: Icons.card_giftcard_rounded,
                     title: '공연 공유 적립',
-                    desc: '내가 공유한 공연 링크를 통해 다른 사람이\n예매를 완료하면, 추천 마일리지가\n적립됩니다.',
+                    desc: '내가 공유한 공연 링크를 통해 다른 사람이 예매를 완료하면, 추천 마일리지가 적립됩니다.',
                   ),
                   const SizedBox(height: 20),
 
                   // 등급 안내
                   _guideItem(
-                    icon: Icons.star_outline_rounded,
                     title: '등급 안내',
-                    desc: null,
                   ),
                   const SizedBox(height: 10),
 
@@ -2734,49 +2730,31 @@ class _MileageCard extends ConsumerWidget {
   }
 
   Widget _guideItem({
-    required IconData icon,
     required String title,
     String? desc,
   }) {
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: AppTheme.gold.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(7),
-          ),
-          child: Icon(icon, size: 15, color: AppTheme.gold),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: AppTheme.sans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              if (desc != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  desc,
-                  style: AppTheme.sans(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ],
+        Text(
+          title,
+          style: AppTheme.sans(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.textPrimary,
           ),
         ),
+        if (desc != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            desc,
+            style: AppTheme.sans(
+              fontSize: 12,
+              color: AppTheme.textSecondary,
+              height: 1.5,
+            ),
+          ),
+        ],
       ],
     );
   }
