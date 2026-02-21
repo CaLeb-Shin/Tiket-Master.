@@ -46,3 +46,57 @@ Started: 2026-02-21
   - confirmPaymentAndAssignSeats transaction creates tickets but previously didn't return their IDs
   - mock_ticket_screen.dart uses direct Firestore batch writes (bypasses Cloud Functions intentionally)
 ---
+
+## 2026-02-21 - MT-004 (취소/환불 시 좌석 상태 복원 및 엣지케이스 처리)
+- **Backend (Cloud Function)**: requestTicketCancellation already handles all required logic:
+  - Seat status → available, event.availableSeats +1
+  - Partial cancel: order.canceledCount increment, order.status stays paid
+  - Full cancel: order.status → refunded
+  - Checked-in ticket rejection with clear error message
+  - Refund rate: 100% (24h+), 70% (3-24h), blocked (<3h)
+- **Fix 1**: ticket_detail_screen.dart canRequestCancel now checks `!ticket.hasAnyCheckin`
+  - Previously a ticket with entryCheckedInAt (status still "issued") could show cancel button
+- **Fix 2**: Error messages parsed from Firebase HttpsError format to show user-friendly Korean messages
+  - Added `_parseFirebaseError()` helper that extracts message from `[firebase_functions/code] message` format
+- **Fix 3**: Bottom action bar shows "입장확인" for checked-in issued tickets (instead of generic "취소불가")
+- **Fix 4**: Order model updated with `canceledCount` and `refundedAmount` fields
+  - Default values (0) ensure backward compatibility with existing Firestore documents
+- Files changed: `melon_core/lib/data/models/order.dart`, `melon_ticket_app/lib/features/tickets/ticket_detail_screen.dart`
+- flutter analyze: pass (pre-existing info-level issues only), npm run build: pass
+- **Learnings for future iterations:**
+  - Ticket status "issued" doesn't mean the ticket hasn't been checked in - check `hasAnyCheckin` separately
+  - Status becomes "used" only after intermission checkin (2nd stage), not entry checkin (1st stage)
+  - Firebase error format is `[firebase_functions/error-code] Korean message` - parse to extract readable part
+  - Cloud Function already had complete logic - main work was client-side edge case handling
+---
+
+## 2026-02-21 - MT-005 (마일리지 데이터 모델 및 Firestore 구조 설계)
+- **Mileage model** (`melon_core/lib/data/models/mileage.dart`):
+  - `Mileage` class with balance, tier (MileageTier enum), totalEarned
+  - `fromMap()` constructor (not fromFirestore - it's a sub-document of users)
+  - `MileageTier` enum: bronze(0~), silver(5000~), gold(15000~), platinum(30000~)
+  - Helper methods: `fromTotalEarned()`, `next`, `minPoints`, `displayName`
+- **MileageHistory model** (`melon_core/lib/data/models/mileage_history.dart`):
+  - Standard Firestore model with `fromFirestore()` and `toMap()`
+  - `MileageType` enum: purchase, referral, upgrade
+- **AppUser updated** (`melon_core/lib/data/models/app_user.dart`):
+  - Added `Mileage mileage` field with default `Mileage()` for backward compat
+  - `fromFirestore()` reads `data['mileage']` as `Map<String, dynamic>?`
+  - `toMap()` includes `mileage.toMap()`
+- **Barrel export** (`models.dart`): Added `mileage.dart` and `mileage_history.dart`
+- **addMileage Cloud Function** (`functions/src/index.ts`):
+  - Admin-only callable function
+  - Validates userId, amount (non-zero number), type (purchase/referral/upgrade), reason
+  - Checks balance sufficiency for deductions (amount < 0)
+  - Creates mileageHistory doc + updates users.mileage.balance/tier/totalEarned
+  - Tier auto-calculated from totalEarned
+- **Social login updated**: signInWithKakao, signInWithNaver now set `mileage: { balance: 0, tier: "bronze", totalEarned: 0 }` on new user creation
+- Files changed: `melon_core/lib/data/models/mileage.dart` (new), `mileage_history.dart` (new), `app_user.dart`, `models.dart`, `functions/src/index.ts`
+- flutter analyze: pass (all 3 packages), npm run build: pass, functions deployed
+- **Learnings for future iterations:**
+  - Mileage is a sub-document of users (not a separate collection) - use `fromMap()` not `fromFirestore()`
+  - Tier is calculated from totalEarned (cumulative), not balance (current)
+  - addMileage uses dot notation updates (`mileage.balance`) instead of replacing entire mileage object
+  - Social login functions (signInWithKakao, signInWithNaver) also create user docs - don't forget to add new fields there
+  - Existing users without mileage field will get defaults from `Mileage.fromMap(null)` → balance:0, tier:bronze
+---
