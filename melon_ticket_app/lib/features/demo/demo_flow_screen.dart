@@ -54,7 +54,10 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
       appBar: AppBar(
         title: Text(
           '데모 플로우',
-          style: AppTheme.nanum(fontWeight: FontWeight.w700),
+          style: AppTheme.nanum(
+            fontWeight: FontWeight.w700,
+            shadows: AppTheme.textShadow,
+          ),
         ),
         actions: [
           TextButton(
@@ -271,6 +274,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
                           color: AppTheme.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
+                          shadows: AppTheme.textShadow,
                         ),
                       ),
                     ),
@@ -336,6 +340,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
                               style: AppTheme.nanum(
                                 color: const Color(0xFF111827),
                                 fontWeight: FontWeight.w700,
+                                shadows: AppTheme.textShadow,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -789,6 +794,7 @@ class _SectionCard extends StatelessWidget {
                     color: AppTheme.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
+                    shadows: AppTheme.textShadow,
                   ),
                 ),
               ),
@@ -918,6 +924,7 @@ class _QtyButton extends StatelessWidget {
                   onTap == null ? AppTheme.textTertiary : AppTheme.textPrimary,
               fontSize: 18,
               fontWeight: FontWeight.w700,
+              shadows: AppTheme.textShadow,
             ),
           ),
         ),
