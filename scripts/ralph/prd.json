@@ -144,7 +144,7 @@
         "npm run build 통과, flutter analyze 통과"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "VIP는 더 이상 업그레이드 불가. 상위 등급 좌석이 없으면 '잔여 좌석이 없습니다' 메시지. 트랜잭션으로 좌석 교환 원자성 보장."
     },
     {

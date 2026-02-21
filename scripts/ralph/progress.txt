@@ -194,3 +194,34 @@ Started: 2026-02-21
   - AppTheme colors are const — can use `const BoxDecoration` / `const Divider` for perf
   - Tier progress: `(totalEarned - tier.minPoints) / (nextTier.minPoints - tier.minPoints)`
 ---
+
+## 2026-02-21 - MT-009 (마일리지로 좌석 등급 업그레이드)
+- **upgradeTicketSeat Cloud Function** (`functions/src/index.ts`):
+  - Transaction-based: validates ticket ownership, status=issued, current grade, mileage balance
+  - Grade order: A → S → R → VIP, costs: A→S(2000P), S→R(3000P), R→VIP(5000P)
+  - Swaps seats atomically: old seat → available, new higher-grade seat → reserved
+  - Updates ticket.seatId + stores previousSeatId/upgradedAt for audit
+  - Deducts mileage from user balance + creates mileageHistory record (type: "upgrade")
+  - Returns newGrade, newSeatId, newSeatDisplay, cost, newBalance
+  - VIP tickets get "더 이상 업그레이드할 수 없습니다" error
+  - No available higher-grade seats → clear error message with target grade name
+- **FunctionsService** (`melon_core/lib/services/functions_service.dart`):
+  - Added `upgradeTicketSeat(ticketId)` method
+- **Ticket Detail UI** (`ticket_detail_screen.dart`):
+  - `_UpgradeCard` widget: shows currentGrade → targetGrade badges, cost, balance, upgrade button
+  - Conditionally displayed: status=issued, not checked-in, grade != VIP, user logged in
+  - `_GradeBadge` widget: color-coded grade badges (VIP gold, R purple, S green, A blue)
+  - Confirmation dialog with grade badges + cost display before executing upgrade
+  - Success: SnackBar with new grade + seat display; Error: parsed Firebase error message
+  - `hasEnoughMileage` check: insufficient balance shows disabled "마일리지 부족" button
+  - Watches `currentUserProvider` for mileage balance
+- Files changed: `functions/src/index.ts`, `functions_service.dart`, `ticket_detail_screen.dart`
+- flutter analyze: pass (0 new issues), npm run build: pass, functions deployed
+- **Learnings for future iterations:**
+  - Seat grade is stored on the Seat model (`seat.grade`), not on the ticket
+  - Transaction reads within Firestore can query by `.where()` — used to find available seats of target grade
+  - `previousSeatId` on ticket doc is useful for audit trail of upgrades
+  - Grade color constants: VIP(#C9A84C), R(#6B4FA0), S(#2D6A4F), A(#3B7DD8) — same as seat selection screen
+  - `canUpgrade` must also check `!ticket.hasAnyCheckin` — can't upgrade after entry
+  - Mileage balance check is dual: client-side (UI enable/disable) + server-side (transaction validation)
+---
