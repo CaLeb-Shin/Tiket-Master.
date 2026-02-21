@@ -15,6 +15,7 @@ import '../features/admin/admin_orders_screen.dart';
 import '../features/admin/admin_bookers_screen.dart';
 import '../features/admin/demo_test_screen.dart';
 import '../features/admin/mock_ticket_screen.dart';
+import '../features/admin/admin_mileage_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -91,6 +92,11 @@ final routerProvider = Provider<GoRouter>((ref) {
               final eventId = state.pathParameters['eventId']!;
               return AdminBookersScreen(eventId: eventId);
             },
+          ),
+          GoRoute(
+            path: 'mileage',
+            name: 'adminMileage',
+            builder: (context, state) => const AdminMileageScreen(),
           ),
           // 데모 테스트 (나중에 이 블록만 삭제하면 제거 완료)
           GoRoute(
