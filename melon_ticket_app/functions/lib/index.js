@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.scheduledEventReminders = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.scheduledEventReminders = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -44,6 +44,34 @@ const JWT_SECRET = process.env.JWT_SECRET || "melon-ticket-secret-key-change-in-
 const QR_TOKEN_EXPIRY = 120; // 2분
 const REFUND_FULL_HOURS = 24;
 const REFUND_PARTIAL_HOURS = 3;
+/**
+ * 8자리 영숫자 추천 코드 생성 (혼동 문자 제외)
+ */
+function generateReferralCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let code = "";
+    for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+}
+/**
+ * 유니크한 추천 코드 생성 (Firestore에서 중복 체크)
+ */
+async function generateUniqueReferralCode() {
+    for (let attempt = 0; attempt < 10; attempt++) {
+        const code = generateReferralCode();
+        const existing = await db
+            .collection("users")
+            .where("referralCode", "==", code)
+            .limit(1)
+            .get();
+        if (existing.empty)
+            return code;
+    }
+    // Fallback: timestamp suffix
+    return generateReferralCode() + Date.now().toString(36).slice(-2).toUpperCase();
+}
 async function getUserRole(uid) {
     const userDoc = await db.collection("users").doc(uid).get();
     return userDoc.data()?.role ?? "user";
@@ -1056,6 +1084,7 @@ exports.signInWithKakao = functions.https.onCall(async (data, context) => {
     const userRef = db.collection("users").doc(uid);
     const userDoc = await userRef.get();
     if (!userDoc.exists) {
+        const referralCode = await generateUniqueReferralCode();
         await userRef.set({
             email,
             displayName,
@@ -1063,6 +1092,8 @@ exports.signInWithKakao = functions.https.onCall(async (data, context) => {
             provider: "kakao",
             kakaoId,
             role: "user",
+            mileage: { balance: 0, tier: "bronze", totalEarned: 0 },
+            referralCode,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
         });
@@ -1113,6 +1144,7 @@ exports.signInWithNaver = functions.https.onCall(async (data, context) => {
     const userRef = db.collection("users").doc(uid);
     const userDoc = await userRef.get();
     if (!userDoc.exists) {
+        const referralCode = await generateUniqueReferralCode();
         await userRef.set({
             email,
             displayName,
@@ -1120,6 +1152,8 @@ exports.signInWithNaver = functions.https.onCall(async (data, context) => {
             provider: "naver",
             naverId,
             role: "user",
+            mileage: { balance: 0, tier: "bronze", totalEarned: 0 },
+            referralCode,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
         });
@@ -1135,6 +1169,82 @@ exports.signInWithNaver = functions.https.onCall(async (data, context) => {
         naverId,
     });
     return { customToken, uid, displayName, email };
+});
+// ============================================================
+// 9. addMileage - 마일리지 적립/차감
+// ============================================================
+exports.addMileage = functions.https.onCall(async (data, context) => {
+    const { userId, amount, type, reason } = data;
+    // 관리자만 수동 지급 가능, 또는 서버 내부 호출 (context.auth 없으면 내부 호출 간주)
+    // 일반 사용자가 직접 호출하는 것을 방지
+    if (context?.auth?.uid) {
+        const callerRole = await getUserRole(context.auth.uid);
+        if (callerRole !== "admin") {
+            // 내부 호출이 아닌 일반 사용자의 직접 호출 차단
+            throw new functions.https.HttpsError("permission-denied", "관리자 권한이 필요합니다");
+        }
+    }
+    if (!userId || typeof userId !== "string") {
+        throw new functions.https.HttpsError("invalid-argument", "사용자 ID가 필요합니다");
+    }
+    if (typeof amount !== "number" || amount === 0) {
+        throw new functions.https.HttpsError("invalid-argument", "유효한 마일리지 금액이 필요합니다");
+    }
+    const validTypes = ["purchase", "referral", "upgrade"];
+    if (!type || !validTypes.includes(type)) {
+        throw new functions.https.HttpsError("invalid-argument", "유효한 마일리지 유형이 필요합니다 (purchase, referral, upgrade)");
+    }
+    if (!reason || typeof reason !== "string") {
+        throw new functions.https.HttpsError("invalid-argument", "사유가 필요합니다");
+    }
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "사용자를 찾을 수 없습니다");
+    }
+    const userData = userDoc.data();
+    const currentMileage = userData.mileage ?? { balance: 0, tier: "bronze", totalEarned: 0 };
+    const currentBalance = currentMileage.balance ?? 0;
+    const currentTotalEarned = currentMileage.totalEarned ?? 0;
+    // 차감 시 잔액 확인
+    if (amount < 0 && currentBalance + amount < 0) {
+        throw new functions.https.HttpsError("failed-precondition", "마일리지 잔액이 부족합니다");
+    }
+    const newBalance = currentBalance + amount;
+    const newTotalEarned = amount > 0 ? currentTotalEarned + amount : currentTotalEarned;
+    // 등급 계산 (totalEarned 기준)
+    let newTier = "bronze";
+    if (newTotalEarned >= 30000)
+        newTier = "platinum";
+    else if (newTotalEarned >= 15000)
+        newTier = "gold";
+    else if (newTotalEarned >= 5000)
+        newTier = "silver";
+    // mileageHistory 기록
+    const historyRef = db.collection("mileageHistory").doc();
+    await historyRef.set({
+        userId,
+        amount,
+        type,
+        reason,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    // users.mileage 업데이트
+    await userRef.update({
+        "mileage.balance": newBalance,
+        "mileage.tier": newTier,
+        "mileage.totalEarned": newTotalEarned,
+    });
+    functions.logger.info(`마일리지 ${amount > 0 ? "적립" : "차감"}: user=${userId}, amount=${amount}, type=${type}, balance=${newBalance}, tier=${newTier}`);
+    return {
+        success: true,
+        userId,
+        amount,
+        type,
+        newBalance,
+        newTier,
+        newTotalEarned,
+    };
 });
 // ============================================================
 // 스케줄러: 공연 임박 알림 (3시간 전) + 리뷰 요청 (공연 종료 후)

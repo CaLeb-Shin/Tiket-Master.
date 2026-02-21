@@ -9,6 +9,7 @@ class AppUser {
   final String? phoneNumber;
   final UserRole role;
   final Mileage mileage;
+  final String? referralCode;
   final DateTime createdAt;
   final DateTime? lastLoginAt;
 
@@ -19,6 +20,7 @@ class AppUser {
     this.phoneNumber,
     required this.role,
     Mileage? mileage,
+    this.referralCode,
     required this.createdAt,
     this.lastLoginAt,
   }) : mileage = mileage ?? Mileage();
@@ -35,6 +37,7 @@ class AppUser {
       phoneNumber: data['phoneNumber'],
       role: UserRole.fromString(data['role']),
       mileage: Mileage.fromMap(data['mileage'] as Map<String, dynamic>?),
+      referralCode: data['referralCode'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate(),
     );
@@ -47,6 +50,7 @@ class AppUser {
       'phoneNumber': phoneNumber,
       'role': role.name,
       'mileage': mileage.toMap(),
+      if (referralCode != null) 'referralCode': referralCode,
       'createdAt': Timestamp.fromDate(createdAt),
       'lastLoginAt': lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
     };

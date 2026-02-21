@@ -13,6 +13,7 @@ import 'package:melon_core/data/repositories/review_repository.dart';
 import 'package:melon_core/data/models/event.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'review_section.dart';
+import '../../utils/web_share.dart';
 
 class EventDetailScreen extends ConsumerWidget {
   final String eventId;
@@ -1193,11 +1194,15 @@ class _ShareSheet extends ConsumerWidget {
   final Event event;
   const _ShareSheet({required this.event});
 
-  String get _shareUrl {
+  String _buildShareUrl(String? referralCode) {
     final origin = Uri.base.origin;
-    return origin.isNotEmpty
+    final base = origin.isNotEmpty
         ? '$origin/event/${event.id}'
         : 'https://melonticket-web-20260216.vercel.app/event/${event.id}';
+    if (referralCode != null && referralCode.isNotEmpty) {
+      return '$base?ref=$referralCode';
+    }
+    return base;
   }
 
   @override
@@ -1207,6 +1212,8 @@ class _ShareSheet extends ConsumerWidget {
     final ratingAsync = ref.watch(eventRatingProvider(event.id));
     final reviewsAsync = ref.watch(eventReviewsProvider(event.id));
     final hasDiscount = event.discount != null && event.discount!.isNotEmpty;
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final shareUrl = _buildShareUrl(currentUser?.referralCode);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1502,12 +1509,75 @@ class _ShareSheet extends ConsumerWidget {
 
         const SizedBox(height: 16),
 
-        // ── URL 복사 버튼 ──
+        // ── 공유하기 버튼 (네이티브 Share API 시도 → 실패시 클립보드) ──
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: GestureDetector(
+            onTap: () async {
+              final shared = await tryWebShare(
+                title: event.title,
+                text: '${event.title} - 멜론티켓에서 예매하세요!',
+                url: shareUrl,
+              );
+              if (!shared) {
+                // Fallback: 클립보드 복사
+                await Clipboard.setData(ClipboardData(text: shareUrl));
+              }
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        const Icon(Icons.check_circle_rounded,
+                            size: 18, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(shared ? '공유 완료!' : '링크가 복사되었습니다'),
+                        ),
+                      ],
+                    ),
+                    backgroundColor: AppTheme.success,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4)),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                gradient: AppTheme.goldGradient,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.ios_share_rounded,
+                      size: 18, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Text(
+                    'SHARE LINK',
+                    style: AppTheme.label(
+                      fontSize: 12,
+                      color: AppTheme.onAccent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // ── 링크 복사 버튼 ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: GestureDetector(
             onTap: () {
-              Clipboard.setData(ClipboardData(text: _shareUrl));
+              Clipboard.setData(ClipboardData(text: shareUrl));
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -1531,22 +1601,23 @@ class _ShareSheet extends ConsumerWidget {
             },
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                gradient: AppTheme.goldGradient,
+                border: Border.all(
+                    color: AppTheme.sage.withValues(alpha: 0.3), width: 0.5),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.link_rounded,
-                      size: 18, color: Colors.white),
+                      size: 16, color: AppTheme.textSecondary),
                   const SizedBox(width: 8),
                   Text(
                     'COPY LINK',
                     style: AppTheme.label(
-                      fontSize: 12,
-                      color: AppTheme.onAccent,
+                      fontSize: 11,
+                      color: AppTheme.textSecondary,
                     ),
                   ),
                 ],
@@ -1566,7 +1637,7 @@ class _ShareSheet extends ConsumerWidget {
               borderRadius: BorderRadius.circular(2),
             ),
             child: Text(
-              _shareUrl,
+              shareUrl,
               style: AppTheme.sans(
                 fontSize: 11,
                 color: AppTheme.textTertiary,

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/app_user.dart';
+import '../utils/referral_code.dart';
 import 'social_login_web.dart'
     if (dart.library.io) 'social_login_stub.dart';
 
@@ -189,15 +190,35 @@ class AuthService {
     final role =
         _isOwnerEmail(email) ? UserRole.admin.name : UserRole.user.name;
 
+    // 유니크 추천 코드 생성
+    final referralCode = await _generateUniqueReferralCode();
+
     await _firestore.collection('users').doc(uid).set({
       'email': email,
       'displayName': displayName,
       'photoUrl': photoUrl,
       'provider': provider,
       'role': role,
+      'mileage': {'balance': 0, 'tier': 'bronze', 'totalEarned': 0},
+      'referralCode': referralCode,
       'createdAt': FieldValue.serverTimestamp(),
       'lastLoginAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  /// 유니크한 추천 코드 생성 (Firestore 중복 체크)
+  Future<String> _generateUniqueReferralCode() async {
+    for (int i = 0; i < 10; i++) {
+      final code = generateReferralCode();
+      final existing = await _firestore
+          .collection('users')
+          .where('referralCode', isEqualTo: code)
+          .limit(1)
+          .get();
+      if (existing.docs.isEmpty) return code;
+    }
+    // Fallback
+    return generateReferralCode();
   }
 
   /// 기존 사용자의 권한 업데이트 (오너 이메일인 경우)

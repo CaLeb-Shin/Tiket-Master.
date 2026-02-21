@@ -33,3 +33,4 @@ export 'widgets/premium_effects.dart';
 
 // ─── Utils ───
 export 'utils/platform_utils.dart';
+export 'utils/referral_code.dart';

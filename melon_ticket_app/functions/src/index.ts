@@ -11,6 +11,35 @@ const QR_TOKEN_EXPIRY = 120; // 2분
 const REFUND_FULL_HOURS = 24;
 const REFUND_PARTIAL_HOURS = 3;
 
+/**
+ * 8자리 영숫자 추천 코드 생성 (혼동 문자 제외)
+ */
+function generateReferralCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+/**
+ * 유니크한 추천 코드 생성 (Firestore에서 중복 체크)
+ */
+async function generateUniqueReferralCode(): Promise<string> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const code = generateReferralCode();
+    const existing = await db
+      .collection("users")
+      .where("referralCode", "==", code)
+      .limit(1)
+      .get();
+    if (existing.empty) return code;
+  }
+  // Fallback: timestamp suffix
+  return generateReferralCode() + Date.now().toString(36).slice(-2).toUpperCase();
+}
+
 type SeatDoc = {
   id: string;
   block: string;
@@ -1253,6 +1282,7 @@ export const signInWithKakao = functions.https.onCall(async (data, context) => {
   const userDoc = await userRef.get();
 
   if (!userDoc.exists) {
+    const referralCode = await generateUniqueReferralCode();
     await userRef.set({
       email,
       displayName,
@@ -1261,6 +1291,7 @@ export const signInWithKakao = functions.https.onCall(async (data, context) => {
       kakaoId,
       role: "user",
       mileage: { balance: 0, tier: "bronze", totalEarned: 0 },
+      referralCode,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
     });
@@ -1321,6 +1352,7 @@ export const signInWithNaver = functions.https.onCall(async (data, context) => {
   const userDoc = await userRef.get();
 
   if (!userDoc.exists) {
+    const referralCode = await generateUniqueReferralCode();
     await userRef.set({
       email,
       displayName,
@@ -1329,6 +1361,7 @@ export const signInWithNaver = functions.https.onCall(async (data, context) => {
       naverId,
       role: "user",
       mileage: { balance: 0, tier: "bronze", totalEarned: 0 },
+      referralCode,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
     });
