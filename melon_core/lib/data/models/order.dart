@@ -10,6 +10,8 @@ class Order {
   final int totalAmount; // 총 금액
   final OrderStatus status;
   final String? failReason; // 실패 사유
+  final int canceledCount; // 취소된 티켓 수
+  final int refundedAmount; // 환불된 총 금액
   final DateTime createdAt;
   final DateTime? paidAt;
   final DateTime? refundedAt;
@@ -23,6 +25,8 @@ class Order {
     required this.totalAmount,
     required this.status,
     this.failReason,
+    this.canceledCount = 0,
+    this.refundedAmount = 0,
     required this.createdAt,
     this.paidAt,
     this.refundedAt,
@@ -39,6 +43,8 @@ class Order {
       totalAmount: data['totalAmount'] ?? 0,
       status: OrderStatus.fromString(data['status']),
       failReason: data['failReason'],
+      canceledCount: data['canceledCount'] ?? 0,
+      refundedAmount: data['refundedAmount'] ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       paidAt: (data['paidAt'] as Timestamp?)?.toDate(),
       refundedAt: (data['refundedAt'] as Timestamp?)?.toDate(),
@@ -54,6 +60,8 @@ class Order {
       'totalAmount': totalAmount,
       'status': status.name,
       'failReason': failReason,
+      'canceledCount': canceledCount,
+      'refundedAmount': refundedAmount,
       'createdAt': Timestamp.fromDate(createdAt),
       'paidAt': paidAt != null ? Timestamp.fromDate(paidAt!) : null,
       'refundedAt': refundedAt != null ? Timestamp.fromDate(refundedAt!) : null,

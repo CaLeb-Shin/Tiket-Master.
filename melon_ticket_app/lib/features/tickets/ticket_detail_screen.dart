@@ -123,7 +123,9 @@ class _TicketDetailBody extends ConsumerWidget {
         final seatLoading = seatAsync.isLoading;
         final now = DateTime.now();
         final canRequestCancel =
-            ticket.status == TicketStatus.issued && event.startAt.isAfter(now);
+            ticket.status == TicketStatus.issued &&
+            !ticket.hasAnyCheckin &&
+            event.startAt.isAfter(now);
 
         return Column(
           children: [
@@ -262,9 +264,10 @@ class _TicketDetailBody extends ConsumerWidget {
       );
     } catch (e) {
       if (!context.mounted) return;
+      final errorMsg = _parseFirebaseError(e.toString());
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('반환 실패: $e'),
+          content: Text(errorMsg),
           backgroundColor: _danger,
         ),
       );
@@ -580,7 +583,9 @@ class _BottomActionBar extends StatelessWidget {
             ? '반환완료'
             : ticket.status == TicketStatus.used
                 ? '이용완료'
-                : '취소불가';
+                : ticket.hasAnyCheckin
+                    ? '입장확인'
+                    : '취소불가';
 
     return Container(
       color: _softBlue,
@@ -1089,6 +1094,20 @@ class _CenteredMessage extends StatelessWidget {
       ),
     );
   }
+}
+
+String _parseFirebaseError(String error) {
+  // Firebase HttpsError messages contain the actual message after the error code
+  // e.g. "[firebase_functions/failed-precondition] 입장 체크가 진행된 티켓은 취소할 수 없습니다"
+  final bracketMatch = RegExp(r'\[.*?\]\s*(.+)').firstMatch(error);
+  if (bracketMatch != null) {
+    return bracketMatch.group(1)!;
+  }
+  // Fallback: remove "Exception:" prefix if present
+  if (error.startsWith('Exception:')) {
+    return error.substring('Exception:'.length).trim();
+  }
+  return '반환 처리 중 오류가 발생했습니다';
 }
 
 String _statusLabel(TicketStatus status) {
