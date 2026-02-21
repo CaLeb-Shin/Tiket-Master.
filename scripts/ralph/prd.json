@@ -281,6 +281,29 @@
       "priority": 17,
       "passes": false,
       "notes": "접근법 2가지: (1) EventSeries 상위 모델 + 회차별 Event 문서, (2) Event에 sessions 배열. 추천: (1)이 확장성 좋음. EventSeries(title,poster,category) → Event(seriesId,sessionNumber,startAt,seats). 기존 단일 공연도 sessions=1인 시리즈로 호환. 공연 등록 UI에서 '단일 공연' / '연속 공연' 토글."
+    },
+    {
+      "id": "MT-018",
+      "title": "엑셀 좌석배치도 업로드 → 인터랙티브 도트맵 좌석 선택 시스템",
+      "description": "관리자가 좌석 등급별로 나눠진 좌석배치도 엑셀 파일을 업로드하면, 시스템이 분석하여 도트 기반 인터랙티브 좌석 배치도를 자동 생성한다. 사용자는 이 도트맵에서 개별 좌석을 클릭하여 예매할 수 있다. 가장 핵심 기능.",
+      "acceptanceCriteria": [
+        "어드민: 엑셀(.xlsx) 파일 업로드 기능 (공연장 등록 또는 공연 등록 시)",
+        "엑셀 파싱: 좌석 등급(VIP/R/S/A), 구역, 층, 열, 좌석번호 자동 인식",
+        "엑셀 데이터 → Firestore seats 컬렉션으로 변환 저장 (venueId, zone, floor, row, seatNumber, grade, x, y 좌표)",
+        "어드민: 파싱 결과 미리보기 (도트맵으로 시각화, 등급별 색상 구분)",
+        "어드민: 미리보기에서 좌석 위치/등급 수동 조정 가능",
+        "티켓앱: Canvas 기반 인터랙티브 도트맵 좌석 선택 UI",
+        "티켓앱: 핀치 줌/패닝, 등급별 색상 구분 (VIP=골드, R=레드, S=블루, A=그린)",
+        "티켓앱: 좌석 클릭 시 좌석 정보 표시 (등급, 구역, 열, 번호, 가격)",
+        "티켓앱: 선택한 좌석 실시간 예매 상태 반영 (available/reserved/sold 색상 구분)",
+        "티켓앱: 다중 좌석 선택 지원 (최대 maxTicketsPerOrder 매수까지)",
+        "무대 위치 표시 (상단/하단)",
+        "기존 자동 생성 좌석 구조와 호환 (엑셀 업로드 or 기존 방식 선택 가능)",
+        "flutter analyze 통과, npm run build 통과"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "핵심 기능. 기존 프리셋 방식 대체. 엑셀 파싱은 Cloud Function(xlsx 라이브러리) 또는 클라이언트(dart excel 패키지). 좌석 좌표(x,y)는 엑셀의 행/열 위치에서 자동 계산하되, 어드민에서 드래그로 조정 가능하게. 도트맵 렌더링은 CustomPainter + GestureDetector. 대규모 공연장(1000석+)에서도 성능 유지 필요. 좌석 등급 색상: VIP=#C9A84C(골드), R=#E53935(레드), S=#1E88E5(블루), A=#43A047(그린). sold=#555555(회색), reserved=#FFA000(주황)."
     }
   ]
 }
