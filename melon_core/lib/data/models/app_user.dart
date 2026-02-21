@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'mileage.dart';
 
 /// 사용자 모델
 class AppUser {
@@ -7,6 +8,7 @@ class AppUser {
   final String? displayName;
   final String? phoneNumber;
   final UserRole role;
+  final Mileage mileage;
   final DateTime createdAt;
   final DateTime? lastLoginAt;
 
@@ -16,9 +18,10 @@ class AppUser {
     this.displayName,
     this.phoneNumber,
     required this.role,
+    Mileage? mileage,
     required this.createdAt,
     this.lastLoginAt,
-  });
+  }) : mileage = mileage ?? Mileage();
 
   bool get isAdmin => role == UserRole.admin;
   bool get isStaff => role == UserRole.staff || role == UserRole.admin;
@@ -31,6 +34,7 @@ class AppUser {
       displayName: data['displayName'],
       phoneNumber: data['phoneNumber'],
       role: UserRole.fromString(data['role']),
+      mileage: Mileage.fromMap(data['mileage'] as Map<String, dynamic>?),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate(),
     );
@@ -42,6 +46,7 @@ class AppUser {
       'displayName': displayName,
       'phoneNumber': phoneNumber,
       'role': role.name,
+      'mileage': mileage.toMap(),
       'createdAt': Timestamp.fromDate(createdAt),
       'lastLoginAt': lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
     };

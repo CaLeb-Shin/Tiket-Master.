@@ -3,6 +3,8 @@ export 'app_user.dart';
 export 'checkin.dart';
 export 'discount_policy.dart';
 export 'event.dart';
+export 'mileage.dart';
+export 'mileage_history.dart';
 export 'order.dart';
 export 'seat.dart';
 export 'seat_block.dart';
