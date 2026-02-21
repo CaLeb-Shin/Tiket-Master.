@@ -225,3 +225,26 @@ Started: 2026-02-21
   - `canUpgrade` must also check `!ticket.hasAnyCheckin` — can't upgrade after entry
   - Mileage balance check is dual: client-side (UI enable/disable) + server-side (transaction validation)
 ---
+
+## 2026-02-21 - MT-010 (추천 코드 & 마일리지 어드민 관리)
+- **AdminMileageScreen** (`melon_admin/lib/features/admin/admin_mileage_screen.dart`):
+  - Full editorial admin screen with summary cards, tier distribution, user table
+  - **Summary cards**: Total users, total balance, total earned, referral users count
+  - **Tier distribution**: 4 clickable tier cards (Bronze/Silver/Gold/Platinum) with progress bars, acts as filter
+  - **User table**: Name, email, referral code, tier badge, balance, total earned, action buttons
+  - **Search**: Real-time search by email, name, or referral code
+  - **Manual adjust dialog**: Toggle between 지급/차감, amount input, reason input, calls `addMileage` Cloud Function with `[관리자]` prefix
+  - **History dialog**: StreamBuilder on `mileageHistory` collection, shows type, reason, amount (+/-), date
+- **Router** (`router.dart`): Added `/mileage` route → `AdminMileageScreen`
+- **Sidebar** (`web_admin_dashboard.dart`): Added menu item `05 마일리지 관리` with push to `/mileage`
+- **pubspec.yaml**: Added `cloud_functions: ^5.1.5` as direct dependency (needed for `FirebaseFunctions.instance.httpsCallable`)
+- Files changed: `admin_mileage_screen.dart` (new), `router.dart`, `web_admin_dashboard.dart`, `pubspec.yaml`
+- flutter analyze: pass (0 new issues), admin deployed to Firebase Hosting
+- **Learnings for future iterations:**
+  - `AdminTheme.sans()` does not accept `fontFamily` parameter — it's a fixed TextStyle factory
+  - `cloud_functions` was only a transitive dependency of melon_admin via melon_core — needs explicit dep if used directly
+  - `sum` as a fold parameter name conflicts with Dart's built-in `sum` type — use `s` instead
+  - Tier colors: Bronze(#CD7F32), Silver(#C0C0C0), Gold(#C9A84C), Platinum(#E5E4E2) — consistent across ticket app and admin
+  - StreamBuilder works well for admin dialogs (history list) without needing Riverpod providers
+  - `addMileage` Cloud Function is admin-only — perfect for manual adjustments with `[관리자]` reason prefix
+---

@@ -159,7 +159,7 @@
         "flutter analyze 통과"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "melon_admin에 구현. AdminTheme, shadcn_flutter 사용. 기존 admin_orders_screen 스타일 참고."
     }
   ]
