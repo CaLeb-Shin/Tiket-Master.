@@ -2912,7 +2912,7 @@ class _SeatViewBottomSheet extends StatefulWidget {
 
 class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
   final TransformationController _controller = TransformationController();
-  bool _isFullScreen = false;
+  bool _isFullScreen = true;
   bool _imageLoaded = false;
 
   @override
@@ -3558,14 +3558,14 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                   ),
                   const Spacer(),
                   GestureDetector(
-                    onTap: () => setState(() => _isFullScreen = false),
+                    onTap: () => Navigator.pop(context),
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.fullscreen_exit_rounded,
+                      child: const Icon(Icons.close_rounded,
                           size: 22, color: Colors.white),
                     ),
                   ),
@@ -3574,42 +3574,137 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
             ),
           ),
 
-          // Bottom description
-          if (widget.view.description != null &&
-              widget.view.description!.isNotEmpty)
-            Positioned(
-              bottom: MediaQuery.of(context).padding.bottom + 16,
-              left: 20,
-              right: 20,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                        is360
-                            ? Icons.threesixty_rounded
-                            : Icons.visibility_rounded,
-                        size: 16,
-                        color: AppTheme.gold),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        widget.view.description!,
-                        style: AppTheme.nanum(
-                          fontSize: 12,
-                          color: AppTheme.textSecondary,
+          // Bottom: grade info + confirm button
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: ClipRRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Container(
+                  padding: EdgeInsets.fromLTRB(
+                      20, 16, 20, MediaQuery.of(context).padding.bottom + 16),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.75),
+                    border: const Border(
+                      top: BorderSide(
+                          color: Color(0x33C9A84C), width: 0.5),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Grade + location info
+                      Row(
+                        children: [
+                          if (widget.grade != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: widget.color.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                    color: widget.color.withValues(alpha: 0.5),
+                                    width: 0.5),
+                              ),
+                              child: Text(
+                                '${widget.grade}석',
+                                style: AppTheme.nanum(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: widget.color,
+                                ),
+                              ),
+                            ),
+                          if (widget.grade != null) const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              '$_locationText · ${widget.view.floor}',
+                              style: AppTheme.nanum(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white.withValues(alpha: 0.9),
+                              ),
+                            ),
+                          ),
+                          if (is360)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.gold.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '360°',
+                                style: AppTheme.nanum(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.gold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      if (widget.view.description != null &&
+                          widget.view.description!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(Icons.info_outline_rounded,
+                                size: 14,
+                                color: AppTheme.gold.withValues(alpha: 0.6)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                widget.view.description!,
+                                style: AppTheme.nanum(
+                                  fontSize: 11,
+                                  color: Colors.white.withValues(alpha: 0.5),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      // Confirm button
+                      SizedBox(
+                        width: double.infinity,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => Navigator.pop(context),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              decoration: BoxDecoration(
+                                gradient: AppTheme.goldGradient,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '확인완료',
+                                  style: AppTheme.nanum(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFFFDF3F6),
+                                    shadows: AppTheme.textShadowOnDark,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
+          ),
         ],
       ),
     );
