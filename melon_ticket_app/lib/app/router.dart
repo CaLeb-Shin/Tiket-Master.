@@ -121,6 +121,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 eventId: eventId,
                 selectedSeatIds: (extra?['seatIds'] as List<String>?) ?? [],
                 selectedSeatLabels: (extra?['seatLabels'] as List<String>?) ?? [],
+                selectedSeatGrades: (extra?['seatGrades'] as List<String>?) ?? [],
                 quantity: (extra?['quantity'] as int?) ?? 1,
               );
             },

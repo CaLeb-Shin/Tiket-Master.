@@ -872,6 +872,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                                 rec.seats.length,
                                 isLoggedIn,
                                 seatLabels: rec.seats.map((s) => s.displayName).toList(),
+                                seatGrades: rec.seats.map((s) => s.grade ?? '').toList(),
                               );
                             },
                             child: Text(
@@ -2181,7 +2182,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
 
   void _goCheckoutWithSeats(
       List<String> seatIds, int quantity, bool isLoggedIn,
-      {List<String>? seatLabels}) {
+      {List<String>? seatLabels, List<String>? seatGrades}) {
     if (!isLoggedIn) {
       context.push('/login');
       return;
@@ -2192,6 +2193,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         'seatIds': seatIds,
         'quantity': quantity,
         'seatLabels': seatLabels,
+        'seatGrades': seatGrades,
       },
     );
   }
@@ -2258,6 +2260,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                             selectedSeats.length,
                             isLoggedIn,
                             seatLabels: selectedSeats.map((s) => s.displayName).toList(),
+                            seatGrades: selectedSeats.map((s) => s.grade ?? '').toList(),
                           ),
                   borderRadius: BorderRadius.circular(12),
                   child: Center(

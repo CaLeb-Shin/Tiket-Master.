@@ -92,6 +92,7 @@ class CheckoutScreen extends ConsumerStatefulWidget {
   final String eventId;
   final List<String> selectedSeatIds;
   final List<String> selectedSeatLabels;
+  final List<String> selectedSeatGrades;
   final int quantity;
 
   const CheckoutScreen({
@@ -99,6 +100,7 @@ class CheckoutScreen extends ConsumerStatefulWidget {
     required this.eventId,
     this.selectedSeatIds = const [],
     this.selectedSeatLabels = const [],
+    this.selectedSeatGrades = const [],
     this.quantity = 1,
   });
 
@@ -116,7 +118,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
-    _quantity = widget.quantity > 0 ? widget.quantity : 1;
+    // 좌석이 선택된 경우 좌석 수 사용, 아니면 전달된 수량 사용
+    _quantity = widget.selectedSeatIds.isNotEmpty
+        ? widget.selectedSeatIds.length
+        : (widget.quantity > 0 ? widget.quantity : 1);
   }
 
   @override
@@ -124,16 +129,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final eventAsync = ref.watch(eventStreamProvider(widget.eventId));
     final authState = ref.watch(authStateProvider);
 
+    Widget backButton() => IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, size: 24, color: Colors.white),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
+        );
+
     if (authState.value == null) {
       return Scaffold(
         backgroundColor: _surface,
         appBar: AppBar(
           backgroundColor: _navy,
           foregroundColor: Colors.white,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-            onPressed: () => context.pop(),
-          ),
+          leading: backButton(),
           title: Text(
             '결제하기',
             style: AppTheme.nanum(
@@ -153,10 +166,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       appBar: AppBar(
         backgroundColor: _navy,
         foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => context.pop(),
-        ),
+        leading: backButton(),
         title: Text(
           '결제하기',
           style: AppTheme.nanum(
@@ -253,8 +263,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     if (widget.selectedSeatIds.isNotEmpty)
                       _SelectedSeatsCard(
                         seatLabels: widget.selectedSeatLabels,
+                        seatGrades: widget.selectedSeatGrades,
                         seatCount: widget.selectedSeatIds.length,
-                        onChangeSeat: () => context.pop(),
+                        onChangeSeat: () {
+                          if (context.canPop()) {
+                            context.pop();
+                          } else {
+                            context.go('/events/${widget.eventId}');
+                          }
+                        },
                       )
                     else
                       _QuantityCard(
@@ -685,14 +702,23 @@ class _QuantityButton extends StatelessWidget {
 
 class _SelectedSeatsCard extends StatelessWidget {
   final List<String> seatLabels;
+  final List<String> seatGrades;
   final int seatCount;
   final VoidCallback onChangeSeat;
 
   const _SelectedSeatsCard({
     required this.seatLabels,
+    required this.seatGrades,
     required this.seatCount,
     required this.onChangeSeat,
   });
+
+  static const _gradeColors = {
+    'VIP': Color(0xFFC9A84C),
+    'R': Color(0xFF6B4FA0),
+    'S': Color(0xFF2D6A4F),
+    'A': Color(0xFF3B7DD8),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -711,10 +737,40 @@ class _SelectedSeatsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ...labels.map((label) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
+          ...labels.asMap().entries.map((entry) {
+            final i = entry.key;
+            final label = entry.value;
+            final grade = i < seatGrades.length ? seatGrades[i] : '';
+            final gradeColor = _gradeColors[grade] ?? _textSecondary;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  if (grade.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: gradeColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: gradeColor.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Text(
+                        grade,
+                        style: AppTheme.nanum(
+                          color: gradeColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    )
+                  else
                     Container(
                       width: 24,
                       height: 24,
@@ -731,21 +787,22 @@ class _SelectedSeatsCard extends StatelessWidget {
                         color: _lineBlue,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        label,
-                        style: AppTheme.nanum(
-                          color: _textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          shadows: _premiumShadow,
-                        ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: AppTheme.nanum(
+                        color: _textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        shadows: _premiumShadow,
                       ),
                     ),
-                  ],
-                ),
-              )),
+                  ),
+                ],
+              ),
+            );
+          }),
           const SizedBox(height: 4),
           SizedBox(
             width: double.infinity,
