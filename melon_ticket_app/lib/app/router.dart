@@ -15,6 +15,7 @@ import '../features/staff_scanner/scanner_screen.dart';
 import '../features/mobile/mobile_main_screen.dart';
 import '../features/demo/demo_flow_screen.dart';
 import '../features/orders/my_orders_screen.dart';
+import '../features/mileage/mileage_history_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -26,7 +27,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final requiresAuth = path.startsWith('/tickets') ||
           path.startsWith('/orders') ||
           path.startsWith('/checkout') ||
-          path.startsWith('/staff');
+          path.startsWith('/staff') ||
+          path.startsWith('/mileage');
 
       if (!isLoggedIn && requiresAuth) {
         return '/login';
@@ -142,6 +144,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/orders',
             name: 'orders',
             builder: (context, state) => const MyOrdersScreen(),
+          ),
+
+          // 마일리지 내역
+          GoRoute(
+            path: '/mileage',
+            name: 'mileage',
+            builder: (context, state) => const MileageHistoryScreen(),
           ),
 
           // 내 티켓

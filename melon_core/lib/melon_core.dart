@@ -15,6 +15,7 @@ export 'data/repositories/venue_view_repository.dart';
 export 'data/repositories/review_repository.dart';
 export 'data/repositories/checkin_repository.dart';
 export 'data/repositories/scanner_device_repository.dart';
+export 'data/repositories/mileage_repository.dart';
 
 // ─── Services ───
 export 'services/auth_service.dart';

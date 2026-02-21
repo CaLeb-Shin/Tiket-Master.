@@ -9,6 +9,9 @@ import 'package:melon_core/widgets/premium_effects.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/models/event.dart';
+import 'package:melon_core/data/models/mileage.dart';
+import 'package:melon_core/data/models/mileage_history.dart';
+import 'package:melon_core/data/repositories/mileage_repository.dart';
 import '../tickets/my_tickets_screen.dart';
 import '../widgets/app_download_banner.dart';
 
@@ -628,9 +631,9 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
             right: 0,
             bottom: 0,
             child: Container(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppTheme.surface,
-                border: const Border(
+                border: Border(
                   top: BorderSide(color: AppTheme.border, width: 0.5),
                 ),
               ),
@@ -2340,6 +2343,16 @@ class _ProfileTab extends ConsumerWidget {
 
             const SizedBox(height: 16),
 
+            // Mileage section
+            if (isLoggedIn && currentUser.value != null) ...[
+              _MileageCard(
+                mileage: currentUser.value!.mileage,
+                userId: currentUser.value!.id,
+                onTapMore: () => context.push('/mileage'),
+              ),
+              const SizedBox(height: 16),
+            ],
+
             // Order history
             if (isLoggedIn) ...[
               _MenuItem(
@@ -2487,6 +2500,286 @@ class _MenuItem extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── Mileage Card (Profile Tab) ─────────────────────────────────
+class _MileageCard extends ConsumerWidget {
+  final Mileage mileage;
+  final String userId;
+  final VoidCallback onTapMore;
+
+  const _MileageCard({
+    required this.mileage,
+    required this.userId,
+    required this.onTapMore,
+  });
+
+  Color _tierColor(MileageTier tier) {
+    switch (tier) {
+      case MileageTier.bronze:
+        return const Color(0xFFCD7F32);
+      case MileageTier.silver:
+        return const Color(0xFFC0C0C0);
+      case MileageTier.gold:
+        return const Color(0xFFC9A84C);
+      case MileageTier.platinum:
+        return const Color(0xFFE5E4E2);
+    }
+  }
+
+  IconData _tierIcon(MileageTier tier) {
+    switch (tier) {
+      case MileageTier.bronze:
+        return Icons.circle;
+      case MileageTier.silver:
+        return Icons.hexagon_outlined;
+      case MileageTier.gold:
+        return Icons.star_rounded;
+      case MileageTier.platinum:
+        return Icons.diamond_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tierColor = _tierColor(mileage.tier);
+    final nextTier = mileage.tier.next;
+    final progress = nextTier != null
+        ? (mileage.totalEarned - mileage.tier.minPoints) /
+            (nextTier.minPoints - mileage.tier.minPoints)
+        : 1.0;
+    final remaining =
+        nextTier != null ? nextTier.minPoints - mileage.totalEarned : 0;
+    final formatter = NumberFormat('#,###');
+
+    final historyAsync = ref.watch(
+      mileageHistoryStreamProvider((userId: userId, limit: 10)),
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: AppTheme.border, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: balance + tier
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: tierColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(_tierIcon(mileage.tier), size: 12, color: tierColor),
+                      const SizedBox(width: 3),
+                      Text(
+                        mileage.tier.displayName,
+                        style: AppTheme.label(
+                          fontSize: 9,
+                          color: tierColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${formatter.format(mileage.balance)}P',
+                  style: AppTheme.serif(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                    shadows: AppTheme.textShadowStrong,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Progress bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: Column(
+              children: [
+                if (nextTier != null) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: progress.clamp(0.0, 1.0),
+                      minHeight: 4,
+                      backgroundColor: AppTheme.cardElevated,
+                      valueColor: AlwaysStoppedAnimation<Color>(tierColor),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '다음 등급까지 ${formatter.format(remaining)}P',
+                        style: AppTheme.sans(
+                          fontSize: 11,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        nextTier.displayName,
+                        style: AppTheme.sans(
+                          fontSize: 11,
+                          color: _tierColor(nextTier),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else
+                  Text(
+                    '최고 등급 달성',
+                    style: AppTheme.sans(
+                      fontSize: 11,
+                      color: tierColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
+          const Divider(color: AppTheme.border, height: 0.5),
+
+          // Recent history (max 3)
+          historyAsync.when(
+            data: (history) {
+              if (history.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Center(
+                    child: Text(
+                      '적립 내역이 없습니다',
+                      style: AppTheme.sans(
+                        fontSize: 12,
+                        color: AppTheme.textTertiary,
+                      ),
+                    ),
+                  ),
+                );
+              }
+              final displayItems = history.take(3).toList();
+              return Column(
+                children: [
+                  ...displayItems.map((item) => _MileageHistoryRow(item: item)),
+                  if (history.length > 3) ...[
+                    const Divider(color: AppTheme.border, height: 0.5),
+                    InkWell(
+                      onTap: onTapMore,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Center(
+                          child: Text(
+                            '전체 내역 보기',
+                            style: AppTheme.sans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.gold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            },
+            loading: () => const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MileageHistoryRow extends StatelessWidget {
+  final MileageHistory item;
+  const _MileageHistoryRow({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final isPositive = item.amount > 0;
+    final formatter = NumberFormat('#,###');
+    final dateFormat = DateFormat('MM.dd');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Text(
+                  item.type.displayName,
+                  style: AppTheme.sans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    item.reason,
+                    style: AppTheme.sans(
+                      fontSize: 11,
+                      color: AppTheme.textTertiary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${isPositive ? '+' : ''}${formatter.format(item.amount)}P',
+            style: AppTheme.sans(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: isPositive ? AppTheme.success : AppTheme.error,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            dateFormat.format(item.createdAt),
+            style: AppTheme.sans(
+              fontSize: 11,
+              color: AppTheme.textTertiary,
+            ),
+          ),
+        ],
       ),
     );
   }

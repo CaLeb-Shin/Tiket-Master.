@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 /// 사용자 마일리지 (users 문서 내 mileage 서브필드)
 class Mileage {
   final int balance;
