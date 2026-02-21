@@ -780,7 +780,7 @@ class _EditorialContentSection extends StatelessWidget {
             content,
             style: AppTheme.sans(
               fontSize: 14,
-              color: AppTheme.textSecondary,
+              color: AppTheme.textPrimary,
               height: 1.8,
             ),
           ),
