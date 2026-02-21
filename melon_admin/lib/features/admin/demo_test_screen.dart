@@ -7,7 +7,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../app/admin_theme.dart';
 import 'package:melon_core/data/models/event.dart';
-import 'package:melon_core/data/models/ticket.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/services/functions_service.dart';
 import 'package:melon_core/services/auth_service.dart';
@@ -36,8 +35,6 @@ class _DemoTestScreenState extends ConsumerState<DemoTestScreen> {
   String? _orderId;
   String? _ticketId;
   String? _qrData;
-  Map<String, dynamic>? _orderResult;
-  Map<String, dynamic>? _confirmResult;
   Map<String, dynamic>? _checkInResult;
 
   final _logs = <String>[];
@@ -57,8 +54,6 @@ class _DemoTestScreenState extends ConsumerState<DemoTestScreen> {
       _orderId = null;
       _ticketId = null;
       _qrData = null;
-      _orderResult = null;
-      _confirmResult = null;
       _checkInResult = null;
       _logs.clear();
     });
@@ -455,7 +450,6 @@ class _DemoTestScreenState extends ConsumerState<DemoTestScreen> {
         quantity: 1,
       );
       _orderId = orderResult['orderId'] as String;
-      _orderResult = orderResult;
       _log('주문 생성 완료: $_orderId');
 
       setState(() => _statusMsg = '결제 확정 및 좌석 배정 중...');
@@ -465,8 +459,6 @@ class _DemoTestScreenState extends ConsumerState<DemoTestScreen> {
       final confirmResult = await functions.confirmPaymentAndAssignSeats(
         orderId: _orderId!,
       );
-      _confirmResult = confirmResult;
-
       if (confirmResult['success'] != true) {
         throw Exception(confirmResult['error'] ?? '좌석 배정 실패');
       }
@@ -497,7 +489,7 @@ class _DemoTestScreenState extends ConsumerState<DemoTestScreen> {
       if (_ticketId != null) {
         _log('issueQrToken 호출');
         final qrResult = await functions.issueQrToken(ticketId: _ticketId!);
-        _qrData = qrResult['qrData'] as String?;
+        _qrData = qrResult['token'] as String?;
         _log('QR 발급: ${_qrData ?? "데이터 없음"}');
       }
 

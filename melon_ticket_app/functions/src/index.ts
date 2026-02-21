@@ -390,8 +390,10 @@ export const confirmPaymentAndAssignSeats = functions.https.onCall(async (data: 
     });
 
     // 티켓 발급
+    const ticketIds: string[] = [];
     for (const seatId of seatIds) {
       const ticketRef = db.collection("tickets").doc();
+      ticketIds.push(ticketRef.id);
       transaction.set(ticketRef, {
         eventId,
         orderId,
@@ -422,6 +424,7 @@ export const confirmPaymentAndAssignSeats = functions.https.onCall(async (data: 
       success: true,
       seatBlockId: seatBlockRef.id,
       seatCount: seatIds.length,
+      ticketIds,
       userId,
       eventId,
     };

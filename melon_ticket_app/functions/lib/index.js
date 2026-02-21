@@ -184,12 +184,12 @@ async function sendPushToEventUsers(eventId, title, body, data) {
 // ============================================================
 // 1. createOrder - 주문 생성
 // ============================================================
-exports.createOrder = functions.https.onCall(async (request) => {
-    const { eventId, quantity } = request.data;
-    const discountPolicyName = request.data?.discountPolicyName;
-    const userId = request.auth?.uid;
-    const preferredSeatIds = Array.isArray(request.data?.preferredSeatIds)
-        ? [...new Set(request.data.preferredSeatIds.filter((v) => typeof v === "string"))]
+exports.createOrder = functions.https.onCall(async (data, context) => {
+    const { eventId, quantity } = data;
+    const discountPolicyName = data?.discountPolicyName;
+    const userId = context?.auth?.uid;
+    const preferredSeatIds = Array.isArray(data?.preferredSeatIds)
+        ? [...new Set(data.preferredSeatIds.filter((v) => typeof v === "string"))]
         : [];
     if (!userId) {
         throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
@@ -264,9 +264,9 @@ exports.createOrder = functions.https.onCall(async (request) => {
 // ============================================================
 // 2. confirmPaymentAndAssignSeats - 결제 확정 및 연속좌석 배정 (핵심!)
 // ============================================================
-exports.confirmPaymentAndAssignSeats = functions.https.onCall(async (request) => {
-    const { orderId } = request.data;
-    const userId = request.auth?.uid;
+exports.confirmPaymentAndAssignSeats = functions.https.onCall(async (data, context) => {
+    const { orderId } = data;
+    const userId = context?.auth?.uid;
     if (!userId) {
         throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
     }
@@ -343,8 +343,10 @@ exports.confirmPaymentAndAssignSeats = functions.https.onCall(async (request) =>
             assignedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         // 티켓 발급
+        const ticketIds = [];
         for (const seatId of seatIds) {
             const ticketRef = db.collection("tickets").doc();
+            ticketIds.push(ticketRef.id);
             transaction.set(ticketRef, {
                 eventId,
                 orderId,
@@ -371,6 +373,7 @@ exports.confirmPaymentAndAssignSeats = functions.https.onCall(async (request) =>
             success: true,
             seatBlockId: seatBlockRef.id,
             seatCount: seatIds.length,
+            ticketIds,
             userId,
             eventId,
         };
@@ -474,9 +477,9 @@ function findConsecutiveSeats(seats, quantity, preferredSeatIds = []) {
 // ============================================================
 // 3. revealSeatsForEvent - 좌석 공개 (공연 1시간 전)
 // ============================================================
-exports.revealSeatsForEvent = functions.https.onCall(async (request) => {
-    const { eventId } = request.data;
-    await assertAdmin(request.auth?.uid);
+exports.revealSeatsForEvent = functions.https.onCall(async (data, context) => {
+    const { eventId } = data;
+    await assertAdmin(context?.auth?.uid);
     if (!eventId || typeof eventId !== "string") {
         throw new functions.https.HttpsError("invalid-argument", "잘못된 요청입니다");
     }
@@ -507,9 +510,9 @@ exports.revealSeatsForEvent = functions.https.onCall(async (request) => {
 // ============================================================
 // 4. requestTicketCancellation - 취소/환불 처리
 // ============================================================
-exports.requestTicketCancellation = functions.https.onCall(async (request) => {
-    const { ticketId } = request.data;
-    const userId = request.auth?.uid;
+exports.requestTicketCancellation = functions.https.onCall(async (data, context) => {
+    const { ticketId } = data;
+    const userId = context?.auth?.uid;
     if (!userId) {
         throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
     }
@@ -604,9 +607,9 @@ exports.requestTicketCancellation = functions.https.onCall(async (request) => {
 // ============================================================
 // 5. registerScannerDevice - 스캐너 기기 등록/승인 상태 조회
 // ============================================================
-exports.registerScannerDevice = functions.https.onCall(async (request) => {
-    const scannerUid = await assertStaffOrAdmin(request.auth?.uid);
-    const { deviceId, label, platform } = request.data ?? {};
+exports.registerScannerDevice = functions.https.onCall(async (data, context) => {
+    const scannerUid = await assertStaffOrAdmin(context?.auth?.uid);
+    const { deviceId, label, platform } = data ?? {};
     if (!deviceId || typeof deviceId !== "string") {
         throw new functions.https.HttpsError("invalid-argument", "기기 ID가 필요합니다");
     }
@@ -616,9 +619,9 @@ exports.registerScannerDevice = functions.https.onCall(async (request) => {
     }
     const userDoc = await db.collection("users").doc(scannerUid).get();
     const user = userDoc.data() ?? {};
-    const ownerEmail = request.auth?.token?.email ?? user.email ?? "";
+    const ownerEmail = context?.auth?.token?.email ?? user.email ?? "";
     const ownerDisplayName = user.displayName ||
-        request.auth?.token?.name ||
+        context?.auth?.token?.name ||
         ownerEmail.split("@")[0] ||
         "scanner-user";
     const deviceRef = db.collection("scannerDevices").doc(trimmedId);
@@ -663,9 +666,9 @@ exports.registerScannerDevice = functions.https.onCall(async (request) => {
 // ============================================================
 // 6. setScannerDeviceApproval - 스캐너 기기 승인/해제/차단 (관리자)
 // ============================================================
-exports.setScannerDeviceApproval = functions.https.onCall(async (request) => {
-    const approverUid = await assertAdmin(request.auth?.uid);
-    const { deviceId, approved, blocked } = request.data ?? {};
+exports.setScannerDeviceApproval = functions.https.onCall(async (data, context) => {
+    const approverUid = await assertAdmin(context?.auth?.uid);
+    const { deviceId, approved, blocked } = data ?? {};
     if (!deviceId || typeof deviceId !== "string") {
         throw new functions.https.HttpsError("invalid-argument", "기기 ID가 필요합니다");
     }
@@ -673,7 +676,7 @@ exports.setScannerDeviceApproval = functions.https.onCall(async (request) => {
         throw new functions.https.HttpsError("invalid-argument", "approved 값이 필요합니다");
     }
     const approverDoc = await db.collection("users").doc(approverUid).get();
-    const approverEmail = request.auth?.token?.email ||
+    const approverEmail = context?.auth?.token?.email ||
         approverDoc.data()?.email ||
         "";
     await db.collection("scannerDevices").doc(deviceId.trim()).set({
@@ -694,9 +697,9 @@ exports.setScannerDeviceApproval = functions.https.onCall(async (request) => {
 // ============================================================
 // 7. issueQrToken - QR 토큰 발급 (60~120초 유효)
 // ============================================================
-exports.issueQrToken = functions.https.onCall(async (request) => {
-    const { ticketId } = request.data;
-    const userId = request.auth?.uid;
+exports.issueQrToken = functions.https.onCall(async (data, context) => {
+    const { ticketId } = data;
+    const userId = context?.auth?.uid;
     if (!userId) {
         throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
     }
@@ -734,11 +737,11 @@ exports.issueQrToken = functions.https.onCall(async (request) => {
 // ============================================================
 // 8. verifyAndCheckIn - 입장 검증 및 체크인(1차/2차)
 // ============================================================
-exports.verifyAndCheckIn = functions.https.onCall(async (request) => {
-    const { ticketId, qrToken } = request.data;
-    const scannerDeviceId = request.data?.scannerDeviceId?.trim();
-    const checkinStage = normalizeCheckinStage(request.data?.checkinStage);
-    const scannerUid = await assertStaffOrAdmin(request.auth?.uid);
+exports.verifyAndCheckIn = functions.https.onCall(async (data, context) => {
+    const { ticketId, qrToken } = data;
+    const scannerDeviceId = data?.scannerDeviceId?.trim();
+    const checkinStage = normalizeCheckinStage(data?.checkinStage);
+    const scannerUid = await assertStaffOrAdmin(context?.auth?.uid);
     const actorStaffId = scannerUid;
     if (!ticketId || !qrToken) {
         throw new functions.https.HttpsError("invalid-argument", "잘못된 요청입니다");
