@@ -86,6 +86,10 @@ class _DetailBody extends StatelessWidget {
               // ── Info Row (3-column) ──
               _InfoRow(event: event),
 
+              // ── Session Selector (다회 공연) ──
+              if (event.isMultiSession && event.seriesId != null)
+                _SessionSelector(event: event),
+
               // ── 1. Admission (가격표) ──
               _AdmissionSection(event: event, priceFormat: priceFormat),
 
@@ -341,14 +345,42 @@ class _HeroPosterSection extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
 
-                // Subtitle (category or venue) in sage uppercase
-                if (event.category != null || event.venueName != null)
-                  Text(
-                    (event.category ?? event.venueName ?? '').toUpperCase(),
-                    style: AppTheme.label(
-                      fontSize: 11,
-                      color: AppTheme.sage,
-                    ),
+                // Subtitle (category or venue) in sage uppercase + 360°
+                if (event.category != null || event.venueName != null || event.has360View)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (event.category != null || event.venueName != null)
+                        Text(
+                          (event.category ?? event.venueName ?? '').toUpperCase(),
+                          style: AppTheme.label(
+                            fontSize: 11,
+                            color: AppTheme.sage,
+                          ),
+                        ),
+                      if (event.has360View) ...[
+                        if (event.category != null || event.venueName != null)
+                          const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFC9A84C).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(2),
+                            border: Border.all(
+                              color: const Color(0xFFC9A84C).withValues(alpha: 0.4),
+                              width: 0.5,
+                            ),
+                          ),
+                          child: Text(
+                            '360° 좌석뷰',
+                            style: AppTheme.label(
+                              fontSize: 9,
+                              color: const Color(0xFFC9A84C),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
               ],
             ),
@@ -1650,6 +1682,110 @@ class _ShareSheet extends ConsumerWidget {
 
         SizedBox(height: MediaQuery.of(context).padding.bottom + 12),
       ],
+    );
+  }
+}
+
+// =============================================================================
+// Session Selector (다회 공연 회차 선택)
+// =============================================================================
+
+class _SessionSelector extends ConsumerWidget {
+  final Event event;
+  const _SessionSelector({required this.event});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final seriesAsync = ref.watch(seriesEventsProvider(event.seriesId!));
+    final dateFormat = DateFormat('M/d (E)', 'ko_KR');
+
+    return seriesAsync.when(
+      data: (sessions) {
+        if (sessions.length <= 1) return const SizedBox.shrink();
+        return Container(
+          margin: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: const BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: AppTheme.border, width: 0.5),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '회차 선택',
+                style: AppTheme.sans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textTertiary,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: sessions.map((s) {
+                    final isCurrent = s.id == event.id;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        onTap: isCurrent
+                            ? null
+                            : () => context.go('/event/${s.id}'),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isCurrent
+                                ? AppTheme.gold.withValues(alpha: 0.15)
+                                : AppTheme.surface,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isCurrent
+                                  ? AppTheme.gold
+                                  : AppTheme.border,
+                              width: isCurrent ? 1.2 : 0.5,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                '${s.sessionNumber}회',
+                                style: AppTheme.sans(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: isCurrent
+                                      ? AppTheme.gold
+                                      : AppTheme.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                dateFormat.format(s.startAt),
+                                style: AppTheme.sans(
+                                  fontSize: 11,
+                                  color: isCurrent
+                                      ? AppTheme.gold.withValues(alpha: 0.8)
+                                      : AppTheme.textTertiary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }

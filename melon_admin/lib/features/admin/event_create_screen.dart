@@ -30,7 +30,8 @@ import 'widgets/seat_map_picker.dart';
 
 class EventCreateScreen extends ConsumerStatefulWidget {
   final String? editEventId;
-  const EventCreateScreen({super.key, this.editEventId});
+  final String? cloneEventId;
+  const EventCreateScreen({super.key, this.editEventId, this.cloneEventId});
 
   @override
   ConsumerState<EventCreateScreen> createState() => _EventCreateScreenState();
@@ -63,6 +64,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   late final TextEditingController _dayCtrl;
   late final TextEditingController _hourCtrl;
   late final TextEditingController _minuteCtrl;
+
+  // ── 다회 공연 (연속 회차) ──
+  bool _isMultiSession = false;
+  final List<DateTime> _sessionDates = []; // 추가 회차 날짜
 
   // ── 공연장 선택 ──
   Venue? _selectedVenue;
@@ -148,6 +153,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     }
     if (_isEditMode) {
       _loadEventForEdit();
+    } else if (widget.cloneEventId != null) {
+      _loadEventForClone();
     } else {
       _checkDraft();
     }
@@ -412,6 +419,71 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // LOAD EVENT FOR CLONE (복제)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> _loadEventForClone() async {
+    setState(() => _isLoadingEvent = true);
+    try {
+      final event = await ref
+          .read(eventRepositoryProvider)
+          .getEvent(widget.cloneEventId!);
+      if (event == null || !mounted) return;
+
+      final priceFmt = NumberFormat('#,###');
+      setState(() {
+        _titleCtrl.text = '${event.title} (복제)';
+        _category = event.category ?? '콘서트';
+        _ageLimit = event.ageLimit ?? '전체관람가';
+        // 날짜/시간은 현재 기준으로 리셋 (복제이므로 새 일정 입력 필요)
+        _venueNameCtrl.text = event.venueName ?? '';
+        _venueAddressCtrl.text = event.venueAddress ?? '';
+        _runningTimeCtrl.text = (event.runningTime ?? 120).toString();
+        _maxTicketsCtrl.text = (event.maxTicketsPerOrder).toString();
+        _descriptionCtrl.text = event.description;
+        _castCtrl.text = event.cast ?? '';
+        _organizerCtrl.text = event.organizer ?? '';
+        _plannerCtrl.text = event.planner ?? '';
+        _noticeCtrl.text = event.notice ?? '';
+        _inquiryInfoCtrl.text = event.inquiryInfo ?? '';
+        _showRemainingSeats = event.showRemainingSeats;
+
+        if (event.priceByGrade != null) {
+          _enabledGrades
+            ..clear()
+            ..addAll(event.priceByGrade!.keys);
+          for (final entry in event.priceByGrade!.entries) {
+            _gradePriceControllers[entry.key]?.text =
+                priceFmt.format(entry.value);
+          }
+        }
+
+        if (event.discountPolicies != null) {
+          _discountPolicies
+            ..clear()
+            ..addAll(event.discountPolicies!);
+        }
+
+        // 포스터/팜플렛 URL 복사
+        _posterUrl = event.imageUrl;
+        _pamphletUrls = List<String>.from(event.pamphletUrls ?? []);
+      });
+
+      // 공연장 자동 선택
+      if (event.venueId.isNotEmpty) {
+        final venue = await ref.read(venueRepositoryProvider).getVenue(event.venueId);
+        if (venue != null && mounted) {
+          _selectVenue(venue);
+        }
+      }
+    } catch (e) {
+      if (mounted) _showError('공연 데이터 로드 실패: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingEvent = false);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // BUILD
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -584,6 +656,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             );
           },
         ),
+
+        const SizedBox(height: 20),
+
+        // ── 다회 공연 토글 ──
+        _buildMultiSessionSection(),
 
         const SizedBox(height: 48),
 
@@ -1120,6 +1197,139 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             _dtLabel('분'),
           ],
         ),
+      ],
+    );
+  }
+
+  Widget _buildMultiSessionSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 토글
+        Row(
+          children: [
+            Text(
+              '다회 공연 (연속 회차)',
+              style: AdminTheme.sans(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AdminTheme.textSecondary,
+              ),
+            ),
+            const Spacer(),
+            Switch(
+              value: _isMultiSession,
+              onChanged: (v) => setState(() {
+                _isMultiSession = v;
+                if (!v) _sessionDates.clear();
+              }),
+              activeColor: AdminTheme.gold,
+            ),
+          ],
+        ),
+        if (_isMultiSession) ...[
+          const SizedBox(height: 8),
+          // 추가 회차 리스트
+          ..._sessionDates.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final date = entry.value;
+            final wd = _weekdays[date.weekday - 1];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Text(
+                    '${idx + 2}회차',
+                    style: AdminTheme.sans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AdminTheme.gold,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _pickDateTime(
+                        date,
+                        (dt) => setState(() => _sessionDates[idx] = dt),
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AdminTheme.surface,
+                          border: Border.all(
+                              color: AdminTheme.border, width: 0.5),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '${date.year}.${date.month}.${date.day} ($wd) ${date.hour}:${date.minute.toString().padLeft(2, '0')}',
+                          style: AdminTheme.sans(
+                            fontSize: 13,
+                            color: AdminTheme.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () =>
+                        setState(() => _sessionDates.removeAt(idx)),
+                    child: const Icon(Icons.close_rounded,
+                        size: 18, color: AdminTheme.error),
+                  ),
+                ],
+              ),
+            );
+          }),
+          // 회차 추가 버튼
+          GestureDetector(
+            onTap: () {
+              final lastDate = _sessionDates.isNotEmpty
+                  ? _sessionDates.last
+                  : _startAt;
+              setState(() {
+                _sessionDates
+                    .add(lastDate.add(const Duration(days: 1)));
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border.all(
+                    color: AdminTheme.gold.withValues(alpha: 0.3),
+                    width: 0.5),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add_rounded,
+                      size: 16,
+                      color: AdminTheme.gold.withValues(alpha: 0.7)),
+                  const SizedBox(width: 4),
+                  Text(
+                    '회차 추가',
+                    style: AdminTheme.sans(
+                      fontSize: 12,
+                      color: AdminTheme.gold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '1회차: 위의 공연일시 기준. 각 회차별 좌석이 독립적으로 관리됩니다.',
+            style: AdminTheme.sans(
+              fontSize: 11,
+              color: AdminTheme.textTertiary,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1859,13 +2069,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             child: TextFormField(
               controller: _organizerCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration('예) (주)멜론엔터테인먼트'),
+              decoration: _inputDecoration(''),
             ));
         final plannerField = _field('기획',
             child: TextFormField(
               controller: _plannerCtrl,
               style: _inputStyle(),
-              decoration: _inputDecoration('예) 멜론기획'),
+              decoration: _inputDecoration(''),
             ));
         if (isWide) {
           return Row(
@@ -3376,77 +3586,134 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       final now = DateTime.now();
       final saleStartAt = now;
 
-      final event = Event(
-        id: '',
-        venueId: _selectedVenue?.id ?? '',
-        title: _titleCtrl.text.trim(),
-        description: _descriptionCtrl.text.trim(),
-        imageUrl: null,
-        startAt: _startAt,
-        revealAt: revealAt,
-        saleStartAt: saleStartAt,
-        saleEndAt: saleEndAt,
-        price: basePrice,
-        maxTicketsPerOrder: int.tryParse(_maxTicketsCtrl.text) ?? 0,
-        totalSeats: totalSeats,
-        availableSeats: totalSeats,
-        status: EventStatus.active,
-        createdAt: now,
-        category: _category,
-        venueName: _venueNameCtrl.text.trim().isEmpty
-            ? _seatMapData?.venueName
-            : _venueNameCtrl.text.trim(),
-        venueAddress: _venueAddressCtrl.text.trim().isEmpty
-            ? null
-            : _venueAddressCtrl.text.trim(),
-        runningTime: int.tryParse(_runningTimeCtrl.text) ?? 120,
-        ageLimit: _ageLimit,
-        cast: _castCtrl.text.trim().isEmpty ? null : _castCtrl.text.trim(),
-        organizer: _organizerCtrl.text.trim().isEmpty
-            ? null
-            : _organizerCtrl.text.trim(),
-        planner: _plannerCtrl.text.trim().isEmpty
-            ? null
-            : _plannerCtrl.text.trim(),
-        notice:
-            _noticeCtrl.text.trim().isEmpty ? null : _noticeCtrl.text.trim(),
-        inquiryInfo:
-            _inquiryInfoCtrl.text.trim().isEmpty ? null : _inquiryInfoCtrl.text.trim(),
-        discount: _discountPolicies.isNotEmpty
-            ? _discountPolicies.map((p) => p.name).join(', ')
-            : null,
-        priceByGrade: priceByGrade.isNotEmpty ? priceByGrade : null,
-        discountPolicies:
-            _discountPolicies.isNotEmpty ? _discountPolicies : null,
-        showRemainingSeats: _showRemainingSeats,
-      );
+      // ── 다회 공연 설정
+      final isMulti = _isMultiSession && _sessionDates.isNotEmpty;
+      final sessionCount = isMulti ? 1 + _sessionDates.length : 1;
+      final seriesId = isMulti
+          ? 'S${now.millisecondsSinceEpoch.toRadixString(36)}'
+          : null;
+      final allStartDates = [_startAt, ..._sessionDates];
+      final createdEventIds = <String>[];
 
-      // ── Step 1: 이벤트 생성 (10%)
-      if (mounted) setState(() { _submitProgress = 0.05; _submitStage = '공연 정보 등록 중...'; });
-      final eventId =
-          await ref.read(eventRepositoryProvider).createEvent(event);
-      if (mounted) setState(() => _submitProgress = 0.15);
+      for (var si = 0; si < sessionCount; si++) {
+        final sessionStartAt = allStartDates[si];
+        final sessionRevealAt =
+            sessionStartAt.subtract(const Duration(hours: 1));
+        final sessionSaleEndAt =
+            sessionStartAt.subtract(const Duration(hours: 1));
+        final progressBase = si / sessionCount;
+        final progressStep = 1.0 / sessionCount;
 
-      // ── Step 2: 포스터/팜플렛 URL 저장 (이미 서버에 업로드됨)
-      if (_posterUrl != null || _pamphletUrls.isNotEmpty) {
-        if (mounted) setState(() { _submitProgress = 0.25; _submitStage = '이미지 정보 저장 중...'; });
-        final imageData = <String, dynamic>{};
-        if (_posterUrl != null) imageData['imageUrl'] = _posterUrl;
-        if (_pamphletUrls.isNotEmpty) imageData['pamphletUrls'] = _pamphletUrls;
-        await ref.read(eventRepositoryProvider).updateEvent(eventId, imageData);
+        final sessionTitle = isMulti
+            ? '${_titleCtrl.text.trim()} [${si + 1}회]'
+            : _titleCtrl.text.trim();
+
+        final event = Event(
+          id: '',
+          venueId: _selectedVenue?.id ?? '',
+          title: sessionTitle,
+          description: _descriptionCtrl.text.trim(),
+          imageUrl: null,
+          startAt: sessionStartAt,
+          revealAt: sessionRevealAt,
+          saleStartAt: saleStartAt,
+          saleEndAt: sessionSaleEndAt,
+          price: basePrice,
+          maxTicketsPerOrder: int.tryParse(_maxTicketsCtrl.text) ?? 0,
+          totalSeats: totalSeats,
+          availableSeats: totalSeats,
+          status: EventStatus.active,
+          createdAt: now,
+          category: _category,
+          venueName: _venueNameCtrl.text.trim().isEmpty
+              ? _seatMapData?.venueName
+              : _venueNameCtrl.text.trim(),
+          venueAddress: _venueAddressCtrl.text.trim().isEmpty
+              ? null
+              : _venueAddressCtrl.text.trim(),
+          runningTime: int.tryParse(_runningTimeCtrl.text) ?? 120,
+          ageLimit: _ageLimit,
+          cast: _castCtrl.text.trim().isEmpty ? null : _castCtrl.text.trim(),
+          organizer: _organizerCtrl.text.trim().isEmpty
+              ? null
+              : _organizerCtrl.text.trim(),
+          planner: _plannerCtrl.text.trim().isEmpty
+              ? null
+              : _plannerCtrl.text.trim(),
+          notice:
+              _noticeCtrl.text.trim().isEmpty ? null : _noticeCtrl.text.trim(),
+          inquiryInfo: _inquiryInfoCtrl.text.trim().isEmpty
+              ? null
+              : _inquiryInfoCtrl.text.trim(),
+          discount: _discountPolicies.isNotEmpty
+              ? _discountPolicies.map((p) => p.name).join(', ')
+              : null,
+          priceByGrade: priceByGrade.isNotEmpty ? priceByGrade : null,
+          discountPolicies:
+              _discountPolicies.isNotEmpty ? _discountPolicies : null,
+          showRemainingSeats: _showRemainingSeats,
+          has360View: _selectedVenue?.hasSeatView ?? false,
+          seriesId: seriesId,
+          sessionNumber: si + 1,
+          totalSessions: sessionCount,
+        );
+
+        // ── Step 1: 이벤트 생성
+        if (mounted) setState(() {
+          _submitProgress = progressBase + progressStep * 0.1;
+          _submitStage = isMulti
+              ? '${si + 1}회차 공연 등록 중...'
+              : '공연 정보 등록 중...';
+        });
+        final eventId =
+            await ref.read(eventRepositoryProvider).createEvent(event);
+        createdEventIds.add(eventId);
+
+        // ── Step 2: 포스터/팜플렛 URL 저장
+        if (_posterUrl != null || _pamphletUrls.isNotEmpty) {
+          if (mounted) setState(() {
+            _submitProgress = progressBase + progressStep * 0.3;
+            _submitStage = isMulti
+                ? '${si + 1}회차 이미지 저장 중...'
+                : '이미지 정보 저장 중...';
+          });
+          final imageData = <String, dynamic>{};
+          if (_posterUrl != null) imageData['imageUrl'] = _posterUrl;
+          if (_pamphletUrls.isNotEmpty) {
+            imageData['pamphletUrls'] = _pamphletUrls;
+          }
+          await ref
+              .read(eventRepositoryProvider)
+              .updateEvent(eventId, imageData);
+        }
+
+        // ── Step 3: 좌석 생성
+        if (mounted) setState(() {
+          _submitProgress = progressBase + progressStep * 0.5;
+          _submitStage = isMulti
+              ? '${si + 1}회차 좌석 생성 중...'
+              : '좌석 생성 중...';
+        });
+        await _createSeatsFromSeatMap(eventId);
       }
-      if (mounted) setState(() => _submitProgress = 0.35);
 
-      // ── Step 3: 좌석 생성 (35% → 95%)
-      if (mounted) setState(() { _submitProgress = 0.40; _submitStage = '좌석 생성 중...'; });
-      await _createSeatsFromSeatMap(eventId);
       if (mounted) setState(() { _submitProgress = 1.0; _submitStage = '완료!'; });
 
       // 등록 성공 → 임시저장 삭제
       await _clearDraft();
 
       if (mounted) {
-        _showSuccessDialog(eventId, _titleCtrl.text.trim(), totalSeats);
+        if (isMulti) {
+          _showSuccessDialog(
+            createdEventIds.first,
+            _titleCtrl.text.trim(),
+            totalSeats * sessionCount,
+            sessionCount: sessionCount,
+          );
+        } else {
+          _showSuccessDialog(
+              createdEventIds.first, _titleCtrl.text.trim(), totalSeats);
+        }
       }
     } catch (e) {
       if (mounted) _showError('오류: $e');
@@ -3507,7 +3774,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   // SUCCESS DIALOG
   // ═══════════════════════════════════════════════════════════════════════════
 
-  void _showSuccessDialog(String eventId, String title, int totalSeats) {
+  void _showSuccessDialog(String eventId, String title, int totalSeats,
+      {int sessionCount = 1}) {
     final eventPath = '/event/$eventId';
     final fullUrl = kIsWeb ? '${Uri.base.origin}$eventPath' : eventPath;
     final fmt = NumberFormat('#,###');
@@ -3560,7 +3828,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '총 ${fmt.format(totalSeats)}석 · 즉시 판매 시작',
+                  sessionCount > 1
+                    ? '${sessionCount}회차 · 총 ${fmt.format(totalSeats)}석 · 즉시 판매 시작'
+                    : '총 ${fmt.format(totalSeats)}석 · 즉시 판매 시작',
                   style: AdminTheme.sans(
                     fontSize: 13,
                     color: AdminTheme.textTertiary,

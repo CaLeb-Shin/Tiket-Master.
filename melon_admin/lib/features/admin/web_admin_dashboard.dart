@@ -1123,6 +1123,13 @@ class _EventRowState extends ConsumerState<_EventRow> {
                           ),
                           const shad.MenuDivider(),
                           shad.MenuButton(
+                            child: Text(
+                              '공연 복제',
+                              style: AdminTheme.sans(fontSize: 13),
+                            ),
+                            onPressed: (_) => _cloneEvent(event),
+                          ),
+                          shad.MenuButton(
                               child: Text(
                                 '공연 삭제',
                                 style: AdminTheme.sans(
@@ -1159,6 +1166,12 @@ class _EventRowState extends ConsumerState<_EventRow> {
   // ═══════════════════════════════════════════════════════════════════════════
   // 공연 삭제 — 3단계 확인 + 비밀번호 재인증
   // ═══════════════════════════════════════════════════════════════════════════
+
+  void _cloneEvent(Event event) {
+    // 공연 복제: 기존 공연 데이터를 기반으로 새 공연 등록 폼 열기
+    // EventCreateScreen에 클론 대상 이벤트 ID를 전달하여 데이터 프리필
+    context.push('/events/${event.id}/edit?clone=true');
+  }
 
   void _showDeleteDialog(Event event) {
     final soldSeats = event.totalSeats - event.availableSeats;

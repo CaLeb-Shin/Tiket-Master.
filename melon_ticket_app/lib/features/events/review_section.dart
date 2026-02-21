@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -695,6 +696,26 @@ class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
           content: content,
           createdAt: DateTime.now(),
         ));
+
+        // 리뷰 마일리지 적립
+        try {
+          final callable = FirebaseFunctions.instance
+              .httpsCallable('addReviewMileage');
+          final result = await callable.call<Map<String, dynamic>>(
+            {'eventId': widget.eventId},
+          );
+          final mileageAmount = result.data['amount'] ?? 0;
+          if (mounted && mileageAmount > 0) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('리뷰 마일리지 ${mileageAmount}P 적립!'),
+                backgroundColor: AppTheme.gold,
+              ),
+            );
+          }
+        } catch (_) {
+          // 마일리지 적립 실패해도 리뷰는 등록 완료
+        }
       }
 
       if (mounted) {

@@ -224,12 +224,21 @@ class _TicketDetailBody extends ConsumerWidget {
     required Event event,
   }) async {
     final now = DateTime.now();
-    final remainingMinutes = event.startAt.difference(now).inMinutes;
-    final policyText = remainingMinutes >= 24 * 60
-        ? '현재 취소 시 100% 환불됩니다.'
-        : remainingMinutes >= 3 * 60
-            ? '현재 취소 시 70% 환불됩니다.'
-            : '공연 3시간 이내로 취소가 제한됩니다.';
+    final daysBeforeEvent = event.startAt.difference(now).inHours / 24;
+    String policyText;
+    if (daysBeforeEvent < 0) {
+      policyText = '관람일 이후에는 취소/환불이 불가합니다.';
+    } else if (daysBeforeEvent < 1) {
+      policyText = '관람 당일에는 취소/환불이 불가합니다.';
+    } else if (daysBeforeEvent < 3) {
+      policyText = '현재 취소 시 수수료 30%가 부과됩니다.';
+    } else if (daysBeforeEvent < 7) {
+      policyText = '현재 취소 시 수수료 20%가 부과됩니다.';
+    } else if (daysBeforeEvent < 10) {
+      policyText = '현재 취소 시 수수료 10%가 부과됩니다.';
+    } else {
+      policyText = '현재 취소 시 소정의 수수료만 부과됩니다.';
+    }
 
     final confirm = await showAnimatedDialog<bool>(
       context: context,

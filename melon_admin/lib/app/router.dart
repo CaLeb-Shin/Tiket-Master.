@@ -59,7 +59,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'adminEventEdit',
             builder: (context, state) {
               final eventId = state.pathParameters['eventId']!;
-              return EventCreateScreen(editEventId: eventId);
+              final isClone = state.uri.queryParameters['clone'] == 'true';
+              return EventCreateScreen(
+                editEventId: isClone ? null : eventId,
+                cloneEventId: isClone ? eventId : null,
+              );
             },
           ),
           GoRoute(

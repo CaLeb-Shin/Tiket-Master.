@@ -69,6 +69,20 @@ enum MileageTier {
     }
   }
 
+  /// 구매 마일리지 적립률 (등급별 차등)
+  double get earnRate {
+    switch (this) {
+      case MileageTier.bronze:
+        return 0.03; // 3%
+      case MileageTier.silver:
+        return 0.05; // 5%
+      case MileageTier.gold:
+        return 0.07; // 7%
+      case MileageTier.platinum:
+        return 0.10; // 10%
+    }
+  }
+
   /// 다음 등급 (Platinum이면 null)
   MileageTier? get next {
     switch (this) {

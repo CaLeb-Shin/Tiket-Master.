@@ -35,6 +35,10 @@ class Event {
   final bool showRemainingSeats; // 잔여석 표시 여부
   final List<String>? pamphletUrls; // 팜플렛 이미지 URL 목록 (최대 8장)
   final String? inquiryInfo; // 예매 관련 문의 (예: 전화번호, 담당자 등)
+  final bool has360View; // 360° 좌석뷰 보유 여부
+  final String? seriesId; // 시리즈(다회공연) ID — 같은 시리즈에 속하는 이벤트는 동일
+  final int sessionNumber; // 회차 번호 (1부터 시작, 단일 공연이면 1)
+  final int totalSessions; // 총 회차 수
 
   Event({
     required this.id,
@@ -67,6 +71,10 @@ class Event {
     this.showRemainingSeats = true,
     this.pamphletUrls,
     this.inquiryInfo,
+    this.has360View = false,
+    this.seriesId,
+    this.sessionNumber = 1,
+    this.totalSessions = 1,
   });
 
   /// 좌석 공개 여부
@@ -119,6 +127,10 @@ class Event {
           ? List<String>.from(data['pamphletUrls'])
           : null,
       inquiryInfo: data['inquiryInfo'],
+      has360View: data['has360View'] ?? false,
+      seriesId: data['seriesId'],
+      sessionNumber: data['sessionNumber'] ?? 1,
+      totalSessions: data['totalSessions'] ?? 1,
     );
   }
 
@@ -153,8 +165,15 @@ class Event {
       'showRemainingSeats': showRemainingSeats,
       'pamphletUrls': pamphletUrls,
       'inquiryInfo': inquiryInfo,
+      'has360View': has360View,
+      if (seriesId != null) 'seriesId': seriesId,
+      'sessionNumber': sessionNumber,
+      'totalSessions': totalSessions,
     };
   }
+
+  /// 다회 공연 여부
+  bool get isMultiSession => totalSessions > 1;
 }
 
 enum EventStatus {

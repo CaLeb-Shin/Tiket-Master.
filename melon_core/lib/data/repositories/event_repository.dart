@@ -22,6 +22,12 @@ final allEventsStreamProvider = StreamProvider<List<Event>>((ref) {
   return ref.watch(eventRepositoryProvider).getAllEvents();
 });
 
+/// 시리즈(다회 공연) 이벤트 스트림
+final seriesEventsProvider =
+    StreamProvider.family<List<Event>, String>((ref, seriesId) {
+  return ref.watch(eventRepositoryProvider).getEventsBySeries(seriesId);
+});
+
 class EventRepository {
   final FirestoreService _firestoreService;
 
@@ -92,6 +98,15 @@ class EventRepository {
     // 이벤트 문서도 삭제
     batch.delete(_firestoreService.events.doc(eventId));
     await batch.commit();
+  }
+
+  /// 같은 시리즈(다회 공연)의 이벤트 목록
+  Stream<List<Event>> getEventsBySeries(String seriesId) {
+    return _firestoreService.events
+        .where('seriesId', isEqualTo: seriesId)
+        .orderBy('sessionNumber')
+        .snapshots()
+        .map((s) => s.docs.map((d) => Event.fromFirestore(d)).toList());
   }
 
   /// 남은 좌석 수 감소

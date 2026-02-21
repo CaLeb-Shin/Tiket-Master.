@@ -1346,13 +1346,33 @@ class _TermsCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFFD9D0CC)),
             ),
-            child: Text(
-              '취소/환불 기준: 공연 24시간 전까지 100%, 공연 3시간 전까지 70%, 이후 환불 불가',
-              style: AppTheme.nanum(
-                color: _textSecondary,
-                fontSize: 12,
-                height: 1.5,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '취소/환불 수수료 규정',
+                  style: AppTheme.nanum(
+                    color: _textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '• 예매 후 7일 이내: 무료취소\n'
+                  '• 예매 후 8일 ~ 관람일 10일 전: 공연권 4,000원 / 입장권 2,000원 (최대 10%)\n'
+                  '• 관람일 9일 전 ~ 7일 전: 티켓금액의 10%\n'
+                  '• 관람일 6일 전 ~ 3일 전: 티켓금액의 20%\n'
+                  '• 관람일 2일 전 ~ 1일 전: 티켓금액의 30%\n'
+                  '• 관람 당일: 취소/환불 불가',
+                  style: AppTheme.nanum(
+                    color: _textSecondary,
+                    fontSize: 11,
+                    height: 1.6,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

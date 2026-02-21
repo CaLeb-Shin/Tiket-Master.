@@ -166,6 +166,22 @@ class AuthService {
     return credential;
   }
 
+  /// 게스트(익명) 로그인 — 체험 모드
+  Future<UserCredential> signInAnonymously() async {
+    final credential = await _auth.signInAnonymously();
+    await _createUserDocument(
+      uid: credential.user!.uid,
+      email: null,
+      displayName: '체험 사용자',
+      provider: 'anonymous',
+    );
+    // isDemo 플래그 설정
+    await _firestore.collection('users').doc(credential.user!.uid).update({
+      'isDemo': true,
+    });
+    return credential;
+  }
+
   /// 로그아웃
   Future<void> signOut() async {
     await _auth.signOut();

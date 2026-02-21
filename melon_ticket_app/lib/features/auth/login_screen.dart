@@ -178,6 +178,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     }
   }
 
+  Future<void> _signInAsGuest() async {
+    setState(() => _isLoading = true);
+    try {
+      final authService = ref.read(authServiceProvider);
+      await authService.signInAnonymously();
+      if (mounted) {
+        context.go('/');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('체험 로그인 실패: ${_parseErrorMessage(e.toString())}');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   String _parseErrorMessage(String error) {
     if (error.contains('user-not-found')) {
       return '등록되지 않은 이메일입니다';
@@ -301,6 +318,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   ),
                   const SizedBox(height: 10),
                   _buildGoogleButton(),
+                  const SizedBox(height: 20),
+
+                  // --- 체험하기 (게스트) ---
+                  _buildGuestButton(),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -730,6 +751,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             fontSize: 11,
             color: AppTheme.textTertiary,
             height: 1.4,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────
+  //  Guest Button (체험하기)
+  // ──────────────────────────────────────────────
+
+  Widget _buildGuestButton() {
+    return GestureDetector(
+      onTap: _isLoading ? null : _signInAsGuest,
+      child: Center(
+        child: Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: '로그인 없이 ',
+                style: AppTheme.nanum(
+                  fontSize: 14,
+                  color: AppTheme.textTertiary,
+                ),
+              ),
+              TextSpan(
+                text: '체험하기',
+                style: AppTheme.nanum(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.gold,
+                  decoration: TextDecoration.underline,
+                ).copyWith(decorationColor: AppTheme.gold),
+              ),
+            ],
           ),
         ),
       ),

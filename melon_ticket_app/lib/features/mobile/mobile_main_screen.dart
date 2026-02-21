@@ -401,28 +401,59 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Category tag
-                            if (event.category?.isNotEmpty == true)
+                            // Category tag + 360° tag
+                            if (event.category?.isNotEmpty == true || event.has360View)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        Colors.white.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                  child: Text(
-                                    event.category!,
-                                    style: AppTheme.sans(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white
-                                          .withValues(alpha: 0.85),
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (event.category?.isNotEmpty == true)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              Colors.white.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(2),
+                                        ),
+                                        child: Text(
+                                          event.category!,
+                                          style: AppTheme.sans(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white
+                                                .withValues(alpha: 0.85),
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                    if (event.has360View) ...[
+                                      if (event.category?.isNotEmpty == true)
+                                        const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFC9A84C).withValues(alpha: 0.25),
+                                          borderRadius: BorderRadius.circular(2),
+                                          border: Border.all(
+                                            color: const Color(0xFFC9A84C).withValues(alpha: 0.5),
+                                            width: 0.5,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '360° 좌석뷰',
+                                          style: AppTheme.sans(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: const Color(0xFFE8D5A0),
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                             // Title
@@ -1991,16 +2022,44 @@ class _EventCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Category
-                    if (event.category != null)
+                    // Category + 360° + Session
+                    if (event.category != null || event.has360View || event.isMultiSession)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          event.category!.toUpperCase(),
-                          style: AppTheme.label(
-                            fontSize: 9,
-                            color: AppTheme.sage,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (event.category != null)
+                              Text(
+                                event.category!.toUpperCase(),
+                                style: AppTheme.label(
+                                  fontSize: 9,
+                                  color: AppTheme.sage,
+                                ),
+                              ),
+                            if (event.has360View) ...[
+                              if (event.category != null)
+                                const SizedBox(width: 6),
+                              Text(
+                                '360° 좌석뷰',
+                                style: AppTheme.label(
+                                  fontSize: 9,
+                                  color: const Color(0xFFC9A84C),
+                                ),
+                              ),
+                            ],
+                            if (event.isMultiSession) ...[
+                              if (event.category != null || event.has360View)
+                                const SizedBox(width: 6),
+                              Text(
+                                '${event.sessionNumber}/${event.totalSessions}회',
+                                style: AppTheme.label(
+                                  fontSize: 9,
+                                  color: AppTheme.textTertiary,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
 
@@ -2313,6 +2372,23 @@ class _ProfileTab extends ConsumerWidget {
                               color: AppTheme.textPrimary,
                             ),
                           ),
+                          if (currentUser.value?.isDemo == true)
+                            Container(
+                              margin: const EdgeInsets.only(top: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.info.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                              child: Text(
+                                'DEMO',
+                                style: AppTheme.label(
+                                  fontSize: 9,
+                                  color: AppTheme.info,
+                                ),
+                              ),
+                            ),
                           if (currentUser.value?.isAdmin == true)
                             Container(
                               margin: const EdgeInsets.only(top: 4),

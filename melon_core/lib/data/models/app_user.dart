@@ -10,6 +10,8 @@ class AppUser {
   final UserRole role;
   final Mileage mileage;
   final String? referralCode;
+  final bool isDemo; // 체험 계정 여부
+  final List<String> badges; // 뱃지 목록
   final DateTime createdAt;
   final DateTime? lastLoginAt;
 
@@ -21,6 +23,8 @@ class AppUser {
     required this.role,
     Mileage? mileage,
     this.referralCode,
+    this.isDemo = false,
+    this.badges = const [],
     required this.createdAt,
     this.lastLoginAt,
   }) : mileage = mileage ?? Mileage();
@@ -38,6 +42,8 @@ class AppUser {
       role: UserRole.fromString(data['role']),
       mileage: Mileage.fromMap(data['mileage'] as Map<String, dynamic>?),
       referralCode: data['referralCode'] as String?,
+      isDemo: data['isDemo'] ?? false,
+      badges: data['badges'] != null ? List<String>.from(data['badges']) : [],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate(),
     );
@@ -51,6 +57,8 @@ class AppUser {
       'role': role.name,
       'mileage': mileage.toMap(),
       if (referralCode != null) 'referralCode': referralCode,
+      'isDemo': isDemo,
+      'badges': badges,
       'createdAt': Timestamp.fromDate(createdAt),
       'lastLoginAt': lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
     };

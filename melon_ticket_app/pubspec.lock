@@ -202,7 +202,7 @@ packages:
     source: hosted
     version: "4.4.12"
   cloud_functions:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: cloud_functions
       sha256: b9ece944fc8c97ac0937cdf45e895f4670213c722ed819581e3d517b43413753

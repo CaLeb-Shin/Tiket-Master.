@@ -8,8 +8,70 @@ const db = admin.firestore();
 // JWT 시크릿 (실제 운영 시 환경 변수로 관리)
 const JWT_SECRET = process.env.JWT_SECRET || "melon-ticket-secret-key-change-in-production";
 const QR_TOKEN_EXPIRY = 120; // 2분
-const REFUND_FULL_HOURS = 24;
-const REFUND_PARTIAL_HOURS = 3;
+// 취소 수수료 규정 (실제 서비스 기준)
+// - 예매 후 7일 이내: 무료취소
+// - 예매 후 8일 ~ 관람일 10일 전: 공연권 4000원 / 입장권 2000원 (최대 10%)
+// - 관람일 9~7일 전: 10%
+// - 관람일 6~3일 전: 20%
+// - 관람일 2~1일 전: 30%
+// - 관람 당일: 취소 불가
+const PERFORMANCE_CATEGORIES = ["콘서트", "뮤지컬", "클래식", "오페라", "발레"];
+// 위 카테고리는 공연권(4000원), 나머지(연극, 전시 등)는 입장권(2000원)
+
+function calculateCancelFee(
+  unitPrice: number,
+  orderCreatedAt: Date,
+  eventStartAt: Date,
+  category: string | null,
+  now: Date
+): { refundRate: number; cancelFee: number; policy: string } {
+  const daysSinceOrder = (now.getTime() - orderCreatedAt.getTime()) / (1000 * 60 * 60 * 24);
+  const daysBeforeEvent = (eventStartAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+
+  // 관람 당일: 취소 불가
+  if (daysBeforeEvent < 0) {
+    return { refundRate: 0, cancelFee: unitPrice, policy: "관람일 이후 취소 불가" };
+  }
+
+  // 관람 당일 (0일 전)
+  if (daysBeforeEvent < 1) {
+    return { refundRate: 0, cancelFee: unitPrice, policy: "관람 당일 취소 불가" };
+  }
+
+  // 예매 후 7일 이내: 무료취소
+  if (daysSinceOrder <= 7) {
+    return { refundRate: 1, cancelFee: 0, policy: "예매 후 7일 이내 무료취소" };
+  }
+
+  // 관람일 2~1일 전: 30%
+  if (daysBeforeEvent < 3) {
+    const fee = Math.round(unitPrice * 0.3);
+    return { refundRate: 0.7, cancelFee: fee, policy: "관람일 2일 전~1일 전 (30%)" };
+  }
+
+  // 관람일 6~3일 전: 20%
+  if (daysBeforeEvent < 7) {
+    const fee = Math.round(unitPrice * 0.2);
+    return { refundRate: 0.8, cancelFee: fee, policy: "관람일 6일 전~3일 전 (20%)" };
+  }
+
+  // 관람일 9~7일 전: 10%
+  if (daysBeforeEvent < 10) {
+    const fee = Math.round(unitPrice * 0.1);
+    return { refundRate: 0.9, cancelFee: fee, policy: "관람일 9일 전~7일 전 (10%)" };
+  }
+
+  // 예매 후 8일 ~ 관람일 10일 전: 정액 수수료
+  const isPerformance = PERFORMANCE_CATEGORIES.includes(category ?? "");
+  const flatFee = isPerformance ? 4000 : 2000;
+  const maxFee = Math.round(unitPrice * 0.1);
+  const fee = Math.min(flatFee, maxFee);
+  return {
+    refundRate: (unitPrice - fee) / unitPrice,
+    cancelFee: fee,
+    policy: `예매 후 8일 이상 (${isPerformance ? "공연권" : "입장권"} ${flatFee.toLocaleString()}원)`,
+  };
+}
 
 /**
  * 8자리 영숫자 추천 코드 생성 (혼동 문자 제외)
@@ -293,6 +355,10 @@ export const createOrder = functions.https.onCall(async (data: any, context) => 
 
   const normalizedPreferred = preferredSeatIds.slice(0, quantity);
 
+  // 체험(데모) 사용자 여부 확인
+  const userDoc = await db.collection("users").doc(userId).get();
+  const isDemo = userDoc.exists && userDoc.data()?.isDemo === true;
+
   // 주문 생성
   const orderRef = db.collection("orders").doc();
   const order: Record<string, unknown> = {
@@ -303,6 +369,7 @@ export const createOrder = functions.https.onCall(async (data: any, context) => 
     totalAmount: unitPrice * quantity,
     preferredSeatIds: normalizedPreferred,
     status: "pending",
+    isDemo,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     ...(appliedDiscount ? { appliedDiscount } : {}),
     ...(referralCode ? { referralCode } : {}),
@@ -484,8 +551,14 @@ export const confirmPaymentAndAssignSeats = functions.https.onCall(async (data: 
       if (orderData) {
         const totalAmount = Number(orderData.totalAmount ?? 0);
 
-        // 1. 구매자 마일리지 적립 (결제금액의 5%)
-        const purchaseMileage = Math.floor(totalAmount * 0.05);
+        // 1. 구매자 마일리지 적립 (등급별 차등: Bronze 3%, Silver 5%, Gold 7%, Platinum 10%)
+        const buyerDoc = await db.collection("users").doc(result.userId).get();
+        const buyerTier = buyerDoc.exists ? (buyerDoc.data()?.mileage?.tier ?? "bronze") : "bronze";
+        const tierRates: Record<string, number> = {
+          bronze: 0.03, silver: 0.05, gold: 0.07, platinum: 0.10,
+        };
+        const earnRate = tierRates[buyerTier] ?? 0.03;
+        const purchaseMileage = Math.floor(totalAmount * earnRate);
         if (purchaseMileage > 0) {
           await addMileageInternal(
             result.userId,
@@ -728,15 +801,6 @@ export const requestTicketCancellation = functions.https.onCall(async (data: any
     }
 
     const now = new Date();
-    const hoursBeforeStart = (eventStartAt.getTime() - now.getTime()) / (1000 * 60 * 60);
-    if (hoursBeforeStart < REFUND_PARTIAL_HOURS) {
-      throw new functions.https.HttpsError(
-        "failed-precondition",
-        `공연 ${REFUND_PARTIAL_HOURS}시간 이내에는 취소/환불이 불가합니다`
-      );
-    }
-
-    const refundRate = hoursBeforeStart >= REFUND_FULL_HOURS ? 1 : 0.7;
     const orderRef = db.collection("orders").doc(ticket.orderId);
     const orderDoc = await transaction.get(orderRef);
     if (!orderDoc.exists) {
@@ -744,6 +808,20 @@ export const requestTicketCancellation = functions.https.onCall(async (data: any
     }
     const order = orderDoc.data()!;
     const unitPrice = Number(order.unitPrice ?? 0);
+    const orderCreatedAt = toDate(order.createdAt) ?? now;
+    const category = event.category ?? null;
+
+    const { refundRate, cancelFee, policy } = calculateCancelFee(
+      unitPrice, orderCreatedAt, eventStartAt, category, now
+    );
+
+    if (refundRate === 0) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        policy
+      );
+    }
+
     const refundAmount = Math.round(unitPrice * refundRate);
 
     transaction.update(ticketRef, {
@@ -795,7 +873,8 @@ export const requestTicketCancellation = functions.https.onCall(async (data: any
       ticketId,
       refundRate,
       refundAmount,
-      policy: refundRate === 1 ? "공연 24시간 전 취소" : "공연 3시간 전 취소",
+      cancelFee,
+      policy,
     };
   });
 });
@@ -1516,9 +1595,9 @@ export const addMileage = functions.https.onCall(async (data: any, context) => {
   if (typeof amount !== "number" || amount === 0) {
     throw new functions.https.HttpsError("invalid-argument", "유효한 마일리지 금액이 필요합니다");
   }
-  const validTypes = ["purchase", "referral", "upgrade"];
+  const validTypes = ["purchase", "referral", "upgrade", "review"];
   if (!type || !validTypes.includes(type)) {
-    throw new functions.https.HttpsError("invalid-argument", "유효한 마일리지 유형이 필요합니다 (purchase, referral, upgrade)");
+    throw new functions.https.HttpsError("invalid-argument", "유효한 마일리지 유형이 필요합니다 (purchase, referral, upgrade, review)");
   }
   if (!reason || typeof reason !== "string") {
     throw new functions.https.HttpsError("invalid-argument", "사유가 필요합니다");
@@ -1578,6 +1657,118 @@ export const addMileage = functions.https.onCall(async (data: any, context) => {
     newBalance,
     newTier,
     newTotalEarned,
+  };
+});
+
+// ============================================================
+// 9-1. addReviewMileage - 리뷰 작성 마일리지 적립 (사용자 직접 호출)
+// ============================================================
+export const addReviewMileage = functions.https.onCall(async (data: any, context) => {
+  const userId = context?.auth?.uid;
+  if (!userId) {
+    throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
+  }
+
+  const { eventId } = data;
+  if (!eventId || typeof eventId !== "string") {
+    throw new functions.https.HttpsError("invalid-argument", "이벤트 ID가 필요합니다");
+  }
+
+  // 리뷰 존재 확인
+  const reviewSnap = await db.collection("reviews")
+    .where("userId", "==", userId)
+    .where("eventId", "==", eventId)
+    .limit(1)
+    .get();
+
+  if (reviewSnap.empty) {
+    throw new functions.https.HttpsError("failed-precondition", "리뷰를 먼저 작성해주세요");
+  }
+
+  // 이미 리뷰 마일리지 지급했는지 확인
+  const existingReward = await db.collection("mileageHistory")
+    .where("userId", "==", userId)
+    .where("type", "==", "review")
+    .where("eventId", "==", eventId)
+    .limit(1)
+    .get();
+
+  if (!existingReward.empty) {
+    return { success: false, reason: "이미 리뷰 마일리지가 지급되었습니다" };
+  }
+
+  // 첫 리뷰인지 확인 (전체 리뷰 수)
+  const allReviews = await db.collection("reviews")
+    .where("userId", "==", userId)
+    .get();
+  const isFirstReview = allReviews.size === 1;
+  const amount = isFirstReview ? 500 : 200;
+
+  // 마일리지 적립
+  const userRef = db.collection("users").doc(userId);
+  const userDoc = await userRef.get();
+  if (!userDoc.exists) {
+    throw new functions.https.HttpsError("not-found", "사용자를 찾을 수 없습니다");
+  }
+
+  const userData = userDoc.data()!;
+  const currentMileage = userData.mileage ?? { balance: 0, tier: "bronze", totalEarned: 0 };
+  const newBalance = (currentMileage.balance ?? 0) + amount;
+  const newTotalEarned = (currentMileage.totalEarned ?? 0) + amount;
+
+  let newTier = "bronze";
+  if (newTotalEarned >= 30000) newTier = "platinum";
+  else if (newTotalEarned >= 15000) newTier = "gold";
+  else if (newTotalEarned >= 5000) newTier = "silver";
+
+  // mileageHistory 기록
+  await db.collection("mileageHistory").doc().set({
+    userId,
+    eventId,
+    amount,
+    type: "review",
+    reason: isFirstReview ? "첫 리뷰 작성 보너스" : "리뷰 작성 마일리지",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // mileage 업데이트
+  await userRef.update({
+    "mileage.balance": newBalance,
+    "mileage.tier": newTier,
+    "mileage.totalEarned": newTotalEarned,
+  });
+
+  // 뱃지 부여
+  const badges: string[] = userData.badges ?? [];
+  const reviewCount = allReviews.size;
+  const newBadges: string[] = [];
+
+  if (reviewCount >= 1 && !badges.includes("first_review")) {
+    newBadges.push("first_review");
+  }
+  if (reviewCount >= 3 && !badges.includes("reviewer_3")) {
+    newBadges.push("reviewer_3");
+  }
+  if (reviewCount >= 10 && !badges.includes("reviewer_10")) {
+    newBadges.push("reviewer_10");
+  }
+
+  if (newBadges.length > 0) {
+    await userRef.update({
+      badges: admin.firestore.FieldValue.arrayUnion(...newBadges),
+    });
+  }
+
+  functions.logger.info(
+    `리뷰 마일리지 적립: user=${userId}, event=${eventId}, amount=${amount}, first=${isFirstReview}, badges=${newBadges.join(",")}`
+  );
+
+  return {
+    success: true,
+    amount,
+    isFirstReview,
+    newBadges,
+    newBalance,
   };
 });
 
