@@ -618,14 +618,23 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         Expanded(
           child: Stack(
             children: [
-              PageView.builder(
-                controller: _aiPageController,
-                itemCount: _aiResults!.length,
-                onPageChanged: (i) => setState(() => _aiCurrentPage = i),
-                itemBuilder: (context, index) {
-                  return _buildSwipeCard(
-                      index, _aiResults![index], event, venueViews, isLoggedIn);
-                },
+              ScrollConfiguration(
+                behavior: ScrollConfiguration.of(context).copyWith(
+                  dragDevices: {
+                    PointerDeviceKind.touch,
+                    PointerDeviceKind.mouse,
+                    PointerDeviceKind.trackpad,
+                  },
+                ),
+                child: PageView.builder(
+                  controller: _aiPageController,
+                  itemCount: _aiResults!.length,
+                  onPageChanged: (i) => setState(() => _aiCurrentPage = i),
+                  itemBuilder: (context, index) {
+                    return _buildSwipeCard(
+                        index, _aiResults![index], event, venueViews, isLoggedIn);
+                  },
+                ),
               ),
               // 페이지 닷
               Positioned(
