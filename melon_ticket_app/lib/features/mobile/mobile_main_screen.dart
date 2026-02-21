@@ -612,8 +612,8 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                         ),
 
                         // ── 문의 배너 (optional) ──
-                        if (event.description.isNotEmpty)
-                          _buildContactBanner(event.description),
+                        if (event.inquiryInfo != null && event.inquiryInfo!.isNotEmpty)
+                          _buildContactBanner(event.inquiryInfo!),
 
                         // Bottom padding for CTA
                         SizedBox(height: 80 + safeBottom),
@@ -1026,27 +1026,31 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       color: AppTheme.gold.withValues(alpha: 0.05),
-      child: Row(
-        children: [
-          Icon(
-            Icons.info_outline_rounded,
-            size: 15,
-            color: AppTheme.gold.withValues(alpha: 0.6),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              description,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppTheme.sans(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
-                height: 1.4,
+      child: Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.info_outline_rounded,
+              size: 15,
+              color: AppTheme.gold.withValues(alpha: 0.6),
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: AppTheme.sans(
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                  height: 1.4,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

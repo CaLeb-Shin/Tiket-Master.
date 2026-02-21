@@ -34,6 +34,7 @@ class Event {
   final List<DiscountPolicy>? discountPolicies; // 구조화된 할인 정책
   final bool showRemainingSeats; // 잔여석 표시 여부
   final List<String>? pamphletUrls; // 팜플렛 이미지 URL 목록 (최대 8장)
+  final String? inquiryInfo; // 예매 관련 문의 (예: 전화번호, 담당자 등)
 
   Event({
     required this.id,
@@ -65,6 +66,7 @@ class Event {
     this.discountPolicies,
     this.showRemainingSeats = true,
     this.pamphletUrls,
+    this.inquiryInfo,
   });
 
   /// 좌석 공개 여부
@@ -116,6 +118,7 @@ class Event {
       pamphletUrls: data['pamphletUrls'] != null
           ? List<String>.from(data['pamphletUrls'])
           : null,
+      inquiryInfo: data['inquiryInfo'],
     );
   }
 
@@ -149,6 +152,7 @@ class Event {
       'discountPolicies': discountPolicies?.map((e) => e.toMap()).toList(),
       'showRemainingSeats': showRemainingSeats,
       'pamphletUrls': pamphletUrls,
+      'inquiryInfo': inquiryInfo,
     };
   }
 }

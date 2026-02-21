@@ -50,6 +50,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   final _organizerCtrl = TextEditingController(); // 주최
   final _plannerCtrl = TextEditingController(); // 기획
   final _noticeCtrl = TextEditingController();
+  final _inquiryInfoCtrl = TextEditingController(); // 예매 관련 문의
 
   // ── State ──
   String _category = '콘서트';
@@ -169,6 +170,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     _organizerCtrl.dispose();
     _plannerCtrl.dispose();
     _noticeCtrl.dispose();
+    _inquiryInfoCtrl.dispose();
     _pamphletScrollCtrl.dispose();
     _yearCtrl.dispose();
     _monthCtrl.dispose();
@@ -225,6 +227,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       'organizer': _organizerCtrl.text,
       'planner': _plannerCtrl.text,
       'notice': _noticeCtrl.text,
+      'inquiryInfo': _inquiryInfoCtrl.text,
       'enabledGrades': _enabledGrades.toList(),
       'gradePrices': {
         for (final e in _gradePriceControllers.entries) e.key: e.value.text,
@@ -294,6 +297,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       _organizerCtrl.text = data['organizer'] as String? ?? '';
       _plannerCtrl.text = data['planner'] as String? ?? '';
       _noticeCtrl.text = data['notice'] as String? ?? '';
+      _inquiryInfoCtrl.text = data['inquiryInfo'] as String? ?? '';
       _showRemainingSeats = data['showRemainingSeats'] as bool? ?? true;
 
       if (data['enabledGrades'] != null) {
@@ -369,6 +373,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         _organizerCtrl.text = event.organizer ?? '';
         _plannerCtrl.text = event.planner ?? '';
         _noticeCtrl.text = event.notice ?? '';
+        _inquiryInfoCtrl.text = event.inquiryInfo ?? '';
         _showRemainingSeats = event.showRemainingSeats;
 
         if (event.priceByGrade != null) {
@@ -2081,6 +2086,18 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             )),
         const SizedBox(height: 20),
 
+        // 예매 관련 문의
+        _field('예매 관련 문의',
+            child: TextFormField(
+              controller: _inquiryInfoCtrl,
+              style: _inputStyle(),
+              decoration: _inputDecoration(
+                  '예) 예매 관련 문의: 010-1234-5678 (티켓 예매 담당)'),
+              maxLines: 2,
+              minLines: 1,
+            )),
+        const SizedBox(height: 20),
+
         // 최대 구매 수량
         _field('1인 최대 구매 수량',
             child: TextFormField(
@@ -3292,6 +3309,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               : _plannerCtrl.text.trim(),
           'notice':
               _noticeCtrl.text.trim().isEmpty ? null : _noticeCtrl.text.trim(),
+          'inquiryInfo':
+              _inquiryInfoCtrl.text.trim().isEmpty ? null : _inquiryInfoCtrl.text.trim(),
           'discount': _discountPolicies.isNotEmpty
               ? _discountPolicies.map((p) => p.name).join(', ')
               : null,
@@ -3391,6 +3410,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             : _plannerCtrl.text.trim(),
         notice:
             _noticeCtrl.text.trim().isEmpty ? null : _noticeCtrl.text.trim(),
+        inquiryInfo:
+            _inquiryInfoCtrl.text.trim().isEmpty ? null : _inquiryInfoCtrl.text.trim(),
         discount: _discountPolicies.isNotEmpty
             ? _discountPolicies.map((p) => p.name).join(', ')
             : null,
