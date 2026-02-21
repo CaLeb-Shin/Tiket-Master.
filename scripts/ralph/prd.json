@@ -94,7 +94,7 @@
         "flutter analyze 통과"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "referralCode는 중복 불가. Firestore에서 유니크 체크. URL의 ref 파라미터는 예매 시 서버로 전달되어 추천인 추적에 사용."
     },
     {

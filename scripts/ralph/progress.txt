@@ -100,3 +100,39 @@ Started: 2026-02-21
   - Social login functions (signInWithKakao, signInWithNaver) also create user docs - don't forget to add new fields there
   - Existing users without mileage field will get defaults from `Mileage.fromMap(null)` → balance:0, tier:bronze
 ---
+
+## 2026-02-21 - MT-006 (추천 코드 생성 및 공유하기 기능)
+- **referralCode utility** (`melon_core/lib/utils/referral_code.dart`):
+  - `generateReferralCode()` → 8자리 영숫자 (혼동 문자 제외: 0/O, 1/I)
+  - Uses `Random.secure()` for cryptographic randomness
+- **AppUser model updated** (`melon_core/lib/data/models/app_user.dart`):
+  - Added `String? referralCode` field
+  - `fromFirestore()` reads `data['referralCode']`
+  - `toMap()` conditionally includes referralCode
+- **Auth service updated** (`melon_core/lib/services/auth_service.dart`):
+  - `_createUserDocument()` now generates unique referralCode for email/Google signups
+  - `_generateUniqueReferralCode()` checks Firestore for duplicates (up to 10 attempts)
+  - Also now sets `mileage` default fields on user creation
+- **Cloud Functions updated** (`functions/src/index.ts`):
+  - Added `generateReferralCode()` and `generateUniqueReferralCode()` helper functions
+  - signInWithKakao: generates referralCode for new users
+  - signInWithNaver: generates referralCode for new users
+- **Share sheet updated** (`event_detail_screen.dart`):
+  - `_buildShareUrl()` appends `?ref={referralCode}` when user is logged in
+  - Watches `currentUserProvider` to get referral code
+  - Added native Web Share API support via `tryWebShare()` (navigator.share)
+  - Fallback to clipboard copy when Share API unavailable
+  - Two buttons: "SHARE LINK" (tries native share) + "COPY LINK" (clipboard only)
+- **Web share utility** (`melon_ticket_app/lib/utils/`):
+  - Conditional import pattern: `web_share.dart` → `web_share_web.dart` (web) / `web_share_stub.dart` (non-web)
+  - Uses `dart:js_interop` for `navigator.share()` call
+- Files changed: `melon_core/lib/utils/referral_code.dart` (new), `app_user.dart`, `auth_service.dart`, `melon_core.dart`, `functions/src/index.ts`, `event_detail_screen.dart`, `web_share*.dart` (new)
+- flutter analyze: pass (all packages), npm run build: pass, functions deployed
+- **Learnings for future iterations:**
+  - Web Share API (`navigator.share`) requires HTTPS and user gesture; may not be available in all browsers
+  - Conditional import with `dart.library.js_interop` targets web platform specifically
+  - `@JS('navigator.share')` annotation maps directly to JS function — use `JSObject` with `.jsify()` for share data
+  - referralCode should be generated at signup time (not lazily) to simplify downstream logic
+  - Existing users won't have referralCode — the field is nullable, so sharing works without it (just no ?ref= param)
+  - Auth _createUserDocument was missing mileage defaults for email/Google — now fixed alongside referralCode
+---
