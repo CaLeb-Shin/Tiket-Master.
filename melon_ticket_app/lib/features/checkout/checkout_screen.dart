@@ -200,14 +200,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           }
 
           final maxQty = event.maxTicketsPerOrder.clamp(1, availableSeats);
-          if (_quantity > maxQty) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted) return;
-              setState(() => _quantity = maxQty);
-            });
-          }
-
-          final quantity = _quantity.clamp(1, maxQty);
+          // 좌석이 명시적으로 선택된 경우 좌석 수를 우선 사용
+          final quantity = widget.selectedSeatIds.isNotEmpty
+              ? widget.selectedSeatIds.length
+              : _quantity.clamp(1, maxQty);
           final priceFormat = NumberFormat('#,###', 'ko_KR');
           final policies = event.discountPolicies ?? [];
 
