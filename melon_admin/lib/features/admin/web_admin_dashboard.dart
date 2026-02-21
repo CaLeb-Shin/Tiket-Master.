@@ -258,6 +258,15 @@ class _SidebarState extends State<_Sidebar> {
                     selectable: false,
                     onTap: () => context.push('/venues'),
                   ),
+                  const SizedBox(height: 2),
+                  // 데모 테스트 메뉴 (나중에 이 블록만 삭제하면 제거 완료)
+                  _buildMenuItem(
+                    4,
+                    'D',
+                    '데모 테스트',
+                    selectable: false,
+                    onTap: () => context.push('/demo'),
+                  ),
                 ],
               ),
             ),

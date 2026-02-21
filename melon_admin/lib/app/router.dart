@@ -13,6 +13,7 @@ import '../features/admin/venue_manage_screen.dart';
 import '../features/admin/venue_view_upload_screen.dart';
 import '../features/admin/admin_orders_screen.dart';
 import '../features/admin/admin_bookers_screen.dart';
+import '../features/admin/demo_test_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -89,6 +90,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               final eventId = state.pathParameters['eventId']!;
               return AdminBookersScreen(eventId: eventId);
             },
+          ),
+          // 데모 테스트 (나중에 이 블록만 삭제하면 제거 완료)
+          GoRoute(
+            path: 'demo',
+            name: 'adminDemo',
+            builder: (context, state) => const DemoTestScreen(),
           ),
           GoRoute(
             path: 'venues',
