@@ -161,6 +161,125 @@
       "priority": 10,
       "passes": true,
       "notes": "melon_admin에 구현. AdminTheme, shadcn_flutter 사용. 기존 admin_orders_screen 스타일 참고."
+    },
+    {
+      "id": "MT-011",
+      "title": "취소/환불 수수료 규정 적용",
+      "description": "실제 티켓 서비스 기준의 취소 수수료 체계를 적용한다. 예매 후 7일 이내 무료취소, 이후 시점별 수수료 부과. Cloud Function + 클라이언트 UI에 규정 안내 표시.",
+      "acceptanceCriteria": [
+        "requestTicketCancellation Cloud Function 수수료 로직 변경:",
+        "  - 예매 후 7일 이내: 취소 수수료 없음 (100% 환불)",
+        "  - 예매 후 8일 ~ 관람일 10일 전: 뮤지컬/콘서트/클래식 등 공연권 4,000원 / 연극/전시 등 입장권 2,000원 (단, 티켓금액의 10% 이내)",
+        "  - 관람일 9일 전 ~ 7일 전: 티켓금액의 10%",
+        "  - 관람일 6일 전 ~ 3일 전: 티켓금액의 20%",
+        "  - 관람일 2일 전 ~ 1일 전: 티켓금액의 30%",
+        "  - 관람 당일: 취소/환불 불가",
+        "  - 예매당일 취소 시 예매수수료 환불 안 됨 (예매당일 외에는 환불)",
+        "티켓 상세 및 취소 확인 다이얼로그에 수수료 미리보기 표시",
+        "취소 수수료 안내 페이지/바텀시트 추가",
+        "npm run build 통과, flutter analyze 통과"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "기존 단순 24시간/3시간 기준 로직을 실제 규정으로 교체. Event.category에 따라 공연권/입장권 구분 (콘서트,뮤지컬,클래식=공연권 4000원, 연극,전시=입장권 2000원). 예매일은 order.createdAt 기준."
+    },
+    {
+      "id": "MT-012",
+      "title": "공연 상세 360° 좌석뷰 태그 표시",
+      "description": "공연 상세 페이지의 카테고리 태그(콘서트) 옆에, 해당 공연장에 좌석 시야 사진이 있는 경우 '360° 좌석뷰' 태그를 추가 표시한다.",
+      "acceptanceCriteria": [
+        "event_detail_screen 또는 mobile_main_screen의 공연 카드에서 카테고리 태그 옆에 '360° 좌석뷰' 태그 추가",
+        "해당 공연의 venueId로 venueSeatViews 컬렉션에 is360=true인 문서가 1건 이상 있을 때만 표시",
+        "태그 스타일: 골드 계열, 기존 카테고리 태그와 일관된 디자인",
+        "flutter analyze 통과"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "venueSeatViews 컬렉션에서 venueId 기준 쿼리. 성능을 위해 캐싱 또는 events 문서에 has360View 불리언 필드 추가 고려. 모바일 메인의 바로예매 카드에도 적용."
+    },
+    {
+      "id": "MT-013",
+      "title": "임시 게스트 계정으로 예매~발권 체험 기능",
+      "description": "로그인 없이 임시 계정을 생성하여 좌석 선택 → 예매 → 발권까지 전체 플로우를 체험할 수 있는 기능. 나중에 제거 예정인 테스트/데모용 기능.",
+      "acceptanceCriteria": [
+        "로그인 화면 또는 예매 진입 시 '체험하기' 버튼 추가",
+        "Firebase Anonymous Auth로 임시 계정 생성",
+        "임시 계정으로 좌석 선택 → 결제(무료/모의) → 티켓 발권 전체 플로우 가능",
+        "임시 계정 사용자에게 '체험 모드' 표시 (프로필에 뱃지)",
+        "체험 계정의 티켓은 실제 좌석 차지하지 않거나, 별도 플래그(isDemo) 표시",
+        "나중에 기능 제거를 위한 플래그/조건부 코드 사용",
+        "flutter analyze 통과, npm run build 통과"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "Firebase Anonymous Auth 사용. 체험 주문에는 order.isDemo=true 플래그. Cloud Function에서 isDemo 주문은 실제 좌석 reserve 안 하거나 별도 처리. 임시 기능이므로 조건부 코드로 쉽게 제거 가능하게."
+    },
+    {
+      "id": "MT-014",
+      "title": "마일리지 보상 시스템 확장 (구매량·리뷰·뱃지)",
+      "description": "마일리지 적립 체계를 확장한다. 많이 구매할수록 더 높은 비율로 적립되고, 리뷰 작성 시 마일리지 + 뱃지 보상을 제공한다.",
+      "acceptanceCriteria": [
+        "구매 마일리지 적립률 등급별 차등: Bronze 3%, Silver 5%, Gold 7%, Platinum 10%",
+        "리뷰 작성 기능 추가: 관람 완료 티켓에 별점(1~5) + 한줄평 작성 가능",
+        "리뷰 작성 시 마일리지 적립 (예: 200P, 첫 리뷰 500P)",
+        "리뷰 작성자 닉네임 옆에 '리뷰어' 뱃지 표시",
+        "뱃지 시스템: 첫 리뷰(🎭), 3회 리뷰(⭐), 10회 리뷰(👑) 등 단계별 뱃지",
+        "리뷰 모델: reviews 컬렉션 (userId, eventId, ticketId, rating, comment, createdAt)",
+        "마이페이지에 내 리뷰 목록 + 뱃지 표시",
+        "공연 상세에 리뷰 섹션 (평균 별점 + 최근 리뷰)",
+        "flutter analyze 통과, npm run build 통과"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "MileageType에 'review' 추가. AppUser에 badges 필드(리스트) 추가. 뱃지 종류: first_review, reviewer_3, reviewer_10, top_buyer 등. 리뷰는 관람 완료(status=used) 티켓만 작성 가능. 중복 리뷰 방지(eventId+userId 유니크)."
+    },
+    {
+      "id": "MT-015",
+      "title": "공연 운영 대시보드 - 최근 공연 옵션 메뉴",
+      "description": "어드민 공연 운영 대시보드의 최근 공연 목록에서 각 공연을 클릭하면 옵션 메뉴(수정, 삭제, 좌석현황, 주문목록 등)가 나오도록 한다.",
+      "acceptanceCriteria": [
+        "최근 공연 리스트 아이템 클릭 시 컨텍스트 메뉴/팝업 메뉴 표시",
+        "메뉴 항목: 공연 수정, 공연 삭제, 좌석 현황 보기, 주문 목록, 공연 복제",
+        "공연 수정: event_create_screen으로 editMode 이동",
+        "공연 삭제: 확인 다이얼로그 후 status를 canceled로 변경",
+        "좌석 현황: 해당 공연의 좌석별 예매/잔여 현황",
+        "주문 목록: 해당 공연의 주문 필터링",
+        "공연 복제: 기존 공연 데이터 기반으로 새 공연 등록 폼 열기",
+        "flutter analyze 통과"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "melon_admin에 구현. shadcn_flutter의 DropdownMenu 또는 PopupMenuButton 사용. 기존 admin_events_screen 또는 dashboard의 공연 목록 부분에 적용."
+    },
+    {
+      "id": "MT-016",
+      "title": "공연 등록 - 주최/기획 예시 텍스트 제거",
+      "description": "공연 등록 화면의 주최, 기획 입력 필드에서 예시(placeholder) 텍스트를 제거한다.",
+      "acceptanceCriteria": [
+        "event_create_screen.dart의 주최 필드 placeholder 제거 또는 빈 문자열로 변경",
+        "기획 필드 placeholder 제거 또는 빈 문자열로 변경",
+        "flutter analyze 통과"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "간단한 UI 변경. _field('주최', ...) 와 _field('기획', ...)의 decoration에서 hintText 제거."
+    },
+    {
+      "id": "MT-017",
+      "title": "공연 등록 - 다회 공연(연속 회차) 지원",
+      "description": "하루 1회 공연뿐만 아니라, 여러 날짜에 걸쳐 여러 회차를 등록할 수 있도록 공연 등록 UI와 데이터 모델을 확장한다.",
+      "acceptanceCriteria": [
+        "Event 모델에 회차(sessions) 개념 추가 또는 상위 시리즈 모델 도입",
+        "공연 등록 UI에 '회차 추가' 버튼 → 날짜/시간별 여러 회차 입력 가능",
+        "각 회차별 독립적인 startAt, saleStartAt, saleEndAt, 좌석 관리",
+        "공연 상세에서 회차 선택 UI (날짜/시간 탭 또는 드롭다운)",
+        "같은 공연장이라도 회차별 좌석이 독립적으로 관리됨",
+        "어드민에서 회차별 판매현황 확인 가능",
+        "flutter analyze 통과, npm run build 통과"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "접근법 2가지: (1) EventSeries 상위 모델 + 회차별 Event 문서, (2) Event에 sessions 배열. 추천: (1)이 확장성 좋음. EventSeries(title,poster,category) → Event(seriesId,sessionNumber,startAt,seats). 기존 단일 공연도 sessions=1인 시리즈로 호환. 공연 등록 UI에서 '단일 공연' / '연속 공연' 토글."
     }
   ]
 }
