@@ -91,12 +91,14 @@ extension on PaymentMethod {
 class CheckoutScreen extends ConsumerStatefulWidget {
   final String eventId;
   final List<String> selectedSeatIds;
+  final List<String> selectedSeatLabels;
   final int quantity;
 
   const CheckoutScreen({
     super.key,
     required this.eventId,
     this.selectedSeatIds = const [],
+    this.selectedSeatLabels = const [],
     this.quantity = 1,
   });
 
@@ -128,6 +130,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         appBar: AppBar(
           backgroundColor: _navy,
           foregroundColor: Colors.white,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            onPressed: () => context.pop(),
+          ),
           title: Text(
             '결제하기',
             style: AppTheme.nanum(
@@ -147,6 +153,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       appBar: AppBar(
         backgroundColor: _navy,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => context.pop(),
+        ),
         title: Text(
           '결제하기',
           style: AppTheme.nanum(
@@ -230,67 +240,43 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         event.startAt,
                       ),
                       priceText: '${priceFormat.format(event.price)}원 / 1매',
-                      selectedSeatCount: widget.selectedSeatIds.length,
+                      seatCount: widget.selectedSeatIds.length,
+                      quantity: quantity,
                     ),
                     const SizedBox(height: 14),
-                    const _SectionTitle('수량 선택'),
-                    const SizedBox(height: 8),
-                    _QuantityCard(
-                      quantity: quantity,
-                      maxQty: maxQty,
-                      onMinus: quantity > 1
-                          ? () => setState(() {
-                                _quantity--;
-                                // 수량 변경 시 대상 할인만 유지, 수량할인은 자동 재계산
-                                if (_selectedDiscount?.type == 'bulk') {
-                                  _selectedDiscount = null;
-                                }
-                              })
-                          : null,
-                      onPlus: quantity < maxQty
-                          ? () => setState(() {
-                                _quantity++;
-                                if (_selectedDiscount?.type == 'bulk') {
-                                  _selectedDiscount = null;
-                                }
-                              })
-                          : null,
+                    _SectionTitle(
+                      widget.selectedSeatIds.isNotEmpty
+                          ? '선택 좌석 (${widget.selectedSeatIds.length}석)'
+                          : '수량 선택',
                     ),
-                    if (quantity >= 2) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFFAF3),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFB7E4C7)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.groups_rounded,
-                              size: 16,
-                              color: _success,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                '$quantity장 연속 좌석 우선 배정',
-                                style: AppTheme.nanum(
-                                  color: _success,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                    const SizedBox(height: 8),
+                    if (widget.selectedSeatIds.isNotEmpty)
+                      _SelectedSeatsCard(
+                        seatLabels: widget.selectedSeatLabels,
+                        seatCount: widget.selectedSeatIds.length,
+                        onChangeSeat: () => context.pop(),
+                      )
+                    else
+                      _QuantityCard(
+                        quantity: quantity,
+                        maxQty: maxQty,
+                        onMinus: quantity > 1
+                            ? () => setState(() {
+                                  _quantity--;
+                                  if (_selectedDiscount?.type == 'bulk') {
+                                    _selectedDiscount = null;
+                                  }
+                                })
+                            : null,
+                        onPlus: quantity < maxQty
+                            ? () => setState(() {
+                                  _quantity++;
+                                  if (_selectedDiscount?.type == 'bulk') {
+                                    _selectedDiscount = null;
+                                  }
+                                })
+                            : null,
                       ),
-                    ],
 
                     // ── 할인 정책 선택 ──
                     if (policies.isNotEmpty) ...[
@@ -500,14 +486,16 @@ class _EventSummaryCard extends StatelessWidget {
   final String? venue;
   final String dateText;
   final String priceText;
-  final int selectedSeatCount;
+  final int seatCount;
+  final int quantity;
 
   const _EventSummaryCard({
     required this.title,
     required this.venue,
     required this.dateText,
     required this.priceText,
-    required this.selectedSeatCount,
+    required this.seatCount,
+    required this.quantity,
   });
 
   @override
@@ -542,8 +530,7 @@ class _EventSummaryCard extends StatelessWidget {
             value: (venue != null && venue!.isNotEmpty) ? venue! : '공연장 정보 없음',
           ),
           _InfoLine(label: '기준금액', value: priceText),
-          if (selectedSeatCount > 0)
-            _InfoLine(label: '선호좌석', value: '$selectedSeatCount개 전달됨'),
+          _InfoLine(label: '매수', value: '$quantity매'),
         ],
       ),
     );
@@ -691,6 +678,100 @@ class _QuantityButton extends StatelessWidget {
           size: 20,
           color: enabled ? Colors.white : _textMuted,
         ),
+      ),
+    );
+  }
+}
+
+class _SelectedSeatsCard extends StatelessWidget {
+  final List<String> seatLabels;
+  final int seatCount;
+  final VoidCallback onChangeSeat;
+
+  const _SelectedSeatsCard({
+    required this.seatLabels,
+    required this.seatCount,
+    required this.onChangeSeat,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = seatLabels.isNotEmpty
+        ? seatLabels
+        : List.generate(seatCount, (i) => '좌석 ${i + 1}');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ...labels.map((label) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: _softBlue,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: _lineBlue.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.event_seat_rounded,
+                        size: 14,
+                        color: _lineBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: AppTheme.nanum(
+                          color: _textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          shadows: _premiumShadow,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+          const SizedBox(height: 4),
+          SizedBox(
+            width: double.infinity,
+            height: 38,
+            child: OutlinedButton.icon(
+              onPressed: onChangeSeat,
+              icon: const Icon(Icons.swap_horiz_rounded, size: 16),
+              label: Text(
+                '좌석 변경',
+                style: AppTheme.nanum(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _lineBlue,
+                side: BorderSide(
+                  color: _lineBlue.withValues(alpha: 0.4),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

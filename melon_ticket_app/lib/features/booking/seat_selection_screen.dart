@@ -871,6 +871,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                                 rec.seats.map((s) => s.id).toList(),
                                 rec.seats.length,
                                 isLoggedIn,
+                                seatLabels: rec.seats.map((s) => s.displayName).toList(),
                               );
                             },
                             child: Text(
@@ -2179,7 +2180,8 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   }
 
   void _goCheckoutWithSeats(
-      List<String> seatIds, int quantity, bool isLoggedIn) {
+      List<String> seatIds, int quantity, bool isLoggedIn,
+      {List<String>? seatLabels}) {
     if (!isLoggedIn) {
       context.push('/login');
       return;
@@ -2189,6 +2191,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       extra: {
         'seatIds': seatIds,
         'quantity': quantity,
+        'seatLabels': seatLabels,
       },
     );
   }
@@ -2254,6 +2257,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                             _selectedSeatIds.toList(),
                             selectedSeats.length,
                             isLoggedIn,
+                            seatLabels: selectedSeats.map((s) => s.displayName).toList(),
                           ),
                   borderRadius: BorderRadius.circular(12),
                   child: Center(
@@ -2831,6 +2835,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                           _selectedSeatIds.toList(),
                           selectedSeats.length,
                           isLoggedIn,
+                          seatLabels: selectedSeats.map((s) => s.displayName).toList(),
                         ),
                 borderRadius: BorderRadius.circular(10),
                 child: Padding(

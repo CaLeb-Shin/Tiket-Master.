@@ -120,6 +120,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               return CheckoutScreen(
                 eventId: eventId,
                 selectedSeatIds: (extra?['seatIds'] as List<String>?) ?? [],
+                selectedSeatLabels: (extra?['seatLabels'] as List<String>?) ?? [],
                 quantity: (extra?['quantity'] as int?) ?? 1,
               );
             },
