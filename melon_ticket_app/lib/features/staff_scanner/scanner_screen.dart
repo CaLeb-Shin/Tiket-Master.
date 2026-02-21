@@ -215,6 +215,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
           style: AppTheme.nanum(
             fontWeight: FontWeight.w700,
             color: AppTheme.textPrimary,
+            shadows: AppTheme.textShadow,
           ),
         ),
         content: TextField(
@@ -362,6 +363,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.textPrimary,
+                    shadows: AppTheme.textShadow,
                   ),
                 ),
               ],
@@ -674,6 +676,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                   color: AppTheme.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
+                  shadows: AppTheme.textShadow,
                 ),
               ),
               const SizedBox(height: 6),
@@ -777,6 +780,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: color,
+                    shadows: AppTheme.textShadowStrong,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -817,6 +821,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
                             color: AppTheme.textPrimary,
+                            shadows: AppTheme.textShadow,
                           ),
                         ),
                       ],
@@ -856,6 +861,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                               color: result.isSuccess
                                   ? Colors.white
                                   : const Color(0xFFFDF3F6),
+                              shadows: AppTheme.textShadowOnDark,
                             ),
                           ),
                         ),
