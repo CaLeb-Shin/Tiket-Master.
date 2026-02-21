@@ -253,31 +253,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                   // --- Title ---
                   _buildTitle(),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 32),
 
-                  // --- 소셜 로그인 버튼 ---
-                  _buildSocialButton(
-                    label: '카카오로 계속하기',
-                    color: const Color(0xFFFEE500),
-                    textColor: const Color(0xFF191600),
-                    logoWidget: SvgPicture.string(_kakaoLogoSvg, width: 20, height: 20),
-                    onTap: _signInWithKakao,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildSocialButton(
-                    label: '네이버로 계속하기',
-                    color: const Color(0xFF03C75A),
-                    textColor: Colors.white,
-                    logoWidget: SvgPicture.string(_naverLogoSvg, width: 18, height: 18),
-                    onTap: _signInWithNaver,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildGoogleButton(),
-                  const SizedBox(height: 28),
-
-                  // --- Divider ---
-                  _buildDivider(),
-                  const SizedBox(height: 28),
+                  // --- Login / Signup Tab ---
+                  _buildTabToggle(),
+                  const SizedBox(height: 24),
 
                   // --- Email Field ---
                   _buildLabel('이메일'),
@@ -297,10 +277,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                   // --- Primary Action Button ---
                   _buildPrimaryButton(),
+                  const SizedBox(height: 28),
+
+                  // --- Divider ---
+                  _buildDivider(),
                   const SizedBox(height: 20),
 
-                  // --- Toggle Sign Up / Sign In ---
-                  _buildToggleRow(),
+                  // --- 소셜 로그인 버튼 ---
+                  _buildSocialButton(
+                    label: '카카오로 계속하기',
+                    color: const Color(0xFFFEE500),
+                    textColor: const Color(0xFF191600),
+                    logoWidget: SvgPicture.string(_kakaoLogoSvg, width: 20, height: 20),
+                    onTap: _signInWithKakao,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSocialButton(
+                    label: '네이버로 계속하기',
+                    color: const Color(0xFF03C75A),
+                    textColor: Colors.white,
+                    logoWidget: SvgPicture.string(_naverLogoSvg, width: 18, height: 18),
+                    onTap: _signInWithNaver,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildGoogleButton(),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -364,7 +364,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         ),
         const SizedBox(height: 8),
         Text(
-          _isSignUp ? '새 계정을 만들어보세요' : '다시 만나서 반가워요',
+          _isSignUp ? '이메일로 간편하게 가입하세요' : '다시 만나서 반가워요',
           style: AppTheme.nanum(
             fontSize: 15,
             fontWeight: FontWeight.w400,
@@ -479,7 +479,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            '또는 이메일로 계속',
+            '또는 소셜 계정으로 계속',
             style: AppTheme.nanum(
               color: AppTheme.textTertiary,
               fontSize: 13,
@@ -730,43 +730,70 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   // ──────────────────────────────────────────────
-  //  Toggle Row (Sign Up / Sign In)
+  //  Tab-style Toggle (로그인 / 회원가입)
   // ──────────────────────────────────────────────
 
-  Widget _buildToggleRow() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          _isSignUp ? '이미 계정이 있으신가요?' : '계정이 없으신가요?',
-          style: AppTheme.nanum(
-            color: AppTheme.textSecondary,
-            fontSize: 14,
-          ),
-        ),
-        TextButton(
-          onPressed: () {
+  Widget _buildTabToggle() {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: AppTheme.cardElevated,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.border, width: 1),
+      ),
+      child: Row(
+        children: [
+          _buildTab('로그인', !_isSignUp),
+          _buildTab('회원가입', _isSignUp),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTab(String label, bool isActive) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          final wantSignUp = label == '회원가입';
+          if (_isSignUp != wantSignUp) {
             setState(() {
-              _isSignUp = !_isSignUp;
+              _isSignUp = wantSignUp;
               _requestAdminApproval = false;
             });
             _formKey.currentState?.reset();
-          },
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            foregroundColor: AppTheme.gold,
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            gradient: isActive ? AppTheme.goldGradient : null,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isActive
+                ? const [
+                    BoxShadow(
+                      color: AppTheme.goldSubtle,
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
-          child: Text(
-            _isSignUp ? '로그인' : '회원가입',
-            style: AppTheme.nanum(
-              color: AppTheme.gold,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              shadows: AppTheme.textShadow,
+          child: Center(
+            child: Text(
+              label,
+              style: AppTheme.nanum(
+                fontSize: 15,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive
+                    ? const Color(0xFFFDF3F6)
+                    : AppTheme.textSecondary,
+                shadows: isActive ? AppTheme.textShadowOnDark : null,
+              ),
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 }
