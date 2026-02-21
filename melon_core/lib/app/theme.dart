@@ -114,6 +114,7 @@ class AppTheme {
     TextDecoration? decoration,
     FontStyle? fontStyle,
     List<Shadow>? shadows,
+    bool noShadow = false,
   }) =>
       TextStyle(
         fontFamily: 'NanumBarunGothic',
@@ -124,7 +125,7 @@ class AppTheme {
         height: height,
         decoration: decoration,
         fontStyle: fontStyle,
-        shadows: shadows,
+        shadows: noShadow ? null : (shadows ?? textShadow),
       );
 
   static TextStyle serif({
@@ -135,6 +136,7 @@ class AppTheme {
     double? height,
     FontStyle? fontStyle,
     List<Shadow>? shadows,
+    bool noShadow = false,
   }) =>
       GoogleFonts.notoSerif(
         fontSize: fontSize,
@@ -143,7 +145,7 @@ class AppTheme {
         letterSpacing: letterSpacing,
         height: height,
         fontStyle: fontStyle,
-        shadows: shadows,
+        shadows: noShadow ? null : (shadows ?? textShadow),
       );
 
   static TextStyle sans({
@@ -153,6 +155,7 @@ class AppTheme {
     double? letterSpacing,
     double? height,
     List<Shadow>? shadows,
+    bool noShadow = false,
   }) =>
       GoogleFonts.inter(
         fontSize: fontSize,
@@ -160,13 +163,14 @@ class AppTheme {
         color: color ?? textPrimary,
         letterSpacing: letterSpacing,
         height: height,
-        shadows: shadows,
+        shadows: noShadow ? null : (shadows ?? textShadow),
       );
 
   static TextStyle label({
     double fontSize = 10,
     Color? color,
     List<Shadow>? shadows,
+    bool noShadow = false,
   }) =>
       GoogleFonts.inter(
         fontSize: fontSize,
@@ -174,7 +178,7 @@ class AppTheme {
         color: color ?? sage,
         letterSpacing: 2.0,
         height: 1.4,
-        shadows: shadows,
+        shadows: noShadow ? null : (shadows ?? textShadow),
       );
 
   // ─── ThemeData ───

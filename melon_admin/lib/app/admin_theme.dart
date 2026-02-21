@@ -88,6 +88,18 @@ class AdminTheme {
     end: Alignment.bottomCenter,
   );
 
+  // ─── Premium Text Shadows ───
+  /// 약한 그림자 — 다크 배경 위 기본 텍스트
+  static const List<Shadow> textShadow = [
+    Shadow(color: Color(0x30000000), offset: Offset(0, 1), blurRadius: 3),
+  ];
+
+  /// 강한 그림자 — 제목, 가격, 큰 숫자
+  static const List<Shadow> textShadowStrong = [
+    Shadow(color: Color(0x40000000), offset: Offset(0, 1), blurRadius: 4),
+    Shadow(color: Color(0x15000000), offset: Offset(0, 2), blurRadius: 8),
+  ];
+
   // ─── Font Helpers ───
   static TextStyle serif({
     double fontSize = 16,
@@ -96,6 +108,8 @@ class AdminTheme {
     double? letterSpacing,
     double? height,
     FontStyle? fontStyle,
+    List<Shadow>? shadows,
+    bool noShadow = false,
   }) =>
       GoogleFonts.notoSerif(
         fontSize: fontSize,
@@ -104,6 +118,7 @@ class AdminTheme {
         letterSpacing: letterSpacing,
         height: height,
         fontStyle: fontStyle,
+        shadows: noShadow ? null : (shadows ?? textShadow),
       );
 
   static TextStyle sans({
@@ -112,6 +127,8 @@ class AdminTheme {
     Color? color,
     double? letterSpacing,
     double? height,
+    List<Shadow>? shadows,
+    bool noShadow = false,
   }) =>
       GoogleFonts.inter(
         fontSize: fontSize,
@@ -119,11 +136,14 @@ class AdminTheme {
         color: color ?? textPrimary,
         letterSpacing: letterSpacing,
         height: height,
+        shadows: noShadow ? null : (shadows ?? textShadow),
       );
 
   static TextStyle label({
     double fontSize = 10,
     Color? color,
+    List<Shadow>? shadows,
+    bool noShadow = false,
   }) =>
       GoogleFonts.inter(
         fontSize: fontSize,
@@ -131,6 +151,7 @@ class AdminTheme {
         color: color ?? sage,
         letterSpacing: 2.0,
         height: 1.4,
+        shadows: noShadow ? null : (shadows ?? textShadow),
       );
 
   // ─── Material ThemeData ───
