@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -827,6 +828,25 @@ class _QrSectionState extends ConsumerState<_QrSection> {
             ),
           ),
         ),
+        if (_qrData != null) ...[
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: _qrData!));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('QR 데이터가 복사되었습니다'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            icon: const Icon(Icons.copy_rounded, size: 14, color: _textSecondary),
+            label: Text(
+              'QR 데이터 복사',
+              style: AppTheme.nanum(fontSize: 12, color: _textSecondary),
+            ),
+          ),
+        ],
       ],
     );
   }

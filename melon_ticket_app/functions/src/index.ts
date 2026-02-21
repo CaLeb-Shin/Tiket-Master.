@@ -742,7 +742,11 @@ export const registerScannerDevice = functions.https.onCall(async (request) => {
     throw new functions.https.HttpsError("permission-denied", "다른 계정에 등록된 기기입니다");
   }
 
-  const approved = existingDoc.exists ? existing.approved === true : false;
+  // admin 역할이면 신규 등록 시 자동 승인
+  const userRole = await getUserRole(scannerUid);
+  const approved = existingDoc.exists
+    ? existing.approved === true
+    : userRole === "admin";
   const blocked = existingDoc.exists ? existing.blocked === true : false;
 
   const payload: Record<string, unknown> = {

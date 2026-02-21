@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = void 0;
+exports.scheduledEventReminders = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -68,6 +68,9 @@ async function assertStaffOrAdmin(uid) {
     }
     return uid;
 }
+function normalizeCheckinStage(value) {
+    return value === "intermission" ? "intermission" : "entry";
+}
 function toDate(value) {
     if (!value)
         return null;
@@ -81,10 +84,109 @@ function toDate(value) {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 // ============================================================
+// 동적 OG 태그 (소셜 미디어 공유 미리보기)
+// ============================================================
+exports.ogMeta = functions.https.onRequest(async (req, res) => {
+    const match = req.path.match(/^\/event\/([a-zA-Z0-9]+)/);
+    if (!match) {
+        res.redirect("/");
+        return;
+    }
+    const eventId = match[1];
+    const eventDoc = await db.collection("events").doc(eventId).get();
+    if (!eventDoc.exists) {
+        res.redirect("/");
+        return;
+    }
+    const event = eventDoc.data();
+    const title = event.title ?? "멜론티켓 공연";
+    const description = event.description
+        ? event.description.substring(0, 150)
+        : "AI 좌석 추천 · 360° 시야 보기 · 모바일 스마트 티켓";
+    const imageUrl = event.imageUrl ?? "";
+    const siteUrl = `https://melonticket-web-20260216.vercel.app/event/${eventId}`;
+    const dateStr = event.startAt
+        ? new Date(event.startAt.toDate()).toLocaleDateString("ko-KR")
+        : "";
+    const venue = event.venueName ?? "";
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${title} - 멜론티켓</title>
+  <meta name="description" content="${description}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="${title}">
+  <meta property="og:description" content="${dateStr ? dateStr + " · " : ""}${venue ? venue + " · " : ""}${description}">
+  <meta property="og:image" content="${imageUrl}">
+  <meta property="og:url" content="${siteUrl}">
+  <meta property="og:site_name" content="멜론티켓">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${title}">
+  <meta name="twitter:description" content="${description}">
+  <meta name="twitter:image" content="${imageUrl}">
+  <meta http-equiv="refresh" content="0;url=${siteUrl}">
+</head>
+<body>
+  <p>리디렉션 중... <a href="${siteUrl}">${title}</a></p>
+</body>
+</html>`;
+    res.status(200).set("Content-Type", "text/html").send(html);
+});
+// ============================================================
+// FCM 푸시 알림 발송 헬퍼
+// ============================================================
+/**
+ * 특정 사용자에게 푸시 알림 발송
+ */
+async function sendPushToUser(userId, title, body, data) {
+    try {
+        const userDoc = await db.collection("users").doc(userId).get();
+        const fcmToken = userDoc.data()?.fcmToken;
+        if (!fcmToken)
+            return;
+        await admin.messaging().send({
+            token: fcmToken,
+            notification: { title, body },
+            data: data ?? {},
+            webpush: {
+                notification: { icon: "/icons/Icon-192.png" },
+            },
+        });
+    }
+    catch (e) {
+        // 만료된 토큰 제거
+        if (e.code === "messaging/registration-token-not-registered") {
+            await db.collection("users").doc(userId).update({
+                fcmToken: admin.firestore.FieldValue.delete(),
+            });
+        }
+        functions.logger.warn(`FCM 발송 실패 (user=${userId}): ${e.message}`);
+    }
+}
+/**
+ * 이벤트의 모든 티켓 소유자에게 푸시 알림 발송
+ */
+async function sendPushToEventUsers(eventId, title, body, data) {
+    const ticketsSnapshot = await db
+        .collection("tickets")
+        .where("eventId", "==", eventId)
+        .where("status", "==", "issued")
+        .get();
+    const userIds = [...new Set(ticketsSnapshot.docs.map((d) => d.data().userId))];
+    let sent = 0;
+    for (const uid of userIds) {
+        await sendPushToUser(uid, title, body, data);
+        sent++;
+    }
+    return sent;
+}
+// ============================================================
 // 1. createOrder - 주문 생성
 // ============================================================
 exports.createOrder = functions.https.onCall(async (request) => {
     const { eventId, quantity } = request.data;
+    const discountPolicyName = request.data?.discountPolicyName;
     const userId = request.auth?.uid;
     const preferredSeatIds = Array.isArray(request.data?.preferredSeatIds)
         ? [...new Set(request.data.preferredSeatIds.filter((v) => typeof v === "string"))]
@@ -108,6 +210,34 @@ exports.createOrder = functions.https.onCall(async (request) => {
     if (quantity > event.availableSeats) {
         throw new functions.https.HttpsError("resource-exhausted", "잔여 좌석이 부족합니다");
     }
+    // ── 할인 정책 검증 및 적용 ──
+    let unitPrice = event.price;
+    let appliedDiscount = null;
+    if (discountPolicyName && Array.isArray(event.discountPolicies)) {
+        const policy = event.discountPolicies.find((p) => p.name === discountPolicyName);
+        if (policy) {
+            // 수량 할인: 최소 수량 충족 확인
+            if (policy.type === "bulk" && quantity < policy.minQuantity) {
+                throw new functions.https.HttpsError("invalid-argument", `이 할인은 최소 ${policy.minQuantity}매 이상 구매 시 적용됩니다`);
+            }
+            const rate = typeof policy.discountRate === "number" ? policy.discountRate : 0;
+            unitPrice = Math.round(event.price * (1 - rate));
+            appliedDiscount = policy.name;
+        }
+    }
+    else if (!discountPolicyName && Array.isArray(event.discountPolicies)) {
+        // 할인 미선택 시 수량 할인 자동 적용 (최대 할인율)
+        let bestRate = 0;
+        for (const p of event.discountPolicies) {
+            if (p.type === "bulk" && quantity >= p.minQuantity && p.discountRate > bestRate) {
+                bestRate = p.discountRate;
+                appliedDiscount = p.name;
+            }
+        }
+        if (bestRate > 0) {
+            unitPrice = Math.round(event.price * (1 - bestRate));
+        }
+    }
     const normalizedPreferred = preferredSeatIds.slice(0, quantity);
     // 주문 생성
     const orderRef = db.collection("orders").doc();
@@ -115,14 +245,16 @@ exports.createOrder = functions.https.onCall(async (request) => {
         eventId,
         userId,
         quantity,
-        unitPrice: event.price,
-        totalAmount: event.price * quantity,
+        unitPrice,
+        totalAmount: unitPrice * quantity,
         preferredSeatIds: normalizedPreferred,
         status: "pending",
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        ...(appliedDiscount ? { appliedDiscount } : {}),
     };
     await orderRef.set(order);
-    functions.logger.info(`주문 생성: ${orderRef.id}, 수량: ${quantity}`);
+    functions.logger.info(`주문 생성: ${orderRef.id}, 수량: ${quantity}, 단가: ${unitPrice}` +
+        (appliedDiscount ? `, 할인: ${appliedDiscount}` : ""));
     return {
         success: true,
         orderId: orderRef.id,
@@ -139,7 +271,7 @@ exports.confirmPaymentAndAssignSeats = functions.https.onCall(async (request) =>
         throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
     }
     // 트랜잭션으로 원자성 보장 (1500석 규모 성능 고려)
-    return db.runTransaction(async (transaction) => {
+    const result = await db.runTransaction(async (transaction) => {
         // 주문 조회
         const orderRef = db.collection("orders").doc(orderId);
         const orderDoc = await transaction.get(orderRef);
@@ -239,8 +371,17 @@ exports.confirmPaymentAndAssignSeats = functions.https.onCall(async (request) =>
             success: true,
             seatBlockId: seatBlockRef.id,
             seatCount: seatIds.length,
+            userId,
+            eventId,
         };
     });
+    // 트랜잭션 성공 시 예매 확정 푸시 알림
+    if (result.success && result.userId) {
+        const eventDoc = await db.collection("events").doc(result.eventId).get();
+        const eventTitle = eventDoc.data()?.title ?? "공연";
+        sendPushToUser(result.userId, "예매가 확정되었습니다!", `${eventTitle} - ${result.seatCount}매 예매 완료`, { type: "booking_confirmed", orderId, eventId: result.eventId }).catch(() => { });
+    }
+    return result;
 });
 /**
  * 연속좌석 탐색 알고리즘
@@ -353,14 +494,14 @@ exports.revealSeatsForEvent = functions.https.onCall(async (request) => {
     }
     await batch.commit();
     functions.logger.info(`좌석 공개: 이벤트 ${eventId}, ${updateCount}개 블록`);
-    // TODO: FCM 푸시 알림 발송
-    // const ticketsSnapshot = await db.collection('tickets')
-    //   .where('eventId', '==', eventId)
-    //   .get();
-    // 각 사용자에게 푸시 알림
+    // FCM 푸시 알림: 좌석 공개 알림
+    const eventDoc2 = await db.collection("events").doc(eventId).get();
+    const eventTitle2 = eventDoc2.data()?.title ?? "공연";
+    const sentCount = await sendPushToEventUsers(eventId, "좌석이 공개되었습니다!", `${eventTitle2} - 지금 바로 좌석을 확인하세요`, { type: "seats_revealed", eventId });
     return {
         success: true,
         revealedBlocks: updateCount,
+        notificationsSent: sentCount,
     };
 });
 // ============================================================
@@ -387,6 +528,9 @@ exports.requestTicketCancellation = functions.https.onCall(async (request) => {
         }
         if (ticket.status !== "issued") {
             throw new functions.https.HttpsError("failed-precondition", "취소 가능한 티켓이 아닙니다");
+        }
+        if (ticket.entryCheckedInAt || ticket.intermissionCheckedInAt) {
+            throw new functions.https.HttpsError("failed-precondition", "입장 체크가 진행된 티켓은 취소할 수 없습니다");
         }
         const eventRef = db.collection("events").doc(ticket.eventId);
         const eventDoc = await transaction.get(eventRef);
@@ -458,7 +602,97 @@ exports.requestTicketCancellation = functions.https.onCall(async (request) => {
     });
 });
 // ============================================================
-// 5. issueQrToken - QR 토큰 발급 (60~120초 유효)
+// 5. registerScannerDevice - 스캐너 기기 등록/승인 상태 조회
+// ============================================================
+exports.registerScannerDevice = functions.https.onCall(async (request) => {
+    const scannerUid = await assertStaffOrAdmin(request.auth?.uid);
+    const { deviceId, label, platform } = request.data ?? {};
+    if (!deviceId || typeof deviceId !== "string") {
+        throw new functions.https.HttpsError("invalid-argument", "기기 ID가 필요합니다");
+    }
+    const trimmedId = deviceId.trim();
+    if (trimmedId.length < 8 || trimmedId.length > 128) {
+        throw new functions.https.HttpsError("invalid-argument", "유효하지 않은 기기 ID입니다");
+    }
+    const userDoc = await db.collection("users").doc(scannerUid).get();
+    const user = userDoc.data() ?? {};
+    const ownerEmail = request.auth?.token?.email ?? user.email ?? "";
+    const ownerDisplayName = user.displayName ||
+        request.auth?.token?.name ||
+        ownerEmail.split("@")[0] ||
+        "scanner-user";
+    const deviceRef = db.collection("scannerDevices").doc(trimmedId);
+    const existingDoc = await deviceRef.get();
+    const existing = existingDoc.data() ?? {};
+    if (existingDoc.exists && existing.ownerUid && existing.ownerUid !== scannerUid) {
+        throw new functions.https.HttpsError("permission-denied", "다른 계정에 등록된 기기입니다");
+    }
+    // admin 역할이면 신규 등록 시 자동 승인
+    const userRole = await getUserRole(scannerUid);
+    const approved = existingDoc.exists
+        ? existing.approved === true
+        : userRole === "admin";
+    const blocked = existingDoc.exists ? existing.blocked === true : false;
+    const payload = {
+        ownerUid: scannerUid,
+        ownerEmail,
+        ownerDisplayName,
+        label: typeof label === "string" && label.trim().length > 0 ? label.trim() : "Scanner Device",
+        platform: typeof platform === "string" && platform.trim().length > 0 ? platform.trim() : "unknown",
+        approved,
+        blocked,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    if (!existingDoc.exists) {
+        payload.requestedAt = admin.firestore.FieldValue.serverTimestamp();
+    }
+    await deviceRef.set(payload, { merge: true });
+    return {
+        success: true,
+        deviceId: trimmedId,
+        approved,
+        blocked,
+        message: blocked
+            ? "차단된 기기입니다"
+            : approved
+                ? "승인된 기기입니다"
+                : "승인 대기 중입니다",
+    };
+});
+// ============================================================
+// 6. setScannerDeviceApproval - 스캐너 기기 승인/해제/차단 (관리자)
+// ============================================================
+exports.setScannerDeviceApproval = functions.https.onCall(async (request) => {
+    const approverUid = await assertAdmin(request.auth?.uid);
+    const { deviceId, approved, blocked } = request.data ?? {};
+    if (!deviceId || typeof deviceId !== "string") {
+        throw new functions.https.HttpsError("invalid-argument", "기기 ID가 필요합니다");
+    }
+    if (typeof approved !== "boolean") {
+        throw new functions.https.HttpsError("invalid-argument", "approved 값이 필요합니다");
+    }
+    const approverDoc = await db.collection("users").doc(approverUid).get();
+    const approverEmail = request.auth?.token?.email ||
+        approverDoc.data()?.email ||
+        "";
+    await db.collection("scannerDevices").doc(deviceId.trim()).set({
+        approved,
+        blocked: blocked === true,
+        approvedAt: approved ? admin.firestore.FieldValue.serverTimestamp() : admin.firestore.FieldValue.delete(),
+        approvedByUid: approved ? approverUid : admin.firestore.FieldValue.delete(),
+        approvedByEmail: approved ? approverEmail : admin.firestore.FieldValue.delete(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return {
+        success: true,
+        deviceId: deviceId.trim(),
+        approved,
+        blocked: blocked === true,
+    };
+});
+// ============================================================
+// 7. issueQrToken - QR 토큰 발급 (60~120초 유효)
 // ============================================================
 exports.issueQrToken = functions.https.onCall(async (request) => {
     const { ticketId } = request.data;
@@ -498,15 +732,66 @@ exports.issueQrToken = functions.https.onCall(async (request) => {
     };
 });
 // ============================================================
-// 6. verifyAndCheckIn - 입장 검증 및 체크인
+// 8. verifyAndCheckIn - 입장 검증 및 체크인(1차/2차)
 // ============================================================
 exports.verifyAndCheckIn = functions.https.onCall(async (request) => {
     const { ticketId, qrToken } = request.data;
+    const scannerDeviceId = request.data?.scannerDeviceId?.trim();
+    const checkinStage = normalizeCheckinStage(request.data?.checkinStage);
     const scannerUid = await assertStaffOrAdmin(request.auth?.uid);
     const actorStaffId = scannerUid;
     if (!ticketId || !qrToken) {
         throw new functions.https.HttpsError("invalid-argument", "잘못된 요청입니다");
     }
+    if (!scannerDeviceId) {
+        await logCheckin(ticketId, actorStaffId, "notAllowedDevice", "기기 ID 누락", {
+            stage: checkinStage,
+        });
+        return {
+            success: false,
+            result: "notAllowedDevice",
+            message: "승인된 스캐너 기기에서만 입장 체크가 가능합니다",
+        };
+    }
+    const scannerDeviceDoc = await db.collection("scannerDevices").doc(scannerDeviceId).get();
+    const scannerDevice = scannerDeviceDoc.data();
+    if (!scannerDeviceDoc.exists || !scannerDevice) {
+        await logCheckin(ticketId, actorStaffId, "notAllowedDevice", "등록되지 않은 기기", {
+            stage: checkinStage,
+            scannerDeviceId,
+        });
+        return {
+            success: false,
+            result: "notAllowedDevice",
+            message: "등록되지 않은 스캐너 기기입니다. 관리자 승인 후 사용해 주세요",
+        };
+    }
+    if (scannerDevice.ownerUid !== scannerUid) {
+        await logCheckin(ticketId, actorStaffId, "notAllowedDevice", "기기 소유자 불일치", {
+            stage: checkinStage,
+            scannerDeviceId,
+        });
+        return {
+            success: false,
+            result: "notAllowedDevice",
+            message: "현재 계정으로 승인된 스캐너 기기가 아닙니다",
+        };
+    }
+    if (scannerDevice.blocked === true || scannerDevice.approved !== true) {
+        await logCheckin(ticketId, actorStaffId, "notAllowedDevice", "미승인/차단 기기", {
+            stage: checkinStage,
+            scannerDeviceId,
+        });
+        return {
+            success: false,
+            result: "notAllowedDevice",
+            message: scannerDevice.blocked === true ? "차단된 스캐너 기기입니다" : "승인 대기 중인 스캐너 기기입니다",
+        };
+    }
+    await db.collection("scannerDevices").doc(scannerDeviceId).set({
+        lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
     // 토큰에서 실제 JWT 추출 (ticketId:token 형식)
     const tokenParts = qrToken.split(":");
     const actualToken = tokenParts.length > 1 ? tokenParts.slice(1).join(":") : qrToken;
@@ -517,7 +802,10 @@ exports.verifyAndCheckIn = functions.https.onCall(async (request) => {
     }
     catch (error) {
         const result = error.name === "TokenExpiredError" ? "expired" : "invalidSignature";
-        await logCheckin(ticketId, actorStaffId, result, error.message);
+        await logCheckin(ticketId, actorStaffId, result, error.message, {
+            stage: checkinStage,
+            scannerDeviceId,
+        });
         return {
             success: false,
             result,
@@ -526,7 +814,11 @@ exports.verifyAndCheckIn = functions.https.onCall(async (request) => {
     }
     // 티켓 ID 일치 확인
     if (decoded.ticketId !== ticketId) {
-        await logCheckin(ticketId, actorStaffId, "invalidTicket", "티켓 ID 불일치");
+        await logCheckin(ticketId, actorStaffId, "invalidTicket", "티켓 ID 불일치", {
+            stage: checkinStage,
+            scannerDeviceId,
+            eventId: decoded?.eventId,
+        });
         return {
             success: false,
             result: "invalidTicket",
@@ -538,7 +830,10 @@ exports.verifyAndCheckIn = functions.https.onCall(async (request) => {
         const ticketRef = db.collection("tickets").doc(ticketId);
         const ticketDoc = await transaction.get(ticketRef);
         if (!ticketDoc.exists) {
-            await logCheckin(ticketId, actorStaffId, "invalidTicket", "티켓 없음");
+            await logCheckin(ticketId, actorStaffId, "invalidTicket", "티켓 없음", {
+                stage: checkinStage,
+                scannerDeviceId,
+            });
             return {
                 success: false,
                 result: "invalidTicket",
@@ -546,31 +841,73 @@ exports.verifyAndCheckIn = functions.https.onCall(async (request) => {
             };
         }
         const ticket = ticketDoc.data();
+        const eventId = ticket.eventId;
         // QR 버전 확인 (재발급 시 이전 QR 무효화)
         if (decoded.qrVersion !== ticket.qrVersion) {
-            await logCheckin(ticketId, actorStaffId, "invalidTicket", "QR 버전 불일치");
+            await logCheckin(ticketId, actorStaffId, "invalidTicket", "QR 버전 불일치", {
+                stage: checkinStage,
+                scannerDeviceId,
+                eventId,
+            });
             return {
                 success: false,
                 result: "invalidTicket",
                 message: "재발급된 QR입니다. 최신 QR을 사용해주세요",
             };
         }
-        // 상태 확인
-        if (ticket.status === "used") {
-            await logCheckin(ticketId, actorStaffId, "alreadyUsed", "이미 사용됨");
-            return {
-                success: false,
-                result: "alreadyUsed",
-                message: "이미 사용된 티켓입니다",
-            };
-        }
         if (ticket.status === "canceled") {
-            await logCheckin(ticketId, actorStaffId, "canceled", "취소된 티켓");
+            await logCheckin(ticketId, actorStaffId, "canceled", "취소된 티켓", {
+                stage: checkinStage,
+                scannerDeviceId,
+                eventId,
+            });
             return {
                 success: false,
                 result: "canceled",
                 message: "취소된 티켓입니다",
             };
+        }
+        const entryCheckedInAt = ticket.entryCheckedInAt;
+        const intermissionCheckedInAt = ticket.intermissionCheckedInAt;
+        if (checkinStage === "entry") {
+            if (entryCheckedInAt || ticket.status === "used" || intermissionCheckedInAt) {
+                await logCheckin(ticketId, actorStaffId, "alreadyUsed", "1차 입장 이미 완료", {
+                    stage: checkinStage,
+                    scannerDeviceId,
+                    eventId,
+                });
+                return {
+                    success: false,
+                    result: "alreadyUsed",
+                    message: "이미 1차 입장이 완료된 티켓입니다",
+                };
+            }
+        }
+        else {
+            if (!entryCheckedInAt) {
+                await logCheckin(ticketId, actorStaffId, "missingEntryCheckin", "1차 입장 미완료", {
+                    stage: checkinStage,
+                    scannerDeviceId,
+                    eventId,
+                });
+                return {
+                    success: false,
+                    result: "missingEntryCheckin",
+                    message: "1차 입장 체크 후 인터미션 재입장을 처리할 수 있습니다",
+                };
+            }
+            if (intermissionCheckedInAt || ticket.status === "used") {
+                await logCheckin(ticketId, actorStaffId, "alreadyUsed", "2차 입장 이미 완료", {
+                    stage: checkinStage,
+                    scannerDeviceId,
+                    eventId,
+                });
+                return {
+                    success: false,
+                    result: "alreadyUsed",
+                    message: "이미 2차 입장까지 완료된 티켓입니다",
+                };
+            }
         }
         // 좌석 정보 조회
         const seatDoc = await transaction.get(db.collection("seats").doc(ticket.seatId));
@@ -578,42 +915,63 @@ exports.verifyAndCheckIn = functions.https.onCall(async (request) => {
         const seatInfo = seat
             ? `${seat.block}구역 ${seat.floor} ${seat.row || ""}열 ${seat.number}번`
             : "좌석 정보 없음";
-        // 체크인 처리
-        transaction.update(ticketRef, {
-            status: "used",
-            usedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        // 좌석 상태도 업데이트
+        if (checkinStage === "entry") {
+            transaction.update(ticketRef, {
+                entryCheckedInAt: admin.firestore.FieldValue.serverTimestamp(),
+                entryCheckinStaffId: actorStaffId,
+                lastCheckInStage: "entry",
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+        else {
+            transaction.update(ticketRef, {
+                intermissionCheckedInAt: admin.firestore.FieldValue.serverTimestamp(),
+                intermissionCheckinStaffId: actorStaffId,
+                lastCheckInStage: "intermission",
+                status: "used",
+                usedAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
         if (seatDoc.exists) {
             transaction.update(seatDoc.ref, { status: "used" });
         }
-        // 체크인 기록
         const checkinRef = db.collection("checkins").doc();
         transaction.set(checkinRef, {
-            eventId: ticket.eventId,
+            eventId,
             ticketId,
             staffId: actorStaffId,
+            scannerDeviceId,
+            stage: checkinStage,
             result: "success",
+            seatInfo,
             scannedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        functions.logger.info(`체크인 성공: 티켓 ${ticketId}, 좌석 ${seatInfo}`);
+        functions.logger.info(`체크인 성공: 티켓 ${ticketId}, 단계=${checkinStage}, 좌석=${seatInfo}, device=${scannerDeviceId}`);
         return {
             success: true,
             result: "success",
-            message: "입장 확인",
+            title: checkinStage === "entry" ? "1차 입장 확인" : "2차 재입장 확인",
+            message: checkinStage === "entry" ? "초기 입장 체크 완료" : "인터미션 재입장 체크 완료",
             seatInfo,
+            stage: checkinStage,
+            ticketStatus: checkinStage === "entry" ? "entryCheckedIn" : "used",
         };
     });
 });
 /**
  * 체크인 로그 기록 (실패 케이스용)
  */
-async function logCheckin(ticketId, staffId, result, errorMessage) {
+async function logCheckin(ticketId, staffId, result, errorMessage, options = {}) {
     try {
         await db.collection("checkins").add({
+            eventId: options.eventId ?? "",
             ticketId,
             staffId: staffId || "unknown",
+            scannerDeviceId: options.scannerDeviceId ?? "",
+            stage: options.stage ?? "entry",
             result,
+            seatInfo: options.seatInfo ?? null,
             errorMessage,
             scannedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
@@ -657,8 +1015,166 @@ exports.scheduledRevealSeats = functions.pubsub
                 batch.update(doc.ref, { hidden: false });
             }
             await batch.commit();
-            // TODO: FCM 푸시 알림 발송
+            // FCM 푸시 알림: 자동 좌석 공개 알림
+            const eventData = eventDoc.data();
+            const title = eventData.title ?? "공연";
+            sendPushToEventUsers(eventId, "좌석이 공개되었습니다!", `${title} - 지금 바로 좌석을 확인하세요`, { type: "seats_revealed", eventId }).catch(() => { });
         }
+    }
+    return null;
+});
+// ============================================================
+// 소셜 로그인 - 카카오 (Custom Token 발급)
+// ============================================================
+/**
+ * 카카오 액세스 토큰을 받아 사용자 정보 조회 후 Firebase Custom Token 발급
+ * 클라이언트: 카카오 JS SDK로 로그인 → 액세스 토큰 획득 → 이 함수 호출
+ */
+exports.signInWithKakao = functions.https.onCall(async (data, context) => {
+    const accessToken = data.accessToken;
+    if (!accessToken) {
+        throw new functions.https.HttpsError("invalid-argument", "카카오 액세스 토큰이 필요합니다");
+    }
+    // 카카오 사용자 정보 조회
+    const kakaoRes = await fetch("https://kapi.kakao.com/v2/user/me", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!kakaoRes.ok) {
+        throw new functions.https.HttpsError("unauthenticated", "카카오 인증 실패");
+    }
+    const kakaoUser = await kakaoRes.json();
+    const kakaoId = String(kakaoUser.id);
+    const email = kakaoUser.kakao_account?.email ?? `kakao_${kakaoId}@melonticket.app`;
+    const displayName = kakaoUser.kakao_account?.profile?.nickname ?? `카카오${kakaoId.slice(-4)}`;
+    const photoUrl = kakaoUser.kakao_account?.profile?.profile_image_url;
+    // Firebase UID = kakao:{kakaoId}
+    const uid = `kakao:${kakaoId}`;
+    // Firestore 사용자 문서 생성/업데이트
+    const userRef = db.collection("users").doc(uid);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+        await userRef.set({
+            email,
+            displayName,
+            photoUrl: photoUrl ?? null,
+            provider: "kakao",
+            kakaoId,
+            role: "user",
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
+    else {
+        await userRef.update({
+            lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
+    // Firebase Custom Token 발급
+    const customToken = await admin.auth().createCustomToken(uid, {
+        provider: "kakao",
+        kakaoId,
+    });
+    return { customToken, uid, displayName, email };
+});
+// ============================================================
+// 소셜 로그인 - 네이버 (Custom Token 발급)
+// ============================================================
+/**
+ * 네이버 액세스 토큰을 받아 사용자 정보 조회 후 Firebase Custom Token 발급
+ * 클라이언트: 네이버 로그인 SDK → 액세스 토큰 → 이 함수 호출
+ */
+exports.signInWithNaver = functions.https.onCall(async (data, context) => {
+    const accessToken = data.accessToken;
+    if (!accessToken) {
+        throw new functions.https.HttpsError("invalid-argument", "네이버 액세스 토큰이 필요합니다");
+    }
+    // 네이버 사용자 정보 조회
+    const naverRes = await fetch("https://openapi.naver.com/v1/nid/me", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!naverRes.ok) {
+        throw new functions.https.HttpsError("unauthenticated", "네이버 인증 실패");
+    }
+    const naverData = await naverRes.json();
+    if (naverData.resultcode !== "00") {
+        throw new functions.https.HttpsError("unauthenticated", "네이버 사용자 정보 조회 실패");
+    }
+    const profile = naverData.response;
+    const naverId = String(profile.id);
+    const email = profile.email ?? `naver_${naverId}@melonticket.app`;
+    const displayName = profile.nickname ?? profile.name ?? `네이버${naverId.slice(-4)}`;
+    const photoUrl = profile.profile_image;
+    // Firebase UID = naver:{naverId}
+    const uid = `naver:${naverId}`;
+    // Firestore 사용자 문서 생성/업데이트
+    const userRef = db.collection("users").doc(uid);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+        await userRef.set({
+            email,
+            displayName,
+            photoUrl: photoUrl ?? null,
+            provider: "naver",
+            naverId,
+            role: "user",
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
+    else {
+        await userRef.update({
+            lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
+    // Firebase Custom Token 발급
+    const customToken = await admin.auth().createCustomToken(uid, {
+        provider: "naver",
+        naverId,
+    });
+    return { customToken, uid, displayName, email };
+});
+// ============================================================
+// 스케줄러: 공연 임박 알림 (3시간 전) + 리뷰 요청 (공연 종료 후)
+// ============================================================
+exports.scheduledEventReminders = functions.pubsub
+    .schedule("every 30 minutes")
+    .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+    const threeHoursFromNow = new Date(now.toDate().getTime() + 3 * 60 * 60 * 1000);
+    const threeAndHalfHoursFromNow = new Date(now.toDate().getTime() + 3.5 * 60 * 60 * 1000);
+    // ── 공연 임박 알림 (3시간 전) ──
+    const upcomingEvents = await db
+        .collection("events")
+        .where("startAt", ">=", admin.firestore.Timestamp.fromDate(threeHoursFromNow))
+        .where("startAt", "<=", admin.firestore.Timestamp.fromDate(threeAndHalfHoursFromNow))
+        .where("status", "==", "active")
+        .get();
+    for (const eventDoc of upcomingEvents.docs) {
+        const eventData = eventDoc.data();
+        if (eventData.reminderSent)
+            continue;
+        const title = eventData.title ?? "공연";
+        const sent = await sendPushToEventUsers(eventDoc.id, "공연이 곧 시작됩니다!", `${title} - 3시간 후 공연이 시작됩니다. 준비하세요!`, { type: "event_reminder", eventId: eventDoc.id });
+        await eventDoc.ref.update({ reminderSent: true });
+        functions.logger.info(`공연 임박 알림: ${eventDoc.id}, ${sent}명`);
+    }
+    // ── 리뷰 요청 알림 (공연 종료 2시간 후) ──
+    const twoHoursAgo = new Date(now.toDate().getTime() - 2 * 60 * 60 * 1000);
+    const twoAndHalfHoursAgo = new Date(now.toDate().getTime() - 2.5 * 60 * 60 * 1000);
+    const endedEvents = await db
+        .collection("events")
+        .where("startAt", ">=", admin.firestore.Timestamp.fromDate(twoAndHalfHoursAgo))
+        .where("startAt", "<=", admin.firestore.Timestamp.fromDate(twoHoursAgo))
+        .where("status", "==", "active")
+        .get();
+    for (const eventDoc of endedEvents.docs) {
+        const eventData = eventDoc.data();
+        if (eventData.reviewReminderSent)
+            continue;
+        const title = eventData.title ?? "공연";
+        const sent = await sendPushToEventUsers(eventDoc.id, "공연은 어떠셨나요?", `${title}의 후기를 남겨주세요! 다른 관객에게 큰 도움이 됩니다.`, { type: "review_request", eventId: eventDoc.id });
+        await eventDoc.ref.update({ reviewReminderSent: true });
+        functions.logger.info(`리뷰 요청 알림: ${eventDoc.id}, ${sent}명`);
     }
     return null;
 });

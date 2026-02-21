@@ -200,6 +200,65 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   }
 
   // ──────────────────────────────────────────────
+  //  Manual QR Input (for web testing)
+  // ──────────────────────────────────────────────
+
+  Future<void> _showManualQrInput() async {
+    final textController = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'QR 수동 입력',
+          style: AppTheme.nanum(
+            fontWeight: FontWeight.w700,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+        content: TextField(
+          controller: textController,
+          autofocus: true,
+          maxLines: 3,
+          style: AppTheme.nanum(color: AppTheme.textPrimary, fontSize: 13),
+          decoration: InputDecoration(
+            hintText: '티켓 QR 데이터를 붙여넣으세요',
+            hintStyle: AppTheme.nanum(color: AppTheme.textTertiary, fontSize: 13),
+            filled: true,
+            fillColor: AppTheme.background,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppTheme.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppTheme.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppTheme.gold, width: 1.5),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('취소', style: AppTheme.nanum(color: AppTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, textController.text),
+            child: Text('확인', style: AppTheme.nanum(color: AppTheme.gold, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (result != null && result.trim().isNotEmpty) {
+      _processQrCode(result.trim());
+    }
+  }
+
+  // ──────────────────────────────────────────────
   //  Build
   // ──────────────────────────────────────────────
 
@@ -338,6 +397,24 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             onPressed: () => _controller.switchCamera(),
             icon: const Icon(
               Icons.cameraswitch_rounded,
+              color: AppTheme.textSecondary,
+              size: 22,
+            ),
+            style: IconButton.styleFrom(
+              backgroundColor: AppTheme.card,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              fixedSize: const Size(40, 40),
+            ),
+          ),
+          const SizedBox(width: 6),
+
+          // Manual QR input
+          IconButton(
+            onPressed: _showManualQrInput,
+            icon: const Icon(
+              Icons.keyboard_rounded,
               color: AppTheme.textSecondary,
               size: 22,
             ),
