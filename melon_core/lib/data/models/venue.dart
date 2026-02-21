@@ -11,6 +11,7 @@ class Venue {
   final List<VenueFloor> floors; // 층별 정보
   final int totalSeats;
   final bool hasSeatView; // 시점 이미지 등록 여부
+  final VenueSeatLayout? seatLayout; // 도트맵 좌석 배치도
   final DateTime createdAt;
 
   Venue({
@@ -23,6 +24,7 @@ class Venue {
     required this.floors,
     required this.totalSeats,
     this.hasSeatView = false,
+    this.seatLayout,
     required this.createdAt,
   });
 
@@ -44,6 +46,9 @@ class Venue {
           [],
       totalSeats: data['totalSeats'] ?? 0,
       hasSeatView: data['hasSeatView'] ?? false,
+      seatLayout: data['seatLayout'] != null
+          ? VenueSeatLayout.fromMap(data['seatLayout'] as Map<String, dynamic>)
+          : null,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
@@ -58,6 +63,7 @@ class Venue {
       'floors': floors.map((f) => f.toMap()).toList(),
       'totalSeats': totalSeats,
       'hasSeatView': hasSeatView,
+      if (seatLayout != null) 'seatLayout': seatLayout!.toMap(),
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
@@ -202,6 +208,157 @@ class VenueBlock {
       'layoutOffset': layoutOffset,
       'layoutDirection': layoutDirection,
       'customRows': customRows.map((row) => row.toMap()).toList(),
+    };
+  }
+}
+
+// ─── 도트맵 좌석 배치도 ───
+
+/// 좌석 유형
+enum SeatType {
+  normal,       // 일반석
+  wheelchair,   // 장애인석
+  reservedHold; // 유보석 (판매 보류)
+
+  static SeatType fromString(String? value) {
+    return SeatType.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => SeatType.normal,
+    );
+  }
+
+  String get displayName {
+    switch (this) {
+      case SeatType.normal:
+        return '일반석';
+      case SeatType.wheelchair:
+        return '장애인석';
+      case SeatType.reservedHold:
+        return '유보석';
+    }
+  }
+}
+
+/// 좌석 배치도에서의 개별 좌석 위치
+class LayoutSeat {
+  final int gridX;
+  final int gridY;
+  final String zone;       // 구역 (A, B, C 등)
+  final String floor;      // 층 (1층, 2층 등)
+  final String row;        // 열 이름 (1, 2, A, B 등)
+  final int number;        // 좌석 번호
+  final String grade;      // 등급 (VIP, R, S, A)
+  final SeatType seatType; // 좌석 유형
+
+  LayoutSeat({
+    required this.gridX,
+    required this.gridY,
+    this.zone = '',
+    this.floor = '1층',
+    this.row = '',
+    this.number = 0,
+    required this.grade,
+    this.seatType = SeatType.normal,
+  });
+
+  String get key => '$gridX,$gridY';
+
+  factory LayoutSeat.fromMap(Map<String, dynamic> map) {
+    return LayoutSeat(
+      gridX: map['x'] ?? 0,
+      gridY: map['y'] ?? 0,
+      zone: map['zone'] ?? '',
+      floor: map['floor'] ?? '1층',
+      row: map['row'] ?? '',
+      number: map['number'] ?? 0,
+      grade: map['grade'] ?? 'A',
+      seatType: SeatType.fromString(map['type']),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'x': gridX,
+      'y': gridY,
+      'zone': zone,
+      'floor': floor,
+      'row': row,
+      'number': number,
+      'grade': grade,
+      'type': seatType.name,
+    };
+  }
+
+  LayoutSeat copyWith({
+    int? gridX,
+    int? gridY,
+    String? zone,
+    String? floor,
+    String? row,
+    int? number,
+    String? grade,
+    SeatType? seatType,
+  }) {
+    return LayoutSeat(
+      gridX: gridX ?? this.gridX,
+      gridY: gridY ?? this.gridY,
+      zone: zone ?? this.zone,
+      floor: floor ?? this.floor,
+      row: row ?? this.row,
+      number: number ?? this.number,
+      grade: grade ?? this.grade,
+      seatType: seatType ?? this.seatType,
+    );
+  }
+}
+
+/// 공연장 좌석 배치도 (도트 그리드 기반)
+class VenueSeatLayout {
+  final int gridCols;
+  final int gridRows;
+  final String stagePosition; // top / bottom
+  final List<LayoutSeat> seats;
+  final Map<String, int> gradePrice; // 등급별 가격
+
+  VenueSeatLayout({
+    this.gridCols = 60,
+    this.gridRows = 40,
+    this.stagePosition = 'top',
+    this.seats = const [],
+    this.gradePrice = const {},
+  });
+
+  int get totalSeats => seats.length;
+
+  Map<String, int> get seatCountByGrade {
+    final counts = <String, int>{};
+    for (final seat in seats) {
+      counts[seat.grade] = (counts[seat.grade] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  factory VenueSeatLayout.fromMap(Map<String, dynamic>? data) {
+    if (data == null) return VenueSeatLayout();
+    return VenueSeatLayout(
+      gridCols: data['gridCols'] ?? 60,
+      gridRows: data['gridRows'] ?? 40,
+      stagePosition: data['stagePosition'] ?? 'top',
+      seats: (data['seats'] as List<dynamic>?)
+              ?.map((s) => LayoutSeat.fromMap(s as Map<String, dynamic>))
+              .toList() ??
+          [],
+      gradePrice: Map<String, int>.from(data['gradePrice'] ?? {}),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'gridCols': gridCols,
+      'gridRows': gridRows,
+      'stagePosition': stagePosition,
+      'seats': seats.map((s) => s.toMap()).toList(),
+      'gradePrice': gradePrice,
     };
   }
 }

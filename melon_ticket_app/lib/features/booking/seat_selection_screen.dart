@@ -9,17 +9,19 @@ import 'package:panorama_viewer/panorama_viewer.dart';
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/event.dart';
 import 'package:melon_core/data/models/seat.dart';
+import 'package:melon_core/data/models/venue.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/data/repositories/venue_repository.dart';
 import 'package:melon_core/data/repositories/venue_view_repository.dart';
 import 'package:melon_core/services/auth_service.dart';
+import 'widgets/seat_dot_map.dart';
 
 // =============================================================================
-// 좌석 선택 화면 (모바일 최적화 - AI추천 / 구역선택 / 빠른예매)
+// 좌석 선택 화면 (모바일 최적화 - AI추천 / 도트맵 / 구역선택 / 빠른예매)
 // =============================================================================
 
-enum _SeatMode { ai, zone, quick }
+enum _SeatMode { ai, dotMap, zone, quick }
 
 class _SeatRecommendation {
   final List<Seat> seats;
@@ -81,6 +83,10 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   bool _isAIRefreshQueued = false;
   final PageController _aiPageController = PageController(viewportFraction: 0.88);
   int _aiCurrentPage = 0;
+
+  // ── Dot Map Mode ──
+  bool _hasDotMap = false;
+  VenueSeatLayout? _dotMapLayout;
 
   // ── Zone Mode ──
   String? _selectedZone;
@@ -257,9 +263,17 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
           final venueViewsAsync = ref.watch(venueViewsProvider(event.venueId));
           final venueViews = venueViewsAsync.valueOrNull ?? {};
           final venueAsync = ref.watch(venueStreamProvider(event.venueId));
+          final venue = venueAsync.valueOrNull;
           final stagePosition =
-              venueAsync.valueOrNull?.stagePosition.toLowerCase() ?? 'top';
+              venue?.stagePosition.toLowerCase() ?? 'top';
           final isStageBottom = stagePosition == 'bottom';
+
+          // 도트맵 레이아웃 확인
+          if (venue?.seatLayout != null &&
+              venue!.seatLayout!.seats.isNotEmpty) {
+            _hasDotMap = true;
+            _dotMapLayout = venue.seatLayout;
+          }
 
           return seatsAsync.when(
             loading: () => const Center(
@@ -369,9 +383,11 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
           child: _mode == _SeatMode.ai
               ? _buildAIMode(
                   seats, event, venueViews, isLoggedIn, isStageBottom)
-              : _mode == _SeatMode.zone
-                  ? _buildZoneMode(seats, event, venueViews)
-                  : _buildQuickMode(seats, event, isStageBottom),
+              : _mode == _SeatMode.dotMap && _dotMapLayout != null
+                  ? _buildDotMapMode(seats, event)
+                  : _mode == _SeatMode.zone
+                      ? _buildZoneMode(seats, event, venueViews)
+                      : _buildQuickMode(seats, event, isStageBottom),
         ),
         _buildBottomBar(event, selectedSeats, totalPrice, isLoggedIn),
       ],
@@ -449,9 +465,15 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       child: Row(
         children: [
           _modeTab(_SeatMode.ai, Icons.auto_awesome_rounded, 'AI 추천'),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
+          if (_hasDotMap)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: _modeTab(
+                  _SeatMode.dotMap, Icons.grid_on_rounded, '좌석 선택'),
+            ),
           _modeTab(_SeatMode.zone, Icons.grid_view_rounded, '구역 선택'),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           _modeTab(_SeatMode.quick, Icons.bolt_rounded, '빠른 예매'),
         ],
       ),
@@ -1345,6 +1367,34 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // DOT MAP MODE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildDotMapMode(List<Seat> seats, Event event) {
+    return SeatDotMap(
+      layout: _dotMapLayout!,
+      seats: seats,
+      selectedSeatIds: _selectedSeatIds,
+      maxSelectable: event.maxTicketsPerOrder > 0
+          ? event.maxTicketsPerOrder
+          : 4,
+      onSeatTap: (seat) {
+        setState(() {
+          if (_selectedSeatIds.contains(seat.id)) {
+            _selectedSeatIds.remove(seat.id);
+          } else {
+            final max = event.maxTicketsPerOrder > 0
+                ? event.maxTicketsPerOrder
+                : 4;
+            if (_selectedSeatIds.length < max) {
+              _selectedSeatIds.add(seat.id);
+            }
+          }
+        });
+      },
+    );
+  }
+
   // ZONE MODE
   // ═══════════════════════════════════════════════════════════════════════════
 

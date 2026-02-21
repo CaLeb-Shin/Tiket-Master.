@@ -2384,6 +2384,22 @@ class _VenueDetailScreenState extends ConsumerState<VenueDetailScreen> {
                 const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      context.push('/venues/${venue.id}/seat-layout');
+                    },
+                    icon: const Icon(Icons.grid_on_rounded, size: 18),
+                    label: Text(
+                      venue.seatLayout != null
+                          ? '도트맵 좌석 편집 (${venue.seatLayout!.totalSeats}석)'
+                          : '도트맵 좌석 배치 만들기',
+                      style: AdminTheme.sans(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () => _deleteVenue(context, ref, venue),
                     style: ElevatedButton.styleFrom(

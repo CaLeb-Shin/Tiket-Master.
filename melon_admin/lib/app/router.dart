@@ -16,6 +16,7 @@ import '../features/admin/admin_bookers_screen.dart';
 import '../features/admin/demo_test_screen.dart';
 import '../features/admin/mock_ticket_screen.dart';
 import '../features/admin/admin_mileage_screen.dart';
+import '../features/admin/seat_layout_editor_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -120,6 +121,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final venueId = state.pathParameters['venueId']!;
               return VenueDetailScreen(venueId: venueId);
+            },
+          ),
+          GoRoute(
+            path: 'venues/:venueId/seat-layout',
+            name: 'adminSeatLayout',
+            builder: (context, state) {
+              final venueId = state.pathParameters['venueId']!;
+              return SeatLayoutEditorScreen(venueId: venueId);
             },
           ),
           GoRoute(

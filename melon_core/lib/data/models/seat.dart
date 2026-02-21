@@ -13,6 +13,9 @@ class Seat {
   final SeatStatus status;
   final String? orderId; // 예약된 경우 주문 ID
   final DateTime? reservedAt;
+  final int? gridX; // 도트맵 X 좌표
+  final int? gridY; // 도트맵 Y 좌표
+  final String seatType; // 좌석 유형 (normal/wheelchair/reserved_hold)
 
   Seat({
     required this.id,
@@ -26,6 +29,9 @@ class Seat {
     required this.status,
     this.orderId,
     this.reservedAt,
+    this.gridX,
+    this.gridY,
+    this.seatType = 'normal',
   });
 
   /// 좌석 표시 문자열
@@ -58,6 +64,9 @@ class Seat {
       status: SeatStatus.fromString(data['status']),
       orderId: data['orderId'],
       reservedAt: (data['reservedAt'] as Timestamp?)?.toDate(),
+      gridX: data['gridX'],
+      gridY: data['gridY'],
+      seatType: data['seatType'] ?? 'normal',
     );
   }
 
@@ -73,6 +82,9 @@ class Seat {
       'status': status.name,
       'orderId': orderId,
       'reservedAt': reservedAt != null ? Timestamp.fromDate(reservedAt!) : null,
+      if (gridX != null) 'gridX': gridX,
+      if (gridY != null) 'gridY': gridY,
+      'seatType': seatType,
     };
   }
 
@@ -81,6 +93,9 @@ class Seat {
     String? orderId,
     DateTime? reservedAt,
     String? grade,
+    int? gridX,
+    int? gridY,
+    String? seatType,
   }) {
     return Seat(
       id: id,
@@ -94,6 +109,9 @@ class Seat {
       status: status ?? this.status,
       orderId: orderId ?? this.orderId,
       reservedAt: reservedAt ?? this.reservedAt,
+      gridX: gridX ?? this.gridX,
+      gridY: gridY ?? this.gridY,
+      seatType: seatType ?? this.seatType,
     );
   }
 }
