@@ -110,7 +110,7 @@
         "npm run build 통과"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "createOrder에 referralCode 파라미터 추가. confirmPaymentAndAssignSeats 트랜잭션 외부에서 마일리지 적립 처리 (트랜잭션 무겁지 않게)."
     },
     {

@@ -136,3 +136,32 @@ Started: 2026-02-21
   - Existing users won't have referralCode — the field is nullable, so sharing works without it (just no ?ref= param)
   - Auth _createUserDocument was missing mileage defaults for email/Google — now fixed alongside referralCode
 ---
+
+## 2026-02-21 - MT-007 (추천 링크로 예매 시 추천인 마일리지 적립)
+- **Client-side ref capture** (`checkout_screen.dart`):
+  - Reads `ref` query parameter from `Uri.base` (web only, via `kIsWeb`)
+  - Passes `referralCode` to `FunctionsService.createOrder()`
+- **FunctionsService updated** (`functions_service.dart`):
+  - `createOrder()` now accepts optional `referralCode` parameter
+- **createOrder Cloud Function** (`index.ts`):
+  - Validates `referralCode` (string, non-empty, trimmed)
+  - Stores `referralCode` in order document (only if present)
+- **confirmPaymentAndAssignSeats updated** (`index.ts`):
+  - After transaction success, processes mileage rewards (outside transaction to keep it lightweight):
+    1. **Purchase mileage**: Buyer gets `Math.floor(totalAmount * 0.05)` points (type: "purchase")
+    2. **Referral mileage**: If order has `referralCode`, find referrer by `referralCode` field → give 500P (type: "referral")
+    3. **Self-referral prevention**: Skips if `referrerId === buyerId`
+  - Mileage errors are caught and logged but don't affect payment success
+- **addMileageInternal helper** (`index.ts`):
+  - New internal function for server-side mileage operations (no admin auth check)
+  - Same logic as `addMileage` callable: updates balance, tier, totalEarned + creates mileageHistory record
+  - Checks balance sufficiency for deductions
+- Files changed: `melon_core/lib/services/functions_service.dart`, `melon_ticket_app/lib/features/checkout/checkout_screen.dart`, `melon_ticket_app/functions/src/index.ts`
+- npm run build: pass, flutter analyze: pass (pre-existing info-level only), functions deployed
+- **Learnings for future iterations:**
+  - `Uri.base` on web contains the full browser URL including query params — simplest way to capture `ref` without threading it through multiple screens
+  - Mileage processing should always be outside the main transaction to avoid making it heavier
+  - `addMileageInternal` avoids circular callable invocation and removes admin-only restriction for server-side usage
+  - Self-referral check is critical: user could share their own link and buy through it
+  - Mileage failures should never block successful payment — use try/catch wrapper
+---
