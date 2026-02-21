@@ -2611,7 +2611,7 @@ class _MileageCard extends ConsumerWidget {
                 children: [
                   // 좌석 업그레이드
                   _guideItem(
-                    icon: Icons.airline_seat_recline_extra_rounded,
+                    icon: Icons.event_seat_rounded,
                     title: '좌석 업그레이드',
                     desc: '마일리지를 적립하면 등급이 올라가고,\n높은 등급일수록 좌석 업그레이드 혜택을\n받을 수 있습니다.',
                   ),
@@ -2619,7 +2619,7 @@ class _MileageCard extends ConsumerWidget {
 
                   // 공유 적립
                   _guideItem(
-                    icon: Icons.share_rounded,
+                    icon: Icons.card_giftcard_rounded,
                     title: '공연 공유 적립',
                     desc: '내가 공유한 공연 링크를 통해 다른 사람이\n예매를 완료하면, 추천 마일리지가\n적립됩니다.',
                   ),
@@ -2627,7 +2627,7 @@ class _MileageCard extends ConsumerWidget {
 
                   // 등급 안내
                   _guideItem(
-                    icon: Icons.workspace_premium_rounded,
+                    icon: Icons.star_outline_rounded,
                     title: '등급 안내',
                     desc: null,
                   ),
@@ -2797,7 +2797,9 @@ class _MileageCard extends ConsumerWidget {
       mileageHistoryStreamProvider((userId: userId, limit: 10)),
     );
 
-    return Container(
+    return GestureDetector(
+      onTap: () => _showMileageGuide(context),
+      child: Container(
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(2),
@@ -2963,6 +2965,7 @@ class _MileageCard extends ConsumerWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
