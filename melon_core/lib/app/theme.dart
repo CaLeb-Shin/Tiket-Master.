@@ -96,6 +96,7 @@ class AppTheme {
     double? height,
     TextDecoration? decoration,
     FontStyle? fontStyle,
+    List<Shadow>? shadows,
   }) =>
       TextStyle(
         fontFamily: 'NanumBarunGothic',
@@ -106,6 +107,7 @@ class AppTheme {
         height: height,
         decoration: decoration,
         fontStyle: fontStyle,
+        shadows: shadows,
       );
 
   static TextStyle serif({

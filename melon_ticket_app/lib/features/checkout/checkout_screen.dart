@@ -37,6 +37,15 @@ const _kakaoLogoSvg =
     '<path d="M12 3C6.48 3 2 6.36 2 10.5c0 2.69 1.82 5.04 4.55 6.35l-.97 3.54c-.08.28.18.52.41.35l3.66-2.45c.77.12 1.57.17 2.38.17 5.52 0 10-3.33 10-7.46S17.52 3 12 3z" fill="#191600"/>'
     '</svg>';
 
+// ─── Premium text shadow for luxury feel ───
+const _premiumShadow = [
+  Shadow(color: Color(0x18000000), offset: Offset(0, 1), blurRadius: 3),
+];
+const _premiumShadowStrong = [
+  Shadow(color: Color(0x22000000), offset: Offset(0, 1), blurRadius: 4),
+  Shadow(color: Color(0x0A000000), offset: Offset(0, 2), blurRadius: 8),
+];
+
 extension on PaymentMethod {
   String get label {
     switch (this) {
@@ -63,20 +72,23 @@ extension on PaymentMethod {
   Widget get logoMark {
     switch (this) {
       case PaymentMethod.naverPay:
-        return SvgPicture.string(_naverLogoSvg, width: 16, height: 16);
+        return SvgPicture.string(_naverLogoSvg, width: 18, height: 18);
       case PaymentMethod.tossPay:
-        return const Text(
+        return Text(
           'toss',
-          style: TextStyle(
+          style: GoogleFonts.inter(
             color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.3,
             height: 1,
+            shadows: const [
+              Shadow(color: Color(0x40000000), offset: Offset(0, 1), blurRadius: 2),
+            ],
           ),
         );
       case PaymentMethod.kakaoPay:
-        return SvgPicture.string(_kakaoLogoSvg, width: 18, height: 18);
+        return SvgPicture.string(_kakaoLogoSvg, width: 20, height: 20);
     }
   }
 }
@@ -145,6 +157,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           style: AppTheme.nanum(
             color: Colors.white,
             fontWeight: FontWeight.w700,
+            shadows: const [
+              Shadow(color: Color(0x40000000), offset: Offset(0, 1), blurRadius: 4),
+            ],
           ),
         ),
       ),
@@ -522,6 +537,7 @@ class _EventSummaryCard extends StatelessWidget {
               fontWeight: FontWeight.w800,
               fontSize: 18,
               letterSpacing: -0.2,
+              shadows: _premiumShadowStrong,
             ),
           ),
           const SizedBox(height: 8),
@@ -593,6 +609,7 @@ class _SectionTitle extends StatelessWidget {
         color: _textPrimary,
         fontSize: 16,
         fontWeight: FontWeight.w800,
+        shadows: _premiumShadow,
       ),
     );
   }
@@ -633,6 +650,7 @@ class _QuantityCard extends StatelessWidget {
                     color: _textPrimary,
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
+                    shadows: _premiumShadowStrong,
                   ),
                 ),
                 Text(
@@ -741,15 +759,50 @@ class _PaymentChip extends StatelessWidget {
             color: isSelected ? _lineBlue : _cardBorder,
             width: isSelected ? 1.5 : 1,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: _lineBlue.withValues(alpha: 0.12),
+                    offset: const Offset(0, 2),
+                    blurRadius: 8,
+                  ),
+                ]
+              : [
+                  const BoxShadow(
+                    color: Color(0x08000000),
+                    offset: Offset(0, 1),
+                    blurRadius: 4,
+                  ),
+                ],
         ),
         child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
-                color: method.color,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.lerp(method.color, Colors.white, 0.15)!,
+                    method.color,
+                    Color.lerp(method.color, Colors.black, 0.08)!,
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: method.color.withValues(alpha: 0.4),
+                    offset: const Offset(0, 2),
+                    blurRadius: 6,
+                  ),
+                  BoxShadow(
+                    color: method.color.withValues(alpha: 0.15),
+                    offset: const Offset(0, 4),
+                    blurRadius: 12,
+                  ),
+                ],
               ),
               child: Center(child: method.logoMark),
             ),
@@ -761,6 +814,7 @@ class _PaymentChip extends StatelessWidget {
                   color: _textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
+                  shadows: _premiumShadow,
                 ),
               ),
             ),
@@ -869,6 +923,7 @@ class _AmountRow extends StatelessWidget {
             color: emphasize ? _textPrimary : _textSecondary,
             fontSize: emphasize ? 15 : 13,
             fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
+            shadows: emphasize ? _premiumShadow : null,
           ),
         ),
         const Spacer(),
@@ -880,6 +935,7 @@ class _AmountRow extends StatelessWidget {
             fontWeight: emphasize ? FontWeight.w800 : FontWeight.w700,
             letterSpacing: emphasize ? -0.3 : 0,
             decoration: strikethrough ? TextDecoration.lineThrough : null,
+            shadows: emphasize ? _premiumShadowStrong : null,
           ),
         ),
       ],
@@ -1080,6 +1136,7 @@ class _DiscountOption extends StatelessWidget {
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
                 color: _textPrimary,
+                shadows: _premiumShadow,
               ),
             ),
           ],
@@ -1223,6 +1280,9 @@ class _BottomPayBar extends StatelessWidget {
                     style: AppTheme.nanum(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
+                      shadows: const [
+                        Shadow(color: Color(0x30000000), offset: Offset(0, 1), blurRadius: 3),
+                      ],
                     ),
                   ),
           ),
