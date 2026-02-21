@@ -14,6 +14,7 @@ import '../features/admin/venue_view_upload_screen.dart';
 import '../features/admin/admin_orders_screen.dart';
 import '../features/admin/admin_bookers_screen.dart';
 import '../features/admin/demo_test_screen.dart';
+import '../features/admin/mock_ticket_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -96,6 +97,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'demo',
             name: 'adminDemo',
             builder: (context, state) => const DemoTestScreen(),
+          ),
+          GoRoute(
+            path: 'mock-tickets',
+            name: 'adminMockTickets',
+            builder: (context, state) => const MockTicketScreen(),
           ),
           GoRoute(
             path: 'venues',
