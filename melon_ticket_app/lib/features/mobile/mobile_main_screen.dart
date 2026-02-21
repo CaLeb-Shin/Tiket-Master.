@@ -2547,6 +2547,240 @@ class _MileageCard extends ConsumerWidget {
     }
   }
 
+  void _showMileageGuide(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 6),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // Title
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.goldGradient,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.star_rounded,
+                        size: 18, color: Color(0xFFFDF3F6)),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '마일리지 안내',
+                    style: AppTheme.serif(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Divider(color: AppTheme.border, height: 0.5),
+
+            // Content
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 좌석 업그레이드
+                  _guideItem(
+                    icon: Icons.airline_seat_recline_extra_rounded,
+                    title: '좌석 업그레이드',
+                    desc: '마일리지를 적립하면 등급이 올라가고,\n높은 등급일수록 좌석 업그레이드 혜택을\n받을 수 있습니다.',
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 공유 적립
+                  _guideItem(
+                    icon: Icons.share_rounded,
+                    title: '공연 공유 적립',
+                    desc: '내가 공유한 공연 링크를 통해 다른 사람이\n예매를 완료하면, 추천 마일리지가\n적립됩니다.',
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 등급 안내
+                  _guideItem(
+                    icon: Icons.workspace_premium_rounded,
+                    title: '등급 안내',
+                    desc: null,
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Tier table
+                  ...MileageTier.values.map((tier) {
+                    final color = _tierColor(tier);
+                    final isCurrent = tier == mileage.tier;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isCurrent
+                            ? color.withValues(alpha: 0.1)
+                            : AppTheme.background,
+                        borderRadius: BorderRadius.circular(8),
+                        border: isCurrent
+                            ? Border.all(
+                                color: color.withValues(alpha: 0.4), width: 1)
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(_tierIcon(tier), size: 16, color: color),
+                          const SizedBox(width: 10),
+                          Text(
+                            tier.displayName,
+                            style: AppTheme.sans(
+                              fontSize: 13,
+                              fontWeight:
+                                  isCurrent ? FontWeight.w700 : FontWeight.w500,
+                              color: isCurrent ? color : AppTheme.textSecondary,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            tier == MileageTier.bronze
+                                ? '0P~'
+                                : '${NumberFormat('#,###').format(tier.minPoints)}P~',
+                            style: AppTheme.sans(
+                              fontSize: 12,
+                              color: AppTheme.textTertiary,
+                            ),
+                          ),
+                          if (isCurrent) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '현재',
+                                style: AppTheme.sans(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: color,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+
+            // Close button
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                  24, 12, 24, MediaQuery.of(context).padding.bottom + 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    backgroundColor: AppTheme.cardElevated,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    '확인',
+                    style: AppTheme.sans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _guideItem({
+    required IconData icon,
+    required String title,
+    String? desc,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: AppTheme.gold.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Icon(icon, size: 15, color: AppTheme.gold),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: AppTheme.sans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              if (desc != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  desc,
+                  style: AppTheme.sans(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tierColor = _tierColor(mileage.tier);
@@ -2577,26 +2811,33 @@ class _MileageCard extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
             child: Row(
               children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: tierColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(_tierIcon(mileage.tier), size: 12, color: tierColor),
-                      const SizedBox(width: 3),
-                      Text(
-                        mileage.tier.displayName,
-                        style: AppTheme.label(
-                          fontSize: 9,
-                          color: tierColor,
+                GestureDetector(
+                  onTap: () => _showMileageGuide(context),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: tierColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_tierIcon(mileage.tier),
+                            size: 12, color: tierColor),
+                        const SizedBox(width: 3),
+                        Text(
+                          mileage.tier.displayName,
+                          style: AppTheme.label(
+                            fontSize: 9,
+                            color: tierColor,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Icon(Icons.help_outline_rounded,
+                            size: 12, color: tierColor.withValues(alpha: 0.6)),
+                      ],
+                    ),
                   ),
                 ),
                 const Spacer(),
