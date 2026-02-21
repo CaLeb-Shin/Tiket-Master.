@@ -165,3 +165,32 @@ Started: 2026-02-21
   - Self-referral check is critical: user could share their own link and buy through it
   - Mileage failures should never block successful payment — use try/catch wrapper
 ---
+
+## 2026-02-21 - MT-008 (마이페이지 마일리지 현황 UI)
+- **MileageRepository** (`melon_core/lib/data/repositories/mileage_repository.dart`):
+  - New repository with `getMileageHistory(userId, limit)` stream
+  - `mileageHistoryStreamProvider` using record type params `({String userId, int limit})`
+  - Queries `mileageHistory` collection ordered by `createdAt` desc
+- **Barrel export** (`melon_core.dart`): Added `mileage_repository.dart`
+- **Profile tab mileage card** (`mobile_main_screen.dart`):
+  - `_MileageCard` widget: tier badge + balance, progress bar to next tier, recent 3 history items
+  - `_MileageHistoryRow` widget: compact row with type, reason, amount (+/-), date
+  - "전체 내역 보기" link when >3 items → navigates to `/mileage`
+  - Tier colors: Bronze(#CD7F32), Silver(#C0C0C0), Gold(#C9A84C), Platinum(#E5E4E2)
+  - Tier icons: circle, hexagon, star, diamond
+- **MileageHistoryScreen** (`melon_ticket_app/lib/features/mileage/mileage_history_screen.dart`):
+  - Full mileage detail page with summary card + complete history list (up to 50 items)
+  - Summary card: tier badge, balance, progress bar to next tier with remaining points
+  - History items: type icon + name, reason, amount with color coding (green +, red -), datetime
+- **Router** (`router.dart`): Added `/mileage` route with auth guard
+- **mileage.dart fix**: Removed unused `cloud_firestore` import
+- Files changed: `mileage.dart`, `mileage_repository.dart` (new), `melon_core.dart`, `mileage_history_screen.dart` (new), `mobile_main_screen.dart`, `router.dart`
+- flutter analyze: pass (all packages, 0 new issues), pushed to Vercel
+- **Learnings for future iterations:**
+  - Mileage is a sub-document of users — accessed via `currentUserProvider.value.mileage` (no separate provider needed)
+  - mileageHistory is a top-level collection (not a subcollection) — query by userId
+  - Record type parameters for family providers: `({String userId, int limit})` syntax
+  - Profile tab `_ProfileTab` is a `ConsumerWidget` — easy to add more ref.watch() calls
+  - AppTheme colors are const — can use `const BoxDecoration` / `const Divider` for perf
+  - Tier progress: `(totalEarned - tier.minPoints) / (nextTier.minPoints - tier.minPoints)`
+---

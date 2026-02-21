@@ -127,7 +127,7 @@
         "flutter analyze 통과"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "디자인: 다크 테마 + 골드 악센트. 등급 색상 - Bronze(#CD7F32), Silver(#C0C0C0), Gold(#C9A84C), Platinum(#E5E4E2). AppTheme 활용."
     },
     {
