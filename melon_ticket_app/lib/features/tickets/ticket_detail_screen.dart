@@ -15,6 +15,7 @@ import 'package:melon_core/data/models/ticket.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/data/repositories/ticket_repository.dart';
+import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/services/functions_service.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
 
@@ -121,11 +122,25 @@ class _TicketDetailBody extends ConsumerWidget {
         final seatAsync = ref.watch(_seatStreamProvider(ticket.seatId));
         final seat = seatAsync.valueOrNull;
         final seatLoading = seatAsync.isLoading;
+        final currentUser = ref.watch(currentUserProvider).valueOrNull;
         final now = DateTime.now();
         final canRequestCancel =
             ticket.status == TicketStatus.issued &&
             !ticket.hasAnyCheckin &&
             event.startAt.isAfter(now);
+
+        // 업그레이드 가능 조건
+        final currentGrade = seat?.grade;
+        final canUpgrade = ticket.status == TicketStatus.issued &&
+            !ticket.hasAnyCheckin &&
+            currentGrade != null &&
+            currentGrade != 'VIP' &&
+            currentUser != null;
+        final upgradeCost = _getUpgradeCost(currentGrade);
+        final targetGrade = _getTargetGrade(currentGrade);
+        final hasEnoughMileage = currentUser != null &&
+            upgradeCost > 0 &&
+            currentUser.mileage.balance >= upgradeCost;
 
         return Column(
           children: [
@@ -145,6 +160,26 @@ class _TicketDetailBody extends ConsumerWidget {
                       ticket: ticket,
                       event: event,
                     ),
+                    if (canUpgrade) ...[
+                      const SizedBox(height: 12),
+                      _UpgradeCard(
+                        currentGrade: currentGrade,
+                        targetGrade: targetGrade,
+                        cost: upgradeCost,
+                        balance: currentUser.mileage.balance,
+                        hasEnoughMileage: hasEnoughMileage,
+                        onUpgrade: hasEnoughMileage
+                            ? () => _requestUpgrade(
+                                  context: context,
+                                  ref: ref,
+                                  ticket: ticket,
+                                  currentGrade: currentGrade,
+                                  targetGrade: targetGrade,
+                                  cost: upgradeCost,
+                                )
+                            : null,
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     _TicketPolicyCard(
                       ticket: ticket,
@@ -272,6 +307,292 @@ class _TicketDetailBody extends ConsumerWidget {
         ),
       );
     }
+  }
+
+  Future<void> _requestUpgrade({
+    required BuildContext context,
+    required WidgetRef ref,
+    required Ticket ticket,
+    required String currentGrade,
+    required String targetGrade,
+    required int cost,
+  }) async {
+    final confirm = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AnimatedDialogContent(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '좌석 업그레이드',
+                style: AppTheme.nanum(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  color: AppTheme.textPrimary,
+                  shadows: AppTheme.textShadow,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _GradeBadge(grade: currentGrade),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Icon(
+                      Icons.arrow_forward_rounded,
+                      color: AppTheme.gold,
+                      size: 20,
+                    ),
+                  ),
+                  _GradeBadge(grade: targetGrade),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '${NumberFormat('#,###', 'ko_KR').format(cost)}P를 사용하여\n좌석 등급을 업그레이드하시겠습니까?',
+                style: AppTheme.nanum(
+                  height: 1.5,
+                  fontSize: 14,
+                  color: AppTheme.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      child: Text('취소', style: AppTheme.nanum()),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ShimmerButton(
+                      text: '업그레이드',
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
+                      height: 48,
+                      borderRadius: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (confirm != true || !context.mounted) return;
+
+    try {
+      final result = await ref
+          .read(functionsServiceProvider)
+          .upgradeTicketSeat(ticketId: ticket.id);
+      if (!context.mounted) return;
+      final newGrade = result['newGrade'] as String? ?? targetGrade;
+      final newSeatDisplay = result['newSeatDisplay'] as String? ?? '';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$newGrade 등급으로 업그레이드 완료! $newSeatDisplay'),
+          backgroundColor: _success,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      final errorMsg = _parseFirebaseError(e.toString());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMsg),
+          backgroundColor: _danger,
+        ),
+      );
+    }
+  }
+}
+
+int _getUpgradeCost(String? grade) {
+  switch (grade) {
+    case 'A':
+      return 2000;
+    case 'S':
+      return 3000;
+    case 'R':
+      return 5000;
+    default:
+      return 0;
+  }
+}
+
+String _getTargetGrade(String? grade) {
+  switch (grade) {
+    case 'A':
+      return 'S';
+    case 'S':
+      return 'R';
+    case 'R':
+      return 'VIP';
+    default:
+      return '';
+  }
+}
+
+Color _gradeColor(String grade) {
+  switch (grade) {
+    case 'VIP':
+      return const Color(0xFFC9A84C);
+    case 'R':
+      return const Color(0xFF6B4FA0);
+    case 'S':
+      return const Color(0xFF2D6A4F);
+    case 'A':
+      return const Color(0xFF3B7DD8);
+    default:
+      return _textSecondary;
+  }
+}
+
+class _GradeBadge extends StatelessWidget {
+  final String grade;
+
+  const _GradeBadge({required this.grade});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _gradeColor(grade);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        grade,
+        style: AppTheme.nanum(
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _UpgradeCard extends StatelessWidget {
+  final String currentGrade;
+  final String targetGrade;
+  final int cost;
+  final int balance;
+  final bool hasEnoughMileage;
+  final VoidCallback? onUpgrade;
+
+  const _UpgradeCard({
+    required this.currentGrade,
+    required this.targetGrade,
+    required this.cost,
+    required this.balance,
+    required this.hasEnoughMileage,
+    this.onUpgrade,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final targetColor = _gradeColor(targetGrade);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: targetColor.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.upgrade_rounded, size: 18, color: targetColor),
+              const SizedBox(width: 6),
+              Text(
+                '좌석 업그레이드',
+                style: AppTheme.nanum(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: _textPrimary,
+                  shadows: AppTheme.textShadow,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _GradeBadge(grade: currentGrade),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Icon(
+                  Icons.arrow_forward_rounded,
+                  color: AppTheme.gold,
+                  size: 16,
+                ),
+              ),
+              _GradeBadge(grade: targetGrade),
+              const Spacer(),
+              Text(
+                '${NumberFormat('#,###', 'ko_KR').format(cost)}P',
+                style: AppTheme.nanum(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: targetColor,
+                  shadows: AppTheme.textShadow,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '보유 마일리지: ${NumberFormat('#,###', 'ko_KR').format(balance)}P',
+            style: AppTheme.nanum(
+              fontSize: 12,
+              color: hasEnoughMileage ? _textSecondary : _danger,
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: hasEnoughMileage
+                ? ShimmerButton(
+                    text: '$targetGrade 등급으로 업그레이드',
+                    onPressed: onUpgrade ?? () {},
+                    height: 44,
+                    borderRadius: 10,
+                  )
+                : OutlinedButton(
+                    onPressed: null,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(44),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      '마일리지 부족',
+                      style: AppTheme.nanum(
+                        color: _textSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

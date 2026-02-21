@@ -121,4 +121,15 @@ class FunctionsService {
     });
     return Map<String, dynamic>.from(result.data);
   }
+
+  /// 마일리지로 좌석 등급 업그레이드
+  Future<Map<String, dynamic>> upgradeTicketSeat({
+    required String ticketId,
+  }) async {
+    final callable = _functions.httpsCallable('upgradeTicketSeat');
+    final result = await callable.call({
+      'ticketId': ticketId,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
 }
