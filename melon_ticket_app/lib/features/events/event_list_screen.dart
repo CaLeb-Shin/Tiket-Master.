@@ -40,6 +40,7 @@ class EventListScreen extends ConsumerWidget {
               style: AppTheme.nanum(
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.5,
+                shadows: AppTheme.textShadow,
               ),
             ),
           ],
@@ -358,6 +359,7 @@ class _EventCard extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                         color: AppTheme.textPrimary,
                         height: 1.3,
+                        shadows: AppTheme.textShadow,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -402,6 +404,7 @@ class _EventCard extends StatelessWidget {
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                               color: AppTheme.primaryDark,
+                              shadows: AppTheme.textShadow,
                             ),
                           ),
                         ),

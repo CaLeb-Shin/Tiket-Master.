@@ -123,6 +123,7 @@ class _AppDownloadBannerState extends State<AppDownloadBanner> {
             fontSize: 16,
             fontWeight: FontWeight.w700,
             color: AppTheme.textPrimary,
+            shadows: AppTheme.textShadow,
           ),
         ),
         content: const Column(

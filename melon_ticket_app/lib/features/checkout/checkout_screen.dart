@@ -37,14 +37,9 @@ const _kakaoLogoSvg =
     '<path d="M12 3C6.48 3 2 6.36 2 10.5c0 2.69 1.82 5.04 4.55 6.35l-.97 3.54c-.08.28.18.52.41.35l3.66-2.45c.77.12 1.57.17 2.38.17 5.52 0 10-3.33 10-7.46S17.52 3 12 3z" fill="#191600"/>'
     '</svg>';
 
-// ─── Premium text shadow for luxury feel ───
-const _premiumShadow = [
-  Shadow(color: Color(0x18000000), offset: Offset(0, 1), blurRadius: 3),
-];
-const _premiumShadowStrong = [
-  Shadow(color: Color(0x22000000), offset: Offset(0, 1), blurRadius: 4),
-  Shadow(color: Color(0x0A000000), offset: Offset(0, 2), blurRadius: 8),
-];
+// ─── Premium text shadows (from AppTheme) ───
+const _premiumShadow = AppTheme.textShadow;
+const _premiumShadowStrong = AppTheme.textShadowStrong;
 
 extension on PaymentMethod {
   String get label {

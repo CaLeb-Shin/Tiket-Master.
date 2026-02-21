@@ -38,6 +38,7 @@ class ReviewSection extends ConsumerWidget {
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.textPrimary,
+                  shadows: AppTheme.textShadow,
                 ),
               ),
               const SizedBox(width: 8),
@@ -176,6 +177,7 @@ class ReviewSection extends ConsumerWidget {
             fontSize: 16,
             fontWeight: FontWeight.w700,
             color: AppTheme.textPrimary,
+            shadows: AppTheme.textShadow,
           ),
         ),
         content: Text(
@@ -501,6 +503,7 @@ class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
               fontSize: 18,
               fontWeight: FontWeight.w700,
               color: AppTheme.textPrimary,
+              shadows: AppTheme.textShadow,
             ),
           ),
           const SizedBox(height: 20),

@@ -86,6 +86,23 @@ class AppTheme {
     end: Alignment.bottomCenter,
   );
 
+  // ─── Premium Text Shadows ───
+  /// 약한 그림자 — 섹션 타이틀, 결제수단 라벨 등
+  static const List<Shadow> textShadow = [
+    Shadow(color: Color(0x18000000), offset: Offset(0, 1), blurRadius: 3),
+  ];
+
+  /// 강한 그림자 — 가격, 공연 제목, 큰 숫자 등
+  static const List<Shadow> textShadowStrong = [
+    Shadow(color: Color(0x22000000), offset: Offset(0, 1), blurRadius: 4),
+    Shadow(color: Color(0x0A000000), offset: Offset(0, 2), blurRadius: 8),
+  ];
+
+  /// 밝은 배경 위 흰 텍스트용 — AppBar, 버튼 등
+  static const List<Shadow> textShadowOnDark = [
+    Shadow(color: Color(0x40000000), offset: Offset(0, 1), blurRadius: 4),
+  ];
+
   // ─── Font Helpers ───
   /// 나눔바른고딕 (bundled, not Google Fonts)
   static TextStyle nanum({
@@ -117,6 +134,7 @@ class AppTheme {
     double? letterSpacing,
     double? height,
     FontStyle? fontStyle,
+    List<Shadow>? shadows,
   }) =>
       GoogleFonts.notoSerif(
         fontSize: fontSize,
@@ -125,6 +143,7 @@ class AppTheme {
         letterSpacing: letterSpacing,
         height: height,
         fontStyle: fontStyle,
+        shadows: shadows,
       );
 
   static TextStyle sans({
@@ -133,6 +152,7 @@ class AppTheme {
     Color? color,
     double? letterSpacing,
     double? height,
+    List<Shadow>? shadows,
   }) =>
       GoogleFonts.inter(
         fontSize: fontSize,
@@ -140,11 +160,13 @@ class AppTheme {
         color: color ?? textPrimary,
         letterSpacing: letterSpacing,
         height: height,
+        shadows: shadows,
       );
 
   static TextStyle label({
     double fontSize = 10,
     Color? color,
+    List<Shadow>? shadows,
   }) =>
       GoogleFonts.inter(
         fontSize: fontSize,
@@ -152,6 +174,7 @@ class AppTheme {
         color: color ?? sage,
         letterSpacing: 2.0,
         height: 1.4,
+        shadows: shadows,
       );
 
   // ─── ThemeData ───
