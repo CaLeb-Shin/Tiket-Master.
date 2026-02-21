@@ -767,8 +767,9 @@ export const requestTicketCancellation = functions.https.onCall(async (data: any
       availableSeats: admin.firestore.FieldValue.increment(1),
     });
 
-    const orderTicketsQuery = db.collection("tickets").where("orderId", "==", ticket.orderId);
-    const orderTicketsSnapshot = await transaction.get(orderTicketsQuery);
+    const orderTicketsSnapshot = await db.collection("tickets")
+      .where("orderId", "==", ticket.orderId)
+      .get();
     const hasRemainingIssued = orderTicketsSnapshot.docs.some((doc) => {
       if (doc.id === ticketId) return false;
       return doc.data().status === "issued";
