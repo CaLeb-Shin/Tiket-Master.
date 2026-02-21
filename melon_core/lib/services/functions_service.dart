@@ -13,6 +13,7 @@ class FunctionsService {
     required int quantity,
     List<String>? preferredSeatIds,
     String? discountPolicyName,
+    String? referralCode,
   }) async {
     final callable = _functions.httpsCallable('createOrder');
     final result = await callable.call({
@@ -22,6 +23,8 @@ class FunctionsService {
         'preferredSeatIds': preferredSeatIds,
       if (discountPolicyName != null)
         'discountPolicyName': discountPolicyName,
+      if (referralCode != null && referralCode.isNotEmpty)
+        'referralCode': referralCode,
     });
     return Map<String, dynamic>.from(result.data);
   }

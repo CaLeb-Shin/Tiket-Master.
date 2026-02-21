@@ -215,6 +215,9 @@ async function sendPushToEventUsers(eventId, title, body, data) {
 exports.createOrder = functions.https.onCall(async (data, context) => {
     const { eventId, quantity } = data;
     const discountPolicyName = data?.discountPolicyName;
+    const referralCode = typeof data?.referralCode === "string" && data.referralCode.trim().length > 0
+        ? data.referralCode.trim()
+        : undefined;
     const userId = context?.auth?.uid;
     const preferredSeatIds = Array.isArray(data?.preferredSeatIds)
         ? [...new Set(data.preferredSeatIds.filter((v) => typeof v === "string"))]
@@ -279,6 +282,7 @@ exports.createOrder = functions.https.onCall(async (data, context) => {
         status: "pending",
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         ...(appliedDiscount ? { appliedDiscount } : {}),
+        ...(referralCode ? { referralCode } : {}),
     };
     await orderRef.set(order);
     functions.logger.info(`주문 생성: ${orderRef.id}, 수량: ${quantity}, 단가: ${unitPrice}` +
@@ -406,11 +410,47 @@ exports.confirmPaymentAndAssignSeats = functions.https.onCall(async (data, conte
             eventId,
         };
     });
-    // 트랜잭션 성공 시 예매 확정 푸시 알림
+    // 트랜잭션 성공 시 후처리 (푸시 알림 + 마일리지 적립)
     if (result.success && result.userId) {
         const eventDoc = await db.collection("events").doc(result.eventId).get();
         const eventTitle = eventDoc.data()?.title ?? "공연";
+        // 푸시 알림
         sendPushToUser(result.userId, "예매가 확정되었습니다!", `${eventTitle} - ${result.seatCount}매 예매 완료`, { type: "booking_confirmed", orderId, eventId: result.eventId }).catch(() => { });
+        // 마일리지 적립 (트랜잭션 외부에서 처리)
+        try {
+            const orderDoc = await db.collection("orders").doc(orderId).get();
+            const orderData = orderDoc.data();
+            if (orderData) {
+                const totalAmount = Number(orderData.totalAmount ?? 0);
+                // 1. 구매자 마일리지 적립 (결제금액의 5%)
+                const purchaseMileage = Math.floor(totalAmount * 0.05);
+                if (purchaseMileage > 0) {
+                    await addMileageInternal(result.userId, purchaseMileage, "purchase", `${eventTitle} 예매 적립 (${result.seatCount}매)`);
+                }
+                // 2. 추천인 마일리지 적립 (500P)
+                const refCode = orderData.referralCode;
+                if (refCode) {
+                    const referrerQuery = await db
+                        .collection("users")
+                        .where("referralCode", "==", refCode)
+                        .limit(1)
+                        .get();
+                    if (!referrerQuery.empty) {
+                        const referrerDoc = referrerQuery.docs[0];
+                        const referrerId = referrerDoc.id;
+                        // 자기 자신 추천 방지
+                        if (referrerId !== result.userId) {
+                            await addMileageInternal(referrerId, 500, "referral", `추천 적립 (${eventTitle})`);
+                            functions.logger.info(`추천 마일리지 적립: referrer=${referrerId}, buyer=${result.userId}, code=${refCode}`);
+                        }
+                    }
+                }
+            }
+        }
+        catch (mileageError) {
+            // 마일리지 적립 실패해도 결제는 성공으로 처리
+            functions.logger.error(`마일리지 적립 실패: ${mileageError.message}`);
+        }
     }
     return result;
 });
@@ -1170,6 +1210,44 @@ exports.signInWithNaver = functions.https.onCall(async (data, context) => {
     });
     return { customToken, uid, displayName, email };
 });
+/**
+ * 내부용 마일리지 적립/차감 헬퍼 (Cloud Function 간 호출용)
+ * addMileage callable과 동일한 로직이지만 권한 검사 없음
+ */
+async function addMileageInternal(userId, amount, type, reason) {
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists)
+        return;
+    const userData = userDoc.data();
+    const currentMileage = userData.mileage ?? { balance: 0, tier: "bronze", totalEarned: 0 };
+    const currentBalance = currentMileage.balance ?? 0;
+    const currentTotalEarned = currentMileage.totalEarned ?? 0;
+    if (amount < 0 && currentBalance + amount < 0)
+        return;
+    const newBalance = currentBalance + amount;
+    const newTotalEarned = amount > 0 ? currentTotalEarned + amount : currentTotalEarned;
+    let newTier = "bronze";
+    if (newTotalEarned >= 30000)
+        newTier = "platinum";
+    else if (newTotalEarned >= 15000)
+        newTier = "gold";
+    else if (newTotalEarned >= 5000)
+        newTier = "silver";
+    await db.collection("mileageHistory").add({
+        userId,
+        amount,
+        type,
+        reason,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    await userRef.update({
+        "mileage.balance": newBalance,
+        "mileage.tier": newTier,
+        "mileage.totalEarned": newTotalEarned,
+    });
+    functions.logger.info(`마일리지 내부 ${amount > 0 ? "적립" : "차감"}: user=${userId}, amount=${amount}, type=${type}, balance=${newBalance}`);
+}
 // ============================================================
 // 9. addMileage - 마일리지 적립/차감
 // ============================================================

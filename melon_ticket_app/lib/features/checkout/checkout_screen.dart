@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -378,11 +379,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final preferredSeatIds =
           widget.selectedSeatIds.take(quantity).toList(growable: false);
 
+      // 추천 코드 추출 (URL의 ref 쿼리 파라미터)
+      String? referralCode;
+      if (kIsWeb) {
+        referralCode = Uri.base.queryParameters['ref'];
+      }
+
       final orderResult = await functionsService.createOrder(
         eventId: widget.eventId,
         quantity: quantity,
         preferredSeatIds: preferredSeatIds,
         discountPolicyName: _selectedDiscount?.name,
+        referralCode: referralCode,
       );
       final orderId = orderResult['orderId'] as String;
 
