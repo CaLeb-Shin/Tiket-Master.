@@ -414,6 +414,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.textPrimary,
+                    shadows: AppTheme.textShadow,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -567,6 +568,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               fontSize: 20,
               fontWeight: FontWeight.w700,
               color: AppTheme.textPrimary,
+              shadows: AppTheme.textShadowStrong,
             ),
           ),
           const SizedBox(height: 6),
@@ -823,6 +825,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
+                        shadows: AppTheme.textShadowStrong,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -844,6 +847,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
                           color: Colors.white,
+                          shadows: AppTheme.textShadowStrong,
                         ),
                       ),
                     ),
@@ -877,6 +881,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                                 fontWeight: FontWeight.w700,
                                 color: const Color(0xFFFDF3F6),
                                 letterSpacing: 0.5,
+                                shadows: AppTheme.textShadowOnDark,
                               ),
                             ),
                           ),
@@ -1859,6 +1864,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                     color: AppTheme.textPrimary,
+                    shadows: AppTheme.textShadow,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1930,6 +1936,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.textPrimary,
+                    shadows: AppTheme.textShadowStrong,
                   ),
                 ),
               ),
@@ -2024,6 +2031,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.gold,
+                          shadows: AppTheme.textShadow,
                         ),
                       ),
                     ],
@@ -2076,6 +2084,9 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                           color: previewSeats.isEmpty
                               ? AppTheme.textTertiary
                               : const Color(0xFFFDF3F6),
+                          shadows: previewSeats.isEmpty
+                              ? null
+                              : AppTheme.textShadowOnDark,
                         ),
                       ),
                     ],
@@ -2218,6 +2229,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                       color: AppTheme.gold,
+                      shadows: AppTheme.textShadowStrong,
                     ),
                   ),
               ],
@@ -2253,6 +2265,9 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                         color: selectedSeats.isEmpty
                             ? AppTheme.textTertiary
                             : const Color(0xFFFDF3F6),
+                        shadows: selectedSeats.isEmpty
+                            ? null
+                            : AppTheme.textShadowOnDark,
                       ),
                     ),
                   ),
@@ -2459,6 +2474,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
           fontWeight: FontWeight.w700,
           color: const Color(0xFFFDF3F6),
           letterSpacing: 4,
+          shadows: AppTheme.textShadow,
         ),
       ),
     );
@@ -2793,6 +2809,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.gold,
+                    shadows: AppTheme.textShadow,
                   ),
                 ),
             ],
@@ -2827,6 +2844,9 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                         color: selectedSeats.isEmpty
                             ? AppTheme.textTertiary
                             : const Color(0xFFFDF3F6),
+                        shadows: selectedSeats.isEmpty
+                            ? null
+                            : AppTheme.textShadowOnDark,
                       ),
                     ),
                   ),
@@ -2955,6 +2975,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                           color: AppTheme.gold,
+                          shadows: AppTheme.textShadow,
                         ),
                       ),
                     ],
@@ -2992,6 +3013,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: const Color(0xFFFDF3F6),
+                          shadows: AppTheme.textShadowOnDark,
                         ),
                       ),
                     ),
@@ -3061,6 +3083,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
                               color: AppTheme.textPrimary,
+                              shadows: AppTheme.textShadow,
                             ),
                           ),
                           const SizedBox(width: 8),
