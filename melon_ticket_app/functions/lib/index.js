@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.scheduledEventReminders = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -234,8 +234,8 @@ exports.createOrder = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError("not-found", "공연을 찾을 수 없습니다");
     }
     const event = eventDoc.data();
-    // 구매 가능 여부 확인
-    if (quantity > event.maxTicketsPerOrder) {
+    // 구매 가능 여부 확인 (0 = 무제한)
+    if (event.maxTicketsPerOrder > 0 && quantity > event.maxTicketsPerOrder) {
         throw new functions.https.HttpsError("invalid-argument", `최대 ${event.maxTicketsPerOrder}매까지 구매 가능합니다`);
     }
     if (quantity > event.availableSeats) {
@@ -1323,6 +1323,129 @@ exports.addMileage = functions.https.onCall(async (data, context) => {
         newTier,
         newTotalEarned,
     };
+});
+// ============================================================
+// 10. upgradeTicketSeat - 마일리지로 좌석 등급 업그레이드
+// ============================================================
+exports.upgradeTicketSeat = functions.https.onCall(async (data, context) => {
+    const { ticketId } = data;
+    const userId = context?.auth?.uid;
+    if (!userId) {
+        throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
+    }
+    if (!ticketId || typeof ticketId !== "string") {
+        throw new functions.https.HttpsError("invalid-argument", "잘못된 요청입니다");
+    }
+    // 등급 순서 및 업그레이드 비용
+    const gradeOrder = ["A", "S", "R", "VIP"];
+    const upgradeCost = {
+        "A": 2000, // A → S
+        "S": 3000, // S → R
+        "R": 5000, // R → VIP
+    };
+    const result = await db.runTransaction(async (transaction) => {
+        // 1. 티켓 조회
+        const ticketRef = db.collection("tickets").doc(ticketId);
+        const ticketDoc = await transaction.get(ticketRef);
+        if (!ticketDoc.exists) {
+            throw new functions.https.HttpsError("not-found", "티켓을 찾을 수 없습니다");
+        }
+        const ticket = ticketDoc.data();
+        if (ticket.userId !== userId) {
+            throw new functions.https.HttpsError("permission-denied", "권한이 없습니다");
+        }
+        if (ticket.status !== "issued") {
+            throw new functions.https.HttpsError("failed-precondition", "발급된 티켓만 업그레이드 가능합니다");
+        }
+        // 2. 현재 좌석 조회 → 등급 확인
+        const currentSeatRef = db.collection("seats").doc(ticket.seatId);
+        const currentSeatDoc = await transaction.get(currentSeatRef);
+        if (!currentSeatDoc.exists) {
+            throw new functions.https.HttpsError("not-found", "현재 좌석 정보를 찾을 수 없습니다");
+        }
+        const currentSeat = currentSeatDoc.data();
+        const currentGrade = (currentSeat.grade ?? "A");
+        const currentGradeIndex = gradeOrder.indexOf(currentGrade);
+        if (currentGradeIndex < 0 || currentGrade === "VIP") {
+            throw new functions.https.HttpsError("failed-precondition", "VIP 좌석은 더 이상 업그레이드할 수 없습니다");
+        }
+        const targetGrade = gradeOrder[currentGradeIndex + 1];
+        const cost = upgradeCost[currentGrade];
+        if (!cost) {
+            throw new functions.https.HttpsError("internal", "업그레이드 비용을 확인할 수 없습니다");
+        }
+        // 3. 사용자 마일리지 확인
+        const userRef = db.collection("users").doc(userId);
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists) {
+            throw new functions.https.HttpsError("not-found", "사용자를 찾을 수 없습니다");
+        }
+        const userData = userDoc.data();
+        const mileage = userData.mileage ?? { balance: 0, tier: "bronze", totalEarned: 0 };
+        const balance = mileage.balance ?? 0;
+        if (balance < cost) {
+            throw new functions.https.HttpsError("failed-precondition", `마일리지가 부족합니다 (필요: ${cost}P, 보유: ${balance}P)`);
+        }
+        // 4. 상위 등급 잔여 좌석 찾기
+        const availableSeatsQuery = await transaction.get(db.collection("seats")
+            .where("eventId", "==", ticket.eventId)
+            .where("grade", "==", targetGrade)
+            .where("status", "==", "available")
+            .limit(1));
+        if (availableSeatsQuery.empty) {
+            throw new functions.https.HttpsError("failed-precondition", `${targetGrade} 등급 잔여 좌석이 없습니다`);
+        }
+        const newSeatDoc = availableSeatsQuery.docs[0];
+        const newSeatRef = newSeatDoc.ref;
+        const newSeat = newSeatDoc.data();
+        // 5. 좌석 교환: 기존 좌석 → available, 새 좌석 → reserved
+        transaction.update(currentSeatRef, {
+            status: "available",
+            orderId: admin.firestore.FieldValue.delete(),
+            reservedAt: admin.firestore.FieldValue.delete(),
+        });
+        transaction.update(newSeatRef, {
+            status: "reserved",
+            orderId: ticket.orderId,
+            reservedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        // 6. 티켓 seatId 업데이트
+        transaction.update(ticketRef, {
+            seatId: newSeatDoc.id,
+            upgradedAt: admin.firestore.FieldValue.serverTimestamp(),
+            previousSeatId: ticket.seatId,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        // 7. 마일리지 차감
+        const newBalance = balance - cost;
+        transaction.update(userRef, {
+            "mileage.balance": newBalance,
+        });
+        // 8. 마일리지 차감 내역 기록
+        const historyRef = db.collection("mileageHistory").doc();
+        transaction.set(historyRef, {
+            userId,
+            amount: -cost,
+            type: "upgrade",
+            reason: `좌석 업그레이드 (${currentGrade} → ${targetGrade})`,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        const newSeatDisplay = newSeat.row
+            ? `${newSeat.block}구역 ${newSeat.floor} ${newSeat.row}열 ${newSeat.number}번`
+            : `${newSeat.block}구역 ${newSeat.floor} ${newSeat.number}번`;
+        functions.logger.info(`좌석 업그레이드: ticket=${ticketId}, ${currentGrade}→${targetGrade}, cost=${cost}P, newSeat=${newSeatDoc.id}`);
+        return {
+            success: true,
+            ticketId,
+            previousGrade: currentGrade,
+            newGrade: targetGrade,
+            newSeatId: newSeatDoc.id,
+            newSeatDisplay,
+            cost,
+            newBalance,
+        };
+    });
+    return result;
 });
 // ============================================================
 // 스케줄러: 공연 임박 알림 (3시간 전) + 리뷰 요청 (공연 종료 후)

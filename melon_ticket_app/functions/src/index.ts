@@ -245,8 +245,8 @@ export const createOrder = functions.https.onCall(async (data: any, context) => 
 
   const event = eventDoc.data()!;
 
-  // 구매 가능 여부 확인
-  if (quantity > event.maxTicketsPerOrder) {
+  // 구매 가능 여부 확인 (0 = 무제한)
+  if (event.maxTicketsPerOrder > 0 && quantity > event.maxTicketsPerOrder) {
     throw new functions.https.HttpsError(
       "invalid-argument",
       `최대 ${event.maxTicketsPerOrder}매까지 구매 가능합니다`
