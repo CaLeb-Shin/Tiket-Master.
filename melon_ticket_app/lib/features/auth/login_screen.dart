@@ -331,10 +331,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             ),
           ],
         ),
-        child: const Icon(
-          Icons.confirmation_number_rounded,
-          size: 40,
-          color: Color(0xFFFDF3F6),
+        child: Center(
+          child: Text(
+            'M',
+            style: AppTheme.nanum(
+              fontSize: 42,
+              fontWeight: FontWeight.w900,
+              color: const Color(0xFFFDF3F6),
+              height: 1,
+              shadows: AppTheme.textShadowOnDark,
+            ),
+          ),
         ),
       ),
     );

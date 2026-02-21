@@ -303,19 +303,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   Widget _buildLogo() {
     return Center(
-      child: Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          gradient: AdminTheme.goldGradient,
-          borderRadius: BorderRadius.circular(4),
-          boxShadow: AdminShadows.elevated,
-        ),
-        child: const Icon(
-          Icons.confirmation_number_rounded,
-          size: 32,
-          color: AdminTheme.onAccent,
-        ),
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              gradient: AdminTheme.goldGradient,
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: AdminShadows.elevated,
+            ),
+            child: Center(
+              child: Text(
+                'M',
+                style: AdminTheme.serif(
+                  color: AdminTheme.onAccent,
+                  fontSize: 34,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'MELON TICKET',
+            style: AdminTheme.label(
+              fontSize: 13,
+              color: AdminTheme.gold,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'ADMIN',
+            style: AdminTheme.label(
+              fontSize: 9,
+              color: AdminTheme.sage,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -327,12 +353,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Widget _buildTitle() {
     return Column(
       children: [
-        Text(
-          'MELON TICKET',
-          style: AdminTheme.label(fontSize: 12, color: AdminTheme.sage),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 8),
         Text(
           _isSignUp ? '새 계정 만들기' : '다시 만나서 반가워요',
           style: AdminTheme.serif(
