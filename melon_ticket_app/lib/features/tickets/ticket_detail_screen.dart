@@ -15,9 +15,11 @@ import 'package:melon_core/data/models/ticket.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/data/repositories/ticket_repository.dart';
+import 'package:melon_core/data/repositories/venue_view_repository.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/services/functions_service.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 const _navy = AppTheme.goldDark;
 const _lineBlue = AppTheme.gold;
@@ -248,7 +250,7 @@ class _TicketDetailBody extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '승차권 반환',
+                '취소/환불',
                 style: AppTheme.nanum(
                   fontWeight: FontWeight.w700,
                   fontSize: 18,
@@ -258,7 +260,7 @@ class _TicketDetailBody extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                '해당 티켓을 반환하고 환불을 진행할까요?\n$policyText',
+                '해당 티켓을 취소하고 환불을 진행할까요?\n$policyText',
                 style: AppTheme.nanum(
                   height: 1.5,
                   fontSize: 14,
@@ -269,18 +271,18 @@ class _TicketDetailBody extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(false),
-                      child: Text('닫기', style: AppTheme.nanum()),
+                    child: ShimmerButton(
+                      text: '취소/환불',
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
+                      height: 48,
+                      borderRadius: 12,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ShimmerButton(
-                      text: '반환 진행',
-                      onPressed: () => Navigator.of(dialogContext).pop(true),
-                      height: 48,
-                      borderRadius: 12,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      child: Text('닫기', style: AppTheme.nanum()),
                     ),
                   ),
                 ],
@@ -623,8 +625,6 @@ class _TicketTopCard extends StatelessWidget {
     final eventDate =
         DateFormat('yyyy년 M월 d일 (E)', 'ko_KR').format(event.startAt);
     final eventTime = DateFormat('HH:mm', 'ko_KR').format(event.startAt);
-    final revealText =
-        DateFormat('M월 d일 HH:mm', 'ko_KR').format(event.revealAt);
     final issuedAtText =
         DateFormat('yyyy.MM.dd HH:mm', 'ko_KR').format(ticket.issuedAt);
 
@@ -706,16 +706,28 @@ class _TicketTopCard extends StatelessWidget {
                 const SizedBox(height: 10),
                 const Divider(color: _cardBorder, height: 1),
                 const SizedBox(height: 10),
-                _TopDataRow(label: '승차권 번호', value: ticket.id, mono: true),
+                _TopDataRow(
+                  label: '예매번호',
+                  value: ticket.id.length > 8
+                      ? ticket.id.substring(ticket.id.length - 8).toUpperCase()
+                      : ticket.id.toUpperCase(),
+                  mono: true,
+                ),
                 _TopDataRow(label: '발행일시', value: issuedAtText),
                 if (seat != null)
                   _TopDataRow(label: '좌석', value: seat!.displayName)
-                else if (!event.isSeatsRevealed)
-                  _TopDataRow(label: '좌석', value: '좌석 공개 대기 ($revealText)')
                 else if (seatLoading)
                   const _TopDataRow(label: '좌석', value: '좌석 정보 확인 중')
                 else
                   const _TopDataRow(label: '좌석', value: '좌석 정보 없음'),
+                if (seat != null && event.venueId.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 7),
+                    child: _SeatViewButton(
+                      venueId: event.venueId,
+                      seat: seat!,
+                    ),
+                  ),
                 const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
@@ -908,9 +920,9 @@ class _BottomActionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final canCancel = canRequestCancel && onCancel != null;
     final cancelLabel = canCancel
-        ? '반환하기'
+        ? '취소/환불'
         : ticket.status == TicketStatus.canceled
-            ? '반환완료'
+            ? '취소완료'
             : ticket.status == TicketStatus.used
                 ? '이용완료'
                 : ticket.hasAnyCheckin
@@ -933,13 +945,13 @@ class _BottomActionBar extends StatelessWidget {
           children: [
             Expanded(
               child: TextButton(
-                onPressed: canCancel ? () => onCancel!() : null,
+                onPressed: onOpenEvent,
                 style: TextButton.styleFrom(
-                  foregroundColor: canCancel ? _navy : _textSecondary,
+                  foregroundColor: _navy,
                   shape: const RoundedRectangleBorder(),
                 ),
                 child: Text(
-                  cancelLabel,
+                  '공연정보',
                   style: AppTheme.nanum(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -951,13 +963,13 @@ class _BottomActionBar extends StatelessWidget {
             Container(width: 1, color: AppTheme.border),
             Expanded(
               child: TextButton(
-                onPressed: onOpenEvent,
+                onPressed: canCancel ? () => onCancel!() : null,
                 style: TextButton.styleFrom(
-                  foregroundColor: _navy,
+                  foregroundColor: canCancel ? _danger : _textSecondary,
                   shape: const RoundedRectangleBorder(),
                 ),
                 child: Text(
-                  '공연정보',
+                  cancelLabel,
                   style: AppTheme.nanum(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -1470,5 +1482,274 @@ Color _statusBackground(TicketStatus status) {
       return const Color(0x1A30D158);
     case TicketStatus.canceled:
       return const Color(0x1AFF5A5F);
+  }
+}
+
+// =============================================================================
+// 내 좌석 보기 (5단계 시야 매칭)
+// =============================================================================
+
+class _SeatViewButton extends ConsumerWidget {
+  final String venueId;
+  final Seat seat;
+
+  const _SeatViewButton({required this.venueId, required this.seat});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final viewsAsync = ref.watch(venueViewsProvider(venueId));
+
+    return viewsAsync.when(
+      data: (views) {
+        if (views.isEmpty) return const SizedBox.shrink();
+
+        // 5단계 시야 매칭
+        final matched = _findBestView(views, seat);
+        if (matched == null) return const SizedBox.shrink();
+
+        return GestureDetector(
+          onTap: () => _showSeatViewSheet(context, matched),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            decoration: BoxDecoration(
+              color: AppTheme.gold.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: AppTheme.gold.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  matched.is360
+                      ? Icons.view_in_ar_rounded
+                      : Icons.visibility_rounded,
+                  size: 16,
+                  color: AppTheme.gold,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '내 좌석 보기',
+                    style: AppTheme.nanum(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.gold,
+                    ),
+                  ),
+                ),
+                Text(
+                  matched.displayName,
+                  style: AppTheme.nanum(
+                    fontSize: 11,
+                    color: AppTheme.gold.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.chevron_right_rounded,
+                    size: 16, color: AppTheme.gold.withValues(alpha: 0.5)),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
+  /// 5단계 시야 매칭: exact seat → exact row → nearest row → seat(no row) → zone
+  VenueSeatView? _findBestView(
+      Map<String, VenueSeatView> views, Seat seat) {
+    final zone = seat.block.trim();
+    final floor = seat.floor.trim();
+    final row = (seat.row ?? '').trim();
+    final number = seat.number;
+
+    // 1. exact seat (zone + floor + row + seat)
+    if (row.isNotEmpty) {
+      final k1 = VenueSeatView.buildKey(
+          zone: zone, floor: floor, row: row, seat: number);
+      if (views.containsKey(k1)) return views[k1];
+    }
+
+    // 2. exact row (zone + floor + row)
+    if (row.isNotEmpty) {
+      final k2 =
+          VenueSeatView.buildKey(zone: zone, floor: floor, row: row);
+      if (views.containsKey(k2)) return views[k2];
+    }
+
+    // 3. nearest row in same zone/floor
+    if (row.isNotEmpty) {
+      final rowNum = int.tryParse(row);
+      if (rowNum != null) {
+        VenueSeatView? nearest;
+        int bestDist = 999;
+        for (final v in views.values) {
+          if (v.zone.trim() == zone &&
+              v.floor.trim() == floor &&
+              v.row != null &&
+              v.seat == null) {
+            final vRow = int.tryParse(v.row!.trim());
+            if (vRow != null) {
+              final dist = (vRow - rowNum).abs();
+              if (dist < bestDist) {
+                bestDist = dist;
+                nearest = v;
+              }
+            }
+          }
+        }
+        if (nearest != null) return nearest;
+      }
+    }
+
+    // 4. seat without row (zone + floor + seat)
+    final k4 = VenueSeatView.buildKey(
+        zone: zone, floor: floor, seat: number);
+    if (views.containsKey(k4)) return views[k4];
+
+    // 5. zone representative (zone + floor)
+    final k5 = VenueSeatView.buildKey(zone: zone, floor: floor);
+    if (views.containsKey(k5)) return views[k5];
+
+    return null;
+  }
+
+  void _showSeatViewSheet(BuildContext context, VenueSeatView view) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.92,
+          expand: false,
+          builder: (_, scrollController) {
+            return Column(
+              children: [
+                // Handle
+                Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 8),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Title
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        view.is360
+                            ? Icons.view_in_ar_rounded
+                            : Icons.visibility_rounded,
+                        size: 20,
+                        color: AppTheme.gold,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '내 좌석에서 본 시야',
+                          style: AppTheme.nanum(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: _textPrimary,
+                            shadows: AppTheme.textShadow,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.gold.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          view.displayName,
+                          style: AppTheme.nanum(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.gold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (view.description != null &&
+                    view.description!.isNotEmpty)
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        view.description!,
+                        style: AppTheme.nanum(
+                          fontSize: 12,
+                          color: _textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                // Image
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: InteractiveViewer(
+                        minScale: 1.0,
+                        maxScale: 4.0,
+                        child: CachedNetworkImage(
+                          imageUrl: view.imageUrl,
+                          fit: BoxFit.contain,
+                          placeholder: (_, __) => const Center(
+                            child: CircularProgressIndicator(
+                                color: AppTheme.gold),
+                          ),
+                          errorWidget: (_, __, ___) => Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.broken_image_rounded,
+                                    size: 40, color: _textSecondary),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '이미지를 불러올 수 없습니다',
+                                  style: AppTheme.nanum(
+                                    fontSize: 13,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                    height: MediaQuery.of(ctx).padding.bottom + 16),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }

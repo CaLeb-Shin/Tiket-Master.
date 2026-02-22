@@ -17,7 +17,6 @@ const _surface = AppTheme.background;
 const _cardBorder = AppTheme.border;
 const _textPrimary = AppTheme.textPrimary;
 const _textSecondary = AppTheme.textSecondary;
-const _textMuted = AppTheme.textTertiary;
 
 class MyTicketsScreen extends ConsumerWidget {
   const MyTicketsScreen({super.key});
@@ -291,25 +290,16 @@ class _TicketCard extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       _metaRow(
-                        label: '승차권번호',
-                        value: ticket.id,
+                        label: '예매번호',
+                        value: ticket.id.length > 8
+                            ? ticket.id.substring(ticket.id.length - 8).toUpperCase()
+                            : ticket.id.toUpperCase(),
                         mono: true,
                       ),
                       _metaRow(
                         label: '발행시각',
                         value: issuedAtText,
                       ),
-                      if (!event.isSeatsRevealed)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            '좌석은 ${DateFormat('M월 d일 HH:mm', 'ko_KR').format(event.revealAt)} 공개',
-                            style: AppTheme.nanum(
-                              fontSize: 11,
-                              color: _textMuted,
-                            ),
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -323,8 +313,7 @@ class _TicketCard extends ConsumerWidget {
                     children: [
                       Expanded(
                         child: TextButton(
-                          onPressed: () =>
-                              context.push('/tickets/${ticket.id}'),
+                          onPressed: () => context.push('/event/${event.id}'),
                           style: TextButton.styleFrom(
                             foregroundColor: AppTheme.textPrimary,
                             shape: const RoundedRectangleBorder(
@@ -334,7 +323,7 @@ class _TicketCard extends ConsumerWidget {
                             ),
                           ),
                           child: Text(
-                            'QR 보기',
+                            '공연 정보',
                             style: AppTheme.nanum(
                               fontWeight: FontWeight.w700,
                               fontSize: 15,
@@ -349,7 +338,8 @@ class _TicketCard extends ConsumerWidget {
                       ),
                       Expanded(
                         child: TextButton(
-                          onPressed: () => context.push('/event/${event.id}'),
+                          onPressed: () =>
+                              context.push('/tickets/${ticket.id}'),
                           style: TextButton.styleFrom(
                             foregroundColor: AppTheme.textPrimary,
                             shape: const RoundedRectangleBorder(
@@ -359,7 +349,7 @@ class _TicketCard extends ConsumerWidget {
                             ),
                           ),
                           child: Text(
-                            '공연 정보',
+                            'QR 보기',
                             style: AppTheme.nanum(
                               fontWeight: FontWeight.w700,
                               fontSize: 15,
