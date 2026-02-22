@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -16,8 +17,56 @@ class WebAdminDashboard extends ConsumerStatefulWidget {
   ConsumerState<WebAdminDashboard> createState() => _WebAdminDashboardState();
 }
 
-class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
+class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard>
+    with SingleTickerProviderStateMixin {
   int _selectedMenuIndex = 0;
+  bool _isDrawerOpen = false;
+  late final AnimationController _drawerController;
+  late final Animation<double> _drawerSlide;
+  late final Animation<double> _scrimFade;
+
+  @override
+  void initState() {
+    super.initState();
+    _drawerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
+    _drawerSlide = CurvedAnimation(
+      parent: _drawerController,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    _scrimFade = CurvedAnimation(
+      parent: _drawerController,
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _drawerController.dispose();
+    super.dispose();
+  }
+
+  void _toggleDrawer() {
+    if (_isDrawerOpen) {
+      _drawerController.reverse().then((_) {
+        if (mounted) setState(() => _isDrawerOpen = false);
+      });
+    } else {
+      setState(() => _isDrawerOpen = true);
+      _drawerController.forward();
+    }
+  }
+
+  void _closeDrawer() {
+    if (_isDrawerOpen) {
+      _drawerController.reverse().then((_) {
+        if (mounted) setState(() => _isDrawerOpen = false);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -108,19 +157,137 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
 
     return Scaffold(
       backgroundColor: AdminTheme.background,
-      body: Row(
-        children: [
-          _Sidebar(
-            selectedIndex: _selectedMenuIndex,
-            onMenuSelected: (index) =>
-                setState(() => _selectedMenuIndex = index),
-            onLogout: () async {
-              await ref.read(authServiceProvider).signOut();
-              if (context.mounted) context.go('/login');
-            },
-          ),
-          Expanded(child: _buildContent()),
-        ],
+      body: KeyboardListener(
+        focusNode: FocusNode()..requestFocus(),
+        onKeyEvent: (event) {
+          if (event is KeyDownEvent &&
+              event.logicalKey == LogicalKeyboardKey.escape) {
+            _closeDrawer();
+          }
+        },
+        child: Stack(
+          children: [
+            // ── Main content ──
+            Column(
+              children: [
+                // Top bar with hamburger menu
+                Container(
+                  height: 56,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: AdminTheme.surface,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: AdminTheme.border,
+                        width: 0.5,
+                      ),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: _toggleDrawer,
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AdminTheme.cardElevated,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(
+                              Icons.menu_rounded,
+                              color: AdminTheme.textPrimary,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          gradient: AdminTheme.goldGradient,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'M',
+                          style: AdminTheme.sans(
+                            color: AdminTheme.onAccent,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'MELON TICKET',
+                        style: AdminTheme.label(
+                          fontSize: 11,
+                          color: AdminTheme.textPrimary,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        currentUser.value?.displayName ?? '',
+                        style: AdminTheme.sans(
+                          fontSize: 12,
+                          color: AdminTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(child: _buildContent()),
+              ],
+            ),
+
+            // ── Scrim (반투명 배경) ──
+            if (_isDrawerOpen)
+              AnimatedBuilder(
+                animation: _scrimFade,
+                builder: (context, child) => GestureDetector(
+                  onTap: _closeDrawer,
+                  child: Container(
+                    color: Colors.black
+                        .withValues(alpha: 0.5 * _scrimFade.value),
+                  ),
+                ),
+              ),
+
+            // ── Drawer overlay ──
+            if (_isDrawerOpen)
+              AnimatedBuilder(
+                animation: _drawerSlide,
+                builder: (context, child) => Transform.translate(
+                  offset: Offset(-260 * (1 - _drawerSlide.value), 0),
+                  child: child,
+                ),
+                child: _Sidebar(
+                  selectedIndex: _selectedMenuIndex,
+                  onMenuSelected: (index) {
+                    setState(() => _selectedMenuIndex = index);
+                    _closeDrawer();
+                  },
+                  onLogout: () async {
+                    _closeDrawer();
+                    await ref.read(authServiceProvider).signOut();
+                    if (context.mounted) context.go('/login');
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -162,12 +329,20 @@ class _SidebarState extends State<_Sidebar> {
   Widget build(BuildContext context) {
     return Container(
       width: 260,
+      height: double.infinity,
       decoration: BoxDecoration(
         color: AdminTheme.surface,
         border: Border(
           right: BorderSide(
-              color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
+              color: AdminTheme.gold.withValues(alpha: 0.1), width: 0.5),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 24,
+            offset: const Offset(4, 0),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -427,12 +602,29 @@ class _DashboardContent extends ConsumerWidget {
               // Hero section
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(32, 28, 32, 28),
+                padding: const EdgeInsets.fromLTRB(36, 36, 36, 32),
                 decoration: BoxDecoration(
-                  color: AdminTheme.surface,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AdminTheme.border, width: 0.5),
-                  boxShadow: AdminShadows.card,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AdminTheme.surface,
+                      AdminTheme.card,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AdminTheme.gold.withValues(alpha: 0.12),
+                    width: 0.5,
+                  ),
+                  boxShadow: [
+                    ...AdminShadows.elevated,
+                    BoxShadow(
+                      color: AdminTheme.gold.withValues(alpha: 0.04),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
@@ -485,10 +677,12 @@ class _DashboardContent extends ConsumerWidget {
                               children: [
                                 _ActionButton(
                                   label: '공연장 관리',
+                                  icon: Icons.location_city_rounded,
                                   onTap: () => context.push('/venues'),
                                 ),
                                 _ActionButton(
                                   label: '새 공연 등록',
+                                  icon: Icons.add_circle_outline_rounded,
                                   onTap: () =>
                                       context.push('/events/create'),
                                 ),
@@ -805,10 +999,12 @@ class _LightCard extends StatelessWidget {
 class _ActionButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
+  final IconData? icon;
 
   const _ActionButton({
     required this.label,
     required this.onTap,
+    this.icon,
   });
 
   @override
@@ -818,26 +1014,42 @@ class _ActionButton extends StatelessWidget {
       child: PressableScale(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           decoration: BoxDecoration(
             gradient: AdminTheme.goldGradient,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(6),
+            boxShadow: [
+              BoxShadow(
+                color: AdminTheme.gold.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (icon != null) ...[
+                Icon(icon, size: 16, color: AdminTheme.onAccent),
+                const SizedBox(width: 8),
+              ],
               Text(
                 label,
                 style: AdminTheme.sans(
                   color: AdminTheme.onAccent,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Container(
-                width: 10,
-                height: 1,
+                width: 14,
+                height: 1.5,
                 color: AdminTheme.onAccent.withValues(alpha: 0.6),
               ),
             ],
@@ -964,15 +1176,18 @@ class _EventRowState extends ConsumerState<_EventRow> {
     final ratio = event.totalSeats > 0 ? soldSeats / event.totalSeats : 0.0;
 
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        color: _isHovered
-            ? AdminTheme.sage.withValues(alpha: 0.04)
-            : Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: Row(
+      child: GestureDetector(
+        onTap: () => _showOptionsMenu(),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          color: _isHovered
+              ? AdminTheme.sage.withValues(alpha: 0.08)
+              : Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Row(
           children: [
             // Event name
             SizedBox(
@@ -1159,6 +1374,43 @@ class _EventRowState extends ConsumerState<_EventRow> {
             ),
           ],
         ),
+      ),
+      ),
+    );
+  }
+
+  void _showOptionsMenu() {
+    final event = widget.event;
+    shad.showDropdown(
+      context: context,
+      builder: (_) => shad.DropdownMenu(
+        children: [
+          shad.MenuButton(
+            child: Text('공연 수정', style: AdminTheme.sans(fontSize: 13)),
+            onPressed: (_) => context.push('/events/${event.id}/edit'),
+          ),
+          shad.MenuButton(
+            child: Text('좌석 관리', style: AdminTheme.sans(fontSize: 13)),
+            onPressed: (_) => context.push('/events/${event.id}/seats'),
+          ),
+          shad.MenuButton(
+            child: Text('배정 현황', style: AdminTheme.sans(fontSize: 13)),
+            onPressed: (_) => context.push('/events/${event.id}/assignments'),
+          ),
+          shad.MenuButton(
+            child: Text('예매자 목록', style: AdminTheme.sans(fontSize: 13)),
+            onPressed: (_) => context.push('/events/${event.id}/bookers'),
+          ),
+          const shad.MenuDivider(),
+          shad.MenuButton(
+            child: Text('공연 복제', style: AdminTheme.sans(fontSize: 13)),
+            onPressed: (_) => _cloneEvent(event),
+          ),
+          shad.MenuButton(
+            child: Text('공연 삭제', style: AdminTheme.sans(fontSize: 13, color: AdminTheme.error)),
+            onPressed: (_) => _showDeleteDialog(event),
+          ),
+        ],
       ),
     );
   }
