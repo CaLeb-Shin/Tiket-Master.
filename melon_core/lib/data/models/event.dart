@@ -189,7 +189,8 @@ enum EventStatus {
   active,
   soldOut,
   canceled,
-  completed;
+  completed,
+  deleted; // 소프트 삭제 (데이터 보존)
 
   static EventStatus fromString(String? value) {
     return EventStatus.values.firstWhere(

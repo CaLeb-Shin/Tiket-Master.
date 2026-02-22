@@ -512,7 +512,7 @@
         "flutter analyze 통과, npm run build 통과"
       ],
       "priority": 27,
-      "passes": false,
+      "passes": true,
       "notes": "안전 제일. 삭제는 소프트 삭제(status=deleted)로 처리하여 데이터 복구 가능. Cloud Function에서 삭제 전 더블체크: tickets 컬렉션에서 eventId 일치 + status in [issued, reserved] 쿼리. 일괄 환불은 batch write로 처리하되, 에스크로 차감은 건별 트랜잭션. 환불 실패 건이 있으면 삭제 차단 유지. EventStatus enum에 deleted 추가."
     },
     {

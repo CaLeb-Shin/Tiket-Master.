@@ -33,12 +33,15 @@ class EventRepository {
 
   EventRepository(this._firestoreService);
 
-  /// 전체 공연 목록 (상태 무관, 통계용)
+  /// 전체 공연 목록 (삭제 제외, 통계용)
   Stream<List<Event>> getAllEvents() {
     return _firestoreService.events
         .orderBy('startAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Event.fromFirestore(doc)).toList());
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Event.fromFirestore(doc))
+            .where((e) => e.status != EventStatus.deleted)
+            .toList());
   }
 
   /// 활성 공연 목록 (판매중/예정)
@@ -74,6 +77,35 @@ class EventRepository {
   /// 공연 업데이트 (어드민)
   Future<void> updateEvent(String eventId, Map<String, dynamic> data) async {
     await _firestoreService.events.doc(eventId).update(data);
+  }
+
+  /// 활성 티켓 수 조회 (삭제 보호용)
+  Future<int> getActiveTicketCount(String eventId) async {
+    final snapshot = await _firestoreService.instance
+        .collection('tickets')
+        .where('eventId', isEqualTo: eventId)
+        .where('status', whereIn: ['issued', 'reserved'])
+        .get();
+    return snapshot.docs.length;
+  }
+
+  /// 사용된(체크인) 티켓 존재 여부
+  Future<bool> hasUsedTickets(String eventId) async {
+    final snapshot = await _firestoreService.instance
+        .collection('tickets')
+        .where('eventId', isEqualTo: eventId)
+        .where('status', isEqualTo: 'used')
+        .limit(1)
+        .get();
+    return snapshot.docs.isNotEmpty;
+  }
+
+  /// 소프트 삭제 — status를 deleted로 변경 (데이터 보존)
+  Future<void> softDeleteEvent(String eventId) async {
+    await _firestoreService.events.doc(eventId).update({
+      'status': 'deleted',
+      'deletedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   /// 공연 삭제 (오너 전용) — 연결된 좌석도 함께 삭제

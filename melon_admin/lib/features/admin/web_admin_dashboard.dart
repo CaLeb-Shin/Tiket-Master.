@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,7 @@ import '../../app/admin_theme.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/models/event.dart';
 import 'package:melon_core/services/auth_service.dart';
+import 'package:melon_core/services/firestore_service.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
 
 class WebAdminDashboard extends ConsumerStatefulWidget {
@@ -1425,8 +1427,117 @@ class _EventRowState extends ConsumerState<_EventRow> {
     context.push('/events/${event.id}/edit?clone=true');
   }
 
-  void _showDeleteDialog(Event event) {
+  Future<void> _showDeleteDialog(Event event) async {
     final soldSeats = event.totalSeats - event.availableSeats;
+
+    // 활성 티켓 및 사용된 티켓 체크
+    final repo = ref.read(eventRepositoryProvider);
+    final activeTickets = await repo.getActiveTicketCount(event.id);
+    final hasUsed = await repo.hasUsedTickets(event.id);
+
+    if (!mounted) return;
+
+    // 사용된(체크인) 티켓이 있으면 삭제 불가
+    if (hasUsed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('이미 체크인된 관객이 있어 삭제할 수 없습니다. (공연 완료 상태)'),
+          backgroundColor: AdminTheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        ),
+      );
+      return;
+    }
+
+    // 활성 티켓이 있으면 삭제 차단
+    if (activeTickets > 0) {
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          backgroundColor: AdminTheme.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 64, height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AdminTheme.warning.withValues(alpha: 0.12),
+                    ),
+                    child: Icon(Icons.shield_rounded, size: 32, color: AdminTheme.warning),
+                  ),
+                  const SizedBox(height: 20),
+                  Text('삭제할 수 없습니다',
+                      style: AdminTheme.serif(fontSize: 20, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AdminTheme.warning.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: AdminTheme.warning.withValues(alpha: 0.3), width: 0.5),
+                    ),
+                    child: Text(
+                      '예매자 $activeTickets명이 있어 삭제할 수 없습니다.\n\n모든 예매자에게 환불 처리를 완료한 후에만 삭제가 가능합니다.',
+                      style: AdminTheme.sans(fontSize: 13, color: AdminTheme.textPrimary, height: 1.5),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 44,
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AdminTheme.textPrimary,
+                              side: BorderSide(color: AdminTheme.border, width: 0.5),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                            ),
+                            child: Text('닫기', style: AdminTheme.sans(fontSize: 13, fontWeight: FontWeight.w600, color: AdminTheme.textSecondary)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 44,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              _showBulkRefundDialog(event, activeTickets);
+                            },
+                            icon: const Icon(Icons.receipt_long_rounded, size: 16),
+                            label: Text('전체 환불', style: AdminTheme.sans(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AdminTheme.warning,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // 활성 티켓 없음 → 소프트 삭제 진행
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1435,7 +1546,7 @@ class _EventRowState extends ConsumerState<_EventRow> {
         soldSeats: soldSeats,
         onConfirmed: () async {
           try {
-            await ref.read(eventRepositoryProvider).deleteEvent(event.id);
+            await ref.read(eventRepositoryProvider).softDeleteEvent(event.id);
             if (ctx.mounted) Navigator.of(ctx).pop();
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -1461,6 +1572,31 @@ class _EventRowState extends ConsumerState<_EventRow> {
                 ),
               );
             }
+          }
+        },
+      ),
+    );
+  }
+
+  // ── 전체 환불 다이얼로그 ──
+  void _showBulkRefundDialog(Event event, int activeTickets) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _BulkRefundDialog(
+        event: event,
+        activeTicketCount: activeTickets,
+        onCompleted: () {
+          Navigator.of(ctx).pop();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('「${event.title}」 전체 환불이 완료되었습니다. 이제 삭제할 수 있습니다.'),
+                backgroundColor: AdminTheme.success,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              ),
+            );
           }
         },
       ),
@@ -1513,7 +1649,7 @@ class _DeleteEventDialogState extends State<_DeleteEventDialog> {
                     const SizedBox(height: 20),
                     Text('삭제 중...', style: AdminTheme.serif(fontSize: 18, fontWeight: FontWeight.w600, color: AdminTheme.error)),
                     const SizedBox(height: 8),
-                    Text('공연 데이터와 좌석을 삭제하고 있습니다.',
+                    Text('공연을 삭제 상태로 전환하고 있습니다.',
                         style: AdminTheme.sans(fontSize: 13, color: AdminTheme.textSecondary)),
                   ],
                 )
@@ -1565,7 +1701,7 @@ class _DeleteEventDialogState extends State<_DeleteEventDialog> {
                         border: Border.all(color: AdminTheme.error.withValues(alpha: 0.3), width: 0.5),
                       ),
                       child: Text(
-                        '이 작업은 되돌릴 수 없습니다. 공연 데이터와 모든 좌석이 영구 삭제됩니다.',
+                        '공연이 목록에서 숨겨지며 삭제 상태로 전환됩니다.',
                         style: AdminTheme.sans(fontSize: 12, color: AdminTheme.error, height: 1.4),
                       ),
                     ),
@@ -1599,6 +1735,293 @@ class _DeleteEventDialogState extends State<_DeleteEventDialog> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                               ),
                               child: Text('삭제', style: AdminTheme.sans(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 전체 환불 다이얼로그
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _BulkRefundDialog extends ConsumerStatefulWidget {
+  final Event event;
+  final int activeTicketCount;
+  final VoidCallback onCompleted;
+
+  const _BulkRefundDialog({
+    required this.event,
+    required this.activeTicketCount,
+    required this.onCompleted,
+  });
+
+  @override
+  ConsumerState<_BulkRefundDialog> createState() => _BulkRefundDialogState();
+}
+
+class _BulkRefundDialogState extends ConsumerState<_BulkRefundDialog> {
+  bool _isProcessing = false;
+  int _processed = 0;
+  String _statusText = '';
+
+  Future<void> _executeBulkRefund() async {
+    setState(() {
+      _isProcessing = true;
+      _processed = 0;
+      _statusText = '환불 처리 준비 중...';
+    });
+
+    try {
+      final firestore = ref.read(firestoreServiceProvider).instance;
+
+      // 활성 티켓 조회
+      final ticketsSnapshot = await firestore
+          .collection('tickets')
+          .where('eventId', isEqualTo: widget.event.id)
+          .where('status', whereIn: ['issued', 'reserved'])
+          .get();
+
+      final total = ticketsSnapshot.docs.length;
+      if (total == 0) {
+        widget.onCompleted();
+        return;
+      }
+
+      // 배치 처리 (500개 단위)
+      var batch = firestore.batch();
+      var pending = 0;
+
+      for (var i = 0; i < ticketsSnapshot.docs.length; i++) {
+        final doc = ticketsSnapshot.docs[i];
+        batch.update(doc.reference, {
+          'status': 'canceled',
+          'canceledAt': FieldValue.serverTimestamp(),
+        });
+        pending++;
+
+        if (pending == 500) {
+          await batch.commit();
+          batch = firestore.batch();
+          pending = 0;
+        }
+
+        setState(() {
+          _processed = i + 1;
+          _statusText = '$_processed / $total건 환불 처리 중...';
+        });
+      }
+
+      // 남은 배치 커밋
+      if (pending > 0) {
+        await batch.commit();
+      }
+
+      // 관련 주문 상태도 업데이트
+      final ordersSnapshot = await firestore
+          .collection('orders')
+          .where('eventId', isEqualTo: widget.event.id)
+          .where('status', isEqualTo: 'paid')
+          .get();
+
+      if (ordersSnapshot.docs.isNotEmpty) {
+        var orderBatch = firestore.batch();
+        var orderPending = 0;
+        for (final doc in ordersSnapshot.docs) {
+          orderBatch.update(doc.reference, {
+            'status': 'refunded',
+            'refundedAt': FieldValue.serverTimestamp(),
+          });
+          orderPending++;
+          if (orderPending == 500) {
+            await orderBatch.commit();
+            orderBatch = firestore.batch();
+            orderPending = 0;
+          }
+        }
+        if (orderPending > 0) {
+          await orderBatch.commit();
+        }
+      }
+
+      // 좌석 상태 복원
+      final seatsSnapshot = await firestore
+          .collection('seats')
+          .where('eventId', isEqualTo: widget.event.id)
+          .where('status', isEqualTo: 'reserved')
+          .get();
+
+      if (seatsSnapshot.docs.isNotEmpty) {
+        var seatBatch = firestore.batch();
+        var seatPending = 0;
+        for (final doc in seatsSnapshot.docs) {
+          seatBatch.update(doc.reference, {
+            'status': 'available',
+            'orderId': FieldValue.delete(),
+            'reservedAt': FieldValue.delete(),
+          });
+          seatPending++;
+          if (seatPending == 500) {
+            await seatBatch.commit();
+            seatBatch = firestore.batch();
+            seatPending = 0;
+          }
+        }
+        if (seatPending > 0) {
+          await seatBatch.commit();
+        }
+      }
+
+      // 이벤트 잔여석 복원
+      await ref.read(eventRepositoryProvider).updateEvent(widget.event.id, {
+        'availableSeats': widget.event.totalSeats,
+        'status': 'canceled',
+      });
+
+      setState(() => _statusText = '환불 완료!');
+      await Future.delayed(const Duration(milliseconds: 500));
+      widget.onCompleted();
+    } catch (e) {
+      setState(() {
+        _isProcessing = false;
+        _statusText = '환불 실패: $e';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = widget.activeTicketCount > 0
+        ? _processed / widget.activeTicketCount
+        : 0.0;
+
+    return Dialog(
+      backgroundColor: AdminTheme.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: _isProcessing
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 60, height: 60,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            value: progress,
+                            strokeWidth: 3,
+                            color: AdminTheme.warning,
+                            backgroundColor: AdminTheme.border,
+                          ),
+                          Text(
+                            '${(progress * 100).round()}%',
+                            style: AdminTheme.sans(fontSize: 12, fontWeight: FontWeight.w700, color: AdminTheme.textPrimary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text('전체 환불 처리 중',
+                        style: AdminTheme.serif(fontSize: 18, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Text(_statusText,
+                        style: AdminTheme.sans(fontSize: 13, color: AdminTheme.textSecondary)),
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 64, height: 64,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AdminTheme.warning.withValues(alpha: 0.12),
+                      ),
+                      child: Icon(Icons.receipt_long_rounded, size: 32, color: AdminTheme.warning),
+                    ),
+                    const SizedBox(height: 20),
+                    Text('전체 환불 처리',
+                        style: AdminTheme.serif(fontSize: 20, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AdminTheme.background,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AdminTheme.border, width: 0.5),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.event.title,
+                              style: AdminTheme.sans(fontSize: 15, fontWeight: FontWeight.w700, color: AdminTheme.textPrimary)),
+                          const SizedBox(height: 4),
+                          Text(
+                            '활성 티켓 ${widget.activeTicketCount}매 환불 예정',
+                            style: AdminTheme.sans(fontSize: 13, color: AdminTheme.warning),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (_statusText.isNotEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AdminTheme.error.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(_statusText,
+                            style: AdminTheme.sans(fontSize: 12, color: AdminTheme.error)),
+                      ),
+                    if (_statusText.isNotEmpty) const SizedBox(height: 12),
+                    Text(
+                      '모든 예매자의 티켓이 취소 처리되며, 좌석이 복원됩니다. 이 작업은 되돌릴 수 없습니다.',
+                      style: AdminTheme.sans(fontSize: 12, color: AdminTheme.textSecondary, height: 1.4),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AdminTheme.textPrimary,
+                                side: BorderSide(color: AdminTheme.border, width: 0.5),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              ),
+                              child: Text('취소', style: AdminTheme.sans(fontSize: 13, fontWeight: FontWeight.w600, color: AdminTheme.textSecondary)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: ElevatedButton(
+                              onPressed: _executeBulkRefund,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AdminTheme.warning,
+                                foregroundColor: AdminTheme.background,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              ),
+                              child: Text('전체 환불 실행', style: AdminTheme.sans(fontSize: 13, fontWeight: FontWeight.w700)),
                             ),
                           ),
                         ),
