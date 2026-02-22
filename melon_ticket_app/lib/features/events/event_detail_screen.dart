@@ -148,6 +148,10 @@ class _DetailBody extends StatelessWidget {
               // ── 관람 후기 ──
               ReviewSection(eventId: event.id),
 
+              // ── Hall 커뮤니티 ──
+              if (event.hallId != null && event.hallId!.isNotEmpty)
+                _HallEntryButton(hallId: event.hallId!, eventTitle: event.title),
+
               const SizedBox(height: 120),
             ],
           ),
@@ -1786,6 +1790,75 @@ class _SessionSelector extends ConsumerWidget {
       },
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+}
+
+// =============================================================================
+// Hall Entry Button
+// =============================================================================
+
+class _HallEntryButton extends StatelessWidget {
+  final String hallId;
+  final String eventTitle;
+  const _HallEntryButton({required this.hallId, required this.eventTitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      child: GestureDetector(
+        onTap: () => context.push('/hall/$hallId'),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppTheme.gold.withValues(alpha: 0.08),
+                AppTheme.gold.withValues(alpha: 0.03),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color: AppTheme.gold.withValues(alpha: 0.2), width: 0.5),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.gold.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.forum_rounded,
+                    size: 20, color: AppTheme.gold),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Hall 입장',
+                        style: AppTheme.sans(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.gold)),
+                    const SizedBox(height: 2),
+                    Text('팬 커뮤니티에서 후기와 이야기를 나눠보세요',
+                        style: AppTheme.sans(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded,
+                  size: 14, color: AppTheme.gold),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

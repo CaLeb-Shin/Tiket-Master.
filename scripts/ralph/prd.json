@@ -556,7 +556,7 @@
         "flutter analyze 통과, npm run build 통과"
       ],
       "priority": 28,
-      "passes": false,
+      "passes": true,
       "notes": "Hall = 공연 커뮤니티 채널. 핵심은 같은 공연 그룹화로 리뷰 통합. halls/{hallId}/posts/{postId}/comments/{commentId} 구조. Event.hallId로 연결. Hall 팔로우는 users/{uid}/followedHalls 서브컬렉션 또는 hallFollowers/{hallId}/users. 리뷰 평균 별점은 Hall 문서에 averageRating, reviewCount 캐시 필드 유지 (Cloud Function onWrite 트리거로 갱신). 부적절 콘텐츠 신고 기능은 추후. 사진 업로드는 Firebase Storage halls/{hallId}/posts/{postId}/ 경로."
     }
   ]

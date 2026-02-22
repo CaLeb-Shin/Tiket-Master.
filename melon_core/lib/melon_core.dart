@@ -16,6 +16,9 @@ export 'data/repositories/review_repository.dart';
 export 'data/repositories/checkin_repository.dart';
 export 'data/repositories/scanner_device_repository.dart';
 export 'data/repositories/mileage_repository.dart';
+export 'data/repositories/hall_repository.dart';
+export 'data/repositories/settlement_repository.dart';
+export 'data/repositories/seller_repository.dart';
 
 // ─── Services ───
 export 'services/auth_service.dart';

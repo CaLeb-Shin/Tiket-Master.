@@ -16,6 +16,7 @@ import '../features/mobile/mobile_main_screen.dart';
 import '../features/demo/demo_flow_screen.dart';
 import '../features/orders/my_orders_screen.dart';
 import '../features/mileage/mileage_history_screen.dart';
+import '../features/hall/hall_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -168,6 +169,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                 },
               ),
             ],
+          ),
+
+          // Hall 커뮤니티
+          GoRoute(
+            path: '/hall/:hallId',
+            name: 'hallDetail',
+            builder: (context, state) {
+              final hallId = state.pathParameters['hallId']!;
+              return HallScreen(hallId: hallId);
+            },
           ),
 
           // 스태프 스캐너

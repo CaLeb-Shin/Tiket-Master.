@@ -19,6 +19,8 @@ import 'package:melon_core/data/models/venue.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/data/repositories/venue_repository.dart';
+import 'package:melon_core/data/repositories/hall_repository.dart';
+import 'package:melon_core/data/models/hall.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/services/storage_service.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
@@ -107,6 +109,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   final List<DiscountPolicy> _discountPolicies = [];
 
   bool _showRemainingSeats = true;
+  String? _hallId; // Hall 커뮤니티 채널 ID
+  final _hallNameCtrl = TextEditingController();
   bool _isSubmitting = false;
   double _submitProgress = 0.0;
   String _submitStage = '';
@@ -261,6 +265,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       'showRemainingSeats': _showRemainingSeats,
       'isStanding': _isStanding,
       'standingCapacity': _standingCapacityCtrl.text,
+      if (_hallId != null) 'hallId': _hallId,
       'discountPolicies':
           _discountPolicies.map((p) => p.toMap()).toList(),
       if (_selectedVenue != null) 'venueId': _selectedVenue!.id,
@@ -334,6 +339,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       _showRemainingSeats = data['showRemainingSeats'] as bool? ?? true;
       _isStanding = data['isStanding'] as bool? ?? false;
       _standingCapacityCtrl.text = data['standingCapacity'] as String? ?? '100';
+      _hallId = data['hallId'] as String?;
 
       if (data['enabledGrades'] != null) {
         _enabledGrades
@@ -414,6 +420,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         _inquiryInfoCtrl.text = event.inquiryInfo ?? '';
         _showRemainingSeats = event.showRemainingSeats;
         _isStanding = event.isStanding;
+        _hallId = event.hallId;
 
         if (event.priceByGrade != null) {
           _enabledGrades
@@ -483,6 +490,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         _inquiryInfoCtrl.text = event.inquiryInfo ?? '';
         _showRemainingSeats = event.showRemainingSeats;
         _isStanding = event.isStanding;
+        _hallId = event.hallId;
 
         if (event.priceByGrade != null) {
           _enabledGrades
@@ -702,6 +710,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
         // ── 비지정석(스탠딩) 토글 ──
         _buildStandingToggle(),
+
+        const SizedBox(height: 20),
+
+        // ── Hall 커뮤니티 연결 ──
+        _buildHallSelector(),
 
         const SizedBox(height: 20),
 
@@ -1298,6 +1311,172 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildHallSelector() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: _hallId != null
+            ? AdminTheme.gold.withValues(alpha: 0.08)
+            : AdminTheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: _hallId != null
+              ? AdminTheme.gold.withValues(alpha: 0.4)
+              : AdminTheme.border,
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.forum_rounded,
+            color: _hallId != null ? AdminTheme.gold : AdminTheme.textSecondary,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hall 커뮤니티 연결',
+                  style: TextStyle(
+                    color: AdminTheme.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _hallId != null
+                      ? 'Hall ID: $_hallId'
+                      : '팬 커뮤니티 채널과 연결 (선택사항)',
+                  style: TextStyle(
+                    color: AdminTheme.textSecondary,
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          if (_hallId != null)
+            IconButton(
+              onPressed: () => setState(() => _hallId = null),
+              icon: Icon(Icons.close_rounded,
+                  size: 18, color: AdminTheme.textSecondary),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          const SizedBox(width: 8),
+          SizedBox(
+            height: 32,
+            child: ElevatedButton(
+              onPressed: _showHallPicker,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AdminTheme.gold.withValues(alpha: 0.15),
+                foregroundColor: AdminTheme.gold,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6)),
+              ),
+              child: Text(
+                _hallId != null ? '변경' : '선택',
+                style: AdminTheme.sans(
+                    fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHallPicker() {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final hallNameCtrl = TextEditingController();
+        return AlertDialog(
+          backgroundColor: AdminTheme.surface,
+          title: Text('Hall 연결', style: AdminTheme.serif(fontSize: 18)),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('새 Hall 생성',
+                    style: AdminTheme.sans(
+                        fontSize: 13, color: AdminTheme.textSecondary)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: hallNameCtrl,
+                  style: AdminTheme.sans(fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: '공연 제목 (예: 레미제라블)',
+                    hintStyle: AdminTheme.sans(
+                        fontSize: 13, color: AdminTheme.textTertiary),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text('또는 기존 Hall ID 직접 입력',
+                    style: AdminTheme.sans(
+                        fontSize: 13, color: AdminTheme.textSecondary)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _hallNameCtrl,
+                  style: AdminTheme.sans(fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Hall ID를 입력하세요',
+                    hintStyle: AdminTheme.sans(
+                        fontSize: 13, color: AdminTheme.textTertiary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('취소',
+                  style: AdminTheme.sans(color: AdminTheme.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (_hallNameCtrl.text.trim().isNotEmpty) {
+                  // 기존 Hall ID 직접 입력
+                  setState(() => _hallId = _hallNameCtrl.text.trim());
+                  _hallNameCtrl.clear();
+                  Navigator.pop(ctx);
+                } else if (hallNameCtrl.text.trim().isNotEmpty) {
+                  // 새 Hall 생성
+                  final hallRepo = ref.read(hallRepositoryProvider);
+                  final hallId = await hallRepo.createHall(Hall(
+                    id: '',
+                    name: hallNameCtrl.text.trim(),
+                    createdBy: 'admin',
+                    createdAt: DateTime.now(),
+                  ));
+                  setState(() => _hallId = hallId);
+                  if (ctx.mounted) Navigator.pop(ctx);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AdminTheme.gold,
+                foregroundColor: AdminTheme.onAccent,
+              ),
+              child: Text('확인',
+                  style: AdminTheme.sans(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -3752,6 +3931,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           'showRemainingSeats': _showRemainingSeats,
           'isStanding': _isStanding,
           'tags': _selectedTags.isNotEmpty ? _selectedTags.toList() : [],
+          if (_hallId != null) 'hallId': _hallId,
         };
 
         // 포스터/팜플렛은 이미 서버에 업로드되어 URL 보유
@@ -3891,6 +4071,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           sessionNumber: si + 1,
           totalSessions: sessionCount,
           isStanding: _isStanding,
+          hallId: _hallId,
         );
 
         // ── Step 1: 이벤트 생성
