@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -401,58 +403,19 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Category tag + 360° tag
-                            if (event.category?.isNotEmpty == true || event.has360View)
+                            // Category tag + 360° + custom tags
+                            if (event.category?.isNotEmpty == true || event.has360View || event.tags.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
+                                child: Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
                                   children: [
                                     if (event.category?.isNotEmpty == true)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color:
-                                              Colors.white.withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(2),
-                                        ),
-                                        child: Text(
-                                          event.category!,
-                                          style: AppTheme.sans(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.white
-                                                .withValues(alpha: 0.85),
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ),
-                                    if (event.has360View) ...[
-                                      if (event.category?.isNotEmpty == true)
-                                        const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFC9A84C).withValues(alpha: 0.25),
-                                          borderRadius: BorderRadius.circular(2),
-                                          border: Border.all(
-                                            color: const Color(0xFFC9A84C).withValues(alpha: 0.5),
-                                            width: 0.5,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          '360° 좌석뷰',
-                                          style: AppTheme.sans(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
-                                            color: const Color(0xFFE8D5A0),
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                      _HeroTag(label: event.category!),
+                                    if (event.has360View)
+                                      const _HeroTag(label: '360° 좌석뷰', isGold: true),
+                                    ...event.tags.map((t) => _HeroTag(label: t)),
                                   ],
                                 ),
                               ),
@@ -1919,6 +1882,66 @@ class _HomeTab extends ConsumerWidget {
 }
 
 // ─── Category Chip (Editorial) ───
+// ─── Hero Tag (glassmorphism 3D) ───
+
+class _HeroTag extends StatelessWidget {
+  final String label;
+  final bool isGold;
+  const _HeroTag({required this.label, this.isGold = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            gradient: isGold
+                ? const LinearGradient(
+                    colors: [Color(0x40C9A84C), Color(0x20A88734)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : LinearGradient(
+                    colors: [
+                      Colors.white.withValues(alpha: 0.18),
+                      Colors.white.withValues(alpha: 0.08),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: isGold
+                  ? const Color(0xFFC9A84C).withValues(alpha: 0.5)
+                  : Colors.white.withValues(alpha: 0.2),
+              width: 0.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Text(
+            label,
+            style: AppTheme.sans(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: isGold ? const Color(0xFFEAD9A0) : Colors.white.withValues(alpha: 0.92),
+              letterSpacing: 0.8,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CategoryChip extends StatelessWidget {
   final String label;
   final bool isSelected;

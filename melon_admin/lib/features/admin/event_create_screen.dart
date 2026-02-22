@@ -55,6 +55,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
   // ── State ──
   String _category = '콘서트';
+  final Set<String> _selectedTags = {};
   String _ageLimit = '전체관람가';
   DateTime _startAt = DateTime.now().add(const Duration(days: 14));
 
@@ -126,6 +127,19 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     '전시/행사',
     '팬미팅',
     '기타',
+  ];
+
+  static const _availableTags = [
+    '내한',
+    '단독',
+    '앵콜',
+    '월드투어',
+    '페스티벌',
+    '첫 내한',
+    '한정',
+    '프리미엄',
+    '가족',
+    '시즌',
   ];
   static const _ageLimits = [
     '전체관람가',
@@ -223,6 +237,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       'savedAt': DateTime.now().toIso8601String(),
       'title': _titleCtrl.text,
       'category': _category,
+      'tags': _selectedTags.toList(),
       'ageLimit': _ageLimit,
       'startAt': _startAt.toIso8601String(),
       'venueName': _venueNameCtrl.text,
@@ -284,6 +299,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       _hasDraft = false;
       _titleCtrl.text = data['title'] as String? ?? '';
       _category = data['category'] as String? ?? '콘서트';
+      if (data['tags'] != null) {
+        _selectedTags
+          ..clear()
+          ..addAll(List<String>.from(data['tags'] as List));
+      }
       _ageLimit = data['ageLimit'] as String? ?? '전체관람가';
 
       if (data['startAt'] != null) {
@@ -364,6 +384,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       setState(() {
         _titleCtrl.text = event.title;
         _category = event.category ?? '콘서트';
+        _selectedTags
+          ..clear()
+          ..addAll(event.tags);
         _ageLimit = event.ageLimit ?? '전체관람가';
         _startAt = event.startAt;
         _yearCtrl.text = _startAt.year.toString();
@@ -434,6 +457,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       setState(() {
         _titleCtrl.text = '${event.title} (복제)';
         _category = event.category ?? '콘서트';
+        _selectedTags
+          ..clear()
+          ..addAll(event.tags);
         _ageLimit = event.ageLimit ?? '전체관람가';
         // 날짜/시간은 현재 기준으로 리셋 (복제이므로 새 일정 입력 필요)
         _venueNameCtrl.text = event.venueName ?? '';
@@ -656,6 +682,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             );
           },
         ),
+
+        const SizedBox(height: 20),
+
+        // ── 태그 ──
+        _field('태그', child: _buildTagsSelector()),
 
         const SizedBox(height: 20),
 
@@ -1085,6 +1116,46 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       ),
       dropdownColor: AdminTheme.surface,
       icon: const SizedBox.shrink(),
+    );
+  }
+
+  Widget _buildTagsSelector() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _availableTags.map((tag) {
+        final selected = _selectedTags.contains(tag);
+        return FilterChip(
+          label: Text(
+            tag,
+            style: TextStyle(
+              color: selected ? AdminTheme.background : AdminTheme.textSecondary,
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+          selected: selected,
+          onSelected: (v) => setState(() {
+            if (v) {
+              _selectedTags.add(tag);
+            } else {
+              _selectedTags.remove(tag);
+            }
+          }),
+          selectedColor: AdminTheme.gold,
+          backgroundColor: AdminTheme.surface,
+          checkmarkColor: AdminTheme.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(
+              color: selected
+                  ? AdminTheme.gold
+                  : AdminTheme.sage.withValues(alpha: 0.3),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        );
+      }).toList(),
     );
   }
 
@@ -3530,6 +3601,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   ? _discountPolicies.map((p) => p.toMap()).toList()
                   : null,
           'showRemainingSeats': _showRemainingSeats,
+          'tags': _selectedTags.isNotEmpty ? _selectedTags.toList() : [],
         };
 
         // 포스터/팜플렛은 이미 서버에 업로드되어 URL 보유
@@ -3653,6 +3725,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               _discountPolicies.isNotEmpty ? _discountPolicies : null,
           showRemainingSeats: _showRemainingSeats,
           has360View: _selectedVenue?.hasSeatView ?? false,
+          tags: _selectedTags.toList(),
           seriesId: seriesId,
           sessionNumber: si + 1,
           totalSessions: sessionCount,
