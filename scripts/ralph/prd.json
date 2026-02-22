@@ -359,7 +359,7 @@
         "flutter analyze 통과"
       ],
       "priority": 21,
-      "passes": false,
+      "passes": true,
       "notes": "InkWell 또는 GestureDetector로 행 전체 감싸기. 기존 옵션 메뉴 로직 재활용. hover 효과는 AdminTheme.sage.withValues(alpha: 0.08) 정도."
     },
     {
@@ -376,7 +376,7 @@
         "flutter analyze 통과"
       ],
       "priority": 22,
-      "passes": false,
+      "passes": true,
       "notes": "AdminTheme에 textShadow 스타일 헬퍼 추가. boxShadow는 어두운 테마에 맞게 미묘하게 — 예: BoxShadow(color: Colors.black54, blurRadius: 12, offset: Offset(0,4)). 배너는 현재 OutlinedButton 기반 → Container + 그라디언트 + 아이콘 + 텍스트로 리디자인. 과하지 않게 우아한 입체감."
     },
     {
@@ -394,7 +394,7 @@
         "flutter analyze 통과"
       ],
       "priority": 23,
-      "passes": false,
+      "passes": true,
       "notes": "Flutter Drawer 또는 커스텀 AnimatedContainer + Overlay 사용. 현재 Row(sidebar, content) 구조를 Scaffold + Drawer 또는 Stack 기반으로 변경. 사이드바 열린 상태에서 ESC 키로도 닫기. 기존 메뉴 항목(대시보드, 공연관리, 통계, 공연장관리, 마일리지관리, 데모테스트, 모의티켓생성) 그대로 유지."
     },
     {
@@ -490,7 +490,7 @@
         "flutter analyze 통과"
       ],
       "priority": 26,
-      "passes": false,
+      "passes": true,
       "notes": "melon_admin에 구현. 슈퍼어드민 전용 라우트/화면. 셀러 관리 CRUD + 상태 변경. 에스크로 대시보드는 실시간 Firestore 스트림. 정산 승인은 더블 확인 다이얼로그. 감사 로그는 페이지네이션 + 필터 + CSV 내보내기. AdminTheme 기반 UI."
     },
     {

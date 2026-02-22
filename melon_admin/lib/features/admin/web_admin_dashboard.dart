@@ -277,6 +277,7 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard>
                 ),
                 child: _Sidebar(
                   selectedIndex: _selectedMenuIndex,
+                  isSuperAdmin: currentUser.value?.isSuperAdmin == true,
                   onMenuSelected: (index) {
                     setState(() => _selectedMenuIndex = index);
                     _closeDrawer();
@@ -311,11 +312,13 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard>
 // ─── Sidebar (Editorial Light) ───
 class _Sidebar extends StatefulWidget {
   final int selectedIndex;
+  final bool isSuperAdmin;
   final Function(int) onMenuSelected;
   final VoidCallback onLogout;
 
   const _Sidebar({
     required this.selectedIndex,
+    this.isSuperAdmin = false,
     required this.onMenuSelected,
     required this.onLogout,
   });
@@ -451,6 +454,16 @@ class _SidebarState extends State<_Sidebar> {
                     selectable: false,
                     onTap: () => context.push('/settlement'),
                   ),
+                  if (widget.isSuperAdmin) ...[
+                    const SizedBox(height: 2),
+                    _buildMenuItem(
+                      -1,
+                      'SA',
+                      '슈퍼어드민',
+                      selectable: false,
+                      onTap: () => context.push('/super-admin'),
+                    ),
+                  ],
                   const SizedBox(height: 2),
                   // 데모 테스트 메뉴 (나중에 이 블록만 삭제하면 제거 완료)
                   _buildMenuItem(

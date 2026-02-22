@@ -18,6 +18,7 @@ import '../features/admin/mock_ticket_screen.dart';
 import '../features/admin/admin_mileage_screen.dart';
 import '../features/admin/seat_layout_editor_screen.dart';
 import '../features/admin/settlement_screen.dart';
+import '../features/admin/super_admin_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -108,6 +109,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'settlement',
             name: 'adminSettlement',
             builder: (context, state) => const SettlementScreen(),
+          ),
+          GoRoute(
+            path: 'super-admin',
+            name: 'superAdmin',
+            builder: (context, state) => const SuperAdminScreen(),
           ),
           // 데모 테스트 (나중에 이 블록만 삭제하면 제거 완료)
           GoRoute(
