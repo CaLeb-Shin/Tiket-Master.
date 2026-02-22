@@ -344,7 +344,7 @@
         "flutter analyze 통과, npm run build 통과"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": "실제 은행 송금 API 연동은 추후. 현재는 관리자가 수동으로 '입금완료' 상태 변경하는 방식. 수수료율 기본값: 10%. 정산 계좌는 주최자(organizer)에 연결. settlements 컬렉션에 문서 저장."
     },
     {
@@ -471,7 +471,7 @@
         "flutter analyze 통과, npm run build 통과"
       ],
       "priority": 25,
-      "passes": false,
+      "passes": true,
       "notes": "가장 중요한 금융 로직. 빈틈없이 구현해야 함. escrowAccounts/{sellerId} 컬렉션, escrowTransactions/{txId} 컬렉션 사용. 모든 금액 변동은 Cloud Function 내 runTransaction으로 처리. 동시 요청(환불+정산 동시) 시에도 데이터 정합성 보장. balanceBefore/balanceAfter로 이중 장부 검증. 실제 PG 연동은 추후(현재는 모의 결제) — 하지만 에스크로 장부 로직은 실전 수준으로 구현. 수수료율은 셀러별/이벤트별 커스텀 가능(기본 10%). 환불 가능 기간(7일)은 설정 가능하게. 충전(topup) 시나리오: 셀러가 정산 후 잔액 0인 상태에서 환불 발생 → 잔액 부족 → 환불 보류(pending_refund) → 셀러에게 충전 알림 → 충전 완료 시 보류 환불 자동 재처리. EscrowTransaction type 종류: deposit(입금), refund(환불), settlement(정산), platformFee(수수료), topup(충전). pending_refund 상태인 주문은 별도 큐로 관리하여 충전 시 FIFO로 처리."
     },
     {

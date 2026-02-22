@@ -444,6 +444,14 @@ class _SidebarState extends State<_Sidebar> {
                     onTap: () => context.push('/mileage'),
                   ),
                   const SizedBox(height: 2),
+                  _buildMenuItem(
+                    -1,
+                    '06',
+                    '정산 관리',
+                    selectable: false,
+                    onTap: () => context.push('/settlement'),
+                  ),
+                  const SizedBox(height: 2),
                   // 데모 테스트 메뉴 (나중에 이 블록만 삭제하면 제거 완료)
                   _buildMenuItem(
                     5,
