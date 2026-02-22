@@ -181,7 +181,7 @@
         "npm run build 통과, flutter analyze 통과"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "기존 단순 24시간/3시간 기준 로직을 실제 규정으로 교체. Event.category에 따라 공연권/입장권 구분 (콘서트,뮤지컬,클래식=공연권 4000원, 연극,전시=입장권 2000원). 예매일은 order.createdAt 기준."
     },
     {
@@ -195,7 +195,7 @@
         "flutter analyze 통과"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "venueSeatViews 컬렉션에서 venueId 기준 쿼리. 성능을 위해 캐싱 또는 events 문서에 has360View 불리언 필드 추가 고려. 모바일 메인의 바로예매 카드에도 적용."
     },
     {
@@ -212,7 +212,7 @@
         "flutter analyze 통과, npm run build 통과"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": "Firebase Anonymous Auth 사용. 체험 주문에는 order.isDemo=true 플래그. Cloud Function에서 isDemo 주문은 실제 좌석 reserve 안 하거나 별도 처리. 임시 기능이므로 조건부 코드로 쉽게 제거 가능하게."
     },
     {
@@ -231,7 +231,7 @@
         "flutter analyze 통과, npm run build 통과"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": "MileageType에 'review' 추가. AppUser에 badges 필드(리스트) 추가. 뱃지 종류: first_review, reviewer_3, reviewer_10, top_buyer 등. 리뷰는 관람 완료(status=used) 티켓만 작성 가능. 중복 리뷰 방지(eventId+userId 유니크)."
     },
     {
@@ -249,7 +249,7 @@
         "flutter analyze 통과"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": "melon_admin에 구현. shadcn_flutter의 DropdownMenu 또는 PopupMenuButton 사용. 기존 admin_events_screen 또는 dashboard의 공연 목록 부분에 적용."
     },
     {
@@ -262,7 +262,7 @@
         "flutter analyze 통과"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": "간단한 UI 변경. _field('주최', ...) 와 _field('기획', ...)의 decoration에서 hintText 제거."
     },
     {
@@ -279,7 +279,7 @@
         "flutter analyze 통과, npm run build 통과"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "접근법 2가지: (1) EventSeries 상위 모델 + 회차별 Event 문서, (2) Event에 sessions 배열. 추천: (1)이 확장성 좋음. EventSeries(title,poster,category) → Event(seriesId,sessionNumber,startAt,seats). 기존 단일 공연도 sessions=1인 시리즈로 호환. 공연 등록 UI에서 '단일 공연' / '연속 공연' 토글."
     },
     {
@@ -308,8 +308,256 @@
         "flutter analyze 통과, npm run build 통과"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "핵심 기능. 기존 프리셋 방식 대체. 엑셀 파싱은 Cloud Function(xlsx 라이브러리) 또는 클라이언트(dart excel 패키지). 좌석 좌표(x,y)는 엑셀의 행/열 위치에서 자동 계산하되, 어드민에서 드래그로 조정 가능하게. 도트맵 렌더링은 CustomPainter + GestureDetector. 대규모 공연장(1000석+)에서도 성능 유지 필요. 좌석 등급 색상: VIP=#C9A84C(골드), R=#E53935(레드), S=#1E88E5(블루), A=#43A047(그린). sold=#555555(회색), reserved=#FFA000(주황). 좌석 유형(seatType): normal(일반), wheelchair(장애인석), reserved_hold(유보석). 유보석은 어드민만 해제 가능. 수동 편집 모드: 그리드 도트(빈 원) 캔버스가 기본 → 등급 선택 후 빈 도트 클릭하면 해당 등급 색상으로 채워짐(페인트 방식). 채워진 좌석 클릭하면 비우기/등급변경. Delete키로 삭제."
+    },
+    {
+      "id": "MT-019",
+      "title": "비지정석(스탠딩) 예매 모드 지원",
+      "description": "공연 등록 시 '비지정석' 옵션을 설정할 수 있게 하여, 모든 좌석이 등급 없이 배정되고 입장번호만 부여되는 스탠딩 공연 예매를 지원한다.",
+      "acceptanceCriteria": [
+        "Event 모델에 isStanding(비지정석) 불리언 필드 추가",
+        "어드민 공연 등록 시 '비지정석(스탠딩)' 토글 추가 — ON 시 좌석 배치/등급 설정 비활성화",
+        "비지정석 공연은 좌석 등급 없이 단일 가격으로 운영",
+        "예매 시 좌석 선택 UI 대신 수량 선택 UI 표시",
+        "발권 시 좌석번호 대신 입장번호(순번) 부여 (예: 입장번호 #001, #002...)",
+        "티켓 상세에서 '입장번호' 표시 (좌석 정보 대신)",
+        "QR 체크인 시 입장번호 기반 처리",
+        "flutter analyze 통과, npm run build 통과"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "스탠딩 공연, 페스티벌 등 좌석 지정이 필요 없는 공연 유형 지원. isStanding=true이면 seats 컬렉션 사용 안 하고, 티켓에 entryNumber 필드 추가. 입장번호는 예매 순서대로 자동 부여. maxTicketsPerOrder로 1인 최대 구매 수량 제한은 동일하게 적용."
+    },
+    {
+      "id": "MT-020",
+      "title": "정산 시스템 — 공연 후 수수료 차감 및 계좌 입금 승인",
+      "description": "티켓 판매 금액이 공연 종료 후 관리자가 수수료를 차감하고 최종 승인하면, 등록된 주최자 계좌로 정산금이 입금되는 정산 프로세스를 구현한다.",
+      "acceptanceCriteria": [
+        "Event 모델 또는 별도 Settlement 모델에 정산 관련 필드 추가 (수수료율, 정산상태, 정산일, 정산계좌 등)",
+        "어드민 공연 등록 시 정산 계좌 정보 입력 (은행명, 계좌번호, 예금주)",
+        "어드민 정산 관리 화면 추가 — 공연별 총 매출, 수수료, 정산 예정액 표시",
+        "공연 종료 후 관리자가 수수료율(%) 설정 및 '정산 승인' 버튼 클릭",
+        "정산 승인 시 Settlement 문서 생성 (eventId, totalSales, feeRate, feeAmount, settlementAmount, bankInfo, status, approvedAt)",
+        "정산 상태: pending(대기) → approved(승인) → transferred(입금완료)",
+        "정산 내역 히스토리 조회 가능",
+        "flutter analyze 통과, npm run build 통과"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "실제 은행 송금 API 연동은 추후. 현재는 관리자가 수동으로 '입금완료' 상태 변경하는 방식. 수수료율 기본값: 10%. 정산 계좌는 주최자(organizer)에 연결. settlements 컬렉션에 문서 저장."
+    },
+    {
+      "id": "MT-021",
+      "title": "최근 공연 목록 — 행 전체 클릭으로 옵션 메뉴 열기",
+      "description": "어드민 대시보드의 최근 공연 목록에서 '옵션' 버튼뿐만 아니라, 해당 공연 행(row) 어디를 클릭해도 옵션 안내창이 뜨도록 개선한다.",
+      "acceptanceCriteria": [
+        "최근 공연 리스트의 각 행 전체를 클릭 가능 영역으로 설정",
+        "행 어디를 클릭해도 기존 '옵션' 버튼과 동일한 옵션 메뉴/팝업 표시",
+        "행 hover 시 배경색 변화로 클릭 가능함을 시각적으로 안내",
+        "기존 '옵션' 버튼은 유지하되, 행 클릭과 동일 동작",
+        "flutter analyze 통과"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": "InkWell 또는 GestureDetector로 행 전체 감싸기. 기존 옵션 메뉴 로직 재활용. hover 효과는 AdminTheme.sage.withValues(alpha: 0.08) 정도."
+    },
+    {
+      "id": "MT-022",
+      "title": "어드민 대시보드 배너 및 UI 입체감 개선",
+      "description": "공연장 관리, 새 공연 등록 배너를 더 크고 입체감 있게 만들고, 공연 운영 대시보드에 그림자 효과를 넣고, 어드민 전체 텍스트에 그림자를 적용하여 검정 배경에서 묻히지 않도록 한다.",
+      "acceptanceCriteria": [
+        "공연장 관리 / 새 공연 등록 배너 크기 확대 (높이 증가, 패딩 확대)",
+        "배너에 그라디언트, 보더, 박스쉐도우 등 입체감 효과 추가",
+        "공연 운영 대시보드 카드/섹션에 boxShadow 효과 적용",
+        "AdminTheme에 텍스트 그림자 유틸 추가 (모든 주요 텍스트에 미묘한 그림자)",
+        "어드민 전체 텍스트가 검정 배경에서 선명하게 보이도록 textShadow 적용",
+        "기존 디자인 톤(다크+골드) 유지하면서 깊이감 추가",
+        "flutter analyze 통과"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "AdminTheme에 textShadow 스타일 헬퍼 추가. boxShadow는 어두운 테마에 맞게 미묘하게 — 예: BoxShadow(color: Colors.black54, blurRadius: 12, offset: Offset(0,4)). 배너는 현재 OutlinedButton 기반 → Container + 그라디언트 + 아이콘 + 텍스트로 리디자인. 과하지 않게 우아한 입체감."
+    },
+    {
+      "id": "MT-023",
+      "title": "어드민 사이드바 — 접이식 오버레이 메뉴 (드로어)",
+      "description": "어드민 왼쪽 사이드바 네비게이션을 고정형이 아닌, 어떤 화면에서든 열고 닫을 수 있는 오버레이(드로어) 방식으로 변경한다. 햄버거 메뉴 버튼으로 토글하며, 메뉴가 콘텐츠 위에 팝업처럼 슬라이드 인/아웃된다.",
+      "acceptanceCriteria": [
+        "사이드바가 기본적으로 접혀 있고, 햄버거 아이콘 클릭 시 슬라이드 인으로 열림",
+        "사이드바 바깥 영역 클릭 시 자동으로 닫힘",
+        "사이드바가 콘텐츠 영역 위에 오버레이로 표시 (콘텐츠 밀어내기 X)",
+        "열릴 때 반투명 배경(scrim) 표시로 포커스 유도",
+        "메뉴 항목 클릭 시 해당 화면으로 이동 + 사이드바 자동 닫힘",
+        "슬라이드 애니메이션 (300ms 정도, ease-in-out)",
+        "모든 어드민 화면 상단에 햄버거 메뉴 버튼 통일 배치",
+        "flutter analyze 통과"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": "Flutter Drawer 또는 커스텀 AnimatedContainer + Overlay 사용. 현재 Row(sidebar, content) 구조를 Scaffold + Drawer 또는 Stack 기반으로 변경. 사이드바 열린 상태에서 ESC 키로도 닫기. 기존 메뉴 항목(대시보드, 공연관리, 통계, 공연장관리, 마일리지관리, 데모테스트, 모의티켓생성) 그대로 유지."
+    },
+    {
+      "id": "MT-024",
+      "title": "멀티 셀러 플랫폼 — 개별 어드민(판매자) 계정 시스템",
+      "description": "스마트스토어처럼 누구나 자신의 어드민 계정을 만들어 공연을 올리고 수익을 받을 수 있는 멀티 셀러 플랫폼 구조로 전환한다. 슈퍼어드민(플랫폼 운영자)은 모든 셀러 계정을 관리한다.",
+      "acceptanceCriteria": [
+        "역할 체계 도입: superAdmin(플랫폼 운영자), seller(판매자/주최자), user(일반 사용자)",
+        "AppUser 모델에 role 필드 추가 (superAdmin / seller / user)",
+        "셀러 가입 플로우: 일반 사용자가 '판매자 등록' 신청 → 사업자 정보 입력 (상호명, 사업자번호, 대표자명, 연락처)",
+        "슈퍼어드민 승인 후 seller 역할 활성화",
+        "셀러별 독립 대시보드: 자신이 등록한 공연만 조회/관리 (venueId, eventId에 sellerId 연결)",
+        "슈퍼어드민 대시보드: 모든 셀러 목록, 전체 공연 통합 관리, 셀러 승인/정지/탈퇴 처리",
+        "Event 모델에 sellerId 필드 추가 — 공연 등록 시 자동으로 현재 셀러 ID 저장",
+        "셀러는 자기 공연의 주문/좌석/통계만 접근 가능 (Firestore Security Rules로 격리)",
+        "슈퍼어드민은 모든 데이터 접근 가능",
+        "셀러 프로필 페이지: 상호명, 로고, 소개글, 연락처 관리",
+        "티켓앱에서 공연 상세에 판매자(주최자) 정보 표시",
+        "flutter analyze 통과, npm run build 통과"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": "핵심 아키텍처 변경. users 컬렉션에 role, sellerProfile(상호명, 사업자번호, 대표자명, 연락처, 로고URL, 소개글, 가입일, 상태) 서브맵 추가. Firestore Security Rules에서 seller는 자기 sellerId 데이터만 읽기/쓰기. superAdmin은 모든 것에 접근. 기존 isAdmin 필드는 role=='superAdmin' || role=='seller'로 대체. 라우팅에서 역할별 접근제어 적용."
+    },
+    {
+      "id": "MT-025",
+      "title": "에스크로 결제 시스템 — 예치금 기반 안전 결제/환불",
+      "description": "네이버 스마트스토어 방식의 에스크로 결제 시스템을 구현한다. 결제 시 금액이 플랫폼에 예치되고, 공연 완료 후 수수료를 제외한 금액이 셀러에게 정산된다. 환불/취소 시 예치금에서 차감하여 즉시 환불 처리한다.",
+      "acceptanceCriteria": [
+        "── 데이터 모델 ──",
+        "EscrowAccount 모델: sellerId, balance(예치 잔액), pendingAmount(정산 대기금), totalDeposited(총 입금액), totalWithdrawn(총 출금액)",
+        "EscrowTransaction 모델: id, sellerId, orderId, type(deposit/refund/settlement/platformFee), amount, balanceBefore, balanceAfter, description, createdAt",
+        "Settlement 모델: id, sellerId, eventId, period, totalSales, refundAmount, platformFeeRate, platformFeeAmount, settlementAmount, bankInfo, status(pending/approved/transferred), requestedAt, approvedAt, transferredAt",
+        "",
+        "── 결제 플로우 (입금) ──",
+        "사용자 결제 성공 시 → EscrowAccount.balance에 결제금액 전액 적립",
+        "EscrowTransaction 기록 (type=deposit, +금액)",
+        "Order에 escrowStatus 필드 추가 (deposited/partially_refunded/fully_refunded/settled)",
+        "Ticket 발급은 즉시 진행 (결제 완료 = 티켓 발급)",
+        "",
+        "── 환불 플로우 (출금) ──",
+        "취소 요청 시 EscrowAccount.balance에서 환불금액 차감",
+        "환불 전 잔액 충분 여부 더블체크 (balance >= refundAmount)",
+        "EscrowTransaction 기록 (type=refund, -금액, balanceBefore/After 기록)",
+        "수수료 공제 후 환불금 계산: refundAmount = ticketPrice - cancellationFee",
+        "환불 처리 후 Order.escrowStatus 업데이트",
+        "부분 취소(N장 중 일부): 해당 티켓 금액만 환불, 나머지 예치 유지",
+        "",
+        "── 정산 플로우 ──",
+        "공연 종료 + 환불 가능 기간(7일) 경과 후 정산 가능 상태로 전환",
+        "셀러가 '정산 요청' → 슈퍼어드민이 검토 후 '정산 승인'",
+        "정산 금액 = 총 매출 - 환불 금액 - 플랫폼 수수료",
+        "플랫폼 수수료 EscrowTransaction 기록 (type=platformFee)",
+        "정산 EscrowTransaction 기록 (type=settlement, -정산금액)",
+        "EscrowAccount.balance 차감, pendingAmount 차감",
+        "Settlement.status를 transferred로 변경",
+        "",
+        "── 안전장치 (더블체크) ──",
+        "모든 금액 변동은 Firestore Transaction으로 원자성 보장",
+        "balanceBefore + amount == balanceAfter 검증 (매 트랜잭션)",
+        "EscrowAccount.balance는 음수 불가 — 환불 시 잔액 부족이면 충전 유도 후 재시도",
+        "",
+        "── 에스크로 충전 (잔액 부족 대응) ──",
+        "슈퍼어드민이 셀러 에스크로 계정에 수동 충전 가능 (type=topup)",
+        "셀러가 직접 충전 요청 → 슈퍼어드민 승인 후 잔액 반영",
+        "환불 시 잔액 부족이면: 환불 보류(pending_refund) 상태 → 셀러에게 충전 요청 알림 → 충전 완료 후 자동 환불 재처리",
+        "충전 금액도 EscrowTransaction으로 기록 (type=topup, +금액, balanceBefore/After)",
+        "슈퍼어드민 대시보드에서 잔액 부족 셀러 목록 하이라이트 표시",
+        "정산 시 해당 이벤트의 모든 주문 상태 재검증 (미처리 환불 건 확인)",
+        "일일 정산 검증 배치: escrowTransactions 합계 == escrowAccount.balance 일치 확인",
+        "슈퍼어드민 에스크로 대시보드: 전체 예치금 현황, 셀러별 잔액, 트랜잭션 로그 실시간 조회",
+        "금액 계산은 모두 정수(원 단위) — 소수점 반올림 오차 방지",
+        "",
+        "flutter analyze 통과, npm run build 통과"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": "가장 중요한 금융 로직. 빈틈없이 구현해야 함. escrowAccounts/{sellerId} 컬렉션, escrowTransactions/{txId} 컬렉션 사용. 모든 금액 변동은 Cloud Function 내 runTransaction으로 처리. 동시 요청(환불+정산 동시) 시에도 데이터 정합성 보장. balanceBefore/balanceAfter로 이중 장부 검증. 실제 PG 연동은 추후(현재는 모의 결제) — 하지만 에스크로 장부 로직은 실전 수준으로 구현. 수수료율은 셀러별/이벤트별 커스텀 가능(기본 10%). 환불 가능 기간(7일)은 설정 가능하게. 충전(topup) 시나리오: 셀러가 정산 후 잔액 0인 상태에서 환불 발생 → 잔액 부족 → 환불 보류(pending_refund) → 셀러에게 충전 알림 → 충전 완료 시 보류 환불 자동 재처리. EscrowTransaction type 종류: deposit(입금), refund(환불), settlement(정산), platformFee(수수료), topup(충전). pending_refund 상태인 주문은 별도 큐로 관리하여 충전 시 FIFO로 처리."
+    },
+    {
+      "id": "MT-026",
+      "title": "슈퍼어드민 — 셀러 관리 및 에스크로 모니터링 대시보드",
+      "description": "슈퍼어드민(플랫폼 운영자) 전용 화면으로, 모든 셀러 계정 관리, 에스크로 잔액 모니터링, 정산 승인, 트랜잭션 로그 감사를 수행할 수 있는 통합 대시보드를 구축한다.",
+      "acceptanceCriteria": [
+        "슈퍼어드민 전용 메뉴: 셀러 관리, 에스크로 현황, 정산 관리, 감사 로그",
+        "셀러 관리: 가입 신청 목록 / 승인 / 정지 / 탈퇴 처리",
+        "셀러 상세: 프로필, 등록 공연 목록, 매출 통계, 에스크로 잔액",
+        "에스크로 현황: 플랫폼 전체 예치금 총합, 셀러별 잔액 목록, 이상 거래 알림",
+        "정산 관리: 정산 요청 목록, 금액 검증, 승인/거절, 입금 완료 처리",
+        "감사 로그: escrowTransactions 전체 조회 (필터: 셀러, 기간, 유형, 금액 범위)",
+        "일일 정합성 체크 결과 표시 (트랜잭션 합계 vs 잔액 불일치 건 하이라이트)",
+        "슈퍼어드민만 접근 가능 (role 기반 라우팅 가드)",
+        "flutter analyze 통과"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": "melon_admin에 구현. 슈퍼어드민 전용 라우트/화면. 셀러 관리 CRUD + 상태 변경. 에스크로 대시보드는 실시간 Firestore 스트림. 정산 승인은 더블 확인 다이얼로그. 감사 로그는 페이지네이션 + 필터 + CSV 내보내기. AdminTheme 기반 UI."
+    },
+    {
+      "id": "MT-027",
+      "title": "공연 삭제 보호 — 예매자 존재 시 삭제 차단 및 전원 환불 후 삭제",
+      "description": "공연 삭제 시 예매자가 1명이라도 있으면 삭제를 절대 차단한다. 모든 예매자에게 환불 조치를 완료한 후에만 삭제가 가능하도록 한다.",
+      "acceptanceCriteria": [
+        "공연 삭제 요청 시 해당 이벤트의 활성 티켓(status=issued/reserved) 수를 조회",
+        "활성 티켓이 1건이라도 있으면 삭제 차단 — '예매자 N명이 있어 삭제할 수 없습니다' 에러 표시",
+        "삭제 차단 시 '전체 환불 후 삭제' 안내 메시지 + 환불 처리 화면으로 이동 버튼 제공",
+        "전체 환불 기능: 해당 공연의 모든 활성 티켓을 일괄 취소/환불 처리하는 Cloud Function",
+        "일괄 환불 시 각 티켓별로 환불 금액 계산 (수수료 정책에 따라) 및 에스크로 차감",
+        "일괄 환불 진행 중 프로그레스 표시 (N/M건 처리 중...)",
+        "일괄 환불 완료 후 → 공연 삭제 가능 상태로 전환",
+        "삭제 전 최종 확인 다이얼로그: '환불 완료된 공연입니다. 정말 삭제하시겠습니까?'",
+        "삭제 시 Event.status를 deleted로 변경 (실제 Firestore 문서 삭제가 아닌 소프트 삭제)",
+        "삭제된 공연은 목록에서 숨김, 슈퍼어드민만 감사용으로 조회 가능",
+        "이미 체크인(used) 된 티켓이 있는 공연은 삭제 불가 (공연 완료 상태이므로)",
+        "flutter analyze 통과, npm run build 통과"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": "안전 제일. 삭제는 소프트 삭제(status=deleted)로 처리하여 데이터 복구 가능. Cloud Function에서 삭제 전 더블체크: tickets 컬렉션에서 eventId 일치 + status in [issued, reserved] 쿼리. 일괄 환불은 batch write로 처리하되, 에스크로 차감은 건별 트랜잭션. 환불 실패 건이 있으면 삭제 차단 유지. EventStatus enum에 deleted 추가."
+    },
+    {
+      "id": "MT-028",
+      "title": "Hall — 공연 커뮤니티 채널 (리뷰 공유 + 팬 소통)",
+      "description": "공연별 커뮤니티 공간 'Hall'을 만든다. 같은 공연(다른 지역/날짜)끼리 그룹으로 묶어 리뷰를 통합 공유하고, 공연 전후로 팬들이 후기·의견·사진을 올리며 소통할 수 있는 채널이다. 네이버 스마트스토어의 그룹 리뷰 공유와 유사한 개념.",
+      "acceptanceCriteria": [
+        "── Hall 데이터 모델 ──",
+        "Hall 모델: id, name(공연명), description, coverImageUrl, createdBy(셀러ID), tags, followerCount, createdAt",
+        "HallPost 모델: id, hallId, userId, type(review/discussion/photo/notice), content, rating(리뷰일 때 1~5), imageUrls[], likeCount, commentCount, createdAt",
+        "HallComment 모델: id, postId, userId, content, createdAt",
+        "halls 컬렉션, hallPosts 서브컬렉션, hallComments 서브컬렉션",
+        "",
+        "── 공연-Hall 연결 (그룹 리뷰 공유) ──",
+        "Event 모델에 hallId 필드 추가 — 같은 공연(다른 지역/날짜)은 동일 hallId 공유",
+        "공연 등록 시 셀러가 기존 Hall 선택 또는 새 Hall 생성",
+        "같은 hallId를 가진 모든 이벤트의 리뷰가 통합 표시 (지역/날짜 무관)",
+        "리뷰 작성 시 어느 이벤트에서 작성했는지 표시 (예: '서울 4/30 공연 관람')",
+        "다른 셀러의 Hall에도 연결 가능 (셀러 간 같은 공연 그룹화) — 슈퍼어드민 승인 필요",
+        "",
+        "── 리뷰 시스템 ──",
+        "관람 완료(티켓 status=used) 사용자만 리뷰 작성 가능",
+        "리뷰: 별점(1~5) + 텍스트 + 사진(최대 5장)",
+        "리뷰 평균 별점 Hall 상단에 표시",
+        "리뷰 정렬: 최신순 / 별점 높은순 / 별점 낮은순 / 좋아요순",
+        "중복 리뷰 방지: 같은 사용자가 같은 eventId에 리뷰 1건만 가능",
+        "리뷰 작성 시 마일리지 적립 (MT-014와 연계)",
+        "",
+        "── 커뮤니티 기능 ──",
+        "Hall 팔로우: 사용자가 Hall을 팔로우하면 새 글 알림",
+        "글 유형: 리뷰(review), 자유 토론(discussion), 사진(photo), 공지(notice — 셀러만)",
+        "좋아요(하트) + 댓글 기능",
+        "셀러가 공지글 작성 가능 (다음 공연 안내, 이벤트 등)",
+        "Hall 검색: 공연명, 아티스트명으로 검색",
+        "",
+        "── UI ──",
+        "티켓앱: 공연 상세 하단에 'Hall 입장' 버튼 → Hall 화면으로 이동",
+        "티켓앱: Hall 탭 또는 메뉴 (팔로우 중인 Hall 목록)",
+        "Hall 화면: 커버 이미지 + 공연명 + 평균 별점 + 팔로워 수 + 탭(리뷰/토론/사진/공지)",
+        "어드민: 셀러가 자기 Hall 관리 (공지 작성, 부적절 글 삭제/숨김)",
+        "flutter analyze 통과, npm run build 통과"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": "Hall = 공연 커뮤니티 채널. 핵심은 같은 공연 그룹화로 리뷰 통합. halls/{hallId}/posts/{postId}/comments/{commentId} 구조. Event.hallId로 연결. Hall 팔로우는 users/{uid}/followedHalls 서브컬렉션 또는 hallFollowers/{hallId}/users. 리뷰 평균 별점은 Hall 문서에 averageRating, reviewCount 캐시 필드 유지 (Cloud Function onWrite 트리거로 갱신). 부적절 콘텐츠 신고 기능은 추후. 사진 업로드는 Firebase Storage halls/{hallId}/posts/{postId}/ 경로."
     }
   ]
 }
