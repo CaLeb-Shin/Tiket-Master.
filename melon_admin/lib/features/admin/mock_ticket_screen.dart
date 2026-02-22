@@ -42,8 +42,48 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
   final Set<String> _selectedSeatIds = {};
   Map<String, List<Seat>> _seatsByGrade = {};
 
+  // 유저 선택
+  List<Map<String, dynamic>> _users = [];
+  String? _selectedUserId;
+  bool _loadingUsers = false;
+
   // 결과
   final _results = <_TicketResult>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsers();
+  }
+
+  Future<void> _loadUsers() async {
+    setState(() => _loadingUsers = true);
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      final users = snapshot.docs.map((d) {
+        final data = d.data();
+        return {
+          'uid': d.id,
+          'displayName': data['displayName'] ?? '이름 없음',
+          'email': data['email'] ?? '',
+          'provider': data['provider'] ?? '',
+          'isDemo': data['isDemo'] == true,
+        };
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _users = users;
+          _selectedUserId = FirebaseAuth.instance.currentUser?.uid;
+        });
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loadingUsers = false);
+  }
 
   void _reset() {
     setState(() {
@@ -54,6 +94,42 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
       _selectedSeatIds.clear();
       _seatsByGrade = {};
     });
+  }
+
+  Future<void> _createTestUser() async {
+    setState(() => _loading = true);
+    try {
+      final db = FirebaseFirestore.instance;
+      final testUserId = 'test_user_${DateTime.now().millisecondsSinceEpoch}';
+      await db.collection('users').doc(testUserId).set({
+        'displayName': '테스트 사용자',
+        'email': 'test@melonticket.com',
+        'provider': 'test',
+        'isDemo': false,
+        'mileage': 0,
+        'mileageTier': 'bronze',
+        'badges': <String>[],
+        'createdAt': Timestamp.fromDate(DateTime.now()),
+      });
+      await _loadUsers();
+      if (mounted) {
+        setState(() => _selectedUserId = testUserId);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('테스트 사용자가 생성되었습니다'),
+            backgroundColor: AdminTheme.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('오류: $e'), backgroundColor: AdminTheme.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -327,6 +403,131 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── 대상 계정 선택 ──
+          Row(
+            children: [
+              Text('대상 계정',
+                  style: AdminTheme.sans(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AdminTheme.textPrimary)),
+              const Spacer(),
+              GestureDetector(
+                onTap: _loading ? null : _createTestUser,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AdminTheme.gold),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text('+ 테스트 계정 생성',
+                      style: AdminTheme.sans(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AdminTheme.gold)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (_loadingUsers)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: AdminTheme.gold),
+              ),
+            )
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: AdminTheme.card,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AdminTheme.border),
+              ),
+              child: DropdownButton<String>(
+                value: _selectedUserId,
+                isExpanded: true,
+                dropdownColor: AdminTheme.card,
+                underline: const SizedBox.shrink(),
+                hint: Text('계정을 선택하세요',
+                    style: AdminTheme.sans(
+                        fontSize: 13, color: AdminTheme.textTertiary)),
+                items: _users.map((u) {
+                  final uid = u['uid'] as String;
+                  final name = u['displayName'] as String;
+                  final email = u['email'] as String;
+                  final provider = u['provider'] as String;
+                  final isMe =
+                      uid == FirebaseAuth.instance.currentUser?.uid;
+                  final isDemo = u['isDemo'] == true;
+
+                  return DropdownMenuItem(
+                    value: uid,
+                    child: Row(
+                      children: [
+                        Icon(
+                          provider == 'test'
+                              ? Icons.science_rounded
+                              : isDemo
+                                  ? Icons.person_outline_rounded
+                                  : Icons.person_rounded,
+                          size: 16,
+                          color: isMe
+                              ? AdminTheme.gold
+                              : AdminTheme.textSecondary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '$name${isMe ? " (나)" : ""}',
+                            style: AdminTheme.sans(
+                              fontSize: 13,
+                              fontWeight:
+                                  isMe ? FontWeight.w700 : FontWeight.w500,
+                              color: isMe
+                                  ? AdminTheme.gold
+                                  : AdminTheme.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (email.isNotEmpty)
+                          Text(email,
+                              style: AdminTheme.sans(
+                                  fontSize: 10,
+                                  color: AdminTheme.textTertiary)),
+                        if (provider == 'test') ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: AdminTheme.gold.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text('TEST',
+                                style: AdminTheme.sans(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    color: AdminTheme.gold)),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (v) => setState(() => _selectedUserId = v),
+              ),
+            ),
+          const SizedBox(height: 24),
+
           // ── 등급 선택 탭 ──
           Text('등급 선택',
               style: AdminTheme.sans(
@@ -419,7 +620,9 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: _selectedSeatIds.isNotEmpty && !_loading
+                onPressed: _selectedSeatIds.isNotEmpty &&
+                        !_loading &&
+                        _selectedUserId != null
                     ? _createMockTickets
                     : null,
                 style: ElevatedButton.styleFrom(
@@ -544,7 +747,7 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
 
     try {
       final db = FirebaseFirestore.instance;
-      final userId = FirebaseAuth.instance.currentUser!.uid;
+      final userId = _selectedUserId ?? FirebaseAuth.instance.currentUser!.uid;
       final event = _selectedEvent!;
       final now = DateTime.now();
       final quantity = _selectedSeatIds.length;
@@ -620,6 +823,13 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
 
       await batch.commit();
 
+      // 선택된 유저 이름
+      final userName = _users
+              .where((u) => u['uid'] == userId)
+              .map((u) => u['displayName'] as String)
+              .firstOrNull ??
+          userId;
+
       setState(() {
         _results.insert(
           0,
@@ -631,6 +841,7 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
             orderId: orderRef.id,
             createdAt: now,
             success: true,
+            userName: userName,
           ),
         );
         _step = _Step.done;
@@ -788,6 +999,7 @@ class _TicketResult {
   final DateTime createdAt;
   final bool success;
   final String? error;
+  final String? userName;
 
   const _TicketResult({
     required this.eventTitle,
@@ -798,6 +1010,7 @@ class _TicketResult {
     required this.createdAt,
     required this.success,
     this.error,
+    this.userName,
   });
 }
 
@@ -868,6 +1081,19 @@ class _ResultCard extends StatelessWidget {
                       fontSize: 10, color: AdminTheme.textTertiary)),
             ],
           ),
+          if (result.userName != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.person_rounded,
+                    size: 12, color: AdminTheme.sage),
+                const SizedBox(width: 6),
+                Text(result.userName!,
+                    style: AdminTheme.sans(
+                        fontSize: 11, color: AdminTheme.textSecondary)),
+              ],
+            ),
+          ],
           const SizedBox(height: 6),
           if (result.success) ...[
             ...result.seatLabels.map((label) => Padding(
