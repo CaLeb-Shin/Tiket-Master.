@@ -6,8 +6,8 @@ class Ticket {
   final String eventId;
   final String orderId;
   final String userId;
-  final String seatId;
-  final String seatBlockId;
+  final String seatId; // 지정석: 좌석 ID, 스탠딩: 빈 문자열
+  final String seatBlockId; // 지정석: 블록 ID, 스탠딩: 빈 문자열
   final TicketStatus status;
   final int qrVersion; // QR 버전 (재발급 시 증가)
   final DateTime issuedAt;
@@ -16,14 +16,15 @@ class Ticket {
   final DateTime? usedAt;
   final DateTime? canceledAt;
   final String? lastCheckInStage;
+  final int? entryNumber; // 스탠딩 입장 번호 (1부터)
 
   Ticket({
     required this.id,
     required this.eventId,
     required this.orderId,
     required this.userId,
-    required this.seatId,
-    required this.seatBlockId,
+    this.seatId = '',
+    this.seatBlockId = '',
     required this.status,
     required this.qrVersion,
     required this.issuedAt,
@@ -32,7 +33,10 @@ class Ticket {
     this.usedAt,
     this.canceledAt,
     this.lastCheckInStage,
+    this.entryNumber,
   });
+
+  bool get isStanding => seatId.isEmpty;
 
   factory Ticket.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -52,6 +56,7 @@ class Ticket {
       usedAt: (data['usedAt'] as Timestamp?)?.toDate(),
       canceledAt: (data['canceledAt'] as Timestamp?)?.toDate(),
       lastCheckInStage: data['lastCheckInStage'] as String?,
+      entryNumber: data['entryNumber'] as int?,
     );
   }
 
@@ -74,6 +79,7 @@ class Ticket {
       'usedAt': usedAt != null ? Timestamp.fromDate(usedAt!) : null,
       'canceledAt': canceledAt != null ? Timestamp.fromDate(canceledAt!) : null,
       'lastCheckInStage': lastCheckInStage,
+      if (entryNumber != null) 'entryNumber': entryNumber,
     };
   }
 

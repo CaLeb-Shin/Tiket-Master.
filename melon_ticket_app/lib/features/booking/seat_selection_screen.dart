@@ -95,6 +95,9 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   String _quickGrade = '자동';
   int _quickQuantity = 2;
 
+  // ── Standing Mode ──
+  int _standingQuantity = 1;
+
   // ── Desktop ──
   final TransformationController _transformController =
       TransformationController();
@@ -275,6 +278,11 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             _dotMapLayout = venue.seatLayout;
           }
 
+          // 스탠딩 모드: 좌석 대신 수량 선택 UI
+          if (event.isStanding) {
+            return _buildStandingMode(event, isLoggedIn);
+          }
+
           return seatsAsync.when(
             loading: () => const Center(
                 child: CircularProgressIndicator(color: AppTheme.gold)),
@@ -352,6 +360,294 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STANDING MODE (비지정석)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildStandingMode(Event event, bool isLoggedIn) {
+    final fmt = NumberFormat('#,###');
+    final maxPerOrder = event.maxTicketsPerOrder > 0 ? event.maxTicketsPerOrder : 4;
+    final price = event.priceByGrade?['일반'] ?? event.price;
+    final totalPrice = price * _standingQuantity;
+
+    return Column(
+      children: [
+        // ── 앱바 ──
+        SafeArea(
+          bottom: false,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary, size: 22),
+                  onPressed: () {
+                    if (context.canPop()) context.pop(); else context.go('/');
+                  },
+                ),
+                Expanded(
+                  child: Text(
+                    event.title,
+                    style: AppTheme.nanum(
+                      color: AppTheme.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // ── 콘텐츠 ──
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                const SizedBox(height: 40),
+
+                // 스탠딩 아이콘
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppTheme.gold.withValues(alpha: 0.15),
+                        AppTheme.gold.withValues(alpha: 0.05),
+                      ],
+                    ),
+                    border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
+                  ),
+                  child: const Icon(Icons.people_rounded, color: AppTheme.gold, size: 36),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  '스탠딩 입장권',
+                  style: AppTheme.nanum(
+                    color: AppTheme.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '비지정석 · 선착순 입장',
+                  style: AppTheme.nanum(
+                    color: AppTheme.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // 잔여 수량
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '잔여 수량',
+                        style: AppTheme.nanum(
+                          color: AppTheme.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        '${fmt.format(event.availableSeats)} / ${fmt.format(event.totalSeats)}',
+                        style: AppTheme.nanum(
+                          color: event.availableSeats > 0 ? AppTheme.gold : AppTheme.error,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 수량 선택
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        '수량 선택',
+                        style: AppTheme.nanum(
+                          color: AppTheme.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _standingQtyButton(
+                            icon: Icons.remove_rounded,
+                            enabled: _standingQuantity > 1,
+                            onTap: () => setState(() => _standingQuantity--),
+                          ),
+                          Container(
+                            width: 72,
+                            alignment: Alignment.center,
+                            child: Text(
+                              '$_standingQuantity',
+                              style: AppTheme.nanum(
+                                color: AppTheme.textPrimary,
+                                fontSize: 28,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          _standingQtyButton(
+                            icon: Icons.add_rounded,
+                            enabled: _standingQuantity < maxPerOrder,
+                            onTap: () => setState(() => _standingQuantity++),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '최대 $maxPerOrder매',
+                        style: AppTheme.nanum(
+                          color: AppTheme.textTertiary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 가격 정보
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('입장권 가격',
+                              style: AppTheme.nanum(color: AppTheme.textSecondary, fontSize: 14)),
+                          Text('${fmt.format(price)}원',
+                              style: AppTheme.nanum(color: AppTheme.textPrimary, fontSize: 14)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Divider(color: AppTheme.border),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('총 결제금액',
+                              style: AppTheme.nanum(
+                                color: AppTheme.textPrimary,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              )),
+                          Text('${fmt.format(totalPrice)}원',
+                              style: AppTheme.nanum(
+                                color: AppTheme.gold,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              )),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
+        ),
+
+        // ── 하단 예매 버튼 ──
+        Container(
+          padding: EdgeInsets.fromLTRB(20, 14, 20, 14 + MediaQuery.of(context).padding.bottom),
+          decoration: const BoxDecoration(
+            color: AppTheme.surface,
+            border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: event.availableSeats >= _standingQuantity
+                  ? () => _goCheckoutWithSeats([], _standingQuantity, isLoggedIn)
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.gold,
+                foregroundColor: AppTheme.background,
+                disabledBackgroundColor: AppTheme.textTertiary.withValues(alpha: 0.3),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: Text(
+                event.availableSeats >= _standingQuantity
+                    ? '${fmt.format(totalPrice)}원 · $_standingQuantity매 예매하기'
+                    : '매진',
+                style: AppTheme.nanum(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _standingQtyButton({
+    required IconData icon,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: enabled ? AppTheme.gold.withValues(alpha: 0.15) : AppTheme.surface,
+          border: Border.all(
+            color: enabled ? AppTheme.gold.withValues(alpha: 0.4) : AppTheme.border,
+          ),
+        ),
+        child: Icon(
+          icon,
+          color: enabled ? AppTheme.gold : AppTheme.textTertiary,
+          size: 22,
         ),
       ),
     );

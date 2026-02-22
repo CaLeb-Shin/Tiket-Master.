@@ -133,7 +133,8 @@ class _TicketDetailBody extends ConsumerWidget {
 
         // 업그레이드 가능 조건
         final currentGrade = seat?.grade;
-        final canUpgrade = ticket.status == TicketStatus.issued &&
+        final canUpgrade = !ticket.isStanding &&
+            ticket.status == TicketStatus.issued &&
             !ticket.hasAnyCheckin &&
             currentGrade != null &&
             currentGrade != 'VIP' &&
@@ -714,7 +715,14 @@ class _TicketTopCard extends StatelessWidget {
                   mono: true,
                 ),
                 _TopDataRow(label: '발행일시', value: issuedAtText),
-                if (seat != null)
+                if (ticket.isStanding)
+                  _TopDataRow(
+                    label: '입장',
+                    value: ticket.entryNumber != null
+                        ? '스탠딩 #${ticket.entryNumber}'
+                        : '스탠딩 입장권',
+                  )
+                else if (seat != null)
                   _TopDataRow(label: '좌석', value: seat!.displayName)
                 else if (seatLoading)
                   const _TopDataRow(label: '좌석', value: '좌석 정보 확인 중')

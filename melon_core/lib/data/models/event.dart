@@ -40,6 +40,7 @@ class Event {
   final String? seriesId; // 시리즈(다회공연) ID — 같은 시리즈에 속하는 이벤트는 동일
   final int sessionNumber; // 회차 번호 (1부터 시작, 단일 공연이면 1)
   final int totalSessions; // 총 회차 수
+  final bool isStanding; // 비지정석(스탠딩) 공연 여부
 
   Event({
     required this.id,
@@ -77,6 +78,7 @@ class Event {
     this.seriesId,
     this.sessionNumber = 1,
     this.totalSessions = 1,
+    this.isStanding = false,
   });
 
   /// 좌석 공개 여부
@@ -134,6 +136,7 @@ class Event {
       seriesId: data['seriesId'],
       sessionNumber: data['sessionNumber'] ?? 1,
       totalSessions: data['totalSessions'] ?? 1,
+      isStanding: data['isStanding'] ?? false,
     );
   }
 
@@ -173,6 +176,7 @@ class Event {
       if (seriesId != null) 'seriesId': seriesId,
       'sessionNumber': sessionNumber,
       'totalSessions': totalSessions,
+      'isStanding': isStanding,
     };
   }
 

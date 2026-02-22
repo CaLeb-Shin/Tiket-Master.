@@ -66,6 +66,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   late final TextEditingController _hourCtrl;
   late final TextEditingController _minuteCtrl;
 
+  // ── 비지정석(스탠딩) ──
+  bool _isStanding = false;
+  final _standingCapacityCtrl = TextEditingController(text: '100');
+
   // ── 다회 공연 (연속 회차) ──
   bool _isMultiSession = false;
   final List<DateTime> _sessionDates = []; // 추가 회차 날짜
@@ -255,6 +259,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         for (final e in _gradePriceControllers.entries) e.key: e.value.text,
       },
       'showRemainingSeats': _showRemainingSeats,
+      'isStanding': _isStanding,
+      'standingCapacity': _standingCapacityCtrl.text,
       'discountPolicies':
           _discountPolicies.map((p) => p.toMap()).toList(),
       if (_selectedVenue != null) 'venueId': _selectedVenue!.id,
@@ -326,6 +332,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       _noticeCtrl.text = data['notice'] as String? ?? '';
       _inquiryInfoCtrl.text = data['inquiryInfo'] as String? ?? '';
       _showRemainingSeats = data['showRemainingSeats'] as bool? ?? true;
+      _isStanding = data['isStanding'] as bool? ?? false;
+      _standingCapacityCtrl.text = data['standingCapacity'] as String? ?? '100';
 
       if (data['enabledGrades'] != null) {
         _enabledGrades
@@ -405,6 +413,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         _noticeCtrl.text = event.notice ?? '';
         _inquiryInfoCtrl.text = event.inquiryInfo ?? '';
         _showRemainingSeats = event.showRemainingSeats;
+        _isStanding = event.isStanding;
 
         if (event.priceByGrade != null) {
           _enabledGrades
@@ -473,6 +482,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         _noticeCtrl.text = event.notice ?? '';
         _inquiryInfoCtrl.text = event.inquiryInfo ?? '';
         _showRemainingSeats = event.showRemainingSeats;
+        _isStanding = event.isStanding;
 
         if (event.priceByGrade != null) {
           _enabledGrades
@@ -690,55 +700,62 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
         const SizedBox(height: 20),
 
+        // ── 비지정석(스탠딩) 토글 ──
+        _buildStandingToggle(),
+
+        const SizedBox(height: 20),
+
         // ── 다회 공연 토글 ──
         _buildMultiSessionSection(),
 
         const SizedBox(height: 48),
 
-        // ── Section 2: 공연장 ──
-        _sectionHeader('공연장'),
-        const SizedBox(height: 24),
-        if (_isEditMode) ...[
-          // 수정 모드: 좌석 배치 변경 불가 안내
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AdminTheme.sage.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: AdminTheme.border, width: 0.5),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline_rounded,
-                    size: 18, color: AdminTheme.textTertiary),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '좌석 배치는 수정할 수 없습니다. 좌석 변경이 필요하면 좌석 관리에서 수정하세요.',
-                    style: AdminTheme.sans(
-                      fontSize: 13,
-                      color: AdminTheme.textSecondary,
+        // ── Section 2: 공연장 (스탠딩이 아닌 경우에만) ──
+        if (!_isStanding) ...[
+          _sectionHeader('공연장'),
+          const SizedBox(height: 24),
+          if (_isEditMode) ...[
+            // 수정 모드: 좌석 배치 변경 불가 안내
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AdminTheme.sage.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: AdminTheme.border, width: 0.5),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded,
+                      size: 18, color: AdminTheme.textTertiary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '좌석 배치는 수정할 수 없습니다. 좌석 변경이 필요하면 좌석 관리에서 수정하세요.',
+                      style: AdminTheme.sans(
+                        fontSize: 13,
+                        color: AdminTheme.textSecondary,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          // 수정 모드에서도 등급별 가격은 수정 가능
-          if (_enabledGrades.isNotEmpty) ...[
-            const SizedBox(height: 48),
-            _sectionHeader('등급별 가격'),
-            const SizedBox(height: 24),
-            _buildGradeSelector(),
-          ],
-        ] else ...[
-          _buildSeatMapSection(),
-          // ── Section 3: 등급별 가격 (좌석 데이터 로드 후 자동 표시) ──
-          if (_seatMapData != null) ...[
-            const SizedBox(height: 48),
-            _sectionHeader('등급별 가격'),
-            const SizedBox(height: 24),
-            _buildGradeSelector(),
+            // 수정 모드에서도 등급별 가격은 수정 가능
+            if (_enabledGrades.isNotEmpty) ...[
+              const SizedBox(height: 48),
+              _sectionHeader('등급별 가격'),
+              const SizedBox(height: 24),
+              _buildGradeSelector(),
+            ],
+          ] else ...[
+            _buildSeatMapSection(),
+            // ── Section 3: 등급별 가격 (좌석 데이터 로드 후 자동 표시) ──
+            if (_seatMapData != null) ...[
+              const SizedBox(height: 48),
+              _sectionHeader('등급별 가격'),
+              const SizedBox(height: 24),
+              _buildGradeSelector(),
+            ],
           ],
         ],
 
@@ -1156,6 +1173,131 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildStandingToggle() {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: _isStanding
+                ? AdminTheme.gold.withValues(alpha: 0.08)
+                : AdminTheme.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _isStanding
+                  ? AdminTheme.gold.withValues(alpha: 0.4)
+                  : AdminTheme.border,
+              width: 0.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                _isStanding ? Icons.people_rounded : Icons.event_seat_rounded,
+                color: _isStanding ? AdminTheme.gold : AdminTheme.textSecondary,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '비지정석 (스탠딩)',
+                      style: TextStyle(
+                        color: AdminTheme.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '좌석 배치 없이 수량 기반 입장권 발매',
+                      style: TextStyle(
+                        color: AdminTheme.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: _isStanding,
+                onChanged: (v) => setState(() => _isStanding = v),
+                activeColor: AdminTheme.gold,
+                activeTrackColor: AdminTheme.gold.withValues(alpha: 0.3),
+              ),
+            ],
+          ),
+        ),
+        if (_isStanding) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _field('수용 인원', isRequired: true, child: TextFormField(
+                  controller: _standingCapacityCtrl,
+                  keyboardType: TextInputType.number,
+                  style: TextStyle(color: AdminTheme.textPrimary, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: '100',
+                    hintStyle: TextStyle(color: AdminTheme.textSecondary.withValues(alpha: 0.5)),
+                    suffixText: '명',
+                    suffixStyle: TextStyle(color: AdminTheme.textSecondary, fontSize: 13),
+                    filled: true,
+                    fillColor: AdminTheme.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: AdminTheme.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: AdminTheme.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: AdminTheme.gold, width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                )),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _field('입장권 가격', isRequired: true, child: TextFormField(
+                  controller: _gradePriceControllers['일반'] ?? (_gradePriceControllers['일반'] = TextEditingController()),
+                  keyboardType: TextInputType.number,
+                  style: TextStyle(color: AdminTheme.textPrimary, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: '50,000',
+                    hintStyle: TextStyle(color: AdminTheme.textSecondary.withValues(alpha: 0.5)),
+                    suffixText: '원',
+                    suffixStyle: TextStyle(color: AdminTheme.textSecondary, fontSize: 13),
+                    filled: true,
+                    fillColor: AdminTheme.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: AdminTheme.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: AdminTheme.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: AdminTheme.gold, width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                )),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 
@@ -3523,11 +3665,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       _showError('공연명을 입력해주세요');
       return;
     }
-    if (!_isEditMode && _seatMapData == null) {
+    if (!_isStanding && !_isEditMode && _seatMapData == null) {
       _showError('좌석 배치를 선택해주세요');
       return;
     }
-    if (_enabledGrades.isEmpty) {
+    if (!_isStanding && _enabledGrades.isEmpty) {
       _showError('사용할 좌석 등급을 1개 이상 선택해주세요');
       return;
     }
@@ -3541,11 +3683,18 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     try {
       // 활성화된 등급별 가격 맵
       final priceByGrade = <String, int>{};
-      for (final grade in _enabledGrades) {
-        final ctrl = _gradePriceControllers[grade];
-        if (ctrl != null) {
-          priceByGrade[grade] =
-              int.tryParse(ctrl.text.replaceAll(',', '')) ?? SeatMapParser.getDefaultPrice(grade);
+      if (_isStanding) {
+        // 스탠딩 모드: 일반 등급 1개
+        final standingPrice = int.tryParse(
+            (_gradePriceControllers['일반']?.text ?? '').replaceAll(',', '')) ?? 50000;
+        priceByGrade['일반'] = standingPrice;
+      } else {
+        for (final grade in _enabledGrades) {
+          final ctrl = _gradePriceControllers[grade];
+          if (ctrl != null) {
+            priceByGrade[grade] =
+                int.tryParse(ctrl.text.replaceAll(',', '')) ?? SeatMapParser.getDefaultPrice(grade);
+          }
         }
       }
 
@@ -3601,6 +3750,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   ? _discountPolicies.map((p) => p.toMap()).toList()
                   : null,
           'showRemainingSeats': _showRemainingSeats,
+          'isStanding': _isStanding,
           'tags': _selectedTags.isNotEmpty ? _selectedTags.toList() : [],
         };
 
@@ -3608,12 +3758,19 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         updateData['imageUrl'] = _posterUrl;
         updateData['pamphletUrls'] = _pamphletUrls.isNotEmpty ? _pamphletUrls : null;
 
+        // 스탠딩 모드: 수용 인원 업데이트
+        if (_isStanding) {
+          final capacity = int.tryParse(_standingCapacityCtrl.text) ?? 100;
+          updateData['totalSeats'] = capacity;
+          updateData['availableSeats'] = capacity;
+        }
+
         await ref.read(eventRepositoryProvider).updateEvent(eventId, updateData);
         if (mounted) setState(() { _submitProgress = 0.50; _submitStage = '좌석 확인 중...'; });
 
-        // 좌석이 없으면 자동 생성
+        // 좌석이 없으면 자동 생성 (스탠딩이 아닌 경우)
         final existingSeats = await ref.read(seatRepositoryProvider).getSeatsByEvent(eventId);
-        if (existingSeats.isEmpty && _seatMapData != null) {
+        if (!_isStanding && existingSeats.isEmpty && _seatMapData != null) {
           if (mounted) setState(() { _submitProgress = 0.60; _submitStage = '좌석 생성 중...'; });
           await _createSeatsFromSeatMap(eventId);
           // totalSeats 업데이트
@@ -3644,12 +3801,16 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       // 신규 등록 모드
       // ════════════════════════════════════════════════════════════════════
 
-      // 활성화된 등급만 좌석 수 계산
+      // 좌석 수 계산
       var totalSeats = 0;
-      for (final floor in _seatMapData!.floors) {
-        for (final block in floor.blocks) {
-          if (block.grade == null || _enabledGrades.contains(block.grade)) {
-            totalSeats += block.totalSeats;
+      if (_isStanding) {
+        totalSeats = int.tryParse(_standingCapacityCtrl.text) ?? 100;
+      } else {
+        for (final floor in _seatMapData!.floors) {
+          for (final block in floor.blocks) {
+            if (block.grade == null || _enabledGrades.contains(block.grade)) {
+              totalSeats += block.totalSeats;
+            }
           }
         }
       }
@@ -3729,6 +3890,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           seriesId: seriesId,
           sessionNumber: si + 1,
           totalSessions: sessionCount,
+          isStanding: _isStanding,
         );
 
         // ── Step 1: 이벤트 생성
@@ -3760,14 +3922,16 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               .updateEvent(eventId, imageData);
         }
 
-        // ── Step 3: 좌석 생성
-        if (mounted) setState(() {
-          _submitProgress = progressBase + progressStep * 0.5;
-          _submitStage = isMulti
-              ? '${si + 1}회차 좌석 생성 중...'
-              : '좌석 생성 중...';
-        });
-        await _createSeatsFromSeatMap(eventId);
+        // ── Step 3: 좌석 생성 (스탠딩이 아닌 경우)
+        if (!_isStanding) {
+          if (mounted) setState(() {
+            _submitProgress = progressBase + progressStep * 0.5;
+            _submitStage = isMulti
+                ? '${si + 1}회차 좌석 생성 중...'
+                : '좌석 생성 중...';
+          });
+          await _createSeatsFromSeatMap(eventId);
+        }
       }
 
       if (mounted) setState(() { _submitProgress = 1.0; _submitStage = '완료!'; });

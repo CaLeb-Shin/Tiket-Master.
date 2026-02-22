@@ -326,7 +326,7 @@
         "flutter analyze 통과, npm run build 통과"
       ],
       "priority": 19,
-      "passes": false,
+      "passes": true,
       "notes": "스탠딩 공연, 페스티벌 등 좌석 지정이 필요 없는 공연 유형 지원. isStanding=true이면 seats 컬렉션 사용 안 하고, 티켓에 entryNumber 필드 추가. 입장번호는 예매 순서대로 자동 부여. maxTicketsPerOrder로 1인 최대 구매 수량 제한은 동일하게 적용."
     },
     {

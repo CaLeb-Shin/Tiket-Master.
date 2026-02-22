@@ -254,7 +254,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     _SectionTitle(
                       widget.selectedSeatIds.isNotEmpty
                           ? '선택 좌석 (${widget.selectedSeatIds.length}석)'
-                          : '수량 선택',
+                          : event.isStanding
+                              ? '스탠딩 입장권'
+                              : '수량 선택',
                     ),
                     const SizedBox(height: 8),
                     if (widget.selectedSeatIds.isNotEmpty)
