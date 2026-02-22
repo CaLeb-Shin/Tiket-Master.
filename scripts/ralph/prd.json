@@ -416,7 +416,7 @@
         "flutter analyze 통과, npm run build 통과"
       ],
       "priority": 24,
-      "passes": false,
+      "passes": true,
       "notes": "핵심 아키텍처 변경. users 컬렉션에 role, sellerProfile(상호명, 사업자번호, 대표자명, 연락처, 로고URL, 소개글, 가입일, 상태) 서브맵 추가. Firestore Security Rules에서 seller는 자기 sellerId 데이터만 읽기/쓰기. superAdmin은 모든 것에 접근. 기존 isAdmin 필드는 role=='superAdmin' || role=='seller'로 대체. 라우팅에서 역할별 접근제어 적용."
     },
     {

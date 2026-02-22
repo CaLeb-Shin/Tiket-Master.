@@ -41,6 +41,7 @@ class Event {
   final int sessionNumber; // 회차 번호 (1부터 시작, 단일 공연이면 1)
   final int totalSessions; // 총 회차 수
   final bool isStanding; // 비지정석(스탠딩) 공연 여부
+  final String? sellerId; // 판매자(셀러) ID
 
   Event({
     required this.id,
@@ -79,6 +80,7 @@ class Event {
     this.sessionNumber = 1,
     this.totalSessions = 1,
     this.isStanding = false,
+    this.sellerId,
   });
 
   /// 좌석 공개 여부
@@ -137,6 +139,7 @@ class Event {
       sessionNumber: data['sessionNumber'] ?? 1,
       totalSessions: data['totalSessions'] ?? 1,
       isStanding: data['isStanding'] ?? false,
+      sellerId: data['sellerId'],
     );
   }
 
@@ -177,6 +180,7 @@ class Event {
       'sessionNumber': sessionNumber,
       'totalSessions': totalSessions,
       'isStanding': isStanding,
+      if (sellerId != null) 'sellerId': sellerId,
     };
   }
 

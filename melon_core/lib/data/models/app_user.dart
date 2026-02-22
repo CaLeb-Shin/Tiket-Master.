@@ -12,6 +12,7 @@ class AppUser {
   final String? referralCode;
   final bool isDemo; // 체험 계정 여부
   final List<String> badges; // 뱃지 목록
+  final SellerProfile? sellerProfile; // 셀러 프로필 (role=seller일 때)
   final DateTime createdAt;
   final DateTime? lastLoginAt;
 
@@ -25,12 +26,15 @@ class AppUser {
     this.referralCode,
     this.isDemo = false,
     this.badges = const [],
+    this.sellerProfile,
     required this.createdAt,
     this.lastLoginAt,
   }) : mileage = mileage ?? Mileage();
 
-  bool get isAdmin => role == UserRole.admin;
-  bool get isStaff => role == UserRole.staff || role == UserRole.admin;
+  bool get isAdmin => role == UserRole.admin || role == UserRole.superAdmin;
+  bool get isSuperAdmin => role == UserRole.superAdmin;
+  bool get isSeller => role == UserRole.seller;
+  bool get isStaff => role == UserRole.staff || isAdmin;
 
   factory AppUser.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -44,6 +48,9 @@ class AppUser {
       referralCode: data['referralCode'] as String?,
       isDemo: data['isDemo'] ?? false,
       badges: data['badges'] != null ? List<String>.from(data['badges']) : [],
+      sellerProfile: data['sellerProfile'] != null
+          ? SellerProfile.fromMap(data['sellerProfile'] as Map<String, dynamic>)
+          : null,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate(),
     );
@@ -59,8 +66,54 @@ class AppUser {
       if (referralCode != null) 'referralCode': referralCode,
       'isDemo': isDemo,
       'badges': badges,
+      if (sellerProfile != null) 'sellerProfile': sellerProfile!.toMap(),
       'createdAt': Timestamp.fromDate(createdAt),
       'lastLoginAt': lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
+    };
+  }
+}
+
+/// 셀러 프로필
+class SellerProfile {
+  final String businessName; // 상호명
+  final String? businessNumber; // 사업자번호
+  final String? representativeName; // 대표자명
+  final String? contactNumber; // 연락처
+  final String? logoUrl;
+  final String? description; // 소개글
+  final String sellerStatus; // pending / active / suspended
+
+  SellerProfile({
+    required this.businessName,
+    this.businessNumber,
+    this.representativeName,
+    this.contactNumber,
+    this.logoUrl,
+    this.description,
+    this.sellerStatus = 'pending',
+  });
+
+  factory SellerProfile.fromMap(Map<String, dynamic> data) {
+    return SellerProfile(
+      businessName: data['businessName'] ?? '',
+      businessNumber: data['businessNumber'],
+      representativeName: data['representativeName'],
+      contactNumber: data['contactNumber'],
+      logoUrl: data['logoUrl'],
+      description: data['description'],
+      sellerStatus: data['sellerStatus'] ?? 'pending',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'businessName': businessName,
+      'businessNumber': businessNumber,
+      'representativeName': representativeName,
+      'contactNumber': contactNumber,
+      'logoUrl': logoUrl,
+      'description': description,
+      'sellerStatus': sellerStatus,
     };
   }
 }
@@ -68,7 +121,9 @@ class AppUser {
 enum UserRole {
   user, // 일반 사용자
   staff, // 스태프 (스캐너)
-  admin; // 관리자
+  seller, // 판매자/주최자
+  admin, // 관리자
+  superAdmin; // 플랫폼 운영자
 
   static UserRole fromString(String? value) {
     return UserRole.values.firstWhere(
