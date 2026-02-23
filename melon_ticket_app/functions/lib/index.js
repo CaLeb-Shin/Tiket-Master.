@@ -375,9 +375,65 @@ exports.confirmPaymentAndAssignSeats = functions.https.onCall(async (data, conte
             transaction.update(orderRef, { status: "failed", failReason: "결제 검증 실패" });
             return { success: false, error: "결제 검증 실패" };
         }
-        // 연속좌석 찾기
+        // 이벤트 정보 및 수량
         const eventId = order.eventId;
         const quantity = order.quantity;
+        const eventRef = db.collection("events").doc(eventId);
+        const eventDoc = await transaction.get(eventRef);
+        if (!eventDoc.exists) {
+            throw new functions.https.HttpsError("not-found", "이벤트를 찾을 수 없습니다");
+        }
+        const eventData = eventDoc.data();
+        // ═══ 스탠딩(비지정석) 모드 ═══
+        if (eventData.isStanding === true) {
+            const available = eventData.availableSeats || 0;
+            if (available < quantity) {
+                transaction.update(orderRef, {
+                    status: "failed",
+                    failReason: "잔여 수량이 부족합니다",
+                });
+                return { success: false, error: "잔여 수량이 부족합니다" };
+            }
+            // 현재 발급된 티켓 수로 entryNumber 계산
+            const totalSeats = eventData.totalSeats || 0;
+            const baseEntryNumber = totalSeats - available + 1;
+            // 티켓 발급 (좌석 없이)
+            const ticketIds = [];
+            for (let i = 0; i < quantity; i++) {
+                const ticketRef = db.collection("tickets").doc();
+                ticketIds.push(ticketRef.id);
+                transaction.set(ticketRef, {
+                    eventId,
+                    orderId,
+                    userId,
+                    seatId: "",
+                    seatBlockId: "",
+                    status: "issued",
+                    qrVersion: 1,
+                    entryNumber: baseEntryNumber + i,
+                    issuedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            }
+            // 주문 상태 업데이트
+            transaction.update(orderRef, {
+                status: "paid",
+                paidAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            // 잔여 수량 감소
+            transaction.update(eventRef, {
+                availableSeats: admin.firestore.FieldValue.increment(-quantity),
+            });
+            functions.logger.info(`스탠딩 결제 완료: 주문 ${orderId}, ${quantity}매, 입장번호 ${baseEntryNumber}~${baseEntryNumber + quantity - 1}`);
+            return {
+                success: true,
+                seatBlockId: "",
+                seatCount: quantity,
+                ticketIds,
+                userId,
+                eventId,
+            };
+        }
+        // ═══ 지정석 모드 (기존 로직) ═══
         // 가용 좌석 조회 (인덱스: eventId + status)
         const seatsSnapshot = await transaction.get(db.collection("seats")
             .where("eventId", "==", eventId)
@@ -448,7 +504,6 @@ exports.confirmPaymentAndAssignSeats = functions.https.onCall(async (data, conte
             paidAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         // 이벤트 잔여 좌석 감소
-        const eventRef = db.collection("events").doc(eventId);
         transaction.update(eventRef, {
             availableSeats: admin.firestore.FieldValue.increment(-quantity),
         });
@@ -704,9 +759,9 @@ exports.requestTicketCancellation = functions.https.onCall(async (data, context)
         transaction.update(eventRef, {
             availableSeats: admin.firestore.FieldValue.increment(1),
         });
-        const orderTicketsSnapshot = await db.collection("tickets")
-            .where("orderId", "==", ticket.orderId)
-            .get();
+        const orderTicketsQuery = db.collection("tickets")
+            .where("orderId", "==", ticket.orderId);
+        const orderTicketsSnapshot = await transaction.get(orderTicketsQuery);
         const hasRemainingIssued = orderTicketsSnapshot.docs.some((doc) => {
             if (doc.id === ticketId)
                 return false;

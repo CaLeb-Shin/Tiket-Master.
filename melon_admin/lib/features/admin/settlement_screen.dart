@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../app/admin_theme.dart';
 import 'package:melon_core/data/models/event.dart';
@@ -33,6 +34,24 @@ class _SettlementScreenState extends ConsumerState<SettlementScreen> {
             // ── 헤더 ──
             Row(
               children: [
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () => context.go('/'),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AdminTheme.surface,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AdminTheme.border, width: 0.5),
+                      ),
+                      child: const Icon(Icons.arrow_back_rounded,
+                          size: 18, color: AdminTheme.textSecondary),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
                 Icon(Icons.account_balance_rounded,
                     size: 28, color: AdminTheme.gold),
                 const SizedBox(width: 12),

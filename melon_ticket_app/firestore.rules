@@ -5,7 +5,7 @@ service cloud.firestore {
     // 사용자 정보
     match /users/{userId} {
       allow read: if request.auth != null &&
-        (request.auth.uid == userId || isOwner());
+        (request.auth.uid == userId || isAdmin());
       allow create: if request.auth != null &&
         request.auth.uid == userId &&
         (
@@ -64,36 +64,99 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
-    // 주문 (본인 것만)
+    // 주문 (본인 것만 읽기, 어드민은 모의 티켓용 쓰기 허용)
     match /orders/{orderId} {
-      allow read: if request.auth != null && 
+      allow read: if request.auth != null &&
         (request.auth.uid == resource.data.userId || isAdmin());
-      allow create: if false; // Functions에서만 생성
-      allow update: if false;
+      allow create: if isAdmin(); // 어드민: 모의 티켓 생성용
+      allow update: if isAdmin();
     }
-    
+
     // 좌석 블록 (본인 것만 + 어드민)
     match /seatBlocks/{blockId} {
-      allow read: if request.auth != null && 
+      allow read: if request.auth != null &&
         (
           resource.data.userId == request.auth.uid ||
           (resource.data.orderId is string && isOrderOwner(resource.data.orderId)) ||
           isAdmin()
         );
-      allow write: if false; // Functions에서만
+      allow create: if isAdmin(); // 어드민: 모의 티켓 생성용
+      allow update: if isAdmin();
     }
-    
-    // 티켓 (본인 것만)
+
+    // 티켓 (본인 것만 읽기, 어드민은 모의 티켓용 쓰기 허용)
     match /tickets/{ticketId} {
-      allow read: if request.auth != null && 
+      allow read: if request.auth != null &&
         (request.auth.uid == resource.data.userId || isAdmin() || isStaff());
-      allow write: if false; // Functions에서만
+      allow create: if isAdmin(); // 어드민: 모의 티켓 생성용
+      allow update: if isAdmin();
     }
     
     // 체크인 기록 (스태프/어드민만)
     match /checkins/{checkinId} {
       allow read: if isStaff() || isAdmin();
       allow write: if false; // Functions에서만
+    }
+
+    // 정산 (어드민만)
+    match /settlements/{settlementId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // 에스크로 계정 (어드민만)
+    match /escrowAccounts/{accountId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // 에스크로 트랜잭션 (어드민만)
+    match /escrowTransactions/{txId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // 마일리지 내역 (본인 것만 읽기)
+    match /mileageHistory/{historyId} {
+      allow read: if request.auth != null &&
+        (request.auth.uid == resource.data.userId || isAdmin());
+      allow write: if false; // Functions에서만
+    }
+
+    // 리뷰 (공개 읽기, 본인만 쓰기)
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.userId;
+    }
+
+    // Hall 커뮤니티 (공개 읽기)
+    match /halls/{hallId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /posts/{postId} {
+        allow read: if true;
+        allow create: if request.auth != null;
+        allow update, delete: if request.auth != null &&
+          (request.auth.uid == resource.data.userId || isAdmin());
+
+        match /comments/{commentId} {
+          allow read: if true;
+          allow create: if request.auth != null;
+          allow update, delete: if request.auth != null &&
+            (request.auth.uid == resource.data.userId || isAdmin());
+        }
+      }
+    }
+
+    // 공연장 요청 (셀러: 생성/읽기, 슈퍼어드민: 전체)
+    match /venueRequests/{requestId} {
+      allow read: if request.auth != null &&
+        (request.auth.uid == resource.data.sellerId || isOwner());
+      allow create: if request.auth != null;
+      allow update: if isOwner();
     }
     
     function isOwner() {
