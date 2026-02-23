@@ -80,6 +80,56 @@ class SeatRepository {
     return allSeats;
   }
 
+  /// Layout 기반 좌석 일괄 생성 (도트맵 좌표 포함)
+  Future<int> createSeatsFromLayout(
+      String eventId, List<Map<String, dynamic>> seatData) async {
+    var batch = _firestoreService.batch();
+    var pending = 0;
+    int count = 0;
+
+    for (final data in seatData) {
+      final block = data['block'] as String;
+      final floor = data['floor'] as String;
+      final row = data['row'] as String?;
+      final number = data['number'] as int;
+      final grade = data['grade'] as String?;
+      final gridX = data['gridX'] as int?;
+      final gridY = data['gridY'] as int?;
+      final seatType = data['seatType'] as String? ?? 'normal';
+
+      final seatKey = row != null && row.isNotEmpty
+          ? '$block-$floor-$row-$number'
+          : '$block-$floor-$number';
+
+      final docRef = _firestoreService.seats.doc();
+      batch.set(docRef, {
+        'eventId': eventId,
+        'block': block,
+        'floor': floor,
+        'row': row,
+        'number': number,
+        'seatKey': seatKey,
+        'grade': grade,
+        'status': SeatStatus.available.name,
+        if (gridX != null) 'gridX': gridX,
+        if (gridY != null) 'gridY': gridY,
+        'seatType': seatType,
+      });
+      count++;
+      pending++;
+
+      if (pending == 500) {
+        await batch.commit();
+        batch = _firestoreService.batch();
+        pending = 0;
+      }
+    }
+    if (pending > 0) {
+      await batch.commit();
+    }
+    return count;
+  }
+
   /// CSV로 좌석 일괄 생성 (어드민)
   Future<int> createSeatsFromCsv(
       String eventId, List<Map<String, dynamic>> seatData) async {

@@ -4,14 +4,14 @@ import 'package:go_router/go_router.dart';
 import '../../app/admin_theme.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/data/repositories/venue_repository.dart';
 import 'package:melon_core/data/models/seat.dart';
+import 'package:melon_core/data/models/venue.dart';
 
 // =============================================================================
-// MT-039: 좌석 등록 화면 UI 개선 (Editorial / Luxury Magazine Admin Design)
-// - 등급별 현황 표시 (VIP/R/S/A)
-// - 업로드 후 서머리 카드
-// - CSV 포맷 가이드 테이블
-// - 업로드 성공 확인 메시지
+// MT-042: 좌석 등록 화면 — 도트맵 + CSV 탭 (Interactive Dotmap Seat Registration)
+// - 도트맵 탭: 공연장 배치도 기반 인터랙티브 좌석 선택
+// - CSV 탭: 기존 CSV 업로드 (폴백)
 // =============================================================================
 
 // ── Grade color constants ──
@@ -34,12 +34,23 @@ class SeatUploadScreen extends ConsumerStatefulWidget {
 }
 
 class _SeatUploadScreenState extends ConsumerState<SeatUploadScreen> {
+  // ── Tab state: 0 = dotmap, 1 = CSV ──
+  int _activeTab = 0;
+
+  // ── CSV state ──
   final _csvController = TextEditingController();
   bool _isLoading = false;
   String? _previewText;
   List<Map<String, dynamic>> _previewSeats = [];
 
-  // ── Upload result state ──
+  // ── Dotmap state ──
+  VenueSeatLayout? _seatLayout;
+  bool _layoutLoading = true;
+  String? _layoutError;
+  Set<String> _selectedSeatKeys = {};
+  String? _gradeFilter; // null = show all
+
+  // ── Upload result state (shared) ──
   bool _uploadSuccess = false;
   int _uploadedCount = 0;
   Map<String, int> _uploadedGradeBreakdown = {};
@@ -64,6 +75,7 @@ B,1층,1,2,A
 B,1층,1,3,S
 B,1층,1,4,S
 B,1층,1,5,R''';
+    _loadVenueLayout();
   }
 
   @override
@@ -71,6 +83,82 @@ B,1층,1,5,R''';
     _csvController.dispose();
     super.dispose();
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VENUE LAYOUT LOADING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> _loadVenueLayout() async {
+    setState(() {
+      _layoutLoading = true;
+      _layoutError = null;
+    });
+
+    try {
+      // Get event to find venueId
+      final event =
+          await ref.read(eventRepositoryProvider).getEvent(widget.eventId);
+      if (event == null) {
+        setState(() {
+          _layoutLoading = false;
+          _layoutError = '공연 정보를 찾을 수 없습니다.';
+          _activeTab = 1; // fallback to CSV
+        });
+        return;
+      }
+
+      if (event.venueId.isEmpty) {
+        setState(() {
+          _layoutLoading = false;
+          _layoutError = '공연장이 설정되지 않았습니다.';
+          _activeTab = 1;
+        });
+        return;
+      }
+
+      // Fetch venue
+      final venue =
+          await ref.read(venueRepositoryProvider).getVenue(event.venueId);
+      if (venue == null) {
+        setState(() {
+          _layoutLoading = false;
+          _layoutError = '공연장 정보를 찾을 수 없습니다.';
+          _activeTab = 1;
+        });
+        return;
+      }
+
+      if (venue.seatLayout == null || venue.seatLayout!.seats.isEmpty) {
+        setState(() {
+          _layoutLoading = false;
+          _seatLayout = null;
+          _activeTab = 1; // fallback to CSV
+        });
+        return;
+      }
+
+      setState(() {
+        _seatLayout = venue.seatLayout;
+        _layoutLoading = false;
+        _activeTab = 0; // default to dotmap
+        // Select all seats by default
+        _selectedSeatKeys =
+            venue.seatLayout!.seats.map((s) => s.key).toSet();
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _layoutLoading = false;
+          _layoutError = '로드 실패: $e';
+          _activeTab = 1;
+        });
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CSV PARSING
+  // ═══════════════════════════════════════════════════════════════════════════
 
   List<Map<String, dynamic>> _parseCsv(String csv) {
     final lines = csv.trim().split('\n');
@@ -133,7 +221,11 @@ B,1층,1,5,R''';
     });
   }
 
-  Future<void> _uploadSeats() async {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // UPLOAD — CSV
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> _uploadCsvSeats() async {
     final seats = _parseCsv(_csvController.text);
     if (seats.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -183,6 +275,134 @@ B,1층,1,5,R''';
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // UPLOAD — DOTMAP
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> _uploadDotmapSeats() async {
+    if (_seatLayout == null || _selectedSeatKeys.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('좌석을 선택해주세요')),
+      );
+      return;
+    }
+
+    final selectedSeats = _seatLayout!.seats
+        .where((s) => _selectedSeatKeys.contains(s.key))
+        .toList();
+
+    if (selectedSeats.length > 1500) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('최대 1500석까지만 등록 가능합니다')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final seatData = selectedSeats.map((ls) {
+        return <String, dynamic>{
+          'block': ls.zone,
+          'floor': ls.floor,
+          'row': ls.row.isNotEmpty ? ls.row : null,
+          'number': ls.number,
+          'grade': ls.grade,
+          'gridX': ls.gridX,
+          'gridY': ls.gridY,
+          'seatType': ls.seatType.name,
+        };
+      }).toList();
+
+      final count = await ref
+          .read(seatRepositoryProvider)
+          .createSeatsFromLayout(widget.eventId, seatData);
+
+      await ref.read(eventRepositoryProvider).updateEvent(widget.eventId, {
+        'totalSeats': count,
+        'availableSeats': count,
+      });
+
+      // Build breakdowns
+      final gradeMap = <String, int>{};
+      final zoneMap = <String, int>{};
+      for (final ls in selectedSeats) {
+        gradeMap[ls.grade] = (gradeMap[ls.grade] ?? 0) + 1;
+        zoneMap[ls.zone] = (zoneMap[ls.zone] ?? 0) + 1;
+      }
+      final sortedZone = Map.fromEntries(
+        zoneMap.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+      );
+
+      if (mounted) {
+        setState(() {
+          _uploadSuccess = true;
+          _uploadedCount = count;
+          _uploadedGradeBreakdown = gradeMap;
+          _uploadedZoneBreakdown = sortedZone;
+          _isLoading = false;
+        });
+        ref.invalidate(seatsStreamProvider(widget.eventId));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('오류: $e')),
+        );
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DOTMAP SELECTION HELPERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _selectAll() {
+    if (_seatLayout == null) return;
+    setState(() {
+      _selectedSeatKeys = _seatLayout!.seats.map((s) => s.key).toSet();
+    });
+  }
+
+  void _deselectAll() {
+    setState(() {
+      _selectedSeatKeys = {};
+    });
+  }
+
+  void _selectByGrade(String grade) {
+    if (_seatLayout == null) return;
+    setState(() {
+      _selectedSeatKeys = _seatLayout!.seats
+          .where((s) => s.grade == grade)
+          .map((s) => s.key)
+          .toSet();
+    });
+  }
+
+  void _toggleSeat(String seatKey) {
+    setState(() {
+      if (_selectedSeatKeys.contains(seatKey)) {
+        _selectedSeatKeys.remove(seatKey);
+      } else {
+        _selectedSeatKeys.add(seatKey);
+      }
+    });
+  }
+
+  /// Get grade breakdown of currently selected seats
+  Map<String, int> _selectedGradeBreakdown() {
+    if (_seatLayout == null) return {};
+    final map = <String, int>{};
+    for (final seat in _seatLayout!.seats) {
+      if (_selectedSeatKeys.contains(seat.key)) {
+        map[seat.grade] = (map[seat.grade] ?? 0) + 1;
+      }
+    }
+    return map;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // BUILD
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -194,19 +414,23 @@ B,1층,1,5,R''';
         children: [
           _buildAppBar(),
           Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                horizontal:
-                    MediaQuery.of(context).size.width >= 900 ? 40 : 20,
-                vertical: 32,
-              ),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: _buildContent(),
-                ),
-              ),
-            ),
+            child: _layoutLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: AdminTheme.gold),
+                  )
+                : SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal:
+                          MediaQuery.of(context).size.width >= 900 ? 40 : 20,
+                      vertical: 32,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 900),
+                        child: _buildContent(),
+                      ),
+                    ),
+                  ),
           ),
           if (!_uploadSuccess) _buildBottomBar(),
         ],
@@ -267,6 +491,11 @@ B,1층,1,5,R''';
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildBottomBar() {
+    final bool isDotmapActive = _activeTab == 0 && _seatLayout != null;
+    final bool canUpload = isDotmapActive
+        ? _selectedSeatKeys.isNotEmpty
+        : true; // CSV handles validation in _uploadCsvSeats
+
     return Container(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -280,47 +509,119 @@ B,1층,1,5,R''';
           top: BorderSide(color: AdminTheme.border, width: 0.5),
         ),
       ),
-      child: SizedBox(
-        width: double.infinity,
-        height: 52,
-        child: ElevatedButton(
-          onPressed: _isLoading ? null : _uploadSeats,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AdminTheme.gold,
-            foregroundColor: AdminTheme.onAccent,
-            disabledBackgroundColor: AdminTheme.sage.withValues(alpha: 0.3),
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Show selection summary for dotmap
+          if (isDotmapActive) ...[
+            _buildSelectionSummaryBar(),
+            const SizedBox(height: 12),
+          ],
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: _isLoading || !canUpload
+                  ? null
+                  : (isDotmapActive ? _uploadDotmapSeats : _uploadCsvSeats),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AdminTheme.gold,
+                foregroundColor: AdminTheme.onAccent,
+                disabledBackgroundColor:
+                    AdminTheme.sage.withValues(alpha: 0.3),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AdminTheme.onAccent,
+                      ),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          isDotmapActive
+                              ? 'UPLOAD ${_selectedSeatKeys.length} SEATS'
+                              : 'UPLOAD SEATS',
+                          style: AdminTheme.serif(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AdminTheme.onAccent,
+                            letterSpacing: 2.5,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Icon(Icons.arrow_forward, size: 18),
+                      ],
+                    ),
             ),
           ),
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AdminTheme.onAccent,
-                  ),
-                )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectionSummaryBar() {
+    final breakdown = _selectedGradeBreakdown();
+    return Row(
+      children: [
+        Text(
+          '${_selectedSeatKeys.length}석 선택됨',
+          style: AdminTheme.sans(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AdminTheme.gold,
+          ),
+        ),
+        Text(
+          ' / 총 ${_seatLayout?.seats.length ?? 0}석',
+          style: AdminTheme.sans(
+            fontSize: 13,
+            color: AdminTheme.textTertiary,
+          ),
+        ),
+        const Spacer(),
+        ...() {
+          final chips = <Widget>[];
+          for (final g in _gradeOrder) {
+            if (breakdown.containsKey(g)) {
+              chips.add(Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'UPLOAD SEATS',
-                      style: AdminTheme.serif(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AdminTheme.onAccent,
-                        letterSpacing: 2.5,
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: _gradeColors[g],
+                        borderRadius: BorderRadius.circular(1),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    const Icon(Icons.arrow_forward, size: 18),
+                    const SizedBox(width: 3),
+                    Text(
+                      '${breakdown[g]}',
+                      style: AdminTheme.sans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: _gradeColors[g] ?? AdminTheme.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
-        ),
-      ),
+              ));
+            }
+          }
+          return chips;
+        }(),
+      ],
     );
   }
 
@@ -358,6 +659,592 @@ B,1층,1,5,R''';
           const SizedBox(height: 40),
         ],
 
+        // ── Tab switcher (only show when not in success state) ──
+        if (!_uploadSuccess) ...[
+          _buildTabSwitcher(),
+          const SizedBox(height: 28),
+
+          // Tab content
+          if (_activeTab == 0)
+            _buildDotmapTab()
+          else
+            _buildCsvTab(),
+        ],
+
+        const SizedBox(height: 100),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TAB SWITCHER
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildTabSwitcher() {
+    final hasDotmap = _seatLayout != null;
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(
+          color: AdminTheme.sage.withValues(alpha: 0.15),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _tabButton(
+              label: 'DOTMAP',
+              icon: Icons.grid_on_rounded,
+              isActive: _activeTab == 0,
+              enabled: hasDotmap,
+              onTap: hasDotmap ? () => setState(() => _activeTab = 0) : null,
+            ),
+          ),
+          const SizedBox(width: 3),
+          Expanded(
+            child: _tabButton(
+              label: 'CSV',
+              icon: Icons.upload_file_rounded,
+              isActive: _activeTab == 1,
+              enabled: true,
+              onTap: () => setState(() => _activeTab = 1),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabButton({
+    required String label,
+    required IconData icon,
+    required bool isActive,
+    required bool enabled,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive
+              ? AdminTheme.gold.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(
+            color: isActive
+                ? AdminTheme.gold.withValues(alpha: 0.3)
+                : Colors.transparent,
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: !enabled
+                  ? AdminTheme.sage.withValues(alpha: 0.3)
+                  : isActive
+                      ? AdminTheme.gold
+                      : AdminTheme.sage,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: AdminTheme.label(
+                fontSize: 10,
+                color: !enabled
+                    ? AdminTheme.sage.withValues(alpha: 0.3)
+                    : isActive
+                        ? AdminTheme.gold
+                        : AdminTheme.sage,
+              ),
+            ),
+            if (!enabled) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: AdminTheme.sage.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Text(
+                  'N/A',
+                  style: AdminTheme.label(
+                    fontSize: 7,
+                    color: AdminTheme.sage.withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DOTMAP TAB
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildDotmapTab() {
+    if (_seatLayout == null) {
+      return _buildNoDotmapMessage();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Selection toolbar ──
+        _buildDotmapToolbar(),
+        const SizedBox(height: 20),
+
+        // ── Stage position indicator ──
+        if (_seatLayout!.stagePosition == 'top') ...[
+          _buildStageIndicator(),
+          const SizedBox(height: 12),
+        ],
+
+        // ── Interactive dotmap ──
+        _buildDotmapCanvas(),
+
+        // ── Stage indicator (bottom) ──
+        if (_seatLayout!.stagePosition == 'bottom') ...[
+          const SizedBox(height: 12),
+          _buildStageIndicator(),
+        ],
+
+        const SizedBox(height: 20),
+
+        // ── Color legend ──
+        _buildGradeLegend(),
+
+        const SizedBox(height: 24),
+
+        // ── Selection summary card ──
+        if (_selectedSeatKeys.isNotEmpty) _buildDotmapSummaryCard(),
+      ],
+    );
+  }
+
+  Widget _buildNoDotmapMessage() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(
+          color: AdminTheme.sage.withValues(alpha: 0.15),
+          width: 0.5,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.grid_off_rounded,
+            size: 40,
+            color: AdminTheme.sage.withValues(alpha: 0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _layoutError ?? '이 공연장에는 도트맵 배치도가 없습니다.',
+            style: AdminTheme.sans(
+              fontSize: 14,
+              color: _layoutError != null
+                  ? AdminTheme.error
+                  : AdminTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'CSV 탭에서 좌석을 등록해주세요.',
+            style: AdminTheme.sans(
+              fontSize: 13,
+              color: AdminTheme.textTertiary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDotmapToolbar() {
+    final layout = _seatLayout!;
+    final allSelected =
+        _selectedSeatKeys.length == layout.seats.length;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(
+          color: AdminTheme.sage.withValues(alpha: 0.15),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Select all / deselect all
+          GestureDetector(
+            onTap: allSelected ? _deselectAll : _selectAll,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: allSelected
+                    ? AdminTheme.gold.withValues(alpha: 0.1)
+                    : AdminTheme.background,
+                borderRadius: BorderRadius.circular(2),
+                border: Border.all(
+                  color: allSelected
+                      ? AdminTheme.gold.withValues(alpha: 0.3)
+                      : AdminTheme.sage.withValues(alpha: 0.2),
+                  width: 0.5,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    allSelected
+                        ? Icons.deselect
+                        : Icons.select_all_rounded,
+                    size: 14,
+                    color: allSelected
+                        ? AdminTheme.gold
+                        : AdminTheme.sage,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    allSelected ? 'DESELECT ALL' : 'SELECT ALL',
+                    style: AdminTheme.label(
+                      fontSize: 9,
+                      color: allSelected
+                          ? AdminTheme.gold
+                          : AdminTheme.sage,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // Grade filter buttons
+          ..._gradeOrder.where((g) {
+            return layout.seats.any((s) => s.grade == g);
+          }).map((g) {
+            final isActive = _gradeFilter == g;
+            final color = _gradeColors[g] ?? AdminTheme.sage;
+            return Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: GestureDetector(
+                onTap: () {
+                  if (isActive) {
+                    // Deselect filter → select all
+                    setState(() => _gradeFilter = null);
+                    _selectAll();
+                  } else {
+                    setState(() => _gradeFilter = g);
+                    _selectByGrade(g);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? color.withValues(alpha: 0.15)
+                        : AdminTheme.background,
+                    borderRadius: BorderRadius.circular(2),
+                    border: Border.all(
+                      color: isActive
+                          ? color.withValues(alpha: 0.4)
+                          : AdminTheme.sage.withValues(alpha: 0.15),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Text(
+                    g,
+                    style: AdminTheme.label(
+                      fontSize: 9,
+                      color: isActive ? color : AdminTheme.sage,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+
+          const Spacer(),
+
+          // Seat count
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AdminTheme.gold.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Text(
+              '${_selectedSeatKeys.length} / ${layout.seats.length}',
+              style: AdminTheme.sans(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AdminTheme.gold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStageIndicator() {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 6),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AdminTheme.gold.withValues(alpha: 0.0),
+              AdminTheme.gold.withValues(alpha: 0.08),
+              AdminTheme.gold.withValues(alpha: 0.0),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Text(
+          'STAGE',
+          style: AdminTheme.label(
+            fontSize: 9,
+            color: AdminTheme.gold.withValues(alpha: 0.6),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDotmapCanvas() {
+    final layout = _seatLayout!;
+    // Calculate canvas height based on grid aspect ratio
+    final aspectRatio = layout.gridCols / layout.gridRows;
+    final canvasWidth = MediaQuery.of(context).size.width >= 900
+        ? 860.0
+        : MediaQuery.of(context).size.width - 40;
+    final canvasHeight = (canvasWidth / aspectRatio).clamp(300.0, 700.0);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(
+          color: AdminTheme.sage.withValues(alpha: 0.15),
+          width: 0.5,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(2),
+        child: InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: _DotmapInteractiveCanvas(
+            layout: layout,
+            selectedKeys: _selectedSeatKeys,
+            canvasSize: Size(canvasWidth, canvasHeight),
+            onSeatTap: _toggleSeat,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGradeLegend() {
+    return Row(
+      children: [
+        Text(
+          'GRADE',
+          style: AdminTheme.label(
+            fontSize: 9,
+            color: AdminTheme.textTertiary,
+          ),
+        ),
+        const SizedBox(width: 16),
+        ..._gradeOrder
+            .where((g) =>
+                _seatLayout?.seats.any((s) => s.grade == g) ?? false)
+            .map((g) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _gradeColors[g],
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  g,
+                  style: AdminTheme.sans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: _gradeColors[g]!,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+        const Spacer(),
+        // Dimmed = deselected legend
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: AdminTheme.sage.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              '미선택',
+              style: AdminTheme.sans(
+                fontSize: 11,
+                color: AdminTheme.textTertiary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(width: 16),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: AdminTheme.gold,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              '선택',
+              style: AdminTheme.sans(
+                fontSize: 11,
+                color: AdminTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDotmapSummaryCard() {
+    final breakdown = _selectedGradeBreakdown();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(
+          color: AdminTheme.gold.withValues(alpha: 0.15),
+          width: 0.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.analytics_outlined,
+                  size: 16, color: AdminTheme.gold.withValues(alpha: 0.7)),
+              const SizedBox(width: 8),
+              Text(
+                'SELECTION SUMMARY',
+                style: AdminTheme.label(
+                  fontSize: 10,
+                  color: AdminTheme.gold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            height: 0.5,
+            color: AdminTheme.sage.withValues(alpha: 0.15),
+          ),
+          const SizedBox(height: 16),
+
+          // Total
+          Row(
+            children: [
+              Text(
+                '선택 좌석',
+                style: AdminTheme.sans(
+                  fontSize: 13,
+                  color: AdminTheme.textSecondary,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${_selectedSeatKeys.length}석',
+                style: AdminTheme.sans(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AdminTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Grade breakdown
+          Text(
+            'GRADE BREAKDOWN',
+            style: AdminTheme.label(
+              fontSize: 9,
+              color: AdminTheme.textTertiary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _buildGradeBarChart(breakdown),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CSV TAB (existing functionality)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildCsvTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         // ── Section 1: CSV 형식 안내 ──
         _sectionHeader('형식 안내'),
         const SizedBox(height: 20),
@@ -448,8 +1335,6 @@ B,1층,1,5,R''';
             _buildPreviewSummaryCard(),
           ],
         ],
-
-        const SizedBox(height: 100),
       ],
     );
   }
@@ -549,7 +1434,7 @@ B,1층,1,5,R''';
                         color: AdminTheme.sage.withValues(alpha: 0.4)),
                     const SizedBox(width: 8),
                     Text(
-                      '등록된 좌석이 없습니다. CSV를 업로드해 주세요.',
+                      '등록된 좌석이 없습니다. 도트맵 또는 CSV로 업로드해 주세요.',
                       style: AdminTheme.sans(
                         fontSize: 13,
                         color: AdminTheme.textTertiary,
@@ -1717,4 +2602,169 @@ B,1층,1,5,R''';
       ),
     );
   }
+}
+
+// =============================================================================
+// DOTMAP INTERACTIVE CANVAS — CustomPaint + GestureDetector
+// =============================================================================
+
+class _DotmapInteractiveCanvas extends StatelessWidget {
+  final VenueSeatLayout layout;
+  final Set<String> selectedKeys;
+  final Size canvasSize;
+  final void Function(String seatKey) onSeatTap;
+
+  const _DotmapInteractiveCanvas({
+    required this.layout,
+    required this.selectedKeys,
+    required this.canvasSize,
+    required this.onSeatTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (details) {
+        final tapped = _hitTestSeat(details.localPosition);
+        if (tapped != null) {
+          onSeatTap(tapped.key);
+        }
+      },
+      child: CustomPaint(
+        size: canvasSize,
+        painter: _DotmapPainter(
+          layout: layout,
+          selectedKeys: selectedKeys,
+        ),
+      ),
+    );
+  }
+
+  LayoutSeat? _hitTestSeat(Offset position) {
+    if (layout.seats.isEmpty) return null;
+
+    int minX = 999999, maxX = -999999;
+    int minY = 999999, maxY = -999999;
+
+    for (final seat in layout.seats) {
+      if (seat.gridX < minX) minX = seat.gridX;
+      if (seat.gridX > maxX) maxX = seat.gridX;
+      if (seat.gridY < minY) minY = seat.gridY;
+      if (seat.gridY > maxY) maxY = seat.gridY;
+    }
+
+    final rangeX = (maxX - minX).clamp(1, 999999);
+    final rangeY = (maxY - minY).clamp(1, 999999);
+
+    const padding = 24.0;
+    final drawW = canvasSize.width - padding * 2;
+    final drawH = canvasSize.height - padding * 2;
+
+    final cellW = drawW / (rangeX + 1);
+    final cellH = drawH / (rangeY + 1);
+    final hitRadius = (cellW < cellH ? cellW : cellH) * 0.5;
+
+    for (final seat in layout.seats) {
+      final cx = padding + (seat.gridX - minX) * cellW + cellW / 2;
+      final cy = padding + (seat.gridY - minY) * cellH + cellH / 2;
+
+      if ((position - Offset(cx, cy)).distance <= hitRadius) {
+        return seat;
+      }
+    }
+    return null;
+  }
+}
+
+// =============================================================================
+// CUSTOM PAINTER — Dotmap for seat registration
+// =============================================================================
+
+class _DotmapPainter extends CustomPainter {
+  final VenueSeatLayout layout;
+  final Set<String> selectedKeys;
+
+  _DotmapPainter({
+    required this.layout,
+    required this.selectedKeys,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (layout.seats.isEmpty) return;
+
+    int minX = 999999, maxX = -999999;
+    int minY = 999999, maxY = -999999;
+
+    for (final seat in layout.seats) {
+      if (seat.gridX < minX) minX = seat.gridX;
+      if (seat.gridX > maxX) maxX = seat.gridX;
+      if (seat.gridY < minY) minY = seat.gridY;
+      if (seat.gridY > maxY) maxY = seat.gridY;
+    }
+
+    final rangeX = (maxX - minX).clamp(1, 999999);
+    final rangeY = (maxY - minY).clamp(1, 999999);
+
+    const padding = 24.0;
+    final drawW = size.width - padding * 2;
+    final drawH = size.height - padding * 2;
+
+    final cellW = drawW / (rangeX + 1);
+    final cellH = drawH / (rangeY + 1);
+    final dotRadius = ((cellW < cellH ? cellW : cellH) * 0.35).clamp(2.0, 8.0);
+
+    for (final seat in layout.seats) {
+      final cx = padding + (seat.gridX - minX) * cellW + cellW / 2;
+      final cy = padding + (seat.gridY - minY) * cellH + cellH / 2;
+
+      final isSelected = selectedKeys.contains(seat.key);
+      final gradeColor = _gradeColorForPaint(seat.grade);
+
+      if (isSelected) {
+        // Draw filled dot with grade color
+        final paint = Paint()
+          ..color = gradeColor
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(Offset(cx, cy), dotRadius, paint);
+
+        // Draw selection ring
+        final ringPaint = Paint()
+          ..color = Colors.white.withValues(alpha: 0.8)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5;
+        canvas.drawCircle(Offset(cx, cy), dotRadius + 2, ringPaint);
+      } else {
+        // Dimmed unselected dot
+        final paint = Paint()
+          ..color = gradeColor.withValues(alpha: 0.15)
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(Offset(cx, cy), dotRadius, paint);
+      }
+    }
+  }
+
+  Color _gradeColorForPaint(String grade) {
+    switch (grade) {
+      case 'VIP':
+        return const Color(0xFFC9A84C);
+      case 'R':
+        return const Color(0xFFE53935);
+      case 'S':
+        return const Color(0xFF1E88E5);
+      case 'A':
+        return const Color(0xFF43A047);
+      default:
+        return const Color(0xFF888894);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DotmapPainter oldDelegate) {
+    return oldDelegate.layout != layout ||
+        oldDelegate.selectedKeys != selectedKeys;
+  }
+
+  @override
+  bool? hitTest(Offset position) => true;
 }
