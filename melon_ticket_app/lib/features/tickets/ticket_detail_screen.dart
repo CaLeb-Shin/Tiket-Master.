@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -925,6 +926,8 @@ class _BoardingPassTicket extends StatelessWidget {
                         if (ticket.status == TicketStatus.issued) ...[
                           const SizedBox(height: 10),
                           _QrTimerBadge(ticket: ticket),
+                          const SizedBox(height: 6),
+                          const _LiveIndicator(),
                         ],
                       ],
                     ),
@@ -1492,6 +1495,149 @@ class _QrTimerBadgeState extends ConsumerState<_QrTimerBadge> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// =============================================================================
+// LIVE Indicator — pulsing dot + real-time clock + shimmer wave (MT-045)
+// =============================================================================
+
+class _LiveIndicator extends StatefulWidget {
+  const _LiveIndicator();
+
+  @override
+  State<_LiveIndicator> createState() => _LiveIndicatorState();
+}
+
+class _LiveIndicatorState extends State<_LiveIndicator>
+    with TickerProviderStateMixin {
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseOpacity;
+
+  late final AnimationController _shimmerController;
+
+  Timer? _clockTimer;
+  String _currentTime = '';
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Pulsing red dot: opacity 0.3 → 1.0, 1-second cycle
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+
+    _pulseOpacity = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    // Shimmer gradient sweep: continuous 2-second loop
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat();
+
+    // Real-time clock updated every second
+    _updateTime();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) _updateTime();
+    });
+  }
+
+  void _updateTime() {
+    setState(() {
+      _currentTime = DateFormat('HH:mm:ss').format(DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _shimmerController.dispose();
+    _clockTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _shimmerController,
+      builder: (context, child) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            gradient: LinearGradient(
+              begin: Alignment(
+                -1.0 + 2.0 * _shimmerController.value,
+                0.0,
+              ),
+              end: Alignment(
+                0.0 + 2.0 * _shimmerController.value,
+                0.0,
+              ),
+              colors: const [
+                Color(0xFFF5F3F0),
+                Color(0xFFFAF8F5),
+                Color(0xFFF5F3F0),
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            ),
+            border: Border.all(color: AppTheme.borderLight),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Pulsing red dot
+              FadeTransition(
+                opacity: _pulseOpacity,
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEF4444),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0x40EF4444),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              // LIVE text
+              FadeTransition(
+                opacity: _pulseOpacity,
+                child: Text(
+                  'LIVE',
+                  style: GoogleFonts.inter(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFFEF4444),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Real-time clock
+              Text(
+                _currentTime,
+                style: GoogleFonts.robotoMono(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: _textSecondary,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
