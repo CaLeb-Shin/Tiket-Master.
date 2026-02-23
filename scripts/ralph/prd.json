@@ -558,6 +558,172 @@
       "priority": 28,
       "passes": true,
       "notes": "Hall = 공연 커뮤니티 채널. 핵심은 같은 공연 그룹화로 리뷰 통합. halls/{hallId}/posts/{postId}/comments/{commentId} 구조. Event.hallId로 연결. Hall 팔로우는 users/{uid}/followedHalls 서브컬렉션 또는 hallFollowers/{hallId}/users. 리뷰 평균 별점은 Hall 문서에 averageRating, reviewCount 캐시 필드 유지 (Cloud Function onWrite 트리거로 갱신). 부적절 콘텐츠 신고 기능은 추후. 사진 업로드는 Firebase Storage halls/{hallId}/posts/{postId}/ 경로."
+    },
+    {
+      "id": "MT-029",
+      "title": "어드민 사이드바 항상 열림 — 고정형 네비게이션",
+      "description": "어드민 왼쪽 사이드바를 드로어(접이식)가 아닌 항상 열려있는 고정형으로 변경한다. 어떤 메뉴(대시보드, 공연관리, 통계, 공연장관리 등)를 들어가더라도 사이드바가 항상 화면 왼쪽에 표시되어야 한다.",
+      "acceptanceCriteria": [
+        "사이드바가 모든 어드민 화면에서 항상 왼쪽에 고정 표시",
+        "어떤 메뉴를 클릭해서 이동해도 사이드바가 닫히지 않음",
+        "현재 활성 메뉴 항목이 하이라이트 표시",
+        "사이드바 너비 고정 (콘텐츠 영역과 Row 레이아웃)",
+        "기존 드로어(오버레이) 방식 제거, 햄버거 메뉴 불필요",
+        "flutter analyze 통과"
+      ],
+      "priority": 29,
+      "passes": true,
+      "notes": "MT-023에서 드로어 방식으로 변경했던 것을 다시 고정형으로 되돌림. Row(sidebar, Expanded(content)) 레이아웃. 모든 라우트에서 사이드바가 유지되도록 ShellRoute 또는 공통 레이아웃 위젯 사용."
+    },
+    {
+      "id": "MT-030",
+      "title": "스마트 티켓 — 비행기 티켓 디자인 + 내 좌석뷰 연동",
+      "description": "티켓 상세 화면을 비행기 탑승권 스타일의 스마트 티켓으로 리디자인하고, 해당 좌석의 시야 사진(360° 좌석뷰)을 티켓 내에서 바로 확인할 수 있게 한다.",
+      "acceptanceCriteria": [
+        "티켓 상세 화면을 비행기 탑승권(boarding pass) 스타일로 리디자인",
+        "상단: 공연명, 날짜/시간, 공연장명",
+        "중단: 좌석 정보 (등급, 구역, 열, 번호) — 대형 폰트로 강조",
+        "하단: QR 코드, 입장번호/바코드",
+        "좌우 점선 절취선 디자인 (탑승권 느낌)",
+        "티켓 카드에 '내 좌석뷰 보기' 버튼 추가",
+        "버튼 클릭 시 해당 좌석의 시야 사진을 바텀시트 또는 풀스크린으로 표시",
+        "시야 사진은 venueViews 컬렉션에서 5단계 매칭으로 조회 (exact seat → exact row → nearest row → seat no row → zone representative)",
+        "360° 시야가 있으면 파노라마 뷰어로 표시",
+        "시야 사진이 없으면 '시야 정보 없음' 안내",
+        "flutter analyze 통과"
+      ],
+      "priority": 30,
+      "passes": true,
+      "notes": "ticket_detail_screen.dart 전체 리디자인. 비행기 탑승권 레퍼런스: 둥근 모서리 카드, 상단/하단 분리, 점선 구분선, 바코드/QR 영역. 좌석뷰는 기존 venue_view_repository.dart의 5단계 매칭 로직 재활용. AppTheme 다크+골드 테마 유지."
+    },
+    {
+      "id": "MT-031",
+      "title": "공연장 관리 권한 분리 — AdminMaster 승인제",
+      "description": "공연장 최종 관리 권한을 AdminMaster(슈퍼어드민)로 제한한다. 일반 어드민(셀러)은 공연장을 직접 등록/수정할 수 없고, 공연장 사용 요청을 보내면 AdminMaster가 승인한 뒤에만 사용 가능하다.",
+      "acceptanceCriteria": [
+        "공연장 등록/수정/삭제는 superAdmin만 가능",
+        "일반 seller는 공연장 목록을 조회할 수 있지만 직접 생성/수정 불가",
+        "seller가 새 공연장이 필요하면 '공연장 요청' 기능으로 정보 제출 (이름, 주소, 좌석 수 등)",
+        "venueRequests 컬렉션에 요청 문서 저장 (sellerId, venueName, address, seatCount, status, requestedAt)",
+        "superAdmin 대시보드에 '공연장 요청' 관리 탭 추가 — 승인/거절 처리",
+        "승인 시 venues 컬렉션에 공연장 문서 자동 생성 + 요청자에게 승인 알림",
+        "seller는 승인된 공연장만 공연 등록 시 선택 가능",
+        "기존 공연장 관리 화면에서 역할별 권한 분기 (superAdmin: 전체 관리, seller: 조회+요청만)",
+        "flutter analyze 통과"
+      ],
+      "priority": 31,
+      "passes": true,
+      "notes": "Firestore Security Rules에서 venues 컬렉션 write를 superAdmin으로 제한. venueRequests/{requestId} 컬렉션 추가. seller 화면에서는 공연장 목록을 읽기 전용으로 표시하고, '새 공연장 요청' 버튼만 노출. superAdmin 사이드바에 '공연장 요청' 메뉴 또는 공연장 관리 화면 내 탭으로 추가."
+    },
+    {
+      "id": "MT-032",
+      "title": "엑셀 좌석배치도 → 도트 좌석 변환 고도화 + 예시 가이드",
+      "description": "엑셀 좌석배치도 업로드 → 도트 좌석 변환 기능을 세밀하게 개선하고, 사용자가 어떤 형식으로 엑셀을 작성해야 하는지 예시 파일과 가이드를 함께 제공한다.",
+      "acceptanceCriteria": [
+        "엑셀 업로드 시 자동 파싱 정확도 향상 — 다양한 엑셀 형식 지원",
+        "지원 형식 1: 행/열 기반 (행=좌석열, 열=좌석번호, 셀값=등급코드)",
+        "지원 형식 2: 목록 기반 (구역, 층, 열, 번호, 등급 컬럼)",
+        "지원 형식 3: 시각적 배치 기반 (엑셀에서 좌석을 시각적으로 배치, 빈 셀=통로)",
+        "파싱 결과 미리보기에서 오류/경고 표시 (누락 좌석, 중복 좌석, 등급 불일치 등)",
+        "예시 엑셀 템플릿 다운로드 버튼 제공 (각 형식별 1개씩, 총 3개)",
+        "업로드 화면에 '엑셀 작성 가이드' 섹션 — 각 형식의 스크린샷 + 작성 규칙 설명",
+        "가이드 내용: 등급코드(VIP/R/S/A), 통로 표시 방법(빈 셀), 층/구역 구분법",
+        "파싱 후 도트맵 미리보기에서 좌석 위치/등급 수동 조정 가능",
+        "변환 결과를 Firestore에 저장하기 전 최종 확인 단계",
+        "flutter analyze 통과"
+      ],
+      "priority": 32,
+      "passes": true,
+      "notes": "기존 MT-018의 엑셀 파싱 기능을 고도화. 예시 엑셀 파일은 Firebase Storage에 저장하여 다운로드 URL 제공. 가이드는 어드민 화면 내 인라인으로 표시 (별도 페이지 불필요). 시각적 배치 형식이 가장 직관적이므로 메인으로 권장. 엑셀 파싱 라이브러리: dart excel 패키지 사용."
+    },
+    {
+      "id": "MT-033",
+      "title": "소셜 로그인 상단 배치 + 최근 로그인 표시",
+      "description": "로그인 화면에서 소셜 계정 로그인(카카오, 네이버 등) 버튼을 화면 상단에 배치하고, 가장 최근에 로그인한 소셜 계정에 작은 표시(뱃지)를 추가하여 사용자가 어떤 계정으로 마지막에 로그인했는지 쉽게 확인할 수 있게 한다.",
+      "acceptanceCriteria": [
+        "로그인 화면 레이아웃 변경: 소셜 로그인 버튼들이 화면 상단(또는 최상위)에 위치",
+        "이메일/비밀번호 로그인은 소셜 로그인 아래에 배치",
+        "소셜 로그인 버튼 순서: 카카오 → 네이버 → Google → Apple (사용 빈도 순)",
+        "최근 로그인한 소셜 계정 버튼에 '최근 사용' 뱃지/아이콘 표시",
+        "최근 로그인 정보는 SharedPreferences/localStorage에 저장 (lastLoginProvider: 'kakao'|'naver'|'google' 등)",
+        "뱃지 디자인: 작은 체크마크 또는 '최근' 텍스트 라벨",
+        "소셜 로그인 섹션과 이메일 로그인 섹션 사이에 구분선 (또는 'OR' 텍스트)",
+        "flutter analyze 통과"
+      ],
+      "priority": 33,
+      "passes": true,
+      "notes": "로그인 성공 시 SharedPreferences에 lastLoginProvider 저장. 로그인 화면 진입 시 읽어와서 해당 소셜 버튼에 뱃지 표시. 게스트 체험 버튼은 하단에 배치. AppTheme 다크+골드 테마 유지."
+    },
+    {
+      "id": "MT-034",
+      "title": "공연 좌석관리 — 좌석배치도 + 예매자 정보 조회",
+      "description": "어드민에서 공연 관리 > 공연 클릭 > 좌석 관리에 들어가면 해당 공연의 좌석배치도(도트맵)를 보여주고, 각 좌석을 클릭하면 해당 좌석의 예매자 이름, 전화번호 등 예매 정보를 확인할 수 있게 한다.",
+      "acceptanceCriteria": [
+        "공연 상세 > 좌석 관리 화면에 도트맵 좌석배치도 표시",
+        "좌석별 상태 색상 구분: 예매됨(골드), 사용가능(그린), 체크인됨(블루), 취소됨(회색)",
+        "예매된 좌석 클릭 시 예매자 정보 팝업/패널 표시",
+        "표시 정보: 예매자 이름(displayName), 전화번호(phoneNumber), 이메일",
+        "주문 정보: 주문번호, 주문일시, 결제금액, 주문상태",
+        "티켓 정보: 티켓ID, 티켓상태(issued/used/canceled), 체크인 여부",
+        "좌석 검색 기능: 좌석번호 또는 예매자 이름으로 검색 → 해당 좌석 하이라이트",
+        "전체 예매 현황 요약: 총 좌석 / 예매된 좌석 / 잔여 좌석 / 체크인 수",
+        "예매자 목록 테이블 뷰 전환 가능 (도트맵 뷰 ↔ 테이블 뷰)",
+        "flutter analyze 통과"
+      ],
+      "priority": 34,
+      "passes": true,
+      "notes": "어드민 공연 상세 화면에서 좌석 관리 탭 또는 별도 라우트. 좌석 데이터는 seats 컬렉션에서 eventId로 조회. 예매자 정보는 seat.orderId → orders/{orderId} → userId → users/{userId} 조인. 대량 좌석(1000석+) 성능 고려하여 캐시 또는 일괄 로드. CustomPainter 기반 도트맵 렌더링."
+    },
+    {
+      "id": "MT-035",
+      "title": "테스트 계정 전환 시스템 — 관객/admin/adminMaster 역할 스위칭",
+      "description": "마스터 계정(현재 계정)에서 관객(user), admin(seller), adminMaster(superAdmin) 역할의 테스트 계정을 생성하고, 화면에서 역할을 전환해가며 테스트할 수 있는 기능을 구현한다.",
+      "acceptanceCriteria": [
+        "마스터(superAdmin) 계정 전용 '테스트 모드' 기능",
+        "테스트 계정 자동 생성: user(관객), seller(일반 어드민), superAdmin(마스터) 3개 역할",
+        "화면 상단 또는 하단에 역할 전환 바(bar) 표시 — 현재 역할 표시 + 전환 버튼",
+        "역할 전환 시 해당 역할의 권한으로 앱 동작 (UI/기능 제한 반영)",
+        "관객 모드: 공연 검색, 예매, 티켓 확인만 가능",
+        "admin 모드: 자기 공연 관리, 대시보드 접근 (공연장 요청만 가능)",
+        "adminMaster 모드: 전체 관리 (공연장 관리, 셀러 관리, 정산 등)",
+        "역할 전환은 실제 Firestore 사용자 role을 임시 변경하는 방식 (또는 로컬 오버라이드)",
+        "테스트 모드임을 알리는 배너/뱃지 항상 표시",
+        "flutter analyze 통과"
+      ],
+      "priority": 35,
+      "passes": true,
+      "notes": "superAdmin만 사용 가능한 개발/테스트 도구. 역할 전환은 Firestore의 users 문서 role 필드를 직접 변경하는 방식보다, 클라이언트에서 roleOverride 상태를 Riverpod으로 관리하는 것이 안전. roleOverride가 있으면 실제 role 대신 오버라이드 값 사용. 테스트 모드 배너: '테스트 모드 — 현재: 관객' 같은 형태."
+    },
+    {
+      "id": "MT-036",
+      "title": "공연 등록 — 커뮤니티 연결 UI 개선 (가로 체크박스, hallId 제거)",
+      "description": "공연 등록 화면의 커뮤니티 연결 섹션을 개선한다. 'Hall 커뮤니티 연결'이 세로로 표시되는 버그를 수정하여 가로로 표시하고, 체크박스로 연결 여부를 선택하게 하며, hallId 직접 입력 방식은 제거한다.",
+      "acceptanceCriteria": [
+        "'Hall 커뮤니티 연결' 텍스트가 가로(한 줄)로 정상 표시",
+        "체크박스로 커뮤니티 연결 여부 ON/OFF 선택",
+        "체크 시 기존 Hall 목록에서 선택하거나 새 Hall 자동 생성",
+        "hallId 직접 입력 필드 제거",
+        "UI가 깔끔하게 한 줄로 정리 (체크박스 + 라벨 + 선택된 Hall명)",
+        "flutter analyze 통과"
+      ],
+      "priority": 36,
+      "passes": true,
+      "notes": "event_create_screen.dart의 _buildHallSelector() 수정. 현재 세로로 글자가 나오는 레이아웃 버그 수정. CheckboxListTile 또는 Row(Checkbox, Text) 구조로 변경. hallId 입력 대신 Hall 이름 드롭다운 또는 자동 생성. 두번째 스크린샷 참고."
+    },
+    {
+      "id": "MT-037",
+      "title": "공연 등록 — 비지정석(스탠딩) 위치를 공연장 카테고리 아래로 이동",
+      "description": "공연 등록 화면에서 '비지정석(스탠딩)' 토글의 위치를 현재 위치에서 공연장 카테고리(태그) 바로 아래로 이동한다.",
+      "acceptanceCriteria": [
+        "비지정석(스탠딩) 토글을 공연장 카테고리(내한/단독/앙콜/...) 영역 바로 아래에 배치",
+        "기존 위치에서 제거",
+        "토글 ON 시 기존과 동일하게 좌석 배치/등급 설정 비활성화",
+        "UI 흐름: 카테고리 선택 → 비지정석 여부 → 공연장 선택 순서",
+        "flutter analyze 통과"
+      ],
+      "priority": 37,
+      "passes": true,
+      "notes": "event_create_screen.dart에서 _isStanding 토글 위젯의 위치만 이동. 기능 변경 없이 순서만 변경. 두번째 스크린샷에서 현재 위치 확인 가능 — 카테고리 태그 바로 아래로."
     }
   ]
 }

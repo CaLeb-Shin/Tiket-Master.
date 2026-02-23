@@ -110,6 +110,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
   bool _showRemainingSeats = true;
   String? _hallId; // Hall 커뮤니티 채널 ID
+  String? _hallDisplayName; // Hall 이름 (UI 표시용)
   final _hallNameCtrl = TextEditingController();
   bool _isSubmitting = false;
   double _submitProgress = 0.0;
@@ -703,17 +704,17 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
         const SizedBox(height: 20),
 
-        // ── 태그 ──
-        _field('태그', child: _buildTagsSelector()),
-
-        const SizedBox(height: 20),
-
         // ── 비지정석(스탠딩) 토글 ──
         _buildStandingToggle(),
 
         const SizedBox(height: 20),
 
-        // ── Hall 커뮤니티 연결 ──
+        // ── 태그 ──
+        _field('태그', child: _buildTagsSelector()),
+
+        const SizedBox(height: 20),
+
+        // ── 커뮤니티 연결 ──
         _buildHallSelector(),
 
         const SizedBox(height: 20),
@@ -1315,15 +1316,16 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   }
 
   Widget _buildHallSelector() {
+    final isConnected = _hallId != null && _hallId!.isNotEmpty;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: _hallId != null
+        color: isConnected
             ? AdminTheme.gold.withValues(alpha: 0.08)
             : AdminTheme.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: _hallId != null
+          color: isConnected
               ? AdminTheme.gold.withValues(alpha: 0.4)
               : AdminTheme.border,
           width: 0.5,
@@ -1331,67 +1333,67 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       ),
       child: Row(
         children: [
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: Checkbox(
+              value: isConnected,
+              onChanged: (v) {
+                if (v == true) {
+                  _showHallPicker();
+                } else {
+                  setState(() {
+                    _hallId = null;
+                    _hallNameCtrl.clear();
+                  });
+                }
+              },
+              activeColor: AdminTheme.gold,
+              checkColor: AdminTheme.onAccent,
+              side: BorderSide(
+                color: AdminTheme.sage.withValues(alpha: 0.4),
+                width: 1.5,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
           Icon(
             Icons.forum_rounded,
-            color: _hallId != null ? AdminTheme.gold : AdminTheme.textSecondary,
-            size: 20,
+            color: isConnected ? AdminTheme.gold : AdminTheme.textSecondary,
+            size: 18,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hall 커뮤니티 연결',
-                  style: TextStyle(
-                    color: AdminTheme.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _hallId != null
-                      ? 'Hall ID: $_hallId'
-                      : '팬 커뮤니티 채널과 연결 (선택사항)',
-                  style: TextStyle(
-                    color: AdminTheme.textSecondary,
-                    fontSize: 12,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+          const SizedBox(width: 8),
+          Text(
+            '커뮤니티 연결',
+            style: TextStyle(
+              color: isConnected ? AdminTheme.textPrimary : AdminTheme.textSecondary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          if (_hallId != null)
+          if (isConnected) ...[
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                _hallDisplayName ?? _hallId!,
+                style: TextStyle(
+                  color: AdminTheme.gold,
+                  fontSize: 13,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             IconButton(
-              onPressed: () => setState(() => _hallId = null),
-              icon: Icon(Icons.close_rounded,
-                  size: 18, color: AdminTheme.textSecondary),
+              onPressed: _showHallPicker,
+              icon: Icon(Icons.edit_rounded,
+                  size: 16, color: AdminTheme.textSecondary),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
+              tooltip: '변경',
             ),
-          const SizedBox(width: 8),
-          SizedBox(
-            height: 32,
-            child: ElevatedButton(
-              onPressed: _showHallPicker,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AdminTheme.gold.withValues(alpha: 0.15),
-                foregroundColor: AdminTheme.gold,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6)),
-              ),
-              child: Text(
-                _hallId != null ? '변경' : '선택',
-                style: AdminTheme.sans(
-                    fontSize: 12, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ),
+          ] else
+            const Spacer(),
         ],
       ),
     );
@@ -1402,16 +1404,81 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       context: context,
       builder: (ctx) {
         final hallNameCtrl = TextEditingController();
+        final allHalls = ref.read(allHallsProvider);
         return AlertDialog(
           backgroundColor: AdminTheme.surface,
-          title: Text('Hall 연결', style: AdminTheme.serif(fontSize: 18)),
+          title: Text('커뮤니티 연결', style: AdminTheme.serif(fontSize: 18)),
           content: SizedBox(
             width: 400,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('새 Hall 생성',
+                // 기존 Hall 목록
+                Text('기존 Hall 선택',
+                    style: AdminTheme.sans(
+                        fontSize: 13, color: AdminTheme.textSecondary)),
+                const SizedBox(height: 8),
+                allHalls.when(
+                  data: (halls) {
+                    if (halls.isEmpty) {
+                      return Text('등록된 Hall이 없습니다.',
+                          style: AdminTheme.sans(
+                              fontSize: 12, color: AdminTheme.textTertiary));
+                    }
+                    return ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: halls.length,
+                        itemBuilder: (_, i) {
+                          final hall = halls[i];
+                          final isSelected = _hallId == hall.id;
+                          return ListTile(
+                            dense: true,
+                            selected: isSelected,
+                            selectedTileColor:
+                                AdminTheme.gold.withValues(alpha: 0.08),
+                            leading: Icon(Icons.forum_rounded,
+                                size: 18,
+                                color: isSelected
+                                    ? AdminTheme.gold
+                                    : AdminTheme.textTertiary),
+                            title: Text(hall.name,
+                                style: AdminTheme.sans(
+                                    fontSize: 13,
+                                    color: isSelected
+                                        ? AdminTheme.gold
+                                        : AdminTheme.textPrimary)),
+                            onTap: () {
+                              setState(() {
+                                _hallId = hall.id;
+                                _hallDisplayName = hall.name;
+                              });
+                              Navigator.pop(ctx);
+                            },
+                          );
+                        },
+                      ),
+                    );
+                  },
+                  loading: () => const SizedBox(
+                      height: 40,
+                      child: Center(
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AdminTheme.gold))),
+                  error: (_, __) => Text('Hall 목록 로드 실패',
+                      style: AdminTheme.sans(
+                          fontSize: 12, color: AdminTheme.error)),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  height: 0.5,
+                  color: AdminTheme.border,
+                ),
+                const SizedBox(height: 16),
+                // 새 Hall 생성
+                Text('또는 새 Hall 생성',
                     style: AdminTheme.sans(
                         fontSize: 13, color: AdminTheme.textSecondary)),
                 const SizedBox(height: 8),
@@ -1419,21 +1486,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   controller: hallNameCtrl,
                   style: AdminTheme.sans(fontSize: 14),
                   decoration: InputDecoration(
-                    hintText: '공연 제목 (예: 레미제라블)',
-                    hintStyle: AdminTheme.sans(
-                        fontSize: 13, color: AdminTheme.textTertiary),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text('또는 기존 Hall ID 직접 입력',
-                    style: AdminTheme.sans(
-                        fontSize: 13, color: AdminTheme.textSecondary)),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _hallNameCtrl,
-                  style: AdminTheme.sans(fontSize: 14),
-                  decoration: InputDecoration(
-                    hintText: 'Hall ID를 입력하세요',
+                    hintText: '공연명 (예: 레미제라블)',
                     hintStyle: AdminTheme.sans(
                         fontSize: 13, color: AdminTheme.textTertiary),
                   ),
@@ -1449,13 +1502,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                if (_hallNameCtrl.text.trim().isNotEmpty) {
-                  // 기존 Hall ID 직접 입력
-                  setState(() => _hallId = _hallNameCtrl.text.trim());
-                  _hallNameCtrl.clear();
-                  Navigator.pop(ctx);
-                } else if (hallNameCtrl.text.trim().isNotEmpty) {
-                  // 새 Hall 생성
+                if (hallNameCtrl.text.trim().isNotEmpty) {
                   final hallRepo = ref.read(hallRepositoryProvider);
                   final hallId = await hallRepo.createHall(Hall(
                     id: '',
@@ -1463,7 +1510,10 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                     createdBy: 'admin',
                     createdAt: DateTime.now(),
                   ));
-                  setState(() => _hallId = hallId);
+                  setState(() {
+                    _hallId = hallId;
+                    _hallDisplayName = hallNameCtrl.text.trim();
+                  });
                   if (ctx.mounted) Navigator.pop(ctx);
                 }
               },
@@ -1471,7 +1521,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 backgroundColor: AdminTheme.gold,
                 foregroundColor: AdminTheme.onAccent,
               ),
-              child: Text('확인',
+              child: Text('생성',
                   style: AdminTheme.sans(fontWeight: FontWeight.w700)),
             ),
           ],
