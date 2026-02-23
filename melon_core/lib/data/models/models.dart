@@ -15,3 +15,4 @@ export 'venue.dart';
 export 'hall.dart';
 export 'escrow.dart';
 export 'settlement.dart';
+export 'venue_request.dart';

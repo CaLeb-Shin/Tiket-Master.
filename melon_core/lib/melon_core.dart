@@ -19,6 +19,7 @@ export 'data/repositories/mileage_repository.dart';
 export 'data/repositories/hall_repository.dart';
 export 'data/repositories/settlement_repository.dart';
 export 'data/repositories/seller_repository.dart';
+export 'data/repositories/venue_request_repository.dart';
 
 // ─── Services ───
 export 'services/auth_service.dart';

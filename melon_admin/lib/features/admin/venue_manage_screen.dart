@@ -8,10 +8,13 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../app/admin_theme.dart';
 import 'package:melon_core/data/models/venue.dart';
+import 'package:melon_core/data/models/venue_request.dart';
 import 'package:melon_core/data/repositories/venue_repository.dart';
+import 'package:melon_core/data/repositories/venue_request_repository.dart';
+import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/services/storage_service.dart';
 
-/// 공연장 관리 화면 (목록 + 등록)
+/// 공연장 관리 화면 (역할 기반: superAdmin=관리+요청처리, seller=열람+요청)
 class VenueManageScreen extends ConsumerStatefulWidget {
   const VenueManageScreen({super.key});
 
@@ -19,43 +22,195 @@ class VenueManageScreen extends ConsumerStatefulWidget {
   ConsumerState<VenueManageScreen> createState() => _VenueManageScreenState();
 }
 
-class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
+class _VenueManageScreenState extends ConsumerState<VenueManageScreen>
+    with SingleTickerProviderStateMixin {
   bool _showCreateForm = false;
+  bool _showRequestForm = false;
+  late TabController _tabController;
+  bool _isSuperAdmin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final userAsync = ref.watch(effectiveUserProvider);
     final venuesAsync = ref.watch(venuesStreamProvider);
 
-    return Scaffold(
-      backgroundColor: AdminTheme.background,
-      body: Column(
-        children: [
-          _buildAppBar(),
-          Expanded(
-            child: venuesAsync.when(
-              loading: () => const Center(
-                  child: CircularProgressIndicator(color: AdminTheme.gold)),
-              error: (e, _) => Center(
-                  child: Text('오류: $e',
-                      style: AdminTheme.sans(color: AdminTheme.error))),
-              data: (venues) {
-                if (_showCreateForm) {
-                  return _VenueCreateForm(
-                    existingVenues: venues,
-                    onBack: () => setState(() => _showCreateForm = false),
-                    onCreated: () => setState(() => _showCreateForm = false),
-                  );
-                }
-                return _buildVenueList(venues);
-              },
+    return userAsync.when(
+      loading: () => const Scaffold(
+        backgroundColor: AdminTheme.background,
+        body: Center(
+            child: CircularProgressIndicator(color: AdminTheme.gold)),
+      ),
+      error: (e, _) => Scaffold(
+        backgroundColor: AdminTheme.background,
+        body: Center(
+            child: Text('오류: $e',
+                style: AdminTheme.sans(color: AdminTheme.error))),
+      ),
+      data: (user) {
+        _isSuperAdmin = user?.isSuperAdmin ?? false;
+        final isSeller = user?.isSeller ?? false;
+
+        return Scaffold(
+          backgroundColor: AdminTheme.background,
+          body: Column(
+            children: [
+              _buildAppBar(isSeller: isSeller),
+              // superAdmin: tabs (공연장 목록 | 요청 관리)
+              if (_isSuperAdmin && !_showCreateForm)
+                _buildTabBar(),
+              Expanded(
+                child: venuesAsync.when(
+                  loading: () => const Center(
+                      child: CircularProgressIndicator(
+                          color: AdminTheme.gold)),
+                  error: (e, _) => Center(
+                      child: Text('오류: $e',
+                          style:
+                              AdminTheme.sans(color: AdminTheme.error))),
+                  data: (venues) {
+                    // superAdmin: 공연장 등록 폼
+                    if (_showCreateForm && _isSuperAdmin) {
+                      return _VenueCreateForm(
+                        existingVenues: venues,
+                        onBack: () =>
+                            setState(() => _showCreateForm = false),
+                        onCreated: () =>
+                            setState(() => _showCreateForm = false),
+                      );
+                    }
+                    // seller: 공연장 요청 폼
+                    if (_showRequestForm && isSeller) {
+                      return _VenueRequestForm(
+                        sellerId: user!.id,
+                        sellerName: user.sellerProfile?.businessName ??
+                            user.displayName ??
+                            user.email,
+                        onBack: () =>
+                            setState(() => _showRequestForm = false),
+                        onSubmitted: () =>
+                            setState(() => _showRequestForm = false),
+                      );
+                    }
+                    // superAdmin: tab view
+                    if (_isSuperAdmin) {
+                      return TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildVenueList(venues,
+                              isSuperAdmin: true),
+                          const _VenueRequestManageTab(),
+                        ],
+                      );
+                    }
+                    // seller: venue list (읽기 전용) + 내 요청 목록
+                    return _SellerVenueView(
+                      venues: venues,
+                      sellerId: user?.id ?? '',
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTabBar() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AdminTheme.surface,
+        border: Border(
+            bottom: BorderSide(color: AdminTheme.border, width: 0.5)),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        indicatorColor: AdminTheme.gold,
+        indicatorWeight: 2,
+        labelColor: AdminTheme.gold,
+        unselectedLabelColor: AdminTheme.textSecondary,
+        labelStyle: AdminTheme.sans(
+            fontSize: 13, fontWeight: FontWeight.w700),
+        unselectedLabelStyle: AdminTheme.sans(
+            fontSize: 13, fontWeight: FontWeight.w500),
+        tabs: [
+          Tab(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.location_city_rounded, size: 16),
+                const SizedBox(width: 6),
+                Text('공연장 목록',
+                    style: AdminTheme.sans(
+                        fontSize: 13, fontWeight: FontWeight.w600)),
+              ],
             ),
+          ),
+          Tab(
+            child: Consumer(builder: (context, ref, _) {
+              final pendingAsync =
+                  ref.watch(pendingVenueRequestsProvider);
+              final count = pendingAsync.valueOrNull?.length ?? 0;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.pending_actions_rounded, size: 16),
+                  const SizedBox(width: 6),
+                  Text('요청 관리',
+                      style: AdminTheme.sans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600)),
+                  if (count > 0) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AdminTheme.error,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$count',
+                        style: AdminTheme.sans(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            }),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAppBar() {
+  Widget _buildAppBar({required bool isSeller}) {
+    String title;
+    if (_showCreateForm) {
+      title = '공연장 등록';
+    } else if (_showRequestForm) {
+      title = '공연장 요청';
+    } else {
+      title = '공연장 관리';
+    }
+
     return Container(
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 8,
@@ -65,7 +220,9 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
       ),
       decoration: const BoxDecoration(
         color: AdminTheme.surface,
-        border: Border(bottom: BorderSide(color: AdminTheme.border, width: 0.5)),
+        border: Border(
+            bottom:
+                BorderSide(color: AdminTheme.border, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -73,6 +230,8 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
             onPressed: () {
               if (_showCreateForm) {
                 setState(() => _showCreateForm = false);
+              } else if (_showRequestForm) {
+                setState(() => _showRequestForm = false);
               } else if (Navigator.of(context).canPop()) {
                 Navigator.of(context).pop();
               } else {
@@ -83,17 +242,17 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                 color: AdminTheme.textPrimary, size: 20),
           ),
           Expanded(
-            child: Text(
-              _showCreateForm ? '공연장 등록' : '공연장 관리',
-              style: AdminTheme.serif(fontSize: 17),
-            ),
+            child: Text(title, style: AdminTheme.serif(fontSize: 17)),
           ),
-          if (!_showCreateForm)
+          // superAdmin: 공연장 등록 버튼
+          if (!_showCreateForm &&
+              !_showRequestForm &&
+              _isSuperAdmin)
             GestureDetector(
               onTap: () => setState(() => _showCreateForm = true),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 7),
                 decoration: BoxDecoration(
                   gradient: AdminTheme.goldGradient,
                   borderRadius: BorderRadius.circular(4),
@@ -116,12 +275,45 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                 ),
               ),
             ),
+          // seller: 공연장 요청 버튼
+          if (!_showCreateForm &&
+              !_showRequestForm &&
+              isSeller &&
+              !_isSuperAdmin)
+            GestureDetector(
+              onTap: () => setState(() => _showRequestForm = true),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  gradient: AdminTheme.goldGradient,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.send_rounded,
+                        size: 14, color: AdminTheme.onAccent),
+                    const SizedBox(width: 4),
+                    Text(
+                      '새 공연장 요청',
+                      style: AdminTheme.sans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AdminTheme.onAccent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildVenueList(List<Venue> venues) {
+  Widget _buildVenueList(List<Venue> venues,
+      {bool isSuperAdmin = false}) {
     if (venues.isEmpty) {
       return Center(
         child: Column(
@@ -148,25 +340,31 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              '공연장을 등록하면 공연 등록 시 선택할 수 있습니다',
+              isSuperAdmin
+                  ? '공연장을 등록하면 공연 등록 시 선택할 수 있습니다'
+                  : '아직 등록된 공연장이 없습니다',
               style: AdminTheme.sans(
                 fontSize: 13,
                 color: AdminTheme.textTertiary,
               ),
             ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => setState(() => _showCreateForm = true),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: Text('첫 공연장 등록하기',
-                  style: AdminTheme.sans(fontWeight: FontWeight.w600)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AdminTheme.gold,
-                foregroundColor: AdminTheme.onAccent,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4)),
+            if (isSuperAdmin) ...[
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () =>
+                    setState(() => _showCreateForm = true),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: Text('첫 공연장 등록하기',
+                    style: AdminTheme.sans(
+                        fontWeight: FontWeight.w600)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AdminTheme.gold,
+                  foregroundColor: AdminTheme.onAccent,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4)),
+                ),
               ),
-            ),
+            ],
           ],
         ),
       );
@@ -185,29 +383,36 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AdminTheme.surface,
-              border: Border.all(color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
+              border: Border.all(
+                  color: AdminTheme.sage.withValues(alpha: 0.15),
+                  width: 0.5),
               borderRadius: BorderRadius.circular(2),
             ),
             child: InkWell(
-              onTap: () => _showVenueDetail(venue),
+              onTap: isSuperAdmin
+                  ? () => _showVenueDetail(venue)
+                  : null,
               borderRadius: BorderRadius.circular(4),
               child: Row(
                 children: [
-                  // 아이콘
                   Container(
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: AdminTheme.gold.withValues(alpha: 0.1),
+                      color:
+                          AdminTheme.gold.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Icon(Icons.location_city_rounded,
-                        size: 24, color: AdminTheme.gold),
+                    child: const Icon(
+                        Icons.location_city_rounded,
+                        size: 24,
+                        color: AdminTheme.gold),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
@@ -217,43 +422,64 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                                 style: AdminTheme.sans(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
-                                  color: AdminTheme.textPrimary,
+                                  color:
+                                      AdminTheme.textPrimary,
                                 ),
                               ),
                             ),
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (venue.seatMapImageUrl != null &&
-                                    venue.seatMapImageUrl!.isNotEmpty)
+                                if (venue.seatMapImageUrl !=
+                                        null &&
+                                    venue.seatMapImageUrl!
+                                        .isNotEmpty)
                                   Container(
-                                    margin: const EdgeInsets.only(right: 4),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
+                                    margin:
+                                        const EdgeInsets.only(
+                                            right: 4),
+                                    padding: const EdgeInsets
+                                        .symmetric(
+                                        horizontal: 6,
+                                        vertical: 2),
                                     decoration: BoxDecoration(
                                       border: Border.all(
-                                          color: AdminTheme.sage.withValues(alpha: 0.4),
+                                          color: AdminTheme
+                                              .sage
+                                              .withValues(
+                                                  alpha: 0.4),
                                           width: 0.5),
-                                      borderRadius: BorderRadius.circular(2),
+                                      borderRadius:
+                                          BorderRadius
+                                              .circular(2),
                                     ),
                                     child: Text('2D VIEW',
-                                        style: AdminTheme.label(
+                                        style:
+                                            AdminTheme.label(
                                           fontSize: 8,
-                                          color: AdminTheme.textSecondary,
+                                          color: AdminTheme
+                                              .textSecondary,
                                         )),
                                   ),
                                 if (venue.hasSeatView)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets
+                                        .symmetric(
+                                        horizontal: 6,
+                                        vertical: 2),
                                     decoration: BoxDecoration(
-                                      gradient: AdminTheme.goldGradient,
-                                      borderRadius: BorderRadius.circular(2),
+                                      gradient: AdminTheme
+                                          .goldGradient,
+                                      borderRadius:
+                                          BorderRadius
+                                              .circular(2),
                                     ),
                                     child: Text('3D VIEW',
-                                        style: AdminTheme.label(
+                                        style:
+                                            AdminTheme.label(
                                           fontSize: 8,
-                                          color: AdminTheme.onAccent,
+                                          color: AdminTheme
+                                              .onAccent,
                                         )),
                                   ),
                               ],
@@ -276,16 +502,23 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                           spacing: 6,
                           children: venue.availableGrades
                               .map((g) => Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 1),
+                                    padding: const EdgeInsets
+                                        .symmetric(
+                                        horizontal: 6,
+                                        vertical: 1),
                                     decoration: BoxDecoration(
-                                      color: AdminTheme.surface,
-                                      borderRadius: BorderRadius.circular(4),
+                                      color:
+                                          AdminTheme.surface,
+                                      borderRadius:
+                                          BorderRadius
+                                              .circular(4),
                                     ),
                                     child: Text(g,
-                                        style: AdminTheme.sans(
+                                        style:
+                                            AdminTheme.sans(
                                           fontSize: 10,
-                                          color: AdminTheme.textSecondary,
+                                          color: AdminTheme
+                                              .textSecondary,
                                         )),
                                   ))
                               .toList(),
@@ -293,8 +526,10 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right_rounded,
-                      color: AdminTheme.textTertiary, size: 20),
+                  if (isSuperAdmin)
+                    const Icon(Icons.chevron_right_rounded,
+                        color: AdminTheme.textTertiary,
+                        size: 20),
                 ],
               ),
             ),
@@ -306,6 +541,741 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen> {
 
   void _showVenueDetail(Venue venue) {
     context.push('/venues/${venue.id}');
+  }
+}
+
+// =============================================================================
+// 셀러 공연장 뷰: 공연장 목록(읽기 전용) + 내 요청 목록
+// =============================================================================
+
+class _SellerVenueView extends ConsumerWidget {
+  final List<Venue> venues;
+  final String sellerId;
+
+  const _SellerVenueView({
+    required this.venues,
+    required this.sellerId,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final myRequestsAsync =
+        ref.watch(sellerVenueRequestsProvider(sellerId));
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 내 요청 현황
+          myRequestsAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (requests) {
+              if (requests.isEmpty) return const SizedBox.shrink();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('내 요청 현황',
+                      style: AdminTheme.label(fontSize: 11)),
+                  const SizedBox(height: 10),
+                  ...requests.map((r) => _buildRequestCard(r)),
+                  const SizedBox(height: 20),
+                  Container(
+                    height: 0.5,
+                    color: AdminTheme.border,
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              );
+            },
+          ),
+          // 공연장 목록 (읽기 전용)
+          Text('전체 공연장', style: AdminTheme.label(fontSize: 11)),
+          const SizedBox(height: 10),
+          if (venues.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Center(
+                child: Text(
+                  '등록된 공연장이 없습니다',
+                  style: AdminTheme.sans(
+                    fontSize: 14,
+                    color: AdminTheme.textSecondary,
+                  ),
+                ),
+              ),
+            )
+          else
+            ...venues.map((v) => _buildVenueReadOnlyCard(v)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRequestCard(VenueRequest r) {
+    Color statusColor;
+    String statusLabel;
+    IconData statusIcon;
+    switch (r.status) {
+      case 'approved':
+        statusColor = AdminTheme.success;
+        statusLabel = '승인됨';
+        statusIcon = Icons.check_circle_rounded;
+        break;
+      case 'rejected':
+        statusColor = AdminTheme.error;
+        statusLabel = '거절됨';
+        statusIcon = Icons.cancel_rounded;
+        break;
+      default:
+        statusColor = AdminTheme.warning;
+        statusLabel = '대기중';
+        statusIcon = Icons.hourglass_top_rounded;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        border: Border.all(
+            color: statusColor.withValues(alpha: 0.3), width: 0.5),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Row(
+        children: [
+          Icon(statusIcon, size: 20, color: statusColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(r.venueName,
+                    style: AdminTheme.sans(
+                        fontSize: 14, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(
+                  '${r.address} / ${NumberFormat('#,###').format(r.seatCount)}석',
+                  style: AdminTheme.sans(
+                      fontSize: 12, color: AdminTheme.textTertiary),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Text(statusLabel,
+                style: AdminTheme.sans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: statusColor)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVenueReadOnlyCard(Venue venue) {
+    final fmt = NumberFormat('#,###');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        border: Border.all(
+            color: AdminTheme.sage.withValues(alpha: 0.15),
+            width: 0.5),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AdminTheme.gold.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Icon(Icons.location_city_rounded,
+                size: 20, color: AdminTheme.gold),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(venue.name,
+                    style: AdminTheme.sans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(
+                  '${fmt.format(venue.totalSeats)}석 · ${venue.floors.length}층'
+                  '${venue.address != null ? ' · ${venue.address}' : ''}',
+                  style: AdminTheme.sans(
+                      fontSize: 12,
+                      color: AdminTheme.textTertiary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// 셀러 공연장 요청 폼
+// =============================================================================
+
+class _VenueRequestForm extends ConsumerStatefulWidget {
+  final String sellerId;
+  final String sellerName;
+  final VoidCallback onBack;
+  final VoidCallback onSubmitted;
+
+  const _VenueRequestForm({
+    required this.sellerId,
+    required this.sellerName,
+    required this.onBack,
+    required this.onSubmitted,
+  });
+
+  @override
+  ConsumerState<_VenueRequestForm> createState() =>
+      _VenueRequestFormState();
+}
+
+class _VenueRequestFormState
+    extends ConsumerState<_VenueRequestForm> {
+  final _formKey = GlobalKey<FormState>();
+  final _venueNameCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
+  final _seatCountCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _venueNameCtrl.dispose();
+    _addressCtrl.dispose();
+    _seatCountCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _submitting = true);
+    try {
+      final repo = ref.read(venueRequestRepositoryProvider);
+      await repo.createRequest(VenueRequest(
+        id: '',
+        sellerId: widget.sellerId,
+        sellerName: widget.sellerName,
+        venueName: _venueNameCtrl.text.trim(),
+        address: _addressCtrl.text.trim(),
+        seatCount: int.tryParse(_seatCountCtrl.text.trim()) ?? 0,
+        description: _descCtrl.text.trim().isNotEmpty
+            ? _descCtrl.text.trim()
+            : null,
+        requestedAt: DateTime.now(),
+      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('공연장 요청이 제출되었습니다')),
+        );
+        widget.onSubmitted();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('오류: $e'),
+              backgroundColor: AdminTheme.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AdminTheme.info.withValues(alpha: 0.1),
+                border: Border.all(
+                    color: AdminTheme.info.withValues(alpha: 0.3),
+                    width: 0.5),
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded,
+                      size: 18, color: AdminTheme.info),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '공연장 등록 요청은 슈퍼어드민의 승인 후 반영됩니다.',
+                      style: AdminTheme.sans(
+                          fontSize: 13, color: AdminTheme.info),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text('공연장명 *',
+                style: AdminTheme.label(fontSize: 11)),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _venueNameCtrl,
+              style: AdminTheme.sans(fontSize: 14),
+              decoration: const InputDecoration(
+                  hintText: '예: 세종문화회관 대극장'),
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? '공연장명을 입력해주세요'
+                  : null,
+            ),
+            const SizedBox(height: 20),
+            Text('주소 *',
+                style: AdminTheme.label(fontSize: 11)),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _addressCtrl,
+              style: AdminTheme.sans(fontSize: 14),
+              decoration:
+                  const InputDecoration(hintText: '예: 서울특별시 종로구'),
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? '주소를 입력해주세요'
+                  : null,
+            ),
+            const SizedBox(height: 20),
+            Text('총 좌석 수 *',
+                style: AdminTheme.label(fontSize: 11)),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _seatCountCtrl,
+              style: AdminTheme.sans(fontSize: 14),
+              keyboardType: TextInputType.number,
+              decoration:
+                  const InputDecoration(hintText: '예: 3022'),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) {
+                  return '좌석 수를 입력해주세요';
+                }
+                final n = int.tryParse(v.trim());
+                if (n == null || n <= 0) return '유효한 숫자를 입력해주세요';
+                return null;
+              },
+            ),
+            const SizedBox(height: 20),
+            Text('추가 설명 (선택)',
+                style: AdminTheme.label(fontSize: 11)),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _descCtrl,
+              style: AdminTheme.sans(fontSize: 14),
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: '공연장에 대한 추가 정보 (층 구조, 좌석 등급 등)',
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed:
+                        _submitting ? null : widget.onBack,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AdminTheme.textPrimary,
+                      side: const BorderSide(
+                          color: AdminTheme.border, width: 0.5),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(4)),
+                    ),
+                    child: Text('취소',
+                        style: AdminTheme.sans(
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _submitting ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AdminTheme.gold,
+                      foregroundColor: AdminTheme.onAccent,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(4)),
+                    ),
+                    child: _submitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AdminTheme.onAccent),
+                          )
+                        : Text('요청 제출',
+                            style: AdminTheme.sans(
+                                fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// SuperAdmin 공연장 요청 관리 탭
+// =============================================================================
+
+class _VenueRequestManageTab extends ConsumerWidget {
+  const _VenueRequestManageTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final requestsAsync = ref.watch(allVenueRequestsProvider);
+
+    return requestsAsync.when(
+      loading: () => const Center(
+          child: CircularProgressIndicator(color: AdminTheme.gold)),
+      error: (e, _) => Center(
+          child: Text('오류: $e',
+              style: AdminTheme.sans(color: AdminTheme.error))),
+      data: (requests) {
+        if (requests.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color:
+                        AdminTheme.gold.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                      Icons.pending_actions_rounded,
+                      size: 36,
+                      color: AdminTheme.gold),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '공연장 요청이 없습니다',
+                  style: AdminTheme.sans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AdminTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '셀러가 공연장 등록을 요청하면 여기에 표시됩니다',
+                  style: AdminTheme.sans(
+                    fontSize: 13,
+                    color: AdminTheme.textTertiary,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // 대기중을 상단에 배치
+        final pending =
+            requests.where((r) => r.isPending).toList();
+        final resolved =
+            requests.where((r) => !r.isPending).toList();
+        final sorted = [...pending, ...resolved];
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: sorted.length,
+          itemBuilder: (context, index) {
+            final r = sorted[index];
+            return _VenueRequestCard(request: r);
+          },
+        );
+      },
+    );
+  }
+}
+
+class _VenueRequestCard extends ConsumerStatefulWidget {
+  final VenueRequest request;
+  const _VenueRequestCard({required this.request});
+
+  @override
+  ConsumerState<_VenueRequestCard> createState() =>
+      _VenueRequestCardState();
+}
+
+class _VenueRequestCardState
+    extends ConsumerState<_VenueRequestCard> {
+  bool _processing = false;
+
+  Future<void> _approve() async {
+    setState(() => _processing = true);
+    try {
+      final user = ref.read(effectiveUserProvider).value;
+      final repo = ref.read(venueRequestRepositoryProvider);
+      await repo.approveRequest(
+        requestId: widget.request.id,
+        approvedBy: user?.email ?? 'superAdmin',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  '${widget.request.venueName} 공연장이 승인 및 생성되었습니다')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('오류: $e'),
+              backgroundColor: AdminTheme.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _processing = false);
+    }
+  }
+
+  Future<void> _reject() async {
+    setState(() => _processing = true);
+    try {
+      final user = ref.read(effectiveUserProvider).value;
+      final repo = ref.read(venueRequestRepositoryProvider);
+      await repo.rejectRequest(
+        requestId: widget.request.id,
+        rejectedBy: user?.email ?? 'superAdmin',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  '${widget.request.venueName} 요청이 거절되었습니다')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('오류: $e'),
+              backgroundColor: AdminTheme.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _processing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = widget.request;
+    final fmt = NumberFormat('#,###');
+    final dateFmt = DateFormat('yyyy.MM.dd HH:mm');
+
+    Color statusColor;
+    String statusLabel;
+    IconData statusIcon;
+    switch (r.status) {
+      case 'approved':
+        statusColor = AdminTheme.success;
+        statusLabel = '승인됨';
+        statusIcon = Icons.check_circle_rounded;
+        break;
+      case 'rejected':
+        statusColor = AdminTheme.error;
+        statusLabel = '거절됨';
+        statusIcon = Icons.cancel_rounded;
+        break;
+      default:
+        statusColor = AdminTheme.warning;
+        statusLabel = '대기중';
+        statusIcon = Icons.hourglass_top_rounded;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        border: Border.all(
+          color: r.isPending
+              ? AdminTheme.warning.withValues(alpha: 0.4)
+              : AdminTheme.sage.withValues(alpha: 0.15),
+          width: r.isPending ? 1 : 0.5,
+        ),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 헤더: 이름 + 상태 뱃지
+          Row(
+            children: [
+              Icon(statusIcon, size: 18, color: statusColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(r.venueName,
+                    style: AdminTheme.sans(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700)),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Text(statusLabel,
+                    style: AdminTheme.sans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: statusColor)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // 정보
+          _infoRow('요청자', r.sellerName),
+          _infoRow('주소', r.address),
+          _infoRow('좌석 수', '${fmt.format(r.seatCount)}석'),
+          if (r.description != null && r.description!.isNotEmpty)
+            _infoRow('설명', r.description!),
+          _infoRow('요청일', dateFmt.format(r.requestedAt)),
+          if (r.resolvedAt != null)
+            _infoRow('처리일', dateFmt.format(r.resolvedAt!)),
+          if (r.resolvedBy != null)
+            _infoRow('처리자', r.resolvedBy!),
+          // 대기중일 때 승인/거절 버튼
+          if (r.isPending) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _processing ? null : _reject,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AdminTheme.error,
+                      side: BorderSide(
+                          color: AdminTheme.error
+                              .withValues(alpha: 0.5),
+                          width: 0.5),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 10),
+                      shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(2)),
+                    ),
+                    child: _processing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AdminTheme.error))
+                        : Text('거절',
+                            style: AdminTheme.sans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AdminTheme.error)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _processing ? null : _approve,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AdminTheme.success,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 10),
+                      shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(2)),
+                    ),
+                    child: _processing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white))
+                        : Text('승인',
+                            style: AdminTheme.sans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 60,
+            child: Text(label,
+                style: AdminTheme.sans(
+                    fontSize: 12,
+                    color: AdminTheme.textTertiary)),
+          ),
+          Expanded(
+            child: Text(value,
+                style: AdminTheme.sans(
+                    fontSize: 12,
+                    color: AdminTheme.textPrimary)),
+          ),
+        ],
+      ),
+    );
   }
 }
 

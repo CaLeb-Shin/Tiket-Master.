@@ -19,6 +19,7 @@ class FirestoreService {
   CollectionReference get scannerDevices => _firestore.collection('scannerDevices');
   CollectionReference get users => _firestore.collection('users');
   CollectionReference get venueViews => _firestore.collection('venueViews');
+  CollectionReference get venueRequests => _firestore.collection('venueRequests');
 
   /// 배치 쓰기 (최대 500개)
   WriteBatch batch() => _firestore.batch();
