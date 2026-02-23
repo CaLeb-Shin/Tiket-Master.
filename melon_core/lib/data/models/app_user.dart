@@ -36,6 +36,24 @@ class AppUser {
   bool get isSeller => role == UserRole.seller;
   bool get isStaff => role == UserRole.staff || isAdmin;
 
+  /// 역할만 변경한 복사본 생성 (테스트 모드용)
+  AppUser copyWith({UserRole? role}) {
+    return AppUser(
+      id: id,
+      email: email,
+      displayName: displayName,
+      phoneNumber: phoneNumber,
+      role: role ?? this.role,
+      mileage: mileage,
+      referralCode: referralCode,
+      isDemo: isDemo,
+      badges: badges,
+      sellerProfile: sellerProfile,
+      createdAt: createdAt,
+      lastLoginAt: lastLoginAt,
+    );
+  }
+
   factory AppUser.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return AppUser(

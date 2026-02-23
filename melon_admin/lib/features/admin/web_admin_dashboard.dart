@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +10,7 @@ import 'package:melon_core/data/models/event.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/services/firestore_service.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
+import 'widgets/role_switcher_widget.dart';
 
 class WebAdminDashboard extends ConsumerStatefulWidget {
   const WebAdminDashboard({super.key});
@@ -19,56 +19,8 @@ class WebAdminDashboard extends ConsumerStatefulWidget {
   ConsumerState<WebAdminDashboard> createState() => _WebAdminDashboardState();
 }
 
-class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard>
-    with SingleTickerProviderStateMixin {
+class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
   int _selectedMenuIndex = 0;
-  bool _isDrawerOpen = false;
-  late final AnimationController _drawerController;
-  late final Animation<double> _drawerSlide;
-  late final Animation<double> _scrimFade;
-
-  @override
-  void initState() {
-    super.initState();
-    _drawerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 280),
-    );
-    _drawerSlide = CurvedAnimation(
-      parent: _drawerController,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
-    _scrimFade = CurvedAnimation(
-      parent: _drawerController,
-      curve: Curves.easeOut,
-    );
-  }
-
-  @override
-  void dispose() {
-    _drawerController.dispose();
-    super.dispose();
-  }
-
-  void _toggleDrawer() {
-    if (_isDrawerOpen) {
-      _drawerController.reverse().then((_) {
-        if (mounted) setState(() => _isDrawerOpen = false);
-      });
-    } else {
-      setState(() => _isDrawerOpen = true);
-      _drawerController.forward();
-    }
-  }
-
-  void _closeDrawer() {
-    if (_isDrawerOpen) {
-      _drawerController.reverse().then((_) {
-        if (mounted) setState(() => _isDrawerOpen = false);
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -159,138 +111,70 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard>
 
     return Scaffold(
       backgroundColor: AdminTheme.background,
-      body: KeyboardListener(
-        focusNode: FocusNode()..requestFocus(),
-        onKeyEvent: (event) {
-          if (event is KeyDownEvent &&
-              event.logicalKey == LogicalKeyboardKey.escape) {
-            _closeDrawer();
-          }
-        },
-        child: Stack(
-          children: [
-            // ── Main content ──
-            Column(
-              children: [
-                // Top bar with hamburger menu
-                Container(
-                  height: 56,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  decoration: BoxDecoration(
-                    color: AdminTheme.surface,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: AdminTheme.border,
-                        width: 0.5,
+      body: Stack(
+        children: [
+          Row(
+            children: [
+              // ── 고정형 사이드바 ──
+              _Sidebar(
+                selectedIndex: _selectedMenuIndex,
+                isSuperAdmin: currentUser.value?.isSuperAdmin == true,
+                onMenuSelected: (index) {
+                  setState(() => _selectedMenuIndex = index);
+                },
+                onLogout: () async {
+                  // 역할 오버라이드 초기화 후 로그아웃
+                  ref.read(roleOverrideProvider.notifier).state = null;
+                  await ref.read(authServiceProvider).signOut();
+                  if (context.mounted) context.go('/login');
+                },
+              ),
+              // ── 메인 콘텐츠 ──
+              Expanded(
+                child: Column(
+                  children: [
+                    // Top bar
+                    Container(
+                      height: 56,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: AdminTheme.surface,
+                        border: Border(
+                          bottom: BorderSide(
+                            color: AdminTheme.border,
+                            width: 0.5,
+                          ),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          const Spacer(),
+                          Text(
+                            currentUser.value?.displayName ?? '',
+                            style: AdminTheme.sans(
+                              fontSize: 12,
+                              color: AdminTheme.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: GestureDetector(
-                          onTap: _toggleDrawer,
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: AdminTheme.cardElevated,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Icon(
-                              Icons.menu_rounded,
-                              color: AdminTheme.textPrimary,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          gradient: AdminTheme.goldGradient,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          'M',
-                          style: AdminTheme.sans(
-                            color: AdminTheme.onAccent,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'MELON TICKET',
-                        style: AdminTheme.label(
-                          fontSize: 11,
-                          color: AdminTheme.textPrimary,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        currentUser.value?.displayName ?? '',
-                        style: AdminTheme.sans(
-                          fontSize: 12,
-                          color: AdminTheme.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(child: _buildContent()),
-              ],
-            ),
-
-            // ── Scrim (반투명 배경) ──
-            if (_isDrawerOpen)
-              AnimatedBuilder(
-                animation: _scrimFade,
-                builder: (context, child) => GestureDetector(
-                  onTap: _closeDrawer,
-                  child: Container(
-                    color: Colors.black
-                        .withValues(alpha: 0.5 * _scrimFade.value),
-                  ),
+                    Expanded(child: _buildContent()),
+                  ],
                 ),
               ),
-
-            // ── Drawer overlay ──
-            if (_isDrawerOpen)
-              AnimatedBuilder(
-                animation: _drawerSlide,
-                builder: (context, child) => Transform.translate(
-                  offset: Offset(-260 * (1 - _drawerSlide.value), 0),
-                  child: child,
-                ),
-                child: _Sidebar(
-                  selectedIndex: _selectedMenuIndex,
-                  isSuperAdmin: currentUser.value?.isSuperAdmin == true,
-                  onMenuSelected: (index) {
-                    setState(() => _selectedMenuIndex = index);
-                    _closeDrawer();
-                  },
-                  onLogout: () async {
-                    _closeDrawer();
-                    await ref.read(authServiceProvider).signOut();
-                    if (context.mounted) context.go('/login');
-                  },
-                ),
-              ),
-          ],
-        ),
+            ],
+          ),
+          // ── 역할 전환 플로팅 바 (superAdmin 전용) ──
+          const RoleSwitcherWidget(),
+        ],
       ),
     );
   }
@@ -333,7 +217,7 @@ class _SidebarState extends State<_Sidebar> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 260,
+      width: 220,
       height: double.infinity,
       decoration: BoxDecoration(
         color: AdminTheme.surface,
@@ -341,13 +225,6 @@ class _SidebarState extends State<_Sidebar> {
           right: BorderSide(
               color: AdminTheme.gold.withValues(alpha: 0.1), width: 0.5),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 24,
-            offset: const Offset(4, 0),
-          ),
-        ],
       ),
       child: Column(
         children: [

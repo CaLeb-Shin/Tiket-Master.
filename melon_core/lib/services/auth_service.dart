@@ -20,6 +20,22 @@ final currentUserProvider = FutureProvider<AppUser?>((ref) async {
   return ref.watch(authServiceProvider).getAppUser(user.uid);
 });
 
+/// 테스트 모드: 역할 오버라이드 (superAdmin만 사용)
+final roleOverrideProvider = StateProvider<UserRole?>((ref) => null);
+
+/// 실제 UI에서 사용할 사용자 — roleOverride가 설정되면 해당 역할로 전환
+final effectiveUserProvider = Provider<AsyncValue<AppUser?>>((ref) {
+  final base = ref.watch(currentUserProvider);
+  final override = ref.watch(roleOverrideProvider);
+
+  if (override == null) return base;
+
+  return base.whenData((user) {
+    if (user == null) return null;
+    return user.copyWith(role: override);
+  });
+});
+
 /// 소셜 로그인 타입
 enum SocialLoginType {
   google,
