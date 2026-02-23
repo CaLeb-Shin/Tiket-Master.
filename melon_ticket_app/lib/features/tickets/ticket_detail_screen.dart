@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -686,7 +684,7 @@ class _BoardingPassClipper extends CustomClipper<Path> {
       notchPosition != oldClipper.notchPosition;
 }
 
-class _BoardingPassTicket extends StatelessWidget {
+class _BoardingPassTicket extends ConsumerWidget {
   final Ticket ticket;
   final Event event;
   final Seat? seat;
@@ -700,7 +698,7 @@ class _BoardingPassTicket extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final eventDate =
         DateFormat('yyyy년 M월 d일 (E)', 'ko_KR').format(event.startAt);
     final eventTime = DateFormat('HH:mm', 'ko_KR').format(event.startAt);
@@ -712,6 +710,18 @@ class _BoardingPassTicket extends StatelessWidget {
     final grade = seat?.grade ?? '';
     final gradeCol = grade.isNotEmpty ? _gradeColor(grade) : AppTheme.gold;
 
+    // Resolve inline seat view (reusing 5-step matching)
+    VenueSeatView? matchedView;
+    if (!ticket.isStanding && seat != null && event.venueId.isNotEmpty) {
+      final viewsAsync = ref.watch(venueViewsProvider(event.venueId));
+      matchedView = viewsAsync.whenOrNull(
+        data: (views) {
+          if (views.isEmpty) return null;
+          return _findBestSeatView(views, seat!);
+        },
+      );
+    }
+
     return ClipPath(
       clipper: const _BoardingPassClipper(
         notchRadius: 18,
@@ -721,18 +731,33 @@ class _BoardingPassTicket extends StatelessWidget {
         width: double.infinity,
         decoration: BoxDecoration(
           color: AppTheme.card,
-          boxShadow: AppShadows.card,
+          boxShadow: [
+            ...AppShadows.card,
+            BoxShadow(
+              color: gradeCol.withValues(alpha: 0.08),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           children: [
             // ──────────────────────────────────────────
-            // TOP SECTION: Event info header
+            // TOP SECTION: Event info header (grade-tinted gradient)
             // ──────────────────────────────────────────
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: const BoxDecoration(
-                gradient: AppTheme.goldGradient,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    gradeCol,
+                    gradeCol.withValues(alpha: 0.85),
+                    AppTheme.gold,
+                  ],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
               ),
               child: Row(
                 children: [
@@ -832,13 +857,15 @@ class _BoardingPassTicket extends StatelessWidget {
                     ),
             ),
 
-            // Seat view button (if applicable)
-            if (!ticket.isStanding && seat != null && event.venueId.isNotEmpty)
+            // ──────────────────────────────────────────
+            // INLINE SEAT VIEW (5-step matched image)
+            // ──────────────────────────────────────────
+            if (matchedView != null)
               Padding(
-                padding: const EdgeInsets.fromLTRB(18, 10, 18, 0),
-                child: _SeatViewButton(
-                  venueId: event.venueId,
-                  seat: seat!,
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+                child: _InlineSeatView(
+                  view: matchedView,
+                  onTap: () => _showSeatViewSheet(context, matchedView!),
                 ),
               ),
 
@@ -903,6 +930,12 @@ class _BoardingPassTicket extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             color: _textPrimary,
                             letterSpacing: 1.5,
+                            shadows: [
+                              Shadow(
+                                color: _textPrimary.withValues(alpha: 0.1),
+                                blurRadius: 4,
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -938,6 +971,136 @@ class _BoardingPassTicket extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _showSeatViewSheet(BuildContext context, VenueSeatView view) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.92,
+          expand: false,
+          builder: (_, scrollController) {
+            return Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 8),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        view.is360
+                            ? Icons.view_in_ar_rounded
+                            : Icons.visibility_rounded,
+                        size: 20,
+                        color: AppTheme.gold,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '내 좌석에서 본 시야',
+                          style: AppTheme.nanum(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: _textPrimary,
+                            shadows: AppTheme.textShadow,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.gold.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          view.displayName,
+                          style: AppTheme.nanum(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.gold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (view.description != null && view.description!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        view.description!,
+                        style: AppTheme.nanum(
+                          fontSize: 12,
+                          color: _textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: InteractiveViewer(
+                        minScale: 1.0,
+                        maxScale: 4.0,
+                        child: CachedNetworkImage(
+                          imageUrl: view.imageUrl,
+                          fit: BoxFit.contain,
+                          placeholder: (_, __) => const Center(
+                            child: CircularProgressIndicator(
+                                color: AppTheme.gold),
+                          ),
+                          errorWidget: (_, __, ___) => Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.broken_image_rounded,
+                                    size: 40, color: _textSecondary),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '이미지를 불러올 수 없습니다',
+                                  style: AppTheme.nanum(
+                                    fontSize: 13,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: MediaQuery.of(ctx).padding.bottom + 16),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -1004,7 +1167,7 @@ class _SeatInfoDisplay extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Grade badge row
+          // Grade badge row (with subtle glow)
           if (grade.isNotEmpty)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1017,6 +1180,13 @@ class _SeatInfoDisplay extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                     border:
                         Border.all(color: gradeColor.withValues(alpha: 0.3)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: gradeColor.withValues(alpha: 0.18),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                      ),
+                    ],
                   ),
                   child: Text(
                     '$grade석',
@@ -1119,6 +1289,12 @@ class _SeatInfoColumn extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                   color: _textPrimary,
                   letterSpacing: -0.5,
+                  shadows: [
+                    Shadow(
+                      color: _textPrimary.withValues(alpha: 0.08),
+                      blurRadius: 6,
+                    ),
+                  ],
                 )
               : AppTheme.nanum(
                   fontSize: 15,
@@ -1678,7 +1854,7 @@ class _InactiveQrCompact extends StatelessWidget {
 // Receipt / Policy / Bottom Action (unchanged logic)
 // =============================================================================
 
-class _TicketReceiptCard extends StatelessWidget {
+class _TicketReceiptCard extends StatefulWidget {
   final Ticket ticket;
   final Event event;
 
@@ -1688,60 +1864,120 @@ class _TicketReceiptCard extends StatelessWidget {
   });
 
   @override
+  State<_TicketReceiptCard> createState() => _TicketReceiptCardState();
+}
+
+class _TicketReceiptCardState extends State<_TicketReceiptCard>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final ticket = widget.ticket;
+    final event = widget.event;
     final issueText =
         DateFormat('yyyy.MM.dd HH:mm', 'ko_KR').format(ticket.issuedAt);
     final startText =
         DateFormat('yyyy.MM.dd HH:mm', 'ko_KR').format(event.startAt);
+    final totalAmount =
+        '${NumberFormat('#,###', 'ko_KR').format(event.price)}원';
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _cardBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '영수증',
-            style: AppTheme.nanum(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: _textPrimary,
-              letterSpacing: -0.2,
-              shadows: AppTheme.textShadow,
+    return GestureDetector(
+      onTap: () => setState(() => _expanded = !_expanded),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _cardBorder),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row: always visible
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '영수증',
+                    style: AppTheme.nanum(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: _textPrimary,
+                      letterSpacing: -0.2,
+                      shadows: AppTheme.textShadow,
+                    ),
+                  ),
+                ),
+                if (!_expanded)
+                  Text(
+                    totalAmount,
+                    style: AppTheme.nanum(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: _textPrimary,
+                      shadows: AppTheme.textShadow,
+                    ),
+                  ),
+                const SizedBox(width: 6),
+                AnimatedRotation(
+                  turns: _expanded ? 0.5 : 0.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 22,
+                    color: _textSecondary,
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 10),
-          const _ReceiptRow(label: '결제방식', value: '모바일티켓'),
-          _ReceiptRow(label: '승차권 상태', value: _statusLabel(ticket.status)),
-          _ReceiptRow(label: '공연 시작', value: startText),
-          _ReceiptRow(label: '발행일시', value: issueText),
-          if (ticket.usedAt != null)
-            _ReceiptRow(
-              label: '입장 완료',
-              value: DateFormat('yyyy.MM.dd HH:mm', 'ko_KR')
-                  .format(ticket.usedAt!),
-              valueColor: _success,
+            // Expandable details
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              alignment: Alignment.topCenter,
+              child: _expanded
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 10),
+                        const _ReceiptRow(
+                            label: '결제방식', value: '모바일티켓'),
+                        _ReceiptRow(
+                            label: '승차권 상태',
+                            value: _statusLabel(ticket.status)),
+                        _ReceiptRow(label: '공연 시작', value: startText),
+                        _ReceiptRow(label: '발행일시', value: issueText),
+                        if (ticket.usedAt != null)
+                          _ReceiptRow(
+                            label: '입장 완료',
+                            value: DateFormat('yyyy.MM.dd HH:mm', 'ko_KR')
+                                .format(ticket.usedAt!),
+                            valueColor: _success,
+                          ),
+                        if (ticket.canceledAt != null)
+                          _ReceiptRow(
+                            label: '반환 완료',
+                            value: DateFormat('yyyy.MM.dd HH:mm', 'ko_KR')
+                                .format(ticket.canceledAt!),
+                            valueColor: _danger,
+                          ),
+                        const Divider(color: _cardBorder, height: 24),
+                        _ReceiptRow(
+                          label: '결제금액',
+                          value: totalAmount,
+                          valueColor: _textPrimary,
+                          emphasize: true,
+                        ),
+                      ],
+                    )
+                  : const SizedBox.shrink(),
             ),
-          if (ticket.canceledAt != null)
-            _ReceiptRow(
-              label: '반환 완료',
-              value: DateFormat('yyyy.MM.dd HH:mm', 'ko_KR')
-                  .format(ticket.canceledAt!),
-              valueColor: _danger,
-            ),
-          const Divider(color: _cardBorder, height: 24),
-          _ReceiptRow(
-            label: '결제금액',
-            value: '${NumberFormat('#,###', 'ko_KR').format(event.price)}원',
-            valueColor: _textPrimary,
-            emphasize: true,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2056,270 +2292,255 @@ Color _statusBackground(TicketStatus status) {
 }
 
 // =============================================================================
-// 내 좌석 보기 (5단계 시야 매칭)
+// 내 좌석 시야 — 5단계 매칭 + 인라인 이미지 (MT-038)
 // =============================================================================
 
-class _SeatViewButton extends ConsumerWidget {
-  final String venueId;
-  final Seat seat;
+/// Top-level 5-step seat view matching (reusable from multiple widgets)
+VenueSeatView? _findBestSeatView(
+    Map<String, VenueSeatView> views, Seat seat) {
+  final zone = seat.block.trim();
+  final floor = seat.floor.trim();
+  final row = (seat.row ?? '').trim();
+  final number = seat.number;
 
-  const _SeatViewButton({required this.venueId, required this.seat});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final viewsAsync = ref.watch(venueViewsProvider(venueId));
-
-    return viewsAsync.when(
-      data: (views) {
-        if (views.isEmpty) return const SizedBox.shrink();
-
-        // 5단계 시야 매칭
-        final matched = _findBestView(views, seat);
-        if (matched == null) return const SizedBox.shrink();
-
-        return GestureDetector(
-          onTap: () => _showSeatViewSheet(context, matched),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-            decoration: BoxDecoration(
-              color: AppTheme.gold.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                  color: AppTheme.gold.withValues(alpha: 0.2)),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  matched.is360
-                      ? Icons.view_in_ar_rounded
-                      : Icons.visibility_rounded,
-                  size: 16,
-                  color: AppTheme.gold,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '내 좌석뷰 보기',
-                    style: AppTheme.nanum(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.gold,
-                    ),
-                  ),
-                ),
-                Text(
-                  matched.displayName,
-                  style: AppTheme.nanum(
-                    fontSize: 11,
-                    color: AppTheme.gold.withValues(alpha: 0.7),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(Icons.chevron_right_rounded,
-                    size: 16, color: AppTheme.gold.withValues(alpha: 0.5)),
-              ],
-            ),
-          ),
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-    );
+  // 1. exact seat (zone + floor + row + seat)
+  if (row.isNotEmpty) {
+    final k1 = VenueSeatView.buildKey(
+        zone: zone, floor: floor, row: row, seat: number);
+    if (views.containsKey(k1)) return views[k1];
   }
 
-  /// 5단계 시야 매칭: exact seat -> exact row -> nearest row -> seat(no row) -> zone
-  VenueSeatView? _findBestView(
-      Map<String, VenueSeatView> views, Seat seat) {
-    final zone = seat.block.trim();
-    final floor = seat.floor.trim();
-    final row = (seat.row ?? '').trim();
-    final number = seat.number;
+  // 2. exact row (zone + floor + row)
+  if (row.isNotEmpty) {
+    final k2 = VenueSeatView.buildKey(zone: zone, floor: floor, row: row);
+    if (views.containsKey(k2)) return views[k2];
+  }
 
-    // 1. exact seat (zone + floor + row + seat)
-    if (row.isNotEmpty) {
-      final k1 = VenueSeatView.buildKey(
-          zone: zone, floor: floor, row: row, seat: number);
-      if (views.containsKey(k1)) return views[k1];
-    }
-
-    // 2. exact row (zone + floor + row)
-    if (row.isNotEmpty) {
-      final k2 =
-          VenueSeatView.buildKey(zone: zone, floor: floor, row: row);
-      if (views.containsKey(k2)) return views[k2];
-    }
-
-    // 3. nearest row in same zone/floor
-    if (row.isNotEmpty) {
-      final rowNum = int.tryParse(row);
-      if (rowNum != null) {
-        VenueSeatView? nearest;
-        int bestDist = 999;
-        for (final v in views.values) {
-          if (v.zone.trim() == zone &&
-              v.floor.trim() == floor &&
-              v.row != null &&
-              v.seat == null) {
-            final vRow = int.tryParse(v.row!.trim());
-            if (vRow != null) {
-              final dist = (vRow - rowNum).abs();
-              if (dist < bestDist) {
-                bestDist = dist;
-                nearest = v;
-              }
+  // 3. nearest row in same zone/floor
+  if (row.isNotEmpty) {
+    final rowNum = int.tryParse(row);
+    if (rowNum != null) {
+      VenueSeatView? nearest;
+      int bestDist = 999;
+      for (final v in views.values) {
+        if (v.zone.trim() == zone &&
+            v.floor.trim() == floor &&
+            v.row != null &&
+            v.seat == null) {
+          final vRow = int.tryParse(v.row!.trim());
+          if (vRow != null) {
+            final dist = (vRow - rowNum).abs();
+            if (dist < bestDist) {
+              bestDist = dist;
+              nearest = v;
             }
           }
         }
-        if (nearest != null) return nearest;
       }
+      if (nearest != null) return nearest;
     }
-
-    // 4. seat without row (zone + floor + seat)
-    final k4 = VenueSeatView.buildKey(
-        zone: zone, floor: floor, seat: number);
-    if (views.containsKey(k4)) return views[k4];
-
-    // 5. zone representative (zone + floor)
-    final k5 = VenueSeatView.buildKey(zone: zone, floor: floor);
-    if (views.containsKey(k5)) return views[k5];
-
-    return null;
   }
 
-  void _showSeatViewSheet(BuildContext context, VenueSeatView view) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppTheme.background,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          minChildSize: 0.4,
-          maxChildSize: 0.92,
-          expand: false,
-          builder: (_, scrollController) {
-            return Column(
+  // 4. seat without row (zone + floor + seat)
+  final k4 =
+      VenueSeatView.buildKey(zone: zone, floor: floor, seat: number);
+  if (views.containsKey(k4)) return views[k4];
+
+  // 5. zone representative (zone + floor)
+  final k5 = VenueSeatView.buildKey(zone: zone, floor: floor);
+  if (views.containsKey(k5)) return views[k5];
+
+  return null;
+}
+
+/// Inline seat view image displayed directly inside the boarding pass card.
+/// Shows the matched seat view photo with gradient overlay, label, and 360 badge.
+class _InlineSeatView extends StatelessWidget {
+  final VenueSeatView view;
+  final VoidCallback onTap;
+
+  const _InlineSeatView({required this.view, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Label row
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
               children: [
-                // Handle
-                Container(
-                  margin: const EdgeInsets.only(top: 10, bottom: 8),
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppTheme.border,
-                    borderRadius: BorderRadius.circular(2),
+                Icon(
+                  view.is360
+                      ? Icons.view_in_ar_rounded
+                      : Icons.visibility_rounded,
+                  size: 14,
+                  color: AppTheme.gold,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  '내 좌석에서 본 시야',
+                  style: AppTheme.nanum(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.gold,
                   ),
                 ),
-                // Title
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Row(
-                    children: [
-                      Icon(
-                        view.is360
-                            ? Icons.view_in_ar_rounded
-                            : Icons.visibility_rounded,
-                        size: 20,
-                        color: AppTheme.gold,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '내 좌석에서 본 시야',
-                          style: AppTheme.nanum(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: _textPrimary,
-                            shadows: AppTheme.textShadow,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppTheme.gold.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          view.displayName,
-                          style: AppTheme.nanum(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                const Spacer(),
+                Text(
+                  view.displayName,
+                  style: AppTheme.nanum(
+                    fontSize: 10,
+                    color: AppTheme.gold.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Icon(Icons.open_in_full_rounded,
+                    size: 12,
+                    color: AppTheme.gold.withValues(alpha: 0.5)),
+              ],
+            ),
+          ),
+
+          // Image container
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: double.infinity,
+              height: 200,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Image with shimmer placeholder
+                  CachedNetworkImage(
+                    imageUrl: view.imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => Container(
+                      color: AppTheme.surface,
+                      child: const Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
                             color: AppTheme.gold,
+                            strokeWidth: 2,
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                if (view.description != null &&
-                    view.description!.isNotEmpty)
-                  Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 20),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        view.description!,
-                        style: AppTheme.nanum(
-                          fontSize: 12,
-                          color: _textSecondary,
+                    ),
+                    errorWidget: (_, __, ___) => Container(
+                      color: AppTheme.surface,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.broken_image_rounded,
+                                size: 28, color: _textSecondary),
+                            const SizedBox(height: 4),
+                            Text(
+                              '이미지를 불러올 수 없습니다',
+                              style: AppTheme.nanum(
+                                fontSize: 11,
+                                color: _textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
-                const SizedBox(height: 12),
-                // Image
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: InteractiveViewer(
-                        minScale: 1.0,
-                        maxScale: 4.0,
-                        child: CachedNetworkImage(
-                          imageUrl: view.imageUrl,
-                          fit: BoxFit.contain,
-                          placeholder: (_, __) => const Center(
-                            child: CircularProgressIndicator(
-                                color: AppTheme.gold),
+
+                  // Subtle gradient overlay (bottom fade for readability)
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.35),
+                          ],
+                          stops: const [0.0, 0.55, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // 360 badge (top-right)
+                  if (view.is360)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: AppTheme.gold.withValues(alpha: 0.5),
                           ),
-                          errorWidget: (_, __, ___) => Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.broken_image_rounded,
-                                    size: 40, color: _textSecondary),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '이미지를 불러올 수 없습니다',
-                                  style: AppTheme.nanum(
-                                    fontSize: 13,
-                                    color: _textSecondary,
-                                  ),
-                                ),
-                              ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.view_in_ar_rounded,
+                                size: 11, color: AppTheme.gold),
+                            const SizedBox(width: 3),
+                            Text(
+                              '360\u00B0',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.gold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // "Tap to expand" hint (bottom-right)
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.zoom_out_map_rounded,
+                              size: 11, color: Colors.white70),
+                          const SizedBox(width: 3),
+                          Text(
+                            '크게 보기',
+                            style: AppTheme.nanum(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white70,
+                              noShadow: true,
                             ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
-                ),
-                SizedBox(
-                    height: MediaQuery.of(ctx).padding.bottom + 16),
-              ],
-            );
-          },
-        );
-      },
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
