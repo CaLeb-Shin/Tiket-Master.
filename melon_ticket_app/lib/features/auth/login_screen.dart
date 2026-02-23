@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ─── Brand Logo SVGs ───
 const _naverLogoSvg =
@@ -23,6 +24,8 @@ const _googleLogoSvg =
     '<path d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2A11.9 11.9 0 0124 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" fill="#4CAF50"/>'
     '<path d="M43.6 20.1H42V20H24v8h11.3a12 12 0 01-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.7-.4-3.9z" fill="#1976D2"/>'
     '</svg>';
+
+const _lastLoginProviderKey = 'lastLoginProvider';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -44,6 +47,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   bool _obscurePassword = true;
   bool _requestAdminApproval = false;
 
+  String? _lastLoginProvider;
+
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
 
@@ -59,6 +64,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       curve: Curves.easeOut,
     );
     _fadeController.forward();
+    _loadLastLoginProvider();
+  }
+
+  Future<void> _loadLastLoginProvider() async {
+    final prefs = await SharedPreferences.getInstance();
+    final provider = prefs.getString(_lastLoginProviderKey);
+    if (mounted && provider != null) {
+      setState(() => _lastLoginProvider = provider);
+    }
+  }
+
+  Future<void> _saveLastLoginProvider(String provider) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastLoginProviderKey, provider);
+    if (mounted) {
+      setState(() => _lastLoginProvider = provider);
+    }
   }
 
   @override
@@ -107,6 +129,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           _emailController.text.trim(),
           _passwordController.text,
         );
+        await _saveLastLoginProvider('email');
       }
 
       if (mounted) {
@@ -129,6 +152,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       final authService = ref.read(authServiceProvider);
       final result = await authService.signInWithKakao();
       if (result != null && mounted) {
+        await _saveLastLoginProvider('kakao');
         context.go('/');
       }
     } catch (e) {
@@ -146,6 +170,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       final authService = ref.read(authServiceProvider);
       final result = await authService.signInWithNaver();
       if (result != null && mounted) {
+        await _saveLastLoginProvider('naver');
         context.go('/');
       }
     } catch (e) {
@@ -165,6 +190,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       final result = await authService.signInWithGoogle();
 
       if (result != null && mounted) {
+        await _saveLastLoginProvider('google');
         context.go('/');
       }
     } catch (e) {
@@ -276,6 +302,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   _buildTabToggle(),
                   const SizedBox(height: 24),
 
+                  // --- Social Login Buttons (TOP) ---
+                  _buildSocialButton(
+                    label: '카카오로 계속하기',
+                    providerKey: 'kakao',
+                    color: const Color(0xFFFEE500),
+                    textColor: const Color(0xFF191600),
+                    logoWidget: SvgPicture.string(_kakaoLogoSvg, width: 20, height: 20),
+                    onTap: _signInWithKakao,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSocialButton(
+                    label: '네이버로 계속하기',
+                    providerKey: 'naver',
+                    color: const Color(0xFF03C75A),
+                    textColor: Colors.white,
+                    logoWidget: SvgPicture.string(_naverLogoSvg, width: 18, height: 18),
+                    onTap: _signInWithNaver,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildGoogleButton(),
+                  const SizedBox(height: 24),
+
+                  // --- Divider: "또는 이메일로 로그인" ---
+                  _buildEmailDivider(),
+                  const SizedBox(height: 24),
+
                   // --- Email Field ---
                   _buildLabel('이메일'),
                   const SizedBox(height: 8),
@@ -296,31 +348,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   _buildPrimaryButton(),
                   const SizedBox(height: 28),
 
-                  // --- Divider ---
-                  _buildDivider(),
-                  const SizedBox(height: 20),
-
-                  // --- 소셜 로그인 버튼 ---
-                  _buildSocialButton(
-                    label: '카카오로 계속하기',
-                    color: const Color(0xFFFEE500),
-                    textColor: const Color(0xFF191600),
-                    logoWidget: SvgPicture.string(_kakaoLogoSvg, width: 20, height: 20),
-                    onTap: _signInWithKakao,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildSocialButton(
-                    label: '네이버로 계속하기',
-                    color: const Color(0xFF03C75A),
-                    textColor: Colors.white,
-                    logoWidget: SvgPicture.string(_naverLogoSvg, width: 18, height: 18),
-                    onTap: _signInWithNaver,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildGoogleButton(),
-                  const SizedBox(height: 20),
-
-                  // --- 체험하기 (게스트) ---
+                  // --- Guest (체험하기) at the bottom ---
                   _buildGuestButton(),
                   const SizedBox(height: 40),
                 ],
@@ -405,21 +433,50 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   // ──────────────────────────────────────────────
-  //  소셜 로그인 버튼 (카카오, 네이버)
+  //  "최근" Badge
+  // ──────────────────────────────────────────────
+
+  Widget _buildRecentBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        gradient: AppTheme.goldGradient,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '최근',
+        style: AppTheme.nanum(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFFFDF3F6),
+          shadows: AppTheme.textShadowOnDark,
+        ),
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────
+  //  Social Login Button (카카오, 네이버)
   // ──────────────────────────────────────────────
 
   Widget _buildSocialButton({
     required String label,
+    required String providerKey,
     required Color color,
     required Color textColor,
     required Widget logoWidget,
     required VoidCallback onTap,
   }) {
+    final isLastUsed = _lastLoginProvider == providerKey;
+
     return Container(
       height: 54,
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(14),
+        border: isLastUsed
+            ? Border.all(color: AppTheme.gold, width: 1.5)
+            : null,
       ),
       child: Material(
         color: Colors.transparent,
@@ -431,6 +488,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             child: Row(
               children: [
                 SizedBox(width: 24, height: 24, child: Center(child: logoWidget)),
+                if (isLastUsed) ...[
+                  const SizedBox(width: 8),
+                  _buildRecentBadge(),
+                ],
                 const Spacer(),
                 Text(
                   label,
@@ -455,12 +516,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   // ──────────────────────────────────────────────
 
   Widget _buildGoogleButton() {
+    final isLastUsed = _lastLoginProvider == 'google';
+
     return Container(
       height: 54,
       decoration: BoxDecoration(
         color: AppTheme.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.border, width: 1),
+        border: Border.all(
+          color: isLastUsed ? AppTheme.gold : AppTheme.border,
+          width: isLastUsed ? 1.5 : 1,
+        ),
       ),
       child: Material(
         color: Colors.transparent,
@@ -477,6 +543,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   height: 24,
                   child: SvgPicture.string(_googleLogoSvg, width: 24, height: 24),
                 ),
+                if (isLastUsed) ...[
+                  const SizedBox(width: 8),
+                  _buildRecentBadge(),
+                ],
                 const Spacer(),
                 Text(
                   'Google로 계속하기',
@@ -497,17 +567,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   // ──────────────────────────────────────────────
-  //  Divider
+  //  Email Divider ("또는 이메일로 로그인")
   // ──────────────────────────────────────────────
 
-  Widget _buildDivider() {
+  Widget _buildEmailDivider() {
     return Row(
       children: [
         const Expanded(child: Divider(color: AppTheme.border, thickness: 0.5)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            '또는 소셜 계정으로 계속',
+            _isSignUp ? '또는 이메일로 가입' : '또는 이메일로 로그인',
             style: AppTheme.nanum(
               color: AppTheme.textTertiary,
               fontSize: 13,
