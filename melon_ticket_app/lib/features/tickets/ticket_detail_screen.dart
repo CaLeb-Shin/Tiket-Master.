@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -152,7 +153,7 @@ class _TicketDetailBody extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
                 child: Column(
                   children: [
-                    _TicketTopCard(
+                    _BoardingPassTicket(
                       ticket: ticket,
                       event: event,
                       seat: seat,
@@ -608,13 +609,89 @@ class _UpgradeCard extends StatelessWidget {
   }
 }
 
-class _TicketTopCard extends StatelessWidget {
+// =============================================================================
+// Boarding Pass Style Ticket Card
+// =============================================================================
+
+/// ClipPath that creates the boarding-pass perforation cutouts on left/right
+class _BoardingPassClipper extends CustomClipper<Path> {
+  final double notchRadius;
+  final double notchPosition; // fraction from top (0.0 ~ 1.0)
+
+  const _BoardingPassClipper({
+    this.notchRadius = 18,
+    this.notchPosition = 0.55,
+  });
+
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    final notchY = size.height * notchPosition;
+
+    // Start from top-left with rounded corner
+    path.moveTo(14, 0);
+    path.lineTo(size.width - 14, 0);
+    path.arcToPoint(
+      Offset(size.width, 14),
+      radius: const Radius.circular(14),
+    );
+
+    // Right edge down to notch
+    path.lineTo(size.width, notchY - notchRadius);
+    // Right semicircle cutout (inward)
+    path.arcToPoint(
+      Offset(size.width, notchY + notchRadius),
+      radius: Radius.circular(notchRadius),
+      clockwise: false,
+    );
+
+    // Right edge down to bottom-right corner
+    path.lineTo(size.width, size.height - 14);
+    path.arcToPoint(
+      Offset(size.width - 14, size.height),
+      radius: const Radius.circular(14),
+    );
+
+    // Bottom edge
+    path.lineTo(14, size.height);
+    path.arcToPoint(
+      Offset(0, size.height - 14),
+      radius: const Radius.circular(14),
+    );
+
+    // Left edge up to notch
+    path.lineTo(0, notchY + notchRadius);
+    // Left semicircle cutout (inward)
+    path.arcToPoint(
+      Offset(0, notchY - notchRadius),
+      radius: Radius.circular(notchRadius),
+      clockwise: false,
+    );
+
+    // Left edge up to top-left corner
+    path.lineTo(0, 14);
+    path.arcToPoint(
+      const Offset(14, 0),
+      radius: const Radius.circular(14),
+    );
+
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant _BoardingPassClipper oldClipper) =>
+      notchRadius != oldClipper.notchRadius ||
+      notchPosition != oldClipper.notchPosition;
+}
+
+class _BoardingPassTicket extends StatelessWidget {
   final Ticket ticket;
   final Event event;
   final Seat? seat;
   final bool seatLoading;
 
-  const _TicketTopCard({
+  const _BoardingPassTicket({
     required this.ticket,
     required this.event,
     required this.seat,
@@ -626,130 +703,791 @@ class _TicketTopCard extends StatelessWidget {
     final eventDate =
         DateFormat('yyyy년 M월 d일 (E)', 'ko_KR').format(event.startAt);
     final eventTime = DateFormat('HH:mm', 'ko_KR').format(event.startAt);
-    final issuedAtText =
-        DateFormat('yyyy.MM.dd HH:mm', 'ko_KR').format(ticket.issuedAt);
+    final ticketNumber = ticket.id.length > 8
+        ? ticket.id.substring(ticket.id.length - 8).toUpperCase()
+        : ticket.id.toUpperCase();
 
-    return GlowCard(
-      borderRadius: 14,
-      padding: EdgeInsets.zero,
-      backgroundColor: AppTheme.card.withValues(alpha: 0.85),
-      borderColor: _cardBorder,
+    // Determine grade color for accents
+    final grade = seat?.grade ?? '';
+    final gradeCol = grade.isNotEmpty ? _gradeColor(grade) : AppTheme.gold;
+
+    return ClipPath(
+      clipper: const _BoardingPassClipper(
+        notchRadius: 18,
+        notchPosition: 0.55,
+      ),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          boxShadow: AppShadows.card,
+        ),
+        child: Column(
+          children: [
+            // ──────────────────────────────────────────
+            // TOP SECTION: Event info header
+            // ──────────────────────────────────────────
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: const BoxDecoration(
+                gradient: AppTheme.goldGradient,
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.confirmation_number_rounded,
+                    size: 14,
+                    color: AppTheme.onAccent,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'SMART TICKET',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.onAccent,
+                      letterSpacing: 2.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _statusBackground(ticket.status),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      _statusLabel(ticket.status),
+                      style: AppTheme.nanum(
+                        color: _statusTextColor(ticket.status),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        noShadow: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ──────────────────────────────────────────
+            // Event title + date/venue info
+            // ──────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event.title,
+                    style: AppTheme.nanum(
+                      color: _textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                      shadows: AppTheme.textShadowStrong,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _InfoChip(
+                        icon: Icons.calendar_today_rounded,
+                        text: eventDate,
+                      ),
+                      const SizedBox(width: 10),
+                      _InfoChip(
+                        icon: Icons.access_time_rounded,
+                        text: eventTime,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  _InfoChip(
+                    icon: Icons.location_on_outlined,
+                    text: event.venueName?.isNotEmpty == true
+                        ? event.venueName!
+                        : '공연장 정보 없음',
+                  ),
+                ],
+              ),
+            ),
+
+            // ──────────────────────────────────────────
+            // MIDDLE SECTION: Large seat info
+            // ──────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
+              child: ticket.isStanding
+                  ? _StandingSeatDisplay(ticket: ticket)
+                  : _SeatInfoDisplay(
+                      seat: seat,
+                      seatLoading: seatLoading,
+                      gradeColor: gradeCol,
+                    ),
+            ),
+
+            // Seat view button (if applicable)
+            if (!ticket.isStanding && seat != null && event.venueId.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 10, 18, 0),
+                child: _SeatViewButton(
+                  venueId: event.venueId,
+                  seat: seat!,
+                ),
+              ),
+
+            // ──────────────────────────────────────────
+            // PERFORATION LINE (dotted)
+            // ──────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: SizedBox(
+                width: double.infinity,
+                height: 1,
+                child: CustomPaint(
+                  painter: _DottedLinePainter(
+                    color: AppTheme.sage.withValues(alpha: 0.3),
+                    dashWidth: 5,
+                    dashSpace: 4,
+                  ),
+                ),
+              ),
+            ),
+
+            // ──────────────────────────────────────────
+            // BOTTOM SECTION: QR code + ticket number
+            // ──────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // QR code (left)
+                  Container(
+                    width: 120,
+                    height: 120,
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.borderLight),
+                    ),
+                    child: ticket.status == TicketStatus.issued
+                        ? _CompactQrSection(ticket: ticket)
+                        : _InactiveQrCompact(status: ticket.status),
+                  ),
+                  const SizedBox(width: 14),
+                  // Ticket meta (right)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '예매번호',
+                          style: AppTheme.label(
+                            fontSize: 9,
+                            color: _textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          ticketNumber,
+                          style: GoogleFonts.robotoMono(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: _textPrimary,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          '발행일시',
+                          style: AppTheme.label(
+                            fontSize: 9,
+                            color: _textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          DateFormat('yyyy.MM.dd HH:mm', 'ko_KR')
+                              .format(ticket.issuedAt),
+                          style: AppTheme.nanum(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _textPrimary,
+                          ),
+                        ),
+                        if (ticket.status == TicketStatus.issued) ...[
+                          const SizedBox(height: 10),
+                          _QrTimerBadge(ticket: ticket),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The large seat info display in the middle of the boarding pass
+class _SeatInfoDisplay extends StatelessWidget {
+  final Seat? seat;
+  final bool seatLoading;
+  final Color gradeColor;
+
+  const _SeatInfoDisplay({
+    required this.seat,
+    required this.seatLoading,
+    required this.gradeColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (seatLoading) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+          child: Text(
+            '좌석 정보 확인 중...',
+            style: AppTheme.nanum(
+              fontSize: 14,
+              color: _textSecondary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (seat == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+          child: Text(
+            '좌석 정보 없음',
+            style: AppTheme.nanum(
+              fontSize: 14,
+              color: _textSecondary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final grade = seat!.grade ?? '';
+    final block = seat!.block;
+    final floor = seat!.floor;
+    final row = seat!.row ?? '';
+    final number = seat!.number;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        color: gradeColor.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: gradeColor.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        children: [
+          // Grade badge row
+          if (grade.isNotEmpty)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: gradeColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                    border:
+                        Border.all(color: gradeColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    '$grade석',
+                    style: AppTheme.nanum(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: gradeColor,
+                      noShadow: true,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          if (grade.isNotEmpty) const SizedBox(height: 10),
+
+          // Main seat info grid
+          Row(
+            children: [
+              Expanded(
+                child: _SeatInfoColumn(
+                  label: '구역',
+                  value: block,
+                  large: true,
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 36,
+                color: gradeColor.withValues(alpha: 0.12),
+              ),
+              Expanded(
+                child: _SeatInfoColumn(
+                  label: '층',
+                  value: floor,
+                  large: false,
+                ),
+              ),
+              if (row.isNotEmpty) ...[
+                Container(
+                  width: 1,
+                  height: 36,
+                  color: gradeColor.withValues(alpha: 0.12),
+                ),
+                Expanded(
+                  child: _SeatInfoColumn(
+                    label: '열',
+                    value: row,
+                    large: true,
+                  ),
+                ),
+              ],
+              Container(
+                width: 1,
+                height: 36,
+                color: gradeColor.withValues(alpha: 0.12),
+              ),
+              Expanded(
+                child: _SeatInfoColumn(
+                  label: '번호',
+                  value: '$number',
+                  large: true,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SeatInfoColumn extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool large;
+
+  const _SeatInfoColumn({
+    required this.label,
+    required this.value,
+    this.large = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: AppTheme.label(
+            fontSize: 9,
+            color: _textSecondary,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          style: large
+              ? GoogleFonts.inter(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: _textPrimary,
+                  letterSpacing: -0.5,
+                )
+              : AppTheme.nanum(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: _textPrimary,
+                ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+}
+
+class _StandingSeatDisplay extends StatelessWidget {
+  final Ticket ticket;
+
+  const _StandingSeatDisplay({required this.ticket});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.gold.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.gold.withValues(alpha: 0.12)),
+      ),
       child: Column(
         children: [
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              gradient: AppTheme.goldGradient,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(13)),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.gold.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    eventDate,
-                    style: AppTheme.nanum(
-                      color: AppTheme.onAccent,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      shadows: AppTheme.textShadowOnDark,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: _statusBackground(ticket.status),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    _statusLabel(ticket.status),
-                    style: AppTheme.nanum(
-                      color: _statusTextColor(ticket.status),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
+            child: Text(
+              'STANDING',
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.gold,
+                letterSpacing: 2,
+              ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  event.title,
-                  style: AppTheme.nanum(
-                    color: _textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                    shadows: AppTheme.textShadowStrong,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                _TopMetaText(
-                  label: '공연일시',
-                  value:
-                      '${DateFormat('yyyy년 M월 d일 (E)', 'ko_KR').format(event.startAt)} $eventTime',
-                ),
-                _TopMetaText(
-                  label: '공연장',
-                  value: event.venueName?.isNotEmpty == true
-                      ? event.venueName!
-                      : '공연장 정보 없음',
-                ),
-                const SizedBox(height: 10),
-                const Divider(color: _cardBorder, height: 1),
-                const SizedBox(height: 10),
-                _TopDataRow(
-                  label: '예매번호',
-                  value: ticket.id.length > 8
-                      ? ticket.id.substring(ticket.id.length - 8).toUpperCase()
-                      : ticket.id.toUpperCase(),
-                  mono: true,
-                ),
-                _TopDataRow(label: '발행일시', value: issuedAtText),
-                if (ticket.isStanding)
-                  _TopDataRow(
-                    label: '입장',
-                    value: ticket.entryNumber != null
-                        ? '스탠딩 #${ticket.entryNumber}'
-                        : '스탠딩 입장권',
-                  )
-                else if (seat != null)
-                  _TopDataRow(label: '좌석', value: seat!.displayName)
-                else if (seatLoading)
-                  const _TopDataRow(label: '좌석', value: '좌석 정보 확인 중')
-                else
-                  const _TopDataRow(label: '좌석', value: '좌석 정보 없음'),
-                if (seat != null && event.venueId.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 7),
-                    child: _SeatViewButton(
-                      venueId: event.venueId,
-                      seat: seat!,
-                    ),
-                  ),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.borderLight),
-                  ),
-                  child: ticket.status == TicketStatus.issued
-                      ? _QrSection(ticket: ticket)
-                      : _InactiveQrSection(status: ticket.status),
-                ),
-              ],
+          const SizedBox(height: 10),
+          Text(
+            ticket.entryNumber != null
+                ? '#${ticket.entryNumber}'
+                : '입장권',
+            style: GoogleFonts.inter(
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              color: _textPrimary,
+              letterSpacing: -0.5,
+            ),
+          ),
+          if (ticket.entryNumber != null)
+            Text(
+              '입장 순번',
+              style: AppTheme.nanum(
+                fontSize: 12,
+                color: _textSecondary,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small info chip with icon + text
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _InfoChip({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: _textSecondary),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
+            style: AppTheme.nanum(
+              fontSize: 12,
+              color: _textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Dotted line painter for the perforation
+class _DottedLinePainter extends CustomPainter {
+  final Color color;
+  final double dashWidth;
+  final double dashSpace;
+
+  const _DottedLinePainter({
+    required this.color,
+    this.dashWidth = 5,
+    this.dashSpace = 4,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+
+    double startX = 24; // start after left notch
+    final endX = size.width - 24; // end before right notch
+
+    while (startX < endX) {
+      canvas.drawLine(
+        Offset(startX, 0),
+        Offset(math.min(startX + dashWidth, endX), 0),
+        paint,
+      );
+      startX += dashWidth + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DottedLinePainter old) =>
+      color != old.color || dashWidth != old.dashWidth;
+}
+
+// =============================================================================
+// Compact QR for boarding pass bottom section
+// =============================================================================
+
+class _CompactQrSection extends ConsumerStatefulWidget {
+  final Ticket ticket;
+
+  const _CompactQrSection({required this.ticket});
+
+  @override
+  ConsumerState<_CompactQrSection> createState() => _CompactQrSectionState();
+}
+
+class _CompactQrSectionState extends ConsumerState<_CompactQrSection> {
+  static const int _refreshIntervalSeconds = 120;
+
+  int _remainingSeconds = _refreshIntervalSeconds;
+  String? _qrData;
+  bool _isLoading = true;
+  String? _errorText;
+  bool _isRefreshingToken = false;
+  Timer? _countdownTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+    _refreshQrToken();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CompactQrSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.ticket.id != oldWidget.ticket.id ||
+        widget.ticket.qrVersion != oldWidget.ticket.qrVersion) {
+      _refreshQrToken();
+    }
+  }
+
+  void _startCountdown() {
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_remainingSeconds > 0) {
+        setState(() => _remainingSeconds--);
+      }
+      if (_remainingSeconds <= 0) {
+        _refreshQrToken();
+      }
+    });
+  }
+
+  Future<void> _refreshQrToken() async {
+    if (_isRefreshingToken) return;
+    if (!mounted) return;
+
+    _isRefreshingToken = true;
+    setState(() {
+      _isLoading = _qrData == null;
+      _errorText = null;
+    });
+
+    try {
+      final result = await ref
+          .read(functionsServiceProvider)
+          .issueQrToken(ticketId: widget.ticket.id);
+      final token = result['token'] as String?;
+      final exp = result['exp'] as int?;
+
+      if (token == null || token.isEmpty || exp == null) {
+        throw Exception('QR 토큰 응답이 올바르지 않습니다');
+      }
+
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final secondsLeft = (exp - now).clamp(1, _refreshIntervalSeconds).toInt();
+
+      if (!mounted) return;
+      setState(() {
+        _qrData = token;
+        _remainingSeconds = secondsLeft;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorText = 'QR 발급 실패';
+      });
+    } finally {
+      _isRefreshingToken = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            color: _lineBlue,
+            strokeWidth: 2,
+          ),
+        ),
+      );
+    }
+
+    if (_qrData == null) {
+      return Center(
+        child: GestureDetector(
+          onTap: _refreshQrToken,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.refresh_rounded, size: 20, color: _textSecondary),
+              const SizedBox(height: 4),
+              Text(
+                _errorText ?? 'QR 실패',
+                style: AppTheme.nanum(fontSize: 10, color: _textSecondary),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: _refreshQrToken,
+      onLongPress: () {
+        Clipboard.setData(ClipboardData(text: _qrData!));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('QR 데이터가 복사되었습니다'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      },
+      child: QrImageView(
+        data: _qrData!,
+        version: QrVersions.auto,
+        size: 108,
+        eyeStyle: const QrEyeStyle(
+          eyeShape: QrEyeShape.square,
+          color: Color(0xFF111827),
+        ),
+        dataModuleStyle: const QrDataModuleStyle(
+          dataModuleShape: QrDataModuleShape.square,
+          color: Color(0xFF111827),
+        ),
+        gapless: true,
+      ),
+    );
+  }
+}
+
+/// QR timer badge shown next to the QR in the boarding pass
+class _QrTimerBadge extends ConsumerStatefulWidget {
+  final Ticket ticket;
+
+  const _QrTimerBadge({required this.ticket});
+
+  @override
+  ConsumerState<_QrTimerBadge> createState() => _QrTimerBadgeState();
+}
+
+class _QrTimerBadgeState extends ConsumerState<_QrTimerBadge> {
+  static const int _refreshIntervalSeconds = 120;
+
+  int _remainingSeconds = _refreshIntervalSeconds;
+  Timer? _countdownTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_remainingSeconds > 0) {
+        setState(() => _remainingSeconds--);
+      }
+      if (_remainingSeconds <= 0) {
+        _remainingSeconds = _refreshIntervalSeconds;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  String _formatRemaining(int seconds) {
+    final min = seconds ~/ 60;
+    final sec = seconds % 60;
+    return '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isLow = _remainingSeconds <= 30;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isLow ? AppTheme.cardElevated : AppTheme.surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: isLow ? AppTheme.warning : AppTheme.borderLight,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.timer_outlined,
+            size: 12,
+            color: isLow ? AppTheme.warning : _textSecondary,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            _formatRemaining(_remainingSeconds),
+            style: GoogleFonts.robotoMono(
+              fontSize: 11,
+              color: isLow ? AppTheme.warning : _textSecondary,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -757,6 +1495,42 @@ class _TicketTopCard extends StatelessWidget {
     );
   }
 }
+
+class _InactiveQrCompact extends StatelessWidget {
+  final TicketStatus status;
+
+  const _InactiveQrCompact({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final isUsed = status == TicketStatus.used;
+    final icon = isUsed ? Icons.done_all_rounded : Icons.cancel_rounded;
+    final color = isUsed ? _success : _danger;
+    final label = isUsed ? '입장 완료' : '반환 완료';
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: AppTheme.nanum(
+              fontSize: 11,
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Receipt / Policy / Bottom Action (unchanged logic)
+// =============================================================================
 
 class _TicketReceiptCard extends StatelessWidget {
   final Ticket ticket;
@@ -993,361 +1767,6 @@ class _BottomActionBar extends StatelessWidget {
   }
 }
 
-class _QrSection extends ConsumerStatefulWidget {
-  final Ticket ticket;
-
-  const _QrSection({required this.ticket});
-
-  @override
-  ConsumerState<_QrSection> createState() => _QrSectionState();
-}
-
-class _QrSectionState extends ConsumerState<_QrSection> {
-  static const int _refreshIntervalSeconds = 120;
-
-  int _remainingSeconds = _refreshIntervalSeconds;
-  String? _qrData;
-  bool _isLoading = true;
-  String? _errorText;
-  bool _isRefreshingToken = false;
-  Timer? _countdownTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _startCountdown();
-    _refreshQrToken();
-  }
-
-  @override
-  void didUpdateWidget(covariant _QrSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.ticket.id != oldWidget.ticket.id ||
-        widget.ticket.qrVersion != oldWidget.ticket.qrVersion) {
-      _refreshQrToken();
-    }
-  }
-
-  void _startCountdown() {
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      if (_remainingSeconds > 0) {
-        setState(() => _remainingSeconds--);
-      }
-      if (_remainingSeconds <= 0) {
-        _refreshQrToken();
-      }
-    });
-  }
-
-  Future<void> _refreshQrToken() async {
-    if (_isRefreshingToken) return;
-    if (!mounted) return;
-
-    _isRefreshingToken = true;
-    setState(() {
-      _isLoading = _qrData == null;
-      _errorText = null;
-    });
-
-    try {
-      final result = await ref
-          .read(functionsServiceProvider)
-          .issueQrToken(ticketId: widget.ticket.id);
-      final token = result['token'] as String?;
-      final exp = result['exp'] as int?;
-
-      if (token == null || token.isEmpty || exp == null) {
-        throw Exception('QR 토큰 응답이 올바르지 않습니다');
-      }
-
-      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      final secondsLeft = (exp - now).clamp(1, _refreshIntervalSeconds).toInt();
-
-      if (!mounted) return;
-      setState(() {
-        _qrData = token;
-        _remainingSeconds = secondsLeft;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorText = 'QR 발급 실패: $e';
-      });
-    } finally {
-      _isRefreshingToken = false;
-    }
-  }
-
-  @override
-  void dispose() {
-    _countdownTimer?.cancel();
-    super.dispose();
-  }
-
-  String _formatRemaining(int seconds) {
-    final min = seconds ~/ 60;
-    final sec = seconds % 60;
-    return '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isLow = _remainingSeconds <= 30;
-
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '입장 QR',
-              style: AppTheme.nanum(
-                color: _textPrimary,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-                shadows: AppTheme.textShadow,
-              ),
-            ),
-            InkWell(
-              onTap: _refreshQrToken,
-              borderRadius: BorderRadius.circular(99),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                child: Row(
-                  children: [
-                    const Icon(Icons.refresh_rounded,
-                        size: 14, color: _lineBlue),
-                    const SizedBox(width: 4),
-                    Text(
-                      '새로고침',
-                      style: AppTheme.nanum(
-                        color: _lineBlue,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Container(
-          width: 220,
-          height: 220,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppTheme.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _cardBorder),
-          ),
-          child: Center(
-            child: _qrData != null
-                ? QrImageView(
-                    data: _qrData!,
-                    version: QrVersions.auto,
-                    size: 186,
-                    eyeStyle: const QrEyeStyle(
-                      eyeShape: QrEyeShape.square,
-                      color: Color(0xFF111827),
-                    ),
-                    dataModuleStyle: const QrDataModuleStyle(
-                      dataModuleShape: QrDataModuleShape.square,
-                      color: Color(0xFF111827),
-                    ),
-                    gapless: true,
-                  )
-                : _isLoading
-                    ? const CircularProgressIndicator(color: _lineBlue)
-                    : Text(
-                        _errorText ?? 'QR을 불러올 수 없습니다',
-                        textAlign: TextAlign.center,
-                        style: AppTheme.nanum(
-                          fontSize: 12,
-                          color: _textSecondary,
-                        ),
-                      ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: isLow ? AppTheme.cardElevated : _softBlue,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: isLow ? AppTheme.warning : AppTheme.borderLight,
-            ),
-          ),
-          child: Text(
-            '유효시간 ${_formatRemaining(_remainingSeconds)}',
-            style: GoogleFonts.robotoMono(
-              fontSize: 12,
-              color: isLow ? AppTheme.warning : AppTheme.goldLight,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        if (_qrData != null) ...[
-          const SizedBox(height: 8),
-          TextButton.icon(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: _qrData!));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('QR 데이터가 복사되었습니다'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
-            icon: const Icon(Icons.copy_rounded, size: 14, color: _textSecondary),
-            label: Text(
-              'QR 데이터 복사',
-              style: AppTheme.nanum(fontSize: 12, color: _textSecondary),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _InactiveQrSection extends StatelessWidget {
-  final TicketStatus status;
-
-  const _InactiveQrSection({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final isUsed = status == TicketStatus.used;
-    final icon = isUsed ? Icons.done_all_rounded : Icons.cancel_rounded;
-    final color = isUsed ? _success : _danger;
-    final label = isUsed ? '입장 완료된 티켓입니다' : '반환된 티켓입니다';
-
-    return SizedBox(
-      width: double.infinity,
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 34),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: AppTheme.nanum(
-              fontSize: 13,
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TopMetaText extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _TopMetaText({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 56,
-            child: Text(
-              label,
-              style: AppTheme.nanum(
-                color: _textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: AppTheme.nanum(
-                color: _textPrimary,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TopDataRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool mono;
-
-  const _TopDataRow({
-    required this.label,
-    required this.value,
-    this.mono = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-        decoration: BoxDecoration(
-          color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.borderLight),
-        ),
-        child: Row(
-          children: [
-            Text(
-              label,
-              style: AppTheme.nanum(
-                fontSize: 12,
-                color: _textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const Spacer(),
-            Flexible(
-              child: Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.right,
-                style: mono
-                    ? GoogleFonts.robotoMono(
-                        fontSize: 12,
-                        color: _textPrimary,
-                        fontWeight: FontWeight.w600,
-                      )
-                    : AppTheme.nanum(
-                        fontSize: 12,
-                        color: _textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _ReceiptRow extends StatelessWidget {
   final String label;
   final String value;
@@ -1447,13 +1866,10 @@ class _CenteredMessage extends StatelessWidget {
 }
 
 String _parseFirebaseError(String error) {
-  // Firebase HttpsError messages contain the actual message after the error code
-  // e.g. "[firebase_functions/failed-precondition] 입장 체크가 진행된 티켓은 취소할 수 없습니다"
   final bracketMatch = RegExp(r'\[.*?\]\s*(.+)').firstMatch(error);
   if (bracketMatch != null) {
     return bracketMatch.group(1)!;
   }
-  // Fallback: remove "Exception:" prefix if present
   if (error.startsWith('Exception:')) {
     return error.substring('Exception:'.length).trim();
   }
@@ -1521,10 +1937,10 @@ class _SeatViewButton extends ConsumerWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
             decoration: BoxDecoration(
-              color: AppTheme.gold.withValues(alpha: 0.08),
+              color: AppTheme.gold.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                  color: AppTheme.gold.withValues(alpha: 0.3)),
+                  color: AppTheme.gold.withValues(alpha: 0.2)),
             ),
             child: Row(
               children: [
@@ -1538,7 +1954,7 @@ class _SeatViewButton extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '내 좌석 보기',
+                    '내 좌석뷰 보기',
                     style: AppTheme.nanum(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -1566,7 +1982,7 @@ class _SeatViewButton extends ConsumerWidget {
     );
   }
 
-  /// 5단계 시야 매칭: exact seat → exact row → nearest row → seat(no row) → zone
+  /// 5단계 시야 매칭: exact seat -> exact row -> nearest row -> seat(no row) -> zone
   VenueSeatView? _findBestView(
       Map<String, VenueSeatView> views, Seat seat) {
     final zone = seat.block.trim();
