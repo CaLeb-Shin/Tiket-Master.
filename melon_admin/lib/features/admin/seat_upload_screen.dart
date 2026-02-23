@@ -4,10 +4,25 @@ import 'package:go_router/go_router.dart';
 import '../../app/admin_theme.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/data/models/seat.dart';
 
 // =============================================================================
-// 좌석 등록 화면 (Editorial / Luxury Magazine Admin Design)
+// MT-039: 좌석 등록 화면 UI 개선 (Editorial / Luxury Magazine Admin Design)
+// - 등급별 현황 표시 (VIP/R/S/A)
+// - 업로드 후 서머리 카드
+// - CSV 포맷 가이드 테이블
+// - 업로드 성공 확인 메시지
 // =============================================================================
+
+// ── Grade color constants ──
+const _gradeColors = {
+  'VIP': Color(0xFFC9A84C),
+  'R': Color(0xFFE53935),
+  'S': Color(0xFF1E88E5),
+  'A': Color(0xFF43A047),
+};
+
+const _gradeOrder = ['VIP', 'R', 'S', 'A'];
 
 class SeatUploadScreen extends ConsumerStatefulWidget {
   final String eventId;
@@ -24,25 +39,31 @@ class _SeatUploadScreenState extends ConsumerState<SeatUploadScreen> {
   String? _previewText;
   List<Map<String, dynamic>> _previewSeats = [];
 
+  // ── Upload result state ──
+  bool _uploadSuccess = false;
+  int _uploadedCount = 0;
+  Map<String, int> _uploadedGradeBreakdown = {};
+  Map<String, int> _uploadedZoneBreakdown = {};
+
   @override
   void initState() {
     super.initState();
-    _csvController.text = '''block,floor,row,number
-A,1층,1,1
-A,1층,1,2
-A,1층,1,3
-A,1층,1,4
-A,1층,1,5
-A,1층,2,1
-A,1층,2,2
-A,1층,2,3
-A,1층,2,4
-A,1층,2,5
-B,1층,1,1
-B,1층,1,2
-B,1층,1,3
-B,1층,1,4
-B,1층,1,5''';
+    _csvController.text = '''block,floor,row,number,grade
+A,1층,1,1,VIP
+A,1층,1,2,VIP
+A,1층,1,3,VIP
+A,1층,1,4,R
+A,1층,1,5,R
+A,1층,2,1,R
+A,1층,2,2,S
+A,1층,2,3,S
+A,1층,2,4,S
+A,1층,2,5,A
+B,1층,1,1,A
+B,1층,1,2,A
+B,1층,1,3,S
+B,1층,1,4,S
+B,1층,1,5,R''';
   }
 
   @override
@@ -78,12 +99,37 @@ B,1층,1,5''';
     return seats;
   }
 
+  /// Grade breakdown from parsed seat data
+  Map<String, int> _gradeBreakdown(List<Map<String, dynamic>> seats) {
+    final map = <String, int>{};
+    for (final s in seats) {
+      final grade = (s['grade'] as String?) ?? 'N/A';
+      map[grade] = (map[grade] ?? 0) + 1;
+    }
+    return map;
+  }
+
+  /// Zone (block) breakdown from parsed seat data
+  Map<String, int> _zoneBreakdown(List<Map<String, dynamic>> seats) {
+    final map = <String, int>{};
+    for (final s in seats) {
+      final block = (s['block'] as String?) ?? '?';
+      map[block] = (map[block] ?? 0) + 1;
+    }
+    // Sort alphabetically
+    final sorted = Map.fromEntries(
+      map.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+    );
+    return sorted;
+  }
+
   void _preview() {
     final seats = _parseCsv(_csvController.text);
     setState(() {
       _previewSeats = seats;
       _previewText = '총 ${seats.length}개 좌석\n\n'
           '처음 5개:\n${seats.take(5).map((s) => '${s['block']}구역 ${s['floor']} ${s['row'] ?? ''}열 ${s['number']}번').join('\n')}';
+      _uploadSuccess = false;
     });
   }
 
@@ -116,19 +162,21 @@ B,1층,1,5''';
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$count개 좌석이 등록되었습니다')),
-        );
-        context.go('/');
+        setState(() {
+          _uploadSuccess = true;
+          _uploadedCount = count;
+          _uploadedGradeBreakdown = _gradeBreakdown(seats);
+          _uploadedZoneBreakdown = _zoneBreakdown(seats);
+          _isLoading = false;
+        });
+        // Refresh the seats stream
+        ref.invalidate(seatsStreamProvider(widget.eventId));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('오류: $e')),
         );
-      }
-    } finally {
-      if (mounted) {
         setState(() => _isLoading = false);
       }
     }
@@ -154,13 +202,13 @@ B,1층,1,5''';
               ),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 680),
+                  constraints: const BoxConstraints(maxWidth: 720),
                   child: _buildContent(),
                 ),
               ),
             ),
           ),
-          _buildBottomBar(),
+          if (!_uploadSuccess) _buildBottomBar(),
         ],
       ),
     );
@@ -298,69 +346,22 @@ B,1층,1,5''';
           height: 1,
           color: AdminTheme.gold,
         ),
+        const SizedBox(height: 32),
+
+        // ── Section 0: Current Registration Status ──
+        _buildCurrentStatusSection(),
         const SizedBox(height: 40),
+
+        // ── Upload Success Card (shown after successful upload) ──
+        if (_uploadSuccess) ...[
+          _buildUploadSuccessCard(),
+          const SizedBox(height: 40),
+        ],
 
         // ── Section 1: CSV 형식 안내 ──
         _sectionHeader('형식 안내'),
         const SizedBox(height: 20),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AdminTheme.surface,
-            border: Border.all(color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.info_outline,
-                      size: 16, color: AdminTheme.sage.withValues(alpha: 0.6)),
-                  const SizedBox(width: 8),
-                  Text(
-                    'CSV FORMAT',
-                    style: AdminTheme.label(
-                      fontSize: 10,
-                      color: AdminTheme.sage,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                height: 0.5,
-                color: AdminTheme.sage.withValues(alpha: 0.15),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '첫 줄: block,floor,row,number (헤더)',
-                style: AdminTheme.sans(
-                  fontSize: 13,
-                  color: AdminTheme.textSecondary,
-                  height: 1.8,
-                ),
-              ),
-              Text(
-                '데이터: A,1층,1,1 (구역,층,열,번호)',
-                style: AdminTheme.sans(
-                  fontSize: 13,
-                  color: AdminTheme.textSecondary,
-                  height: 1.8,
-                ),
-              ),
-              Text(
-                'row는 생략 가능 (A,1층,,1)',
-                style: AdminTheme.sans(
-                  fontSize: 13,
-                  color: AdminTheme.textSecondary,
-                  height: 1.8,
-                ),
-              ),
-            ],
-          ),
-        ),
+        _buildFormatGuide(),
         const SizedBox(height: 40),
 
         // ── Section 2: CSV 데이터 입력 ──
@@ -414,7 +415,8 @@ B,1층,1,5''';
             onPressed: _preview,
             style: TextButton.styleFrom(
               foregroundColor: AdminTheme.gold,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(2),
                 side: BorderSide(
@@ -438,107 +440,13 @@ B,1층,1,5''';
         if (_previewText != null) ...[
           _sectionHeader('미리보기'),
           const SizedBox(height: 20),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AdminTheme.surface,
-              borderRadius: BorderRadius.circular(2),
-              border: Border.all(
-                color: AdminTheme.sage.withValues(alpha: 0.15),
-                width: 0.5,
-              ),
-              boxShadow: AdminShadows.small,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AdminTheme.gold.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: Text(
-                        '${_previewSeats.length} SEATS',
-                        style: AdminTheme.label(
-                          fontSize: 10,
-                          color: AdminTheme.gold,
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      'PREVIEW RESULT',
-                      style: AdminTheme.label(
-                        fontSize: 9,
-                        color: AdminTheme.textTertiary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  height: 0.5,
-                  color: AdminTheme.sage.withValues(alpha: 0.15),
-                ),
-                const SizedBox(height: 16),
+          _buildPreviewResult(),
+          const SizedBox(height: 24),
 
-                // ── Preview table ──
-                if (_previewSeats.isNotEmpty) ...[
-                  // Table header
-                  Row(
-                    children: [
-                      _tableHeader('BLOCK', flex: 2),
-                      _tableHeader('FLOOR', flex: 2),
-                      _tableHeader('ROW', flex: 1),
-                      _tableHeader('NO.', flex: 1),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    height: 0.5,
-                    color: AdminTheme.sage.withValues(alpha: 0.1),
-                  ),
-                  // Table rows (first 5)
-                  ..._previewSeats.take(5).map((seat) => Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: AdminTheme.sage.withValues(alpha: 0.08),
-                              width: 0.5,
-                            ),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            _tableCell('${seat['block']}', flex: 2),
-                            _tableCell('${seat['floor']}', flex: 2),
-                            _tableCell('${seat['row'] ?? '-'}', flex: 1),
-                            _tableCell('${seat['number']}', flex: 1),
-                          ],
-                        ),
-                      )),
-                  if (_previewSeats.length > 5) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      '... 외 ${_previewSeats.length - 5}개',
-                      style: AdminTheme.sans(
-                        fontSize: 12,
-                        color: AdminTheme.textTertiary,
-                      ),
-                    ),
-                  ],
-                ],
-              ],
-            ),
-          ),
+          // ── Section 4: Preview Summary Card ──
+          if (_previewSeats.isNotEmpty) ...[
+            _buildPreviewSummaryCard(),
+          ],
         ],
 
         const SizedBox(height: 100),
@@ -547,7 +455,1214 @@ B,1층,1,5''';
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SECTION HEADER — Serif italic + thin line
+  // SECTION 0: CURRENT REGISTRATION STATUS (Firestore live data)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildCurrentStatusSection() {
+    final seatsAsync = ref.watch(seatsStreamProvider(widget.eventId));
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        border: Border.all(
+          color: AdminTheme.sage.withValues(alpha: 0.15),
+          width: 0.5,
+        ),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: seatsAsync.whenOrNull(
+                        data: (seats) =>
+                            seats.isEmpty ? AdminTheme.sage : AdminTheme.success,
+                      ) ??
+                      AdminTheme.sage,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'CURRENT REGISTRATION',
+                style: AdminTheme.label(
+                  fontSize: 10,
+                  color: AdminTheme.sage,
+                ),
+              ),
+              const Spacer(),
+              seatsAsync.when(
+                data: (seats) => Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: seats.isEmpty
+                        ? AdminTheme.sage.withValues(alpha: 0.1)
+                        : AdminTheme.gold.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: Text(
+                    '${seats.length} SEATS',
+                    style: AdminTheme.label(
+                      fontSize: 10,
+                      color: seats.isEmpty ? AdminTheme.sage : AdminTheme.gold,
+                    ),
+                  ),
+                ),
+                loading: () => const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    color: AdminTheme.sage,
+                  ),
+                ),
+                error: (_, __) => Text(
+                  'ERROR',
+                  style: AdminTheme.label(fontSize: 9, color: AdminTheme.error),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            height: 0.5,
+            color: AdminTheme.sage.withValues(alpha: 0.15),
+          ),
+          const SizedBox(height: 16),
+
+          // Grade breakdown chips
+          seatsAsync.when(
+            data: (seats) {
+              if (seats.isEmpty) {
+                return Row(
+                  children: [
+                    Icon(Icons.event_seat_outlined,
+                        size: 16,
+                        color: AdminTheme.sage.withValues(alpha: 0.4)),
+                    const SizedBox(width: 8),
+                    Text(
+                      '등록된 좌석이 없습니다. CSV를 업로드해 주세요.',
+                      style: AdminTheme.sans(
+                        fontSize: 13,
+                        color: AdminTheme.textTertiary,
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              // Count by grade
+              final gradeCounts = <String, int>{};
+              final statusCounts = <SeatStatus, int>{};
+              for (final seat in seats) {
+                final grade = seat.grade ?? 'N/A';
+                gradeCounts[grade] = (gradeCounts[grade] ?? 0) + 1;
+                statusCounts[seat.status] =
+                    (statusCounts[seat.status] ?? 0) + 1;
+              }
+
+              // Sort by _gradeOrder
+              final sortedGrades = <MapEntry<String, int>>[];
+              for (final g in _gradeOrder) {
+                if (gradeCounts.containsKey(g)) {
+                  sortedGrades.add(MapEntry(g, gradeCounts[g]!));
+                }
+              }
+              // Add any grades not in the standard order
+              for (final entry in gradeCounts.entries) {
+                if (!_gradeOrder.contains(entry.key)) {
+                  sortedGrades.add(entry);
+                }
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Grade chips row
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: sortedGrades.map((entry) {
+                      final color =
+                          _gradeColors[entry.key] ?? AdminTheme.sage;
+                      return _gradeChip(entry.key, entry.value, color);
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Status bar
+                  _buildStatusBar(seats.length, statusCounts),
+                ],
+              );
+            },
+            loading: () => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: AdminTheme.sage,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '좌석 데이터 로딩 중...',
+                    style: AdminTheme.sans(
+                      fontSize: 13,
+                      color: AdminTheme.textTertiary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            error: (e, _) => Text(
+              '데이터 로드 실패: $e',
+              style: AdminTheme.sans(fontSize: 13, color: AdminTheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _gradeChip(String grade, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        border: Border.all(
+          color: color.withValues(alpha: 0.25),
+          width: 0.5,
+        ),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(1),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            grade,
+            style: AdminTheme.label(
+              fontSize: 10,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '$count',
+            style: AdminTheme.sans(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBar(int total, Map<SeatStatus, int> statusCounts) {
+    final available = statusCounts[SeatStatus.available] ?? 0;
+    final reserved = statusCounts[SeatStatus.reserved] ?? 0;
+    final used = statusCounts[SeatStatus.used] ?? 0;
+    final blocked = statusCounts[SeatStatus.blocked] ?? 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Stacked progress bar
+        ClipRRect(
+          borderRadius: BorderRadius.circular(1),
+          child: SizedBox(
+            height: 4,
+            child: Row(
+              children: [
+                if (available > 0)
+                  Expanded(
+                    flex: available,
+                    child: Container(color: AdminTheme.success),
+                  ),
+                if (reserved > 0)
+                  Expanded(
+                    flex: reserved,
+                    child: Container(color: AdminTheme.gold),
+                  ),
+                if (used > 0)
+                  Expanded(
+                    flex: used,
+                    child: Container(color: AdminTheme.info),
+                  ),
+                if (blocked > 0)
+                  Expanded(
+                    flex: blocked,
+                    child: Container(color: AdminTheme.error),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Legend row
+        Row(
+          children: [
+            _statusLegend('available', available, AdminTheme.success),
+            const SizedBox(width: 14),
+            _statusLegend('reserved', reserved, AdminTheme.gold),
+            const SizedBox(width: 14),
+            _statusLegend('used', used, AdminTheme.info),
+            const SizedBox(width: 14),
+            _statusLegend('blocked', blocked, AdminTheme.error),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _statusLegend(String label, int count, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '$count',
+          style: AdminTheme.sans(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: AdminTheme.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SECTION 1: FORMAT GUIDE (Mini table visualization)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildFormatGuide() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        border: Border.all(
+          color: AdminTheme.sage.withValues(alpha: 0.15),
+          width: 0.5,
+        ),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.table_chart_outlined,
+                  size: 16, color: AdminTheme.sage.withValues(alpha: 0.6)),
+              const SizedBox(width: 8),
+              Text(
+                'CSV FORMAT',
+                style: AdminTheme.label(
+                  fontSize: 10,
+                  color: AdminTheme.sage,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AdminTheme.info.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Text(
+                  'MAX 1,500',
+                  style: AdminTheme.label(
+                    fontSize: 9,
+                    color: AdminTheme.info,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            height: 0.5,
+            color: AdminTheme.sage.withValues(alpha: 0.15),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Mini table visualization ──
+          Container(
+            decoration: BoxDecoration(
+              color: AdminTheme.background,
+              borderRadius: BorderRadius.circular(2),
+              border: Border.all(
+                color: AdminTheme.sage.withValues(alpha: 0.1),
+                width: 0.5,
+              ),
+            ),
+            child: Column(
+              children: [
+                // Header row
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AdminTheme.gold.withValues(alpha: 0.06),
+                    border: Border(
+                      bottom: BorderSide(
+                        color: AdminTheme.sage.withValues(alpha: 0.15),
+                        width: 0.5,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      _formatCol('block', flex: 2, isHeader: true),
+                      _formatCol('floor', flex: 2, isHeader: true),
+                      _formatCol('row', flex: 2, isHeader: true),
+                      _formatCol('number', flex: 2, isHeader: true),
+                      _formatCol('grade', flex: 2, isHeader: true),
+                    ],
+                  ),
+                ),
+                // Data rows
+                _formatDataRow(['A', '1층', '1', '1', 'VIP']),
+                _formatDataRow(['A', '1층', '1', '2', 'R']),
+                _formatDataRow(['B', '2층', '', '5', 'S'],
+                    highlight: true),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Column descriptions ──
+          _formatField(
+            'block',
+            '구역명 (A, B, C, VIP 등)',
+            required: true,
+          ),
+          const SizedBox(height: 6),
+          _formatField(
+            'floor',
+            '층 (1층, 2층 등)',
+            required: true,
+          ),
+          const SizedBox(height: 6),
+          _formatField(
+            'row',
+            '열 번호 (생략 가능)',
+            required: false,
+          ),
+          const SizedBox(height: 6),
+          _formatField(
+            'number',
+            '좌석 번호 (정수)',
+            required: true,
+          ),
+          const SizedBox(height: 6),
+          _formatField(
+            'grade',
+            '좌석 등급 (VIP, R, S, A)',
+            required: false,
+          ),
+
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            height: 0.5,
+            color: AdminTheme.sage.withValues(alpha: 0.1),
+          ),
+          const SizedBox(height: 12),
+
+          // Grade color legend
+          Row(
+            children: [
+              Text(
+                'GRADES',
+                style: AdminTheme.label(
+                  fontSize: 9,
+                  color: AdminTheme.textTertiary,
+                ),
+              ),
+              const SizedBox(width: 16),
+              ..._gradeOrder.map((g) => Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: _gradeColors[g],
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          g,
+                          style: AdminTheme.sans(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: _gradeColors[g]!,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _formatCol(String text, {int flex = 1, bool isHeader = false}) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        text,
+        style: isHeader
+            ? AdminTheme.label(
+                fontSize: 9,
+                color: AdminTheme.gold.withValues(alpha: 0.8),
+              )
+            : AdminTheme.sans(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: AdminTheme.textPrimary,
+              ),
+      ),
+    );
+  }
+
+  Widget _formatDataRow(List<String> values, {bool highlight = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: highlight
+            ? AdminTheme.gold.withValues(alpha: 0.03)
+            : Colors.transparent,
+        border: Border(
+          bottom: BorderSide(
+            color: AdminTheme.sage.withValues(alpha: 0.08),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          _formatCol(values[0], flex: 2),
+          _formatCol(values[1], flex: 2),
+          Expanded(
+            flex: 2,
+            child: values[2].isEmpty
+                ? Text(
+                    '(생략)',
+                    style: AdminTheme.sans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                      color: AdminTheme.textTertiary,
+                    ),
+                  )
+                : Text(
+                    values[2],
+                    style: AdminTheme.sans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: AdminTheme.textPrimary,
+                    ),
+                  ),
+          ),
+          _formatCol(values[3], flex: 2),
+          Expanded(
+            flex: 2,
+            child: Row(
+              children: [
+                if (_gradeColors.containsKey(values[4]))
+                  Container(
+                    width: 6,
+                    height: 6,
+                    margin: const EdgeInsets.only(right: 4),
+                    decoration: BoxDecoration(
+                      color: _gradeColors[values[4]],
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                Text(
+                  values[4],
+                  style: AdminTheme.sans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: _gradeColors[values[4]] ?? AdminTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _formatField(String name, String desc, {required bool required}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 70,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: AdminTheme.background,
+            borderRadius: BorderRadius.circular(2),
+          ),
+          child: Text(
+            name,
+            style: AdminTheme.sans(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AdminTheme.textPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            desc,
+            style: AdminTheme.sans(
+              fontSize: 12,
+              color: AdminTheme.textSecondary,
+              height: 1.5,
+            ),
+          ),
+        ),
+        if (required)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: AdminTheme.error.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Text(
+              'REQUIRED',
+              style: AdminTheme.label(
+                fontSize: 8,
+                color: AdminTheme.error.withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SECTION 3: PREVIEW RESULT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildPreviewResult() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(
+          color: AdminTheme.sage.withValues(alpha: 0.15),
+          width: 0.5,
+        ),
+        boxShadow: AdminShadows.small,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AdminTheme.gold.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Text(
+                  '${_previewSeats.length} SEATS',
+                  style: AdminTheme.label(
+                    fontSize: 10,
+                    color: AdminTheme.gold,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'PREVIEW RESULT',
+                style: AdminTheme.label(
+                  fontSize: 9,
+                  color: AdminTheme.textTertiary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            height: 0.5,
+            color: AdminTheme.sage.withValues(alpha: 0.15),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Preview table ──
+          if (_previewSeats.isNotEmpty) ...[
+            // Table header
+            Row(
+              children: [
+                _tableHeader('BLOCK', flex: 2),
+                _tableHeader('FLOOR', flex: 2),
+                _tableHeader('ROW', flex: 1),
+                _tableHeader('NO.', flex: 1),
+                _tableHeader('GRADE', flex: 1),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              height: 0.5,
+              color: AdminTheme.sage.withValues(alpha: 0.1),
+            ),
+            // Table rows (first 8)
+            ..._previewSeats.take(8).map((seat) {
+              final grade = seat['grade'] as String?;
+              final gradeColor =
+                  _gradeColors[grade] ?? AdminTheme.textTertiary;
+              return Container(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: AdminTheme.sage.withValues(alpha: 0.08),
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    _tableCell('${seat['block']}', flex: 2),
+                    _tableCell('${seat['floor']}', flex: 2),
+                    _tableCell('${seat['row'] ?? '-'}', flex: 1),
+                    _tableCell('${seat['number']}', flex: 1),
+                    Expanded(
+                      flex: 1,
+                      child: Row(
+                        children: [
+                          if (grade != null && grade.isNotEmpty) ...[
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: gradeColor,
+                                borderRadius: BorderRadius.circular(1),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          Text(
+                            grade ?? '-',
+                            style: AdminTheme.sans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: gradeColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            if (_previewSeats.length > 8) ...[
+              const SizedBox(height: 12),
+              Text(
+                '... 외 ${_previewSeats.length - 8}개',
+                style: AdminTheme.sans(
+                  fontSize: 12,
+                  color: AdminTheme.textTertiary,
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PREVIEW SUMMARY CARD (grade + zone breakdown)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildPreviewSummaryCard() {
+    final grades = _gradeBreakdown(_previewSeats);
+    final zones = _zoneBreakdown(_previewSeats);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(
+          color: AdminTheme.gold.withValues(alpha: 0.15),
+          width: 0.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.analytics_outlined,
+                  size: 16, color: AdminTheme.gold.withValues(alpha: 0.7)),
+              const SizedBox(width: 8),
+              Text(
+                'SUMMARY',
+                style: AdminTheme.label(
+                  fontSize: 10,
+                  color: AdminTheme.gold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            height: 0.5,
+            color: AdminTheme.sage.withValues(alpha: 0.15),
+          ),
+          const SizedBox(height: 16),
+
+          // Total
+          Row(
+            children: [
+              Text(
+                '총 좌석',
+                style: AdminTheme.sans(
+                  fontSize: 13,
+                  color: AdminTheme.textSecondary,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${_previewSeats.length}석',
+                style: AdminTheme.sans(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AdminTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Grade breakdown
+          Text(
+            'GRADE BREAKDOWN',
+            style: AdminTheme.label(
+              fontSize: 9,
+              color: AdminTheme.textTertiary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _buildGradeBarChart(grades),
+          const SizedBox(height: 20),
+
+          // Zone breakdown
+          Text(
+            'ZONE BREAKDOWN',
+            style: AdminTheme.label(
+              fontSize: 9,
+              color: AdminTheme.textTertiary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: zones.entries.map((entry) {
+              return Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AdminTheme.background,
+                  borderRadius: BorderRadius.circular(2),
+                  border: Border.all(
+                    color: AdminTheme.sage.withValues(alpha: 0.15),
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${entry.key}구역',
+                      style: AdminTheme.sans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AdminTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${entry.value}석',
+                      style: AdminTheme.sans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AdminTheme.gold,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGradeBarChart(Map<String, int> grades) {
+    final total = grades.values.fold<int>(0, (a, b) => a + b);
+    if (total == 0) return const SizedBox.shrink();
+
+    // Sort by grade order
+    final sorted = <MapEntry<String, int>>[];
+    for (final g in _gradeOrder) {
+      if (grades.containsKey(g)) {
+        sorted.add(MapEntry(g, grades[g]!));
+      }
+    }
+    for (final entry in grades.entries) {
+      if (!_gradeOrder.contains(entry.key)) {
+        sorted.add(entry);
+      }
+    }
+
+    return Column(
+      children: sorted.map((entry) {
+        final color = _gradeColors[entry.key] ?? AdminTheme.sage;
+        final ratio = entry.value / total;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 36,
+                child: Text(
+                  entry.key,
+                  style: AdminTheme.sans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Stack(
+                  children: [
+                    Container(
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: AdminTheme.background,
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                    FractionallySizedBox(
+                      widthFactor: ratio,
+                      child: Container(
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                width: 44,
+                child: Text(
+                  '${entry.value}석',
+                  textAlign: TextAlign.right,
+                  style: AdminTheme.sans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AdminTheme.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // UPLOAD SUCCESS CARD
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildUploadSuccessCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AdminTheme.success.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(
+          color: AdminTheme.success.withValues(alpha: 0.25),
+          width: 0.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Success header
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AdminTheme.success.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check,
+                  size: 18,
+                  color: AdminTheme.success,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'UPLOAD COMPLETE',
+                    style: AdminTheme.label(
+                      fontSize: 10,
+                      color: AdminTheme.success,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$_uploadedCount개 좌석이 성공적으로 등록되었습니다',
+                    style: AdminTheme.sans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AdminTheme.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Container(
+            width: double.infinity,
+            height: 0.5,
+            color: AdminTheme.success.withValues(alpha: 0.15),
+          ),
+          const SizedBox(height: 16),
+
+          // Grade breakdown
+          if (_uploadedGradeBreakdown.isNotEmpty) ...[
+            Text(
+              'GRADE BREAKDOWN',
+              style: AdminTheme.label(
+                fontSize: 9,
+                color: AdminTheme.textTertiary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: () {
+                final sorted = <MapEntry<String, int>>[];
+                for (final g in _gradeOrder) {
+                  if (_uploadedGradeBreakdown.containsKey(g)) {
+                    sorted.add(
+                        MapEntry(g, _uploadedGradeBreakdown[g]!));
+                  }
+                }
+                for (final entry in _uploadedGradeBreakdown.entries) {
+                  if (!_gradeOrder.contains(entry.key)) {
+                    sorted.add(entry);
+                  }
+                }
+                return sorted.map((entry) {
+                  final color =
+                      _gradeColors[entry.key] ?? AdminTheme.sage;
+                  return _gradeChip(entry.key, entry.value, color);
+                }).toList();
+              }(),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Zone breakdown
+          if (_uploadedZoneBreakdown.isNotEmpty) ...[
+            Text(
+              'ZONE BREAKDOWN',
+              style: AdminTheme.label(
+                fontSize: 9,
+                color: AdminTheme.textTertiary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: _uploadedZoneBreakdown.entries.map((entry) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AdminTheme.background,
+                    borderRadius: BorderRadius.circular(2),
+                    border: Border.all(
+                      color: AdminTheme.sage.withValues(alpha: 0.15),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${entry.key}구역',
+                        style: AdminTheme.sans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AdminTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${entry.value}석',
+                        style: AdminTheme.sans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AdminTheme.gold,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+
+          const SizedBox(height: 20),
+
+          // Action buttons
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      _uploadSuccess = false;
+                      _previewSeats = [];
+                      _previewText = null;
+                    });
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AdminTheme.textSecondary,
+                    side: BorderSide(
+                      color: AdminTheme.sage.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: Text(
+                    '추가 업로드',
+                    style: AdminTheme.sans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AdminTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    } else {
+                      context.go('/');
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AdminTheme.gold,
+                    foregroundColor: AdminTheme.onAccent,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: Text(
+                    '완료',
+                    style: AdminTheme.sans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AdminTheme.onAccent,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SECTION HEADER -- Serif italic + thin line
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _sectionHeader(String title) {
