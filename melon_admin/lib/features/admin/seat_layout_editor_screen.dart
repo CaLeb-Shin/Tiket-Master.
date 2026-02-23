@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:melon_core/data/models/venue.dart';
 import 'package:melon_core/data/repositories/venue_repository.dart';
 import '../../app/admin_theme.dart';
+import 'excel_seat_upload_helper.dart';
 
 /// 좌석 배치 에디터 (도트 그리드 기반)
 class SeatLayoutEditorScreen extends ConsumerStatefulWidget {
@@ -55,6 +56,7 @@ class _SeatLayoutEditorScreenState
   bool _loading = true;
   bool _saving = false;
   bool _isDragging = false;
+  bool _showExcelGuide = false;
   Venue? _venue;
 
   // ─── Grade Colors ───
@@ -238,7 +240,7 @@ class _SeatLayoutEditorScreenState
     }
   }
 
-  // ─── Excel Import ───
+  // ─── Excel Import (Enhanced) ───
   Future<void> _importExcel() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -251,72 +253,11 @@ class _SeatLayoutEditorScreenState
       final bytes = result.files.first.bytes;
       if (bytes == null) return;
 
-      final excel = Excel.decodeBytes(bytes);
-      final imported = <LayoutSeat>[];
+      // Use enhanced parser with auto-detect
+      final parseResult =
+          EnhancedExcelParser.parse(bytes, gridCols: _gridCols);
 
-      for (final sheetName in excel.tables.keys) {
-        final sheet = excel.tables[sheetName]!;
-        if (sheet.maxRows < 2) continue;
-
-        // Parse header to find columns
-        final header = <String>[];
-        for (int c = 0; c < sheet.maxColumns; c++) {
-          final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: 0));
-          header.add(cell.value?.toString().trim().toLowerCase() ?? '');
-        }
-
-        final zoneIdx = _findCol(header, ['zone', '구역', 'block', 'section']);
-        final gradeIdx = _findCol(header, ['grade', '등급', 'class']);
-        final rowIdx = _findCol(header, ['row', '열', '행']);
-        final numIdx = _findCol(header, ['number', '번호', 'seat', 'num', '좌석']);
-        final xIdx = _findCol(header, ['x', 'col', '열위치']);
-        final yIdx = _findCol(header, ['y', 'row_pos', '행위치']);
-        final typeIdx = _findCol(header, ['type', '유형', 'seat_type']);
-
-        for (int r = 1; r < sheet.maxRows; r++) {
-          String cellVal(int? idx) {
-            if (idx == null || idx < 0) return '';
-            final cell = sheet.cell(
-                CellIndex.indexByColumnRow(columnIndex: idx, rowIndex: r));
-            return cell.value?.toString().trim() ?? '';
-          }
-
-          final zone = cellVal(zoneIdx);
-          final grade = cellVal(gradeIdx);
-          if (grade.isEmpty) continue;
-
-          final rowName = cellVal(rowIdx);
-          final numStr = cellVal(numIdx);
-          final xStr = cellVal(xIdx);
-          final yStr = cellVal(yIdx);
-          final typeStr = cellVal(typeIdx);
-
-          // If x/y provided, use them; otherwise auto-calculate
-          int gx = int.tryParse(xStr) ?? -1;
-          int gy = int.tryParse(yStr) ?? -1;
-
-          if (gx < 0 || gy < 0) {
-            // Auto-position: use row index for Y, seat number for X
-            gy = int.tryParse(rowName) ?? r;
-            gx = int.tryParse(numStr) ?? (imported.length % _gridCols);
-          }
-
-          imported.add(LayoutSeat(
-            gridX: gx,
-            gridY: gy,
-            zone: zone.isNotEmpty ? zone : sheetName,
-            floor: sheetName.contains('층') ? sheetName : '1층',
-            row: rowName,
-            number: int.tryParse(numStr) ?? 0,
-            grade: _normalizeGrade(grade),
-            seatType: typeStr.isNotEmpty
-                ? SeatType.fromString(typeStr)
-                : SeatType.normal,
-          ));
-        }
-      }
-
-      if (imported.isEmpty) {
+      if (parseResult.seats.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -328,26 +269,20 @@ class _SeatLayoutEditorScreenState
         return;
       }
 
-      // Adjust grid size to fit imported data
-      int maxX = 0, maxY = 0;
-      for (final s in imported) {
-        if (s.gridX > maxX) maxX = s.gridX;
-        if (s.gridY > maxY) maxY = s.gridY;
-      }
-
-      setState(() {
-        _gridCols = math.max(_gridCols, maxX + 5);
-        _gridRows = math.max(_gridRows, maxY + 5);
-        for (final seat in imported) {
-          _seats[seat.key] = seat;
-        }
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${imported.length}개 좌석 가져오기 완료')),
-        );
-      }
+      // Show validation preview dialog
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => ExcelValidationPreviewDialog(
+          result: parseResult,
+          onConfirm: () {
+            Navigator.pop(ctx);
+            _applyParsedSeats(parseResult.seats);
+          },
+          onCancel: () => Navigator.pop(ctx),
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -360,21 +295,27 @@ class _SeatLayoutEditorScreenState
     }
   }
 
-  int _findCol(List<String> headers, List<String> candidates) {
-    for (final c in candidates) {
-      final idx = headers.indexOf(c);
-      if (idx >= 0) return idx;
+  void _applyParsedSeats(List<LayoutSeat> imported) {
+    // Adjust grid size to fit imported data
+    int maxX = 0, maxY = 0;
+    for (final s in imported) {
+      if (s.gridX > maxX) maxX = s.gridX;
+      if (s.gridY > maxY) maxY = s.gridY;
     }
-    return -1;
-  }
 
-  String _normalizeGrade(String raw) {
-    final upper = raw.toUpperCase().trim();
-    if (upper == 'VIP' || upper == 'V') return 'VIP';
-    if (upper == 'R' || upper == 'ROYAL') return 'R';
-    if (upper == 'S' || upper == 'STANDARD') return 'S';
-    if (upper == 'A' || upper == 'ECONOMY') return 'A';
-    return upper;
+    setState(() {
+      _gridCols = math.max(_gridCols, maxX + 5);
+      _gridRows = math.max(_gridRows, maxY + 5);
+      for (final seat in imported) {
+        _seats[seat.key] = seat;
+      }
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${imported.length}개 좌석 가져오기 완료')),
+      );
+    }
   }
 
   // ─── Build ───
@@ -393,6 +334,19 @@ class _SeatLayoutEditorScreenState
       body: Column(
         children: [
           _buildTopBar(),
+          // Excel Upload Guide Panel (collapsible)
+          if (_showExcelGuide)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ExcelUploadGuidePanel(
+                onDownloadVisual:
+                    ExcelTemplateDownloader.downloadVisualTemplate,
+                onDownloadList:
+                    ExcelTemplateDownloader.downloadListTemplate,
+                onDownloadRowCol:
+                    ExcelTemplateDownloader.downloadRowColTemplate,
+              ),
+            ),
           Expanded(
             child: Row(
               children: [
@@ -451,6 +405,14 @@ class _SeatLayoutEditorScreenState
             ],
           ),
           const Spacer(),
+          // Excel guide toggle
+          _topBarButton(
+            icon: Icons.help_outline_rounded,
+            label: '엑셀 가이드',
+            onTap: () => setState(() => _showExcelGuide = !_showExcelGuide),
+            active: _showExcelGuide,
+          ),
+          const SizedBox(width: 8),
           // Excel import
           _topBarButton(
             icon: Icons.upload_file_rounded,
@@ -516,10 +478,12 @@ class _SeatLayoutEditorScreenState
     );
   }
 
-  Widget _topBarButton(
-      {required IconData icon,
-      required String label,
-      required VoidCallback onTap}) {
+  Widget _topBarButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool active = false,
+  }) {
     return Tooltip(
       message: label,
       child: InkWell(
@@ -528,17 +492,23 @@ class _SeatLayoutEditorScreenState
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            border: Border.all(color: AdminTheme.border),
+            color: active ? AdminTheme.gold.withValues(alpha: 0.1) : null,
+            border: Border.all(
+                color: active ? AdminTheme.gold : AdminTheme.border),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: AdminTheme.textSecondary),
+              Icon(icon,
+                  size: 16,
+                  color: active ? AdminTheme.gold : AdminTheme.textSecondary),
               const SizedBox(width: 6),
               Text(label,
                   style: AdminTheme.sans(
-                      fontSize: 12, color: AdminTheme.textSecondary)),
+                      fontSize: 12,
+                      color:
+                          active ? AdminTheme.gold : AdminTheme.textSecondary)),
             ],
           ),
         ),
