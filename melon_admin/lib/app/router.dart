@@ -20,6 +20,7 @@ import '../features/admin/seat_layout_editor_screen.dart';
 import '../features/admin/settlement_screen.dart';
 import '../features/admin/super_admin_screen.dart';
 import '../features/admin/event_seat_manager_screen.dart';
+import '../features/admin/sales_stats_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -42,23 +43,29 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'login',
         builder: (context, state) => const LoginScreen(),
       ),
-      GoRoute(
-        path: '/',
-        name: 'dashboard',
-        builder: (context, state) => const WebAdminDashboard(),
+      // ── ShellRoute: 사이드바가 항상 유지되는 어드민 레이아웃 ──
+      ShellRoute(
+        builder: (context, state, child) {
+          return WebAdminDashboard(routeChild: child);
+        },
         routes: [
           GoRoute(
-            path: 'setup',
+            path: '/',
+            name: 'dashboard',
+            builder: (context, state) => const SizedBox.shrink(),
+          ),
+          GoRoute(
+            path: '/setup',
             name: 'adminSetup',
             builder: (context, state) => const AdminSetupScreen(),
           ),
           GoRoute(
-            path: 'events/create',
+            path: '/events/create',
             name: 'adminEventCreate',
             builder: (context, state) => const EventCreateScreen(),
           ),
           GoRoute(
-            path: 'events/:eventId/edit',
+            path: '/events/:eventId/edit',
             name: 'adminEventEdit',
             builder: (context, state) {
               final eventId = state.pathParameters['eventId']!;
@@ -70,7 +77,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-            path: 'events/:eventId/seats',
+            path: '/events/:eventId/seats',
             name: 'adminSeatUpload',
             builder: (context, state) {
               final eventId = state.pathParameters['eventId']!;
@@ -78,7 +85,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-            path: 'events/:eventId/assignments',
+            path: '/events/:eventId/assignments',
             name: 'adminAssignments',
             builder: (context, state) {
               final eventId = state.pathParameters['eventId']!;
@@ -86,7 +93,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-            path: 'events/:eventId/seat-manager',
+            path: '/events/:eventId/seat-manager',
             name: 'adminSeatManager',
             builder: (context, state) {
               final eventId = state.pathParameters['eventId']!;
@@ -94,7 +101,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-            path: 'events/:eventId/orders',
+            path: '/events/:eventId/orders',
             name: 'adminOrders',
             builder: (context, state) {
               final eventId = state.pathParameters['eventId']!;
@@ -102,7 +109,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-            path: 'events/:eventId/bookers',
+            path: '/events/:eventId/bookers',
             name: 'adminBookers',
             builder: (context, state) {
               final eventId = state.pathParameters['eventId']!;
@@ -110,38 +117,43 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-            path: 'mileage',
+            path: '/mileage',
             name: 'adminMileage',
             builder: (context, state) => const AdminMileageScreen(),
           ),
           GoRoute(
-            path: 'settlement',
+            path: '/settlement',
             name: 'adminSettlement',
             builder: (context, state) => const SettlementScreen(),
           ),
           GoRoute(
-            path: 'super-admin',
+            path: '/sales-stats',
+            name: 'adminSalesStats',
+            builder: (context, state) => const SalesStatsScreen(),
+          ),
+          GoRoute(
+            path: '/super-admin',
             name: 'superAdmin',
             builder: (context, state) => const SuperAdminScreen(),
           ),
           // 데모 테스트 (나중에 이 블록만 삭제하면 제거 완료)
           GoRoute(
-            path: 'demo',
+            path: '/demo',
             name: 'adminDemo',
             builder: (context, state) => const DemoTestScreen(),
           ),
           GoRoute(
-            path: 'mock-tickets',
+            path: '/mock-tickets',
             name: 'adminMockTickets',
             builder: (context, state) => const MockTicketScreen(),
           ),
           GoRoute(
-            path: 'venues',
+            path: '/venues',
             name: 'adminVenues',
             builder: (context, state) => const VenueManageScreen(),
           ),
           GoRoute(
-            path: 'venues/:venueId',
+            path: '/venues/:venueId',
             name: 'adminVenueDetail',
             builder: (context, state) {
               final venueId = state.pathParameters['venueId']!;
@@ -149,7 +161,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-            path: 'venues/:venueId/seat-layout',
+            path: '/venues/:venueId/seat-layout',
             name: 'adminSeatLayout',
             builder: (context, state) {
               final venueId = state.pathParameters['venueId']!;
@@ -157,7 +169,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-            path: 'venues/:venueId/views',
+            path: '/venues/:venueId/views',
             name: 'adminVenueViews',
             builder: (context, state) {
               final venueId = state.pathParameters['venueId']!;

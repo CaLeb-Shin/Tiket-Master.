@@ -13,7 +13,8 @@ import 'package:melon_core/widgets/premium_effects.dart';
 import 'widgets/role_switcher_widget.dart';
 
 class WebAdminDashboard extends ConsumerStatefulWidget {
-  const WebAdminDashboard({super.key});
+  final Widget? routeChild;
+  const WebAdminDashboard({super.key, this.routeChild});
 
   @override
   ConsumerState<WebAdminDashboard> createState() => _WebAdminDashboardState();
@@ -120,6 +121,11 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
                 selectedIndex: _selectedMenuIndex,
                 isSuperAdmin: currentUser.value?.isSuperAdmin == true,
                 onMenuSelected: (index) {
+                  // 메인 탭 클릭 시 / 로 이동하여 사이드바 내 탭 전환
+                  final location = GoRouterState.of(context).matchedLocation;
+                  if (location != '/') {
+                    context.go('/');
+                  }
                   setState(() => _selectedMenuIndex = index);
                 },
                 onLogout: () async {
@@ -166,7 +172,7 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
                         ],
                       ),
                     ),
-                    Expanded(child: _buildContent()),
+                    Expanded(child: _buildMainContent()),
                   ],
                 ),
               ),
@@ -177,6 +183,16 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
         ],
       ),
     );
+  }
+
+  Widget _buildMainContent() {
+    // ShellRoute의 child가 있고, 현재 경로가 메인 탭(/)이 아니면 child 렌더
+    final location = GoRouterState.of(context).matchedLocation;
+    final isMainTab = location == '/';
+    if (!isMainTab && widget.routeChild != null) {
+      return widget.routeChild!;
+    }
+    return _buildContent();
   }
 
   Widget _buildContent() {
@@ -313,7 +329,8 @@ class _SidebarState extends State<_Sidebar> {
                     '04',
                     '공연장 관리',
                     selectable: false,
-                    onTap: () => context.push('/venues'),
+                    routePath: '/venues',
+                    onTap: () => context.go('/venues'),
                   ),
                   const SizedBox(height: 2),
                   _buildMenuItem(
@@ -321,7 +338,8 @@ class _SidebarState extends State<_Sidebar> {
                     '05',
                     '마일리지 관리',
                     selectable: false,
-                    onTap: () => context.push('/mileage'),
+                    routePath: '/mileage',
+                    onTap: () => context.go('/mileage'),
                   ),
                   const SizedBox(height: 2),
                   _buildMenuItem(
@@ -329,7 +347,17 @@ class _SidebarState extends State<_Sidebar> {
                     '06',
                     '정산 관리',
                     selectable: false,
-                    onTap: () => context.push('/settlement'),
+                    routePath: '/settlement',
+                    onTap: () => context.go('/settlement'),
+                  ),
+                  const SizedBox(height: 2),
+                  _buildMenuItem(
+                    -1,
+                    '07',
+                    '판매 통계',
+                    selectable: false,
+                    routePath: '/sales-stats',
+                    onTap: () => context.go('/sales-stats'),
                   ),
                   if (widget.isSuperAdmin) ...[
                     const SizedBox(height: 2),
@@ -338,7 +366,8 @@ class _SidebarState extends State<_Sidebar> {
                       'SA',
                       '슈퍼어드민',
                       selectable: false,
-                      onTap: () => context.push('/super-admin'),
+                      routePath: '/super-admin',
+                      onTap: () => context.go('/super-admin'),
                     ),
                   ],
                   const SizedBox(height: 2),
@@ -348,7 +377,8 @@ class _SidebarState extends State<_Sidebar> {
                     'D',
                     '데모 테스트',
                     selectable: false,
-                    onTap: () => context.push('/demo'),
+                    routePath: '/demo',
+                    onTap: () => context.go('/demo'),
                   ),
                   const SizedBox(height: 2),
                   _buildMenuItem(
@@ -356,7 +386,8 @@ class _SidebarState extends State<_Sidebar> {
                     'T',
                     '모의 티켓 생성',
                     selectable: false,
-                    onTap: () => context.push('/mock-tickets'),
+                    routePath: '/mock-tickets',
+                    onTap: () => context.go('/mock-tickets'),
                   ),
                 ],
               ),
@@ -406,8 +437,11 @@ class _SidebarState extends State<_Sidebar> {
     String label, {
     bool selectable = true,
     VoidCallback? onTap,
+    String? routePath,
   }) {
-    final isSelected = selectable && widget.selectedIndex == index;
+    final currentLocation = GoRouterState.of(context).matchedLocation;
+    final isRouteActive = routePath != null && currentLocation.startsWith(routePath);
+    final isSelected = (selectable && widget.selectedIndex == index && currentLocation == '/') || isRouteActive;
     final isHovered = _hoveredIndex == index;
 
     return MouseRegion(
