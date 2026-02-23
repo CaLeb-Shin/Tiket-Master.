@@ -7,12 +7,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../app/admin_theme.dart';
 import 'package:melon_core/data/models/event.dart';
+import 'package:melon_core/data/models/settlement.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/data/repositories/settlement_repository.dart';
 import 'package:melon_core/services/functions_service.dart';
 import 'package:melon_core/services/auth_service.dart';
 
 // =============================================================================
-// 데모 테스트 화면 — 예매→발권→QR입장→취소/환불 전체 모의 플로우
+// 데모 테스트 화면 — 전체 라이프사이클 E2E 데모
+// 예매→발권→QR입장→인터미션→공연종료→정산요청→정산승인/입금 전체 모의 플로우
 // 이 파일은 데모 전용이며, 나중에 삭제해도 앱에 영향 없음
 // =============================================================================
 
@@ -23,7 +26,17 @@ class DemoTestScreen extends ConsumerStatefulWidget {
   ConsumerState<DemoTestScreen> createState() => _DemoTestScreenState();
 }
 
-enum _DemoStep { selectEvent, booking, ticketIssued, checkIn, done }
+enum _DemoStep {
+  selectEvent,
+  booking,
+  ticketIssued,
+  checkIn,
+  intermission,
+  eventEnd,
+  settlementRequest,
+  settlementApproval,
+  done,
+}
 
 class _DemoTestScreenState extends ConsumerState<DemoTestScreen> {
   _DemoStep _step = _DemoStep.selectEvent;
@@ -36,6 +49,10 @@ class _DemoTestScreenState extends ConsumerState<DemoTestScreen> {
   String? _ticketId;
   String? _qrData;
   Map<String, dynamic>? _checkInResult;
+
+  // 라이프사이클 데이터
+  String? _settlementId;
+  SettlementStatus? _settlementStatus;
 
   final _logs = <String>[];
 
@@ -55,6 +72,8 @@ class _DemoTestScreenState extends ConsumerState<DemoTestScreen> {
       _ticketId = null;
       _qrData = null;
       _checkInResult = null;
+      _settlementId = null;
+      _settlementStatus = null;
       _logs.clear();
     });
   }
@@ -145,7 +164,7 @@ class _DemoTestScreenState extends ConsumerState<DemoTestScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '예매 → 발권 → QR입장 전체 모의 플로우',
+                  '전체 라이프사이클 데모 (예매→입장→정산)',
                   style: AdminTheme.sans(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -178,6 +197,10 @@ class _DemoTestScreenState extends ConsumerState<DemoTestScreen> {
       ('예매/발권', _DemoStep.booking),
       ('티켓 확인', _DemoStep.ticketIssued),
       ('QR 입장', _DemoStep.checkIn),
+      ('인터미션', _DemoStep.intermission),
+      ('공연 종료', _DemoStep.eventEnd),
+      ('정산 요청', _DemoStep.settlementRequest),
+      ('정산 승인', _DemoStep.settlementApproval),
       ('완료', _DemoStep.done),
     ];
 
@@ -222,6 +245,14 @@ class _DemoTestScreenState extends ConsumerState<DemoTestScreen> {
         return _buildTicketStep();
       case _DemoStep.checkIn:
         return _buildCheckInStep();
+      case _DemoStep.intermission:
+        return _buildIntermissionStep();
+      case _DemoStep.eventEnd:
+        return _buildEventEndStep();
+      case _DemoStep.settlementRequest:
+        return _buildSettlementRequestStep();
+      case _DemoStep.settlementApproval:
+        return _buildSettlementApprovalStep();
       case _DemoStep.done:
         return _buildDoneStep();
     }
@@ -645,11 +676,11 @@ class _DemoTestScreenState extends ConsumerState<DemoTestScreen> {
             children: [
               Expanded(
                 child: _actionButton(
-                  '테스트 완료',
-                  Icons.check_circle_outline_rounded,
+                  '다음: 인터미션 체크',
+                  Icons.arrow_forward_rounded,
                   () {
-                    setState(() => _step = _DemoStep.done);
-                    _log('테스트 완료');
+                    setState(() => _step = _DemoStep.intermission);
+                    _log('인터미션 체크 단계로 이동');
                   },
                 ),
               ),
@@ -711,7 +742,483 @@ class _DemoTestScreenState extends ConsumerState<DemoTestScreen> {
     }
   }
 
-  // ─── Step 5: 완료 ───
+  // ─── Step 5: 인터미션 체크 ───
+  Widget _buildIntermissionStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader('인터미션 체크'),
+        const SizedBox(height: 12),
+        _dataCard([
+          _dataRow('공연', _selectedEvent?.title ?? '-'),
+          _dataRow('티켓 ID', _ticketId ?? '-'),
+          _dataRow('입장 상태', _checkInResult?['success'] == true ? '입장 완료' : '미확인'),
+        ]),
+        const SizedBox(height: 16),
+        if (_statusMsg.isNotEmpty) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: AdminTheme.gold.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: AdminTheme.gold.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              children: [
+                if (_loading)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AdminTheme.gold,
+                    ),
+                  ),
+                if (_loading) const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _statusMsg,
+                    style: AdminTheme.sans(
+                      fontSize: 13,
+                      color: AdminTheme.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (!_loading)
+          _actionButton(
+            '인터미션 체크 실행',
+            Icons.coffee_rounded,
+            _doIntermissionCheck,
+          ),
+      ],
+    );
+  }
+
+  Future<void> _doIntermissionCheck() async {
+    if (_loading) return;
+    setState(() {
+      _loading = true;
+      _statusMsg = '인터미션 상태 확인 중...';
+    });
+
+    try {
+      _log('인터미션 체크 시작');
+      _log('  공연: ${_selectedEvent?.title}');
+      _log('  티켓: $_ticketId');
+
+      // 시뮬레이션: 인터미션 중 티켓 상태 확인
+      await Future.delayed(const Duration(milliseconds: 800));
+      _log('인터미션 체크 완료 — 관객 좌석 확인 OK');
+      _log('인터미션 종료, 2부 시작 준비');
+
+      setState(() {
+        _loading = false;
+        _statusMsg = '';
+        _step = _DemoStep.eventEnd;
+      });
+      _log('다음 단계: 공연 종료');
+    } catch (e) {
+      _log('인터미션 체크 오류: $e');
+      setState(() {
+        _loading = false;
+        _statusMsg = '오류: $e';
+      });
+    }
+  }
+
+  // ─── Step 6: 공연 종료 ───
+  Widget _buildEventEndStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader('공연 종료'),
+        const SizedBox(height: 12),
+        _dataCard([
+          _dataRow('공연', _selectedEvent?.title ?? '-'),
+          _dataRow('공연 ID', _selectedEvent?.id ?? '-'),
+          _dataRow('현재 상태', _selectedEvent?.status.name ?? '-'),
+        ]),
+        const SizedBox(height: 16),
+        if (_statusMsg.isNotEmpty) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: AdminTheme.gold.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: AdminTheme.gold.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              children: [
+                if (_loading)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AdminTheme.gold,
+                    ),
+                  ),
+                if (_loading) const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _statusMsg,
+                    style: AdminTheme.sans(
+                      fontSize: 13,
+                      color: AdminTheme.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (!_loading)
+          _actionButton(
+            '공연 종료 처리 (status → completed)',
+            Icons.event_available_rounded,
+            _doEventEnd,
+          ),
+      ],
+    );
+  }
+
+  Future<void> _doEventEnd() async {
+    if (_loading || _selectedEvent == null) return;
+    setState(() {
+      _loading = true;
+      _statusMsg = '공연 상태 변경 중...';
+    });
+
+    try {
+      final eventRepo = ref.read(eventRepositoryProvider);
+      final eventId = _selectedEvent!.id;
+
+      _log('공연 종료 처리 시작 (eventId: $eventId)');
+      _log('  status: ${_selectedEvent!.status.name} → completed');
+
+      await eventRepo.updateEvent(eventId, {
+        'status': 'completed',
+      });
+
+      _log('Firestore 업데이트 완료: events/$eventId status=completed');
+
+      setState(() {
+        _loading = false;
+        _statusMsg = '';
+        _step = _DemoStep.settlementRequest;
+      });
+      _log('다음 단계: 정산 요청');
+    } catch (e) {
+      _log('공연 종료 오류: $e');
+      setState(() {
+        _loading = false;
+        _statusMsg = '오류: $e';
+      });
+    }
+  }
+
+  // ─── Step 7: 정산 요청 ───
+  Widget _buildSettlementRequestStep() {
+    final event = _selectedEvent;
+    final fmt = NumberFormat('#,###');
+    final totalSales = event?.price ?? 0;
+    final feeAmount = (totalSales * 0.10).round();
+    final settlementAmount = totalSales - feeAmount;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader('정산 요청'),
+        const SizedBox(height: 12),
+        _dataCard([
+          _dataRow('공연', event?.title ?? '-'),
+          _dataRow('총 매출', '${fmt.format(totalSales)}원 (1매)'),
+          _dataRow('환불 금액', '0원'),
+          _dataRow('수수료율', '10%'),
+          _dataRow('수수료', '${fmt.format(feeAmount)}원'),
+          _dataRow('정산 금액', '${fmt.format(settlementAmount)}원'),
+        ]),
+        const SizedBox(height: 16),
+        if (_statusMsg.isNotEmpty) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: AdminTheme.gold.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: AdminTheme.gold.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              children: [
+                if (_loading)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AdminTheme.gold,
+                    ),
+                  ),
+                if (_loading) const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _statusMsg,
+                    style: AdminTheme.sans(
+                      fontSize: 13,
+                      color: AdminTheme.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (!_loading)
+          _actionButton(
+            '정산 요청 생성',
+            Icons.receipt_long_rounded,
+            _doSettlementRequest,
+          ),
+      ],
+    );
+  }
+
+  Future<void> _doSettlementRequest() async {
+    if (_loading || _selectedEvent == null) return;
+    setState(() {
+      _loading = true;
+      _statusMsg = '정산 문서 생성 중...';
+    });
+
+    try {
+      final settlementRepo = ref.read(settlementRepositoryProvider);
+      final event = _selectedEvent!;
+      final totalSales = event.price; // 1매 기준
+
+      _log('정산 요청 생성 시작');
+      _log('  eventId: ${event.id}');
+      _log('  sellerId: admin');
+      _log('  totalSales: $totalSales');
+      _log('  refundAmount: 0');
+      _log('  platformFeeRate: 0.10');
+
+      await settlementRepo.requestSettlement(
+        eventId: event.id,
+        sellerId: 'admin',
+        totalSales: totalSales,
+        refundAmount: 0,
+        feeRate: 0.10,
+      );
+
+      // 방금 생성한 정산 문서 ID 조회
+      final snap = await FirebaseFirestore.instance
+          .collection('settlements')
+          .where('eventId', isEqualTo: event.id)
+          .where('sellerId', isEqualTo: 'admin')
+          .orderBy('requestedAt', descending: true)
+          .limit(1)
+          .get();
+
+      if (snap.docs.isNotEmpty) {
+        _settlementId = snap.docs.first.id;
+        _settlementStatus = SettlementStatus.pending;
+        _log('정산 문서 생성 완료: $_settlementId (status: pending)');
+      } else {
+        _log('정산 문서 생성 완료 (ID 조회 실패 — 다음 단계에서 재시도)');
+      }
+
+      setState(() {
+        _loading = false;
+        _statusMsg = '';
+        _step = _DemoStep.settlementApproval;
+      });
+      _log('다음 단계: 정산 승인');
+    } catch (e) {
+      _log('정산 요청 오류: $e');
+      setState(() {
+        _loading = false;
+        _statusMsg = '오류: $e';
+      });
+    }
+  }
+
+  // ─── Step 8: 정산 승인 ───
+  Widget _buildSettlementApprovalStep() {
+    final fmt = NumberFormat('#,###');
+    final totalSales = _selectedEvent?.price ?? 0;
+    final feeAmount = (totalSales * 0.10).round();
+    final settlementAmount = totalSales - feeAmount;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader('정산 승인'),
+        const SizedBox(height: 12),
+        _dataCard([
+          _dataRow('정산 ID', _settlementId ?? '-'),
+          _dataRow('현재 상태', _settlementStatus?.displayName ?? '-'),
+          _dataRow('정산 금액', '${fmt.format(settlementAmount)}원'),
+        ]),
+        const SizedBox(height: 16),
+        if (_statusMsg.isNotEmpty) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: AdminTheme.gold.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: AdminTheme.gold.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              children: [
+                if (_loading)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AdminTheme.gold,
+                    ),
+                  ),
+                if (_loading) const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _statusMsg,
+                    style: AdminTheme.sans(
+                      fontSize: 13,
+                      color: AdminTheme.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (!_loading) ...[
+          if (_settlementStatus == SettlementStatus.pending)
+            _actionButton(
+              '정산 승인 (pending → approved)',
+              Icons.approval_rounded,
+              _doSettlementApprove,
+            ),
+          if (_settlementStatus == SettlementStatus.approved) ...[
+            _infoCard(
+              Icons.check_circle_outline_rounded,
+              '정산 승인 완료',
+              '다음: 입금 완료 처리',
+            ),
+            const SizedBox(height: 12),
+            _actionButton(
+              '입금 완료 처리 (approved → transferred)',
+              Icons.account_balance_rounded,
+              _doSettlementTransfer,
+            ),
+          ],
+          if (_settlementStatus == SettlementStatus.transferred) ...[
+            _infoCard(
+              Icons.check_circle_rounded,
+              '입금 완료',
+              '정산 프로세스가 모두 완료되었습니다.',
+            ),
+            const SizedBox(height: 12),
+            _actionButton(
+              '전체 라이프사이클 완료',
+              Icons.flag_rounded,
+              () {
+                setState(() => _step = _DemoStep.done);
+                _log('전체 라이프사이클 데모 완료!');
+              },
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Future<void> _doSettlementApprove() async {
+    if (_loading || _settlementId == null) return;
+    setState(() {
+      _loading = true;
+      _statusMsg = '정산 승인 처리 중...';
+    });
+
+    try {
+      final settlementRepo = ref.read(settlementRepositoryProvider);
+
+      _log('정산 승인 시작 (settlementId: $_settlementId)');
+      _log('  status: pending → approved');
+
+      await settlementRepo.updateSettlementStatus(
+        _settlementId!,
+        SettlementStatus.approved,
+      );
+
+      _settlementStatus = SettlementStatus.approved;
+      _log('정산 승인 완료: $_settlementId (status: approved)');
+
+      setState(() {
+        _loading = false;
+        _statusMsg = '';
+      });
+    } catch (e) {
+      _log('정산 승인 오류: $e');
+      setState(() {
+        _loading = false;
+        _statusMsg = '오류: $e';
+      });
+    }
+  }
+
+  Future<void> _doSettlementTransfer() async {
+    if (_loading || _settlementId == null) return;
+    setState(() {
+      _loading = true;
+      _statusMsg = '입금 완료 처리 중...';
+    });
+
+    try {
+      final settlementRepo = ref.read(settlementRepositoryProvider);
+
+      _log('입금 완료 처리 시작 (settlementId: $_settlementId)');
+      _log('  status: approved → transferred');
+
+      await settlementRepo.markTransferred(_settlementId!);
+
+      _settlementStatus = SettlementStatus.transferred;
+      _log('입금 완료 처리 완료: $_settlementId (status: transferred)');
+
+      setState(() {
+        _loading = false;
+        _statusMsg = '';
+      });
+    } catch (e) {
+      _log('입금 완료 처리 오류: $e');
+      setState(() {
+        _loading = false;
+        _statusMsg = '오류: $e';
+      });
+    }
+  }
+
+  // ─── Step 9: 완료 ───
   Widget _buildDoneStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -720,9 +1227,17 @@ class _DemoTestScreenState extends ConsumerState<DemoTestScreen> {
         const SizedBox(height: 12),
         _infoCard(
           Icons.check_circle_rounded,
-          '전체 플로우 테스트 완료',
-          '예매 → 발권 → QR입장 (또는 취소/환불) 테스트가 완료되었습니다.',
+          '전체 라이프사이클 데모 완료',
+          '예매 → 발권 → QR입장 → 인터미션 → 공연종료 → 정산요청 → 정산승인/입금 전체 플로우가 완료되었습니다.',
         ),
+        const SizedBox(height: 16),
+        _dataCard([
+          _dataRow('공연', _selectedEvent?.title ?? '-'),
+          _dataRow('주문 ID', _orderId ?? '-'),
+          _dataRow('티켓 ID', _ticketId ?? '-'),
+          _dataRow('정산 ID', _settlementId ?? '-'),
+          _dataRow('정산 상태', _settlementStatus?.displayName ?? '-'),
+        ]),
         const SizedBox(height: 16),
         _actionButton(
           '다시 테스트',
