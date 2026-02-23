@@ -9,23 +9,26 @@ import 'package:melon_core/data/models/order.dart' as order_model;
 import 'package:melon_core/data/models/ticket.dart';
 import 'package:melon_core/data/models/app_user.dart';
 import 'package:melon_core/services/firestore_service.dart';
+import 'package:melon_core/data/models/seat_block.dart';
 
 // =============================================================================
 // 좌석 배정 현황 관리 (Seat Manager — Dot Map + Table View)
 // =============================================================================
 
-/// 좌석 + 부가정보 (예매자, 주문, 티켓)
+/// 좌석 + 부가정보 (예매자, 주문, 티켓, 배정 블록)
 class _SeatInfo {
   final Seat seat;
   final order_model.Order? order;
   final AppUser? user;
   final Ticket? ticket;
+  final SeatBlock? seatBlock;
 
   _SeatInfo({
     required this.seat,
     this.order,
     this.user,
     this.ticket,
+    this.seatBlock,
   });
 }
 
@@ -139,17 +142,35 @@ class _EventSeatManagerScreenState
         }
       }
 
-      // 7) Compose _SeatInfo list
+      // 7) Fetch seat blocks for this event
+      final seatBlockSnapshot = await fs.seatBlocks
+          .where('eventId', isEqualTo: widget.eventId)
+          .get();
+      final seatBlocks = seatBlockSnapshot.docs
+          .map((doc) => SeatBlock.fromFirestore(doc))
+          .toList();
+
+      // Map seatBlock by seatId (a seat can be in exactly one block)
+      final seatBlockMap = <String, SeatBlock>{};
+      for (final block in seatBlocks) {
+        for (final seatId in block.seatIds) {
+          seatBlockMap[seatId] = block;
+        }
+      }
+
+      // 8) Compose _SeatInfo list
       final infos = seats.map((seat) {
         final order =
             seat.orderId != null ? orderMap[seat.orderId!] : null;
         final user = order != null ? userMap[order.userId] : null;
         final ticket = ticketBySeatId[seat.id];
+        final seatBlock = seatBlockMap[seat.id];
         return _SeatInfo(
           seat: seat,
           order: order,
           user: user,
           ticket: ticket,
+          seatBlock: seatBlock,
         );
       }).toList();
 
@@ -372,6 +393,32 @@ class _EventSeatManagerScreenState
           _summaryChip('입장완료', _usedCount, const Color(0xFF1E88E5)),
           const SizedBox(width: 16),
           _summaryChip('차단', _blockedCount, const Color(0xFFE53935)),
+          const Spacer(),
+          if (_seatInfos
+              .any((i) => i.seatBlock != null && i.seatBlock!.hidden))
+            SizedBox(
+              height: 30,
+              child: ElevatedButton.icon(
+                onPressed: _revealAllSeatBlocks,
+                icon: const Icon(Icons.visibility, size: 14),
+                label: Text('전체 공개',
+                    style: AdminTheme.sans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      noShadow: true,
+                    )),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      AdminTheme.gold.withValues(alpha: 0.15),
+                  foregroundColor: AdminTheme.gold,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -624,6 +671,11 @@ class _EventSeatManagerScreenState
                     seatInfos: _seatInfos,
                     searchQuery: _searchQuery,
                     selectedSeatId: _selectedSeat?.seat.id,
+                    hiddenSeatIds: _seatInfos
+                        .where((i) =>
+                            i.seatBlock != null && i.seatBlock!.hidden)
+                        .map((i) => i.seat.id)
+                        .toSet(),
                     statusColorFn: _statusColor,
                     isHighlightedFn: _isHighlighted,
                     onSeatTap: (info) =>
@@ -649,6 +701,8 @@ class _EventSeatManagerScreenState
                   _legendDot('입장완료', const Color(0xFF1E88E5)),
                   const SizedBox(width: 16),
                   _legendDot('차단', const Color(0xFFE53935)),
+                  const SizedBox(width: 16),
+                  _legendDotHidden('미공개'),
                 ],
               ),
             ),
@@ -668,6 +722,43 @@ class _EventSeatManagerScreenState
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: AdminTheme.sans(
+            fontSize: 10,
+            color: AdminTheme.textTertiary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _legendDotHidden(String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AdminTheme.sage.withValues(alpha: 0.6),
+              width: 1,
+            ),
+          ),
+          child: Center(
+            child: Container(
+              width: 3,
+              height: 3,
+              decoration: BoxDecoration(
+                color: AdminTheme.sage.withValues(alpha: 0.5),
+                shape: BoxShape.circle,
+              ),
+            ),
           ),
         ),
         const SizedBox(width: 4),
@@ -802,6 +893,50 @@ class _EventSeatManagerScreenState
                             .format(ticket.intermissionCheckedInAt!),
                       ),
                   ],
+
+                  // ── SeatBlock (배정) 정보 ──
+                  if (info.seatBlock != null) ...[
+                    const SizedBox(height: 24),
+                    _detailSection('배정 정보'),
+                    const SizedBox(height: 12),
+                    _detailRow('블록 ID', info.seatBlock!.id),
+                    _detailRow('배정 좌석 수', '${info.seatBlock!.quantity}석'),
+                    _detailRow(
+                      '배정일시',
+                      DateFormat('yyyy.MM.dd HH:mm')
+                          .format(info.seatBlock!.assignedAt),
+                    ),
+                    _detailRow(
+                      '공개 상태',
+                      info.seatBlock!.hidden ? '미공개 (숨김)' : '공개됨',
+                    ),
+                  ],
+
+                  // ── 관리 액션 버튼 ──
+                  const SizedBox(height: 32),
+                  _detailSection('관리'),
+                  const SizedBox(height: 12),
+                  if (seat.status == SeatStatus.available)
+                    _actionButton(
+                      '차단',
+                      Icons.block,
+                      AdminTheme.error,
+                      () => _blockSeat(seat.id),
+                    ),
+                  if (seat.status == SeatStatus.blocked)
+                    _actionButton(
+                      '차단 해제',
+                      Icons.check_circle_outline,
+                      AdminTheme.success,
+                      () => _unblockSeat(seat.id),
+                    ),
+                  if (info.seatBlock != null && info.seatBlock!.hidden)
+                    _actionButton(
+                      '좌석 공개',
+                      Icons.visibility,
+                      AdminTheme.gold,
+                      () => _revealSeatBlock(info.seatBlock!.id),
+                    ),
                 ],
               ),
             ),
@@ -862,6 +997,207 @@ class _EventSeatManagerScreenState
         ],
       ),
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ACTION BUTTON + SEAT MANAGEMENT ACTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _actionButton(
+    String label,
+    IconData icon,
+    Color color,
+    VoidCallback onPressed,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SizedBox(
+        width: double.infinity,
+        height: 36,
+        child: ElevatedButton.icon(
+          onPressed: onPressed,
+          icon: Icon(icon, size: 14),
+          label: Text(
+            label,
+            style: AdminTheme.sans(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
+              noShadow: true,
+            ),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: color.withValues(alpha: 0.12),
+            foregroundColor: color,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _blockSeat(String seatId) async {
+    try {
+      final fs = ref.read(firestoreServiceProvider);
+      await fs.seats.doc(seatId).update({'status': 'blocked'});
+      _loadAllData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('좌석이 차단되었습니다',
+                style: AdminTheme.sans(
+                    fontSize: 13, color: Colors.white, noShadow: true)),
+            backgroundColor: AdminTheme.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('오류: $e',
+                style: AdminTheme.sans(
+                    fontSize: 13, color: Colors.white, noShadow: true)),
+            backgroundColor: AdminTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _unblockSeat(String seatId) async {
+    try {
+      final fs = ref.read(firestoreServiceProvider);
+      await fs.seats.doc(seatId).update({'status': 'available'});
+      _loadAllData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('차단이 해제되었습니다',
+                style: AdminTheme.sans(
+                    fontSize: 13, color: Colors.white, noShadow: true)),
+            backgroundColor: AdminTheme.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('오류: $e',
+                style: AdminTheme.sans(
+                    fontSize: 13, color: Colors.white, noShadow: true)),
+            backgroundColor: AdminTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _revealSeatBlock(String seatBlockId) async {
+    try {
+      final fs = ref.read(firestoreServiceProvider);
+      await fs.seatBlocks.doc(seatBlockId).update({'hidden': false});
+      _loadAllData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('좌석이 공개되었습니다',
+                style: AdminTheme.sans(
+                    fontSize: 13, color: Colors.white, noShadow: true)),
+            backgroundColor: AdminTheme.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('오류: $e',
+                style: AdminTheme.sans(
+                    fontSize: 13, color: Colors.white, noShadow: true)),
+            backgroundColor: AdminTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _revealAllSeatBlocks() async {
+    try {
+      final fs = ref.read(firestoreServiceProvider);
+      final hiddenBlocks = _seatInfos
+          .where((i) => i.seatBlock != null && i.seatBlock!.hidden)
+          .map((i) => i.seatBlock!.id)
+          .toSet()
+          .toList();
+
+      if (hiddenBlocks.isEmpty) return;
+
+      var batch = fs.batch();
+      var pending = 0;
+      for (final blockId in hiddenBlocks) {
+        batch.update(fs.seatBlocks.doc(blockId), {'hidden': false});
+        pending++;
+        if (pending == 500) {
+          await batch.commit();
+          batch = fs.batch();
+          pending = 0;
+        }
+      }
+      if (pending > 0) await batch.commit();
+
+      _loadAllData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${hiddenBlocks.length}개 블록이 공개되었습니다',
+                style: AdminTheme.sans(
+                    fontSize: 13, color: Colors.white, noShadow: true)),
+            backgroundColor: AdminTheme.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('오류: $e',
+                style: AdminTheme.sans(
+                    fontSize: 13, color: Colors.white, noShadow: true)),
+            backgroundColor: AdminTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1075,6 +1411,7 @@ class _SeatDotMapPainter extends CustomPainter {
   final List<_SeatInfo> seatInfos;
   final String searchQuery;
   final String? selectedSeatId;
+  final Set<String> hiddenSeatIds;
   final Color Function(SeatStatus) statusColorFn;
   final bool Function(_SeatInfo) isHighlightedFn;
 
@@ -1082,6 +1419,7 @@ class _SeatDotMapPainter extends CustomPainter {
     required this.seatInfos,
     required this.searchQuery,
     this.selectedSeatId,
+    required this.hiddenSeatIds,
     required this.statusColorFn,
     required this.isHighlightedFn,
   });
@@ -1193,6 +1531,7 @@ class _SeatDotMapPainter extends CustomPainter {
   ) {
     final color = statusColorFn(info.seat.status);
     final isSelected = info.seat.id == selectedSeatId;
+    final isHidden = hiddenSeatIds.contains(info.seat.id);
     final isHighlighted =
         searchQuery.isNotEmpty && isHighlightedFn(info);
 
@@ -1205,6 +1544,22 @@ class _SeatDotMapPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     canvas.drawCircle(Offset(cx, cy), radius, paint);
+
+    // Hidden seat indicator: dashed ring + small inner dot
+    if (isHidden) {
+      // Outer dashed ring (simulated with semi-transparent stroke)
+      final hiddenRingPaint = Paint()
+        ..color = const Color(0x99888894) // sage with alpha
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2;
+      canvas.drawCircle(Offset(cx, cy), radius + 1.5, hiddenRingPaint);
+
+      // Small inner dark dot to indicate "locked/hidden"
+      final innerDotPaint = Paint()
+        ..color = const Color(0xCC1E1E24) // dark background color
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(cx, cy), radius * 0.35, innerDotPaint);
+    }
 
     // Selection ring
     if (isSelected) {
@@ -1229,7 +1584,8 @@ class _SeatDotMapPainter extends CustomPainter {
   bool shouldRepaint(covariant _SeatDotMapPainter oldDelegate) {
     return oldDelegate.seatInfos != seatInfos ||
         oldDelegate.searchQuery != searchQuery ||
-        oldDelegate.selectedSeatId != selectedSeatId;
+        oldDelegate.selectedSeatId != selectedSeatId ||
+        oldDelegate.hiddenSeatIds != hiddenSeatIds;
   }
 
   @override
@@ -1246,6 +1602,7 @@ class _DotMapInteractive extends StatelessWidget {
   final List<_SeatInfo> seatInfos;
   final String searchQuery;
   final String? selectedSeatId;
+  final Set<String> hiddenSeatIds;
   final Color Function(SeatStatus) statusColorFn;
   final bool Function(_SeatInfo) isHighlightedFn;
   final void Function(_SeatInfo) onSeatTap;
@@ -1255,6 +1612,7 @@ class _DotMapInteractive extends StatelessWidget {
     required this.seatInfos,
     required this.searchQuery,
     this.selectedSeatId,
+    required this.hiddenSeatIds,
     required this.statusColorFn,
     required this.isHighlightedFn,
     required this.onSeatTap,
@@ -1276,6 +1634,7 @@ class _DotMapInteractive extends StatelessWidget {
           seatInfos: seatInfos,
           searchQuery: searchQuery,
           selectedSeatId: selectedSeatId,
+          hiddenSeatIds: hiddenSeatIds,
           statusColorFn: statusColorFn,
           isHighlightedFn: isHighlightedFn,
         ),
