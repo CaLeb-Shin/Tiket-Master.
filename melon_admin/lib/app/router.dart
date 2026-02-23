@@ -19,6 +19,7 @@ import '../features/admin/admin_mileage_screen.dart';
 import '../features/admin/seat_layout_editor_screen.dart';
 import '../features/admin/settlement_screen.dart';
 import '../features/admin/super_admin_screen.dart';
+import '../features/admin/event_seat_manager_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -82,6 +83,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final eventId = state.pathParameters['eventId']!;
               return AssignmentCheckScreen(eventId: eventId);
+            },
+          ),
+          GoRoute(
+            path: 'events/:eventId/seat-manager',
+            name: 'adminSeatManager',
+            builder: (context, state) {
+              final eventId = state.pathParameters['eventId']!;
+              return EventSeatManagerScreen(eventId: eventId);
             },
           ),
           GoRoute(
