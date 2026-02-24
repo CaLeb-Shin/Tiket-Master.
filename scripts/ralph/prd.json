@@ -1037,7 +1037,96 @@
       ],
       "priority": 50,
       "passes": false,
-      "notes": "my_tickets_screen.dart의 티켓 카드 위젯 수정. Ticket 모델에 이미 seatLabel/grade 등 좌석 정보가 있으므로 추가 데이터 로드 불필요. 등급 순서: VIP → R → S → A. 카드가 너무 길어지지 않도록 한 줄로 간결하게 표시."
+      "notes": "my_tickets_screen.dart의 티켓 카드 위젯 수정. Ticket 모델에 이미 seatLabel/grade 등 좌석 정보가 있으므로 추가 데이터 로드 불필요. 등급 순서: VIP → R → S → A. 카드가 너무 길어지지 않도록 한 줄로 간결하게 표시. → MT-054에서 예매번호/발행시각 제거와 함께 통합 구현."
+    },
+    {
+      "id": "MT-051",
+      "title": "바텀시트 스와이프 닫기 — showSlideUpSheet 드래그 제스처 지원",
+      "description": "showSlideUpSheet()로 표시되는 모든 바텀시트(AI 예매 조건 등)에서 드래그 핸들을 아래로 스와이프하여 닫을 수 있도록 제스처 감지를 추가한다. 현재 36x2px 드래그 핸들 인디케이터가 순수 시각적 요소로만 존재하고, 닫기는 배경 탭만 가능한 상태. 또한 시트 내부 콘텐츠 스크롤과 시트 드래그를 올바르게 구분하여, 스크롤이 맨 위에 도달한 상태에서만 아래로 드래그 시 시트가 닫히도록 처리한다.",
+      "acceptanceCriteria": [
+        "showSlideUpSheet의 _SlideUpSheetPage에 GestureDetector 추가: onVerticalDragUpdate + onVerticalDragEnd 감지",
+        "드래그 핸들(36x2px) 영역 + 시트 상단에서 아래로 드래그 시 시트가 실시간으로 따라 내려감",
+        "드래그 거리가 시트 높이의 25% 이상이면 닫기, 미만이면 원위치 복귀 (스프링 애니메이션)",
+        "빠른 fling 제스처(velocity > 700)는 거리와 무관하게 즉시 닫기",
+        "시트 내부 ScrollController 연결 — 스크롤이 맨 위(offset == 0)일 때만 시트 드래그 허용",
+        "mobile_main_screen.dart의 _openAIQuickConditions() 바텀시트에서 스와이프 닫기 정상 동작",
+        "시트 내 ChoiceChip 인터랙션과 드래그 충돌 없음",
+        "isDismissible: false인 경우 드래그 닫기도 비활성화",
+        "flutter analyze 통과"
+      ],
+      "priority": 51,
+      "passes": false,
+      "notes": "수정 대상: melon_core/lib/widgets/premium_effects.dart의 _SlideUpSheetPage (lines 385-482). 현재 showGeneralDialog → SlideTransition 구조. _SlideUpSheetPage를 StatefulWidget으로 변경하여 AnimationController 추가. 드래그 오프셋을 Transform.translate로 반영. Flutter DraggableScrollableSheet 패턴 참고."
+    },
+    {
+      "id": "MT-052",
+      "title": "캘린더에 공연 일정 추가 — 이벤트 상세 캘린더 버튼 기능 구현",
+      "description": "공연 상세 화면 하단의 캘린더 아이콘 버튼(현재 placeholder)에 기기 캘린더 앱에 공연 일정을 추가하는 기능을 구현한다. 공연 제목, 시작시간, 공연장명, 러닝타임을 포함한 캘린더 이벤트를 생성하여 사용자가 공연 당일 알림을 받을 수 있도록 한다.",
+      "acceptanceCriteria": [
+        "event_detail_screen.dart의 캘린더 버튼 onPressed에서 캘린더 일정 추가 실행",
+        "웹: Google Calendar URL 스킴 (calendar.google.com/calendar/render?action=TEMPLATE&...) 새 탭으로 열기",
+        "캘린더 이벤트 정보 — 제목: event.title, 시작: event.startAt, 종료: startAt + runningTime분, 장소: event.venueName",
+        "설명에 멜론티켓 공연 링크 포함",
+        "url_launcher(이미 pubspec에 포함)로 구현, 추가 패키지 불필요",
+        "실패 시 SnackBar '캘린더 앱을 열 수 없습니다' 표시",
+        "성공 시 SnackBar '캘린더에 일정이 추가되었습니다' 표시",
+        "flutter analyze 통과"
+      ],
+      "priority": 52,
+      "passes": false,
+      "notes": "수정 대상: melon_ticket_app/lib/features/events/event_detail_screen.dart (lines 1174-1177, onPressed 콜백이 현재 // calendar add placeholder 주석만 있음). Event 모델에 startAt, venueName, runningTime 이미 존재. Google Calendar URL 날짜 형식: yyyyMMddTHHmmssZ (UTC). url_launcher ^6.3.1 이미 pubspec에 포함."
+    },
+    {
+      "id": "MT-053",
+      "title": "통합 QR 입장 — 같은 주문 다수 티켓 일괄 체크인",
+      "description": "한 번의 주문으로 여러 장의 티켓을 구매한 경우(단체 입장), 하나의 통합 QR 코드로 모든 티켓을 한번에 체크인할 수 있는 기능을 추가한다. 현재는 티켓마다 개별 QR을 각각 스캔해야 하므로 단체 관객 입장 시 비효율적이다. 통합 QR을 스캔하면 스캐너에 해당 주문의 전체 좌석 요약을 표시하고 일괄 체크인을 처리한다.",
+      "acceptanceCriteria": [
+        "── Cloud Function ──",
+        "issueGroupQrToken 신규: orderId 기반 JWT 발급, payload에 orderId + ticketIds[] + eventId 포함",
+        "QR 데이터 형식: 'group:{orderId}:{jwtToken}' (개별 QR 'ticketId:token'과 구분)",
+        "verifyAndCheckInGroup 신규: 통합 QR 검증 + 해당 주문 전체 티켓 일괄 체크인",
+        "스캐너 결과: '단체 입장 — 총 N명' + 좌석 목록 (예: 'VIP A구역 3열 12·13·14번')",
+        "이미 체크인된 티켓은 제외, 부분 입장 시 'N명 중 M명 추가 입장' 표시",
+        "",
+        "── 티켓앱 UI ──",
+        "나의 티켓에서 같은 orderId 티켓 2장+ 일 때 '통합 QR 보기' 버튼 표시",
+        "통합 QR 화면: QR 코드 + '총 N매' 뱃지 + 좌석 목록 요약",
+        "기존 개별 QR도 그대로 유지 (개별/통합 선택 가능)",
+        "",
+        "── 스캐너 ──",
+        "scanner_screen.dart의 _processQrCode에서 'group:' 접두사 파싱 추가",
+        "통합 QR 스캔 성공 시 넓은 결과 카드에 좌석 목록 표시",
+        "npm run build 통과, flutter analyze 통과"
+      ],
+      "priority": 53,
+      "passes": false,
+      "notes": "핵심 파일: (1) functions/src/index.ts — issueGroupQrToken + verifyAndCheckInGroup 추가 (issueQrToken line 1062 참고), (2) melon_core/lib/services/functions_service.dart — issueGroupQrToken 호출 메서드, (3) scanner_screen.dart lines 133-140 — 'group:orderId:token' 파싱, (4) my_tickets_screen.dart 또는 ticket_detail_screen.dart — 통합 QR UI. SeatBlock 모델에 orderId + seatIds 이미 존재하므로 좌석 요약 조회 가능. 유효시간 120초 동일."
+    },
+    {
+      "id": "MT-054",
+      "title": "나의 티켓 카드 정보 재구성 — 예매번호/발행시각 제거, 좌석·체크인 상태 표시",
+      "description": "나의 티켓 목록의 _TicketCard에서 불필요한 예매번호·발행시각을 제거하고, 좌석 등급 뱃지 + 좌석 위치 + 체크인 상태 등 실용적 정보로 교체한다. MT-050의 좌석 정보 요약 표시를 이 재구성에 통합 구현한다.",
+      "acceptanceCriteria": [
+        "── 제거 ──",
+        "_TicketCard에서 _metaRow('예매번호', ...) 제거",
+        "_TicketCard에서 _metaRow('발행시각', ...) 제거",
+        "",
+        "── 좌석 정보 추가 (MT-050 통합) ──",
+        "ticket.seatId로 Seat 조회 → 등급 컬러 뱃지 + 위치 텍스트 한 줄 표시",
+        "등급 뱃지 색상: VIP(#C9A84C 골드), R(#6B4FA0), S(#2D6A4F), A(#3B7DD8)",
+        "좌석 위치: Seat.displayName 활용 (예: 'A구역 3열 12번')",
+        "비지정석: '스탠딩' 뱃지 + 입장번호 표시",
+        "",
+        "── 체크인 상태 ──",
+        "입장 완료(isEntryCheckedIn): 체크 아이콘 + '입장 완료' (초록색)",
+        "",
+        "── 레이아웃 ──",
+        "입장시각 → 공연장 행 아래에 좌석 정보 행 배치, 카드 전체 높이 유지",
+        "flutter analyze 통과"
+      ],
+      "priority": 54,
+      "passes": false,
+      "notes": "수정 대상: melon_ticket_app/lib/features/tickets/my_tickets_screen.dart _TicketCard (lines 162-370). _metaRow 2개 제거(lines 292-302), 좌석 정보 행 추가. _TicketCard는 이미 ConsumerWidget — seatRepositoryProvider로 Seat 조회 추가 (ticket_detail_screen.dart의 _seatStreamProvider 패턴 참고). MT-050 구현 시 이 항목과 함께 처리, MT-050도 passes: true로 변경."
     }
   ]
 }
