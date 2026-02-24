@@ -132,4 +132,34 @@ class FunctionsService {
     });
     return Map<String, dynamic>.from(result.data);
   }
+
+  /// 통합 QR 토큰 발급 (같은 주문 다수 티켓)
+  Future<Map<String, dynamic>> issueGroupQrToken({
+    required String orderId,
+  }) async {
+    final callable = _functions.httpsCallable('issueGroupQrToken');
+    final result = await callable.call({
+      'orderId': orderId,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 통합 QR 일괄 체크인
+  Future<Map<String, dynamic>> verifyAndCheckInGroup({
+    required String orderId,
+    required String qrToken,
+    required String staffId,
+    required String scannerDeviceId,
+    required String checkinStage,
+  }) async {
+    final callable = _functions.httpsCallable('verifyAndCheckInGroup');
+    final result = await callable.call({
+      'orderId': orderId,
+      'qrToken': qrToken,
+      'staffId': staffId,
+      'scannerDeviceId': scannerDeviceId,
+      'checkinStage': checkinStage,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
 }

@@ -382,7 +382,7 @@ Future<T?> showSlideUpSheet<T>({
   );
 }
 
-class _SlideUpSheetPage extends StatelessWidget {
+class _SlideUpSheetPage extends StatefulWidget {
   final Animation<double> animation;
   final WidgetBuilder builder;
   final bool isDismissible;
@@ -396,9 +396,43 @@ class _SlideUpSheetPage extends StatelessWidget {
   });
 
   @override
+  State<_SlideUpSheetPage> createState() => _SlideUpSheetPageState();
+}
+
+class _SlideUpSheetPageState extends State<_SlideUpSheetPage> {
+  double _dragOffset = 0;
+  double _sheetHeight = 0;
+  bool _isDragging = false;
+
+  void _onVerticalDragStart(DragStartDetails details) {
+    if (!widget.isDismissible) return;
+    _isDragging = true;
+  }
+
+  void _onVerticalDragUpdate(DragUpdateDetails details) {
+    if (!_isDragging) return;
+    setState(() {
+      _dragOffset = (_dragOffset + details.delta.dy).clamp(0.0, double.infinity);
+    });
+  }
+
+  void _onVerticalDragEnd(DragEndDetails details) {
+    if (!_isDragging) return;
+    _isDragging = false;
+    final velocity = details.primaryVelocity ?? 0;
+    final threshold = _sheetHeight > 0 ? _sheetHeight * 0.25 : 100;
+
+    if (velocity > 700 || _dragOffset > threshold) {
+      Navigator.of(context).pop();
+    } else {
+      setState(() => _dragOffset = 0);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final curved = CurvedAnimation(
-      parent: animation,
+      parent: widget.animation,
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInCubic,
     );
@@ -407,18 +441,21 @@ class _SlideUpSheetPage extends StatelessWidget {
       children: [
         // Dim backdrop
         AnimatedBuilder(
-          animation: animation,
+          animation: widget.animation,
           builder: (ctx, _) {
+            final opacity = _sheetHeight > 0 && _dragOffset > 0
+                ? (1.0 - (_dragOffset / _sheetHeight).clamp(0.0, 1.0))
+                : 1.0;
             return GestureDetector(
-              onTap: isDismissible ? () => Navigator.of(ctx).pop() : null,
+              onTap: widget.isDismissible ? () => Navigator.of(ctx).pop() : null,
               child: BackdropFilter(
                 filter: ImageFilter.blur(
-                  sigmaX: 8 * animation.value,
-                  sigmaY: 8 * animation.value,
+                  sigmaX: 8 * widget.animation.value * opacity,
+                  sigmaY: 8 * widget.animation.value * opacity,
                 ),
                 child: Container(
                   color: Colors.black
-                      .withValues(alpha: 0.25 * animation.value),
+                      .withValues(alpha: 0.25 * widget.animation.value * opacity),
                 ),
               ),
             );
@@ -432,45 +469,63 @@ class _SlideUpSheetPage extends StatelessWidget {
               begin: const Offset(0, 1),
               end: Offset.zero,
             ).animate(curved),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight:
-                    MediaQuery.of(context).size.height * maxHeightFraction,
-              ),
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: AppTheme.surface,
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(4)),
-                  border: Border(
-                    top: BorderSide(
-                      color: AppTheme.sage.withValues(alpha: 0.2),
-                      width: 0.5,
+            child: AnimatedContainer(
+              duration: _isDragging ? Duration.zero : const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              transform: Matrix4.translationValues(0, _dragOffset, 0),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight:
+                      MediaQuery.of(context).size.height * widget.maxHeightFraction,
+                ),
+                child: _SheetMeasurer(
+                  onSized: (height) {
+                    if (_sheetHeight != height) _sheetHeight = height;
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: AppTheme.surface,
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(4)),
+                      border: Border(
+                        top: BorderSide(
+                          color: AppTheme.sage.withValues(alpha: 0.2),
+                          width: 0.5,
+                        ),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 30,
+                          offset: const Offset(0, -10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Drag handle — swipeable area
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onVerticalDragStart: _onVerticalDragStart,
+                          onVerticalDragUpdate: _onVerticalDragUpdate,
+                          onVerticalDragEnd: _onVerticalDragEnd,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 12, bottom: 8),
+                            child: Center(
+                              child: Container(
+                                width: 36,
+                                height: 2,
+                                color: AppTheme.sage.withValues(alpha: 0.3),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Flexible(child: widget.builder(context)),
+                      ],
                     ),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 30,
-                      offset: const Offset(0, -10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Drag handle
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12, bottom: 8),
-                      child: Container(
-                        width: 36,
-                        height: 2,
-                        color: AppTheme.sage.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    Flexible(child: builder(context)),
-                  ],
                 ),
               ),
             ),
@@ -478,6 +533,37 @@ class _SlideUpSheetPage extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _SheetMeasurer extends SingleChildRenderObjectWidget {
+  final ValueChanged<double> onSized;
+
+  const _SheetMeasurer({required this.onSized, required Widget child})
+      : super(child: child);
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _SheetMeasurerRenderObject(onSized);
+
+  @override
+  void updateRenderObject(
+      BuildContext context, _SheetMeasurerRenderObject renderObject) {
+    renderObject.onSized = onSized;
+  }
+}
+
+class _SheetMeasurerRenderObject extends RenderProxyBox {
+  ValueChanged<double> onSized;
+
+  _SheetMeasurerRenderObject(this.onSized);
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (hasSize) onSized(size.height);
+    });
   }
 }
 

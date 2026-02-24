@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
@@ -1162,21 +1163,22 @@ class _BottomCTA extends StatelessWidget {
               ? Row(
                   children: [
                     // Calendar icon button
-                    Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                            color: AppTheme.sage.withValues(alpha: 0.3),
-                            width: 0.5),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: IconButton(
-                        onPressed: () {
-                          // calendar add placeholder
-                        },
-                        icon: const Icon(Icons.calendar_today_outlined,
-                            size: 20, color: AppTheme.textPrimary),
+                    Tooltip(
+                      message: '캘린더에 추가',
+                      child: Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                              color: AppTheme.sage.withValues(alpha: 0.3),
+                              width: 0.5),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: IconButton(
+                          onPressed: () => _addToCalendar(context),
+                          icon: const Icon(Icons.calendar_today_outlined,
+                              size: 20, color: AppTheme.textPrimary),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1219,6 +1221,53 @@ class _BottomCTA extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _addToCalendar(BuildContext context) async {
+    final start = event.startAt.toUtc();
+    final end = event.runningTime != null
+        ? start.add(Duration(minutes: event.runningTime!))
+        : start.add(const Duration(hours: 2));
+
+    String fmt(DateTime dt) =>
+        '${dt.year}${dt.month.toString().padLeft(2, '0')}${dt.day.toString().padLeft(2, '0')}'
+        'T${dt.hour.toString().padLeft(2, '0')}${dt.minute.toString().padLeft(2, '0')}00Z';
+
+    final title = Uri.encodeComponent(event.title);
+    final dates = '${fmt(start)}/${fmt(end)}';
+    final location = Uri.encodeComponent(event.venueName ?? '');
+    final details = Uri.encodeComponent(
+      '멜론티켓에서 예매한 공연입니다.\n'
+      '공연 정보: https://melonticket-web-20260216.vercel.app/event/${event.id}',
+    );
+
+    final url = Uri.parse(
+      'https://calendar.google.com/calendar/render'
+      '?action=TEMPLATE&text=$title&dates=$dates&location=$location&details=$details',
+    );
+
+    try {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('캘린더에 일정이 추가되었습니다',
+                style: AppTheme.nanum(color: Colors.white, fontSize: 13)),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('캘린더 앱을 열 수 없습니다',
+                style: AppTheme.nanum(color: Colors.white, fontSize: 13)),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    }
   }
 }
 

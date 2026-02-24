@@ -165,7 +165,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                 name: 'ticketDetail',
                 builder: (context, state) {
                   final ticketId = state.pathParameters['ticketId']!;
-                  return TicketDetailScreen(ticketId: ticketId);
+                  final groupQr = state.uri.queryParameters['groupQr'] == 'true';
+                  final orderId = state.uri.queryParameters['orderId'];
+                  return TicketDetailScreen(
+                    ticketId: ticketId,
+                    initialGroupQr: groupQr,
+                    groupQrOrderId: orderId,
+                  );
                 },
               ),
             ],

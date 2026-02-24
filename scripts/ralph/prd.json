@@ -1036,7 +1036,7 @@
         "flutter analyze 통과"
       ],
       "priority": 50,
-      "passes": false,
+      "passes": true,
       "notes": "my_tickets_screen.dart의 티켓 카드 위젯 수정. Ticket 모델에 이미 seatLabel/grade 등 좌석 정보가 있으므로 추가 데이터 로드 불필요. 등급 순서: VIP → R → S → A. 카드가 너무 길어지지 않도록 한 줄로 간결하게 표시. → MT-054에서 예매번호/발행시각 제거와 함께 통합 구현."
     },
     {
@@ -1055,7 +1055,7 @@
         "flutter analyze 통과"
       ],
       "priority": 51,
-      "passes": false,
+      "passes": true,
       "notes": "수정 대상: melon_core/lib/widgets/premium_effects.dart의 _SlideUpSheetPage (lines 385-482). 현재 showGeneralDialog → SlideTransition 구조. _SlideUpSheetPage를 StatefulWidget으로 변경하여 AnimationController 추가. 드래그 오프셋을 Transform.translate로 반영. Flutter DraggableScrollableSheet 패턴 참고."
     },
     {
@@ -1073,7 +1073,7 @@
         "flutter analyze 통과"
       ],
       "priority": 52,
-      "passes": false,
+      "passes": true,
       "notes": "수정 대상: melon_ticket_app/lib/features/events/event_detail_screen.dart (lines 1174-1177, onPressed 콜백이 현재 // calendar add placeholder 주석만 있음). Event 모델에 startAt, venueName, runningTime 이미 존재. Google Calendar URL 날짜 형식: yyyyMMddTHHmmssZ (UTC). url_launcher ^6.3.1 이미 pubspec에 포함."
     },
     {
@@ -1099,7 +1099,7 @@
         "npm run build 통과, flutter analyze 통과"
       ],
       "priority": 53,
-      "passes": false,
+      "passes": true,
       "notes": "핵심 파일: (1) functions/src/index.ts — issueGroupQrToken + verifyAndCheckInGroup 추가 (issueQrToken line 1062 참고), (2) melon_core/lib/services/functions_service.dart — issueGroupQrToken 호출 메서드, (3) scanner_screen.dart lines 133-140 — 'group:orderId:token' 파싱, (4) my_tickets_screen.dart 또는 ticket_detail_screen.dart — 통합 QR UI. SeatBlock 모델에 orderId + seatIds 이미 존재하므로 좌석 요약 조회 가능. 유효시간 120초 동일."
     },
     {
@@ -1125,7 +1125,7 @@
         "flutter analyze 통과"
       ],
       "priority": 54,
-      "passes": false,
+      "passes": true,
       "notes": "수정 대상: melon_ticket_app/lib/features/tickets/my_tickets_screen.dart _TicketCard (lines 162-370). _metaRow 2개 제거(lines 292-302), 좌석 정보 행 추가. _TicketCard는 이미 ConsumerWidget — seatRepositoryProvider로 Seat 조회 추가 (ticket_detail_screen.dart의 _seatStreamProvider 패턴 참고). MT-050 구현 시 이 항목과 함께 처리, MT-050도 passes: true로 변경."
     }
   ]

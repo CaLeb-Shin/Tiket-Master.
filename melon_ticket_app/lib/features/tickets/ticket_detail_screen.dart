@@ -49,8 +49,15 @@ final _seatStreamProvider =
 
 class TicketDetailScreen extends ConsumerWidget {
   final String ticketId;
+  final bool initialGroupQr;
+  final String? groupQrOrderId;
 
-  const TicketDetailScreen({super.key, required this.ticketId});
+  const TicketDetailScreen({
+    super.key,
+    required this.ticketId,
+    this.initialGroupQr = false,
+    this.groupQrOrderId,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -85,6 +92,9 @@ class TicketDetailScreen extends ConsumerWidget {
               title: '티켓을 찾을 수 없습니다',
               subtitle: '티켓이 삭제되었거나 권한이 없습니다.',
             );
+          }
+          if (initialGroupQr && groupQrOrderId != null) {
+            return _GroupQrScreen(orderId: groupQrOrderId!);
           }
           return _TicketDetailBody(ticket: ticket);
         },
@@ -2540,6 +2550,256 @@ class _InlineSeatView extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Group QR Screen — 통합 QR 코드 표시
+// =============================================================================
+
+class _GroupQrScreen extends ConsumerStatefulWidget {
+  final String orderId;
+
+  const _GroupQrScreen({required this.orderId});
+
+  @override
+  ConsumerState<_GroupQrScreen> createState() => _GroupQrScreenState();
+}
+
+class _GroupQrScreenState extends ConsumerState<_GroupQrScreen> {
+  static const int _refreshInterval = 120;
+
+  String? _qrData;
+  int _ticketCount = 0;
+  int _remainingSeconds = _refreshInterval;
+  bool _isLoading = true;
+  String? _errorText;
+  bool _isRefreshing = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+    _refresh();
+  }
+
+  void _startCountdown() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_remainingSeconds > 0) {
+        setState(() => _remainingSeconds--);
+      }
+      if (_remainingSeconds <= 0) _refresh();
+    });
+  }
+
+  Future<void> _refresh() async {
+    if (_isRefreshing) return;
+    _isRefreshing = true;
+    setState(() {
+      _isLoading = _qrData == null;
+      _errorText = null;
+    });
+
+    try {
+      final result = await ref
+          .read(functionsServiceProvider)
+          .issueGroupQrToken(orderId: widget.orderId);
+      final token = result['token'] as String?;
+      final exp = result['exp'] as int?;
+      final count = result['ticketCount'] as int? ?? 0;
+
+      if (token == null || exp == null) {
+        throw Exception('통합 QR 토큰 응답 오류');
+      }
+
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final left = (exp - now).clamp(1, _refreshInterval).toInt();
+
+      if (!mounted) return;
+      setState(() {
+        _qrData = token;
+        _ticketCount = count;
+        _remainingSeconds = left;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorText = '통합 QR 발급 실패';
+      });
+    } finally {
+      _isRefreshing = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Title
+            Text(
+              '통합 입장 QR',
+              style: AppTheme.nanum(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: _textPrimary,
+                shadows: AppTheme.textShadow,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                gradient: AppTheme.goldGradient,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '총 $_ticketCount매',
+                style: AppTheme.nanum(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.onAccent,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // QR Code
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.gold.withValues(alpha: 0.15),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 180,
+                      height: 180,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: _lineBlue,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    )
+                  : _qrData == null
+                      ? GestureDetector(
+                          onTap: _refresh,
+                          child: SizedBox(
+                            width: 180,
+                            height: 180,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.refresh_rounded,
+                                    size: 32, color: _textSecondary),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _errorText ?? '발급 실패',
+                                  style: AppTheme.nanum(
+                                      fontSize: 13, color: _textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : GestureDetector(
+                          onTap: _refresh,
+                          onLongPress: () {
+                            Clipboard.setData(ClipboardData(text: _qrData!));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('통합 QR 데이터가 복사되었습니다'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          child: QrImageView(
+                            data: _qrData!,
+                            version: QrVersions.auto,
+                            size: 180,
+                            eyeStyle: const QrEyeStyle(
+                              eyeShape: QrEyeShape.square,
+                              color: Color(0xFF111827),
+                            ),
+                            dataModuleStyle: const QrDataModuleStyle(
+                              dataModuleShape: QrDataModuleShape.square,
+                              color: Color(0xFF111827),
+                            ),
+                            gapless: true,
+                          ),
+                        ),
+            ),
+            const SizedBox(height: 16),
+
+            // Timer
+            Text(
+              '${_remainingSeconds ~/ 60}:${(_remainingSeconds % 60).toString().padLeft(2, '0')}',
+              style: GoogleFonts.robotoMono(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: _remainingSeconds < 30 ? _danger : _textSecondary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'QR 유효시간',
+              style: AppTheme.nanum(fontSize: 11, color: _textSecondary),
+            ),
+            const SizedBox(height: 20),
+
+            // Info
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _cardBorder),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.info_outline, size: 16, color: _textSecondary),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '같은 주문의 모든 티켓을 한번에 입장 처리합니다',
+                          style: AppTheme.nanum(
+                            fontSize: 12,
+                            color: _textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

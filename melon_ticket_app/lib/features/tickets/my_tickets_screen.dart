@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:melon_core/app/theme.dart';
@@ -9,6 +8,7 @@ import 'package:melon_core/widgets/premium_effects.dart';
 import 'package:melon_core/data/models/ticket.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/ticket_repository.dart';
+import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/services/auth_service.dart';
 
 const _lineBlue = AppTheme.gold;
@@ -67,6 +67,14 @@ class _TicketBody extends ConsumerWidget {
 
     return ticketsAsync.when(
       data: (tickets) {
+        // orderId별 티켓 수 집계 (통합 QR 표시용)
+        final orderCounts = <String, int>{};
+        for (final t in tickets) {
+          if (t.orderId.isNotEmpty && t.status == TicketStatus.issued) {
+            orderCounts[t.orderId] = (orderCounts[t.orderId] ?? 0) + 1;
+          }
+        }
+
         return CustomScrollView(
           slivers: [
             SliverToBoxAdapter(
@@ -83,7 +91,12 @@ class _TicketBody extends ConsumerWidget {
                 sliver: SliverList.separated(
                   itemCount: tickets.length,
                   itemBuilder: (context, index) {
-                    return _TicketCard(ticket: tickets[index]);
+                    final ticket = tickets[index];
+                    final showGroupQr = (orderCounts[ticket.orderId] ?? 0) >= 2;
+                    return _TicketCard(
+                      ticket: ticket,
+                      showGroupQr: showGroupQr,
+                    );
                   },
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                 ),
@@ -161,8 +174,9 @@ class _TicketSummary extends StatelessWidget {
 
 class _TicketCard extends ConsumerWidget {
   final Ticket ticket;
+  final bool showGroupQr;
 
-  const _TicketCard({required this.ticket});
+  const _TicketCard({required this.ticket, this.showGroupQr = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -179,8 +193,6 @@ class _TicketCard extends ConsumerWidget {
 
         final dateText =
             DateFormat('yyyy년 M월 d일 (E)', 'ko_KR').format(event.startAt);
-        final issuedAtText =
-            DateFormat('yyyy.MM.dd HH:mm', 'ko_KR').format(ticket.issuedAt);
         final timeText = DateFormat('HH:mm', 'ko_KR').format(event.startAt);
         final statusMeta = _statusMeta(ticket.status);
         final venueText = (event.venueName == null || event.venueName!.isEmpty)
@@ -289,17 +301,7 @@ class _TicketCard extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      _metaRow(
-                        label: '예매번호',
-                        value: ticket.id.length > 8
-                            ? ticket.id.substring(ticket.id.length - 8).toUpperCase()
-                            : ticket.id.toUpperCase(),
-                        mono: true,
-                      ),
-                      _metaRow(
-                        label: '발행시각',
-                        value: issuedAtText,
-                      ),
+                      _SeatInfoRow(ticket: ticket, ref: ref),
                     ],
                   ),
                 ),
@@ -326,7 +328,7 @@ class _TicketCard extends ConsumerWidget {
                             '공연 정보',
                             style: AppTheme.nanum(
                               fontWeight: FontWeight.w700,
-                              fontSize: 15,
+                              fontSize: showGroupQr ? 13 : 15,
                             ),
                           ),
                         ),
@@ -342,9 +344,9 @@ class _TicketCard extends ConsumerWidget {
                               context.push('/tickets/${ticket.id}'),
                           style: TextButton.styleFrom(
                             foregroundColor: AppTheme.textPrimary,
-                            shape: const RoundedRectangleBorder(
+                            shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.only(
-                                bottomRight: Radius.circular(13),
+                                bottomRight: Radius.circular(showGroupQr ? 0 : 13),
                               ),
                             ),
                           ),
@@ -352,11 +354,41 @@ class _TicketCard extends ConsumerWidget {
                             'QR 보기',
                             style: AppTheme.nanum(
                               fontWeight: FontWeight.w700,
-                              fontSize: 15,
+                              fontSize: showGroupQr ? 13 : 15,
                             ),
                           ),
                         ),
                       ),
+                      if (showGroupQr) ...[
+                        Container(
+                          width: 1,
+                          height: 44,
+                          color: AppTheme.border,
+                        ),
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => context.push(
+                              '/tickets/${ticket.id}?groupQr=true&orderId=${ticket.orderId}',
+                            ),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppTheme.gold,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.only(
+                                  bottomRight: Radius.circular(13),
+                                ),
+                              ),
+                            ),
+                            child: Text(
+                              '통합 QR',
+                              style: AppTheme.nanum(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                                color: AppTheme.gold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -366,56 +398,6 @@ class _TicketCard extends ConsumerWidget {
         ),
         );
       },
-    );
-  }
-
-  Widget _metaRow({
-    required String label,
-    required String value,
-    bool mono = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-        decoration: BoxDecoration(
-          color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.borderLight),
-        ),
-        child: Row(
-          children: [
-            Text(
-              label,
-              style: AppTheme.nanum(
-                fontSize: 12,
-                color: _textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const Spacer(),
-            Flexible(
-              child: Text(
-                value,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.right,
-                style: mono
-                    ? GoogleFonts.robotoMono(
-                        fontSize: 12,
-                        color: _textPrimary,
-                        fontWeight: FontWeight.w600,
-                      )
-                    : AppTheme.nanum(
-                        fontSize: 12,
-                        color: _textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -474,6 +456,121 @@ class _TicketCard extends ConsumerWidget {
           background: Color(0x1AFF5A5F),
         );
     }
+  }
+}
+
+class _SeatInfoRow extends StatelessWidget {
+  final Ticket ticket;
+  final WidgetRef ref;
+
+  const _SeatInfoRow({required this.ticket, required this.ref});
+
+  static const _gradeColors = {
+    'VIP': Color(0xFFC9A84C),
+    'R': Color(0xFF6B4FA0),
+    'S': Color(0xFF2D6A4F),
+    'A': Color(0xFF3B7DD8),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    if (ticket.isStanding) {
+      return _buildRow(
+        badge: _gradeBadge('스탠딩', const Color(0xFF607D8B)),
+        text: ticket.entryNumber != null
+            ? '입장번호 ${ticket.entryNumber}번'
+            : '자유석',
+        checkedIn: ticket.isEntryCheckedIn,
+      );
+    }
+
+    if (ticket.seatId.isEmpty) return const SizedBox.shrink();
+
+    return FutureBuilder(
+      future: ref.read(seatRepositoryProvider).getSeat(ticket.seatId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data == null) {
+          return const SizedBox(height: 36);
+        }
+        final seat = snapshot.data!;
+        final grade = seat.grade ?? '';
+        final color = _gradeColors[grade] ?? AppTheme.textSecondary;
+        final location = seat.row != null && seat.row!.isNotEmpty
+            ? '${seat.block}구역 ${seat.row}열 ${seat.number}번'
+            : '${seat.block}구역 ${seat.number}번';
+
+        return _buildRow(
+          badge: _gradeBadge(grade.isNotEmpty ? grade : '일반', color),
+          text: location,
+          checkedIn: ticket.isEntryCheckedIn,
+        );
+      },
+    );
+  }
+
+  Widget _buildRow({
+    required Widget badge,
+    required String text,
+    required bool checkedIn,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.borderLight),
+      ),
+      child: Row(
+        children: [
+          badge,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              overflow: TextOverflow.ellipsis,
+              style: AppTheme.nanum(
+                fontSize: 12,
+                color: _textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          if (checkedIn) ...[
+            const SizedBox(width: 6),
+            const Icon(Icons.check_circle, size: 14, color: AppTheme.success),
+            const SizedBox(width: 3),
+            Text(
+              '입장완료',
+              style: AppTheme.nanum(
+                fontSize: 11,
+                color: AppTheme.success,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _gradeBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
+      ),
+      child: Text(
+        label,
+        style: AppTheme.nanum(
+          fontSize: 11,
+          color: color,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
   }
 }
 

@@ -130,27 +130,47 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         throw const FormatException('승인된 스캐너 기기에서만 입장 체크가 가능합니다');
       }
 
-      // 권장 형식: ticketId:jwtToken
-      final sepIndex = raw.indexOf(':');
-      if (sepIndex <= 0 || sepIndex >= raw.length - 1) {
-        throw const FormatException('지원하지 않는 QR 형식입니다');
-      }
-
-      final ticketId = raw.substring(0, sepIndex);
-      final qrToken = raw.substring(sepIndex + 1);
-
       if (RegExp(r'^ticket:[^:]+:\d+$').hasMatch(raw)) {
         throw const FormatException('구버전 QR입니다. 티켓 앱을 최신 버전으로 업데이트해주세요');
       }
 
       final functionsService = ref.read(functionsServiceProvider);
-      final result = await functionsService.verifyAndCheckIn(
-        ticketId: ticketId,
-        qrToken: qrToken,
-        staffId: authUser.uid,
-        scannerDeviceId: _scannerDeviceId!,
-        checkinStage: _checkinStage,
-      );
+      Map<String, dynamic> result;
+
+      // 통합 QR: group:{orderId}:{jwtToken}
+      if (raw.startsWith('group:')) {
+        final firstColon = raw.indexOf(':');
+        final secondColon = raw.indexOf(':', firstColon + 1);
+        if (secondColon <= firstColon + 1 || secondColon >= raw.length - 1) {
+          throw const FormatException('잘못된 통합 QR 형식입니다');
+        }
+        final orderId = raw.substring(firstColon + 1, secondColon);
+        final qrToken = raw.substring(secondColon + 1);
+
+        result = await functionsService.verifyAndCheckInGroup(
+          orderId: orderId,
+          qrToken: qrToken,
+          staffId: authUser.uid,
+          scannerDeviceId: _scannerDeviceId!,
+          checkinStage: _checkinStage,
+        );
+      } else {
+        // 개별 QR: ticketId:jwtToken
+        final sepIndex = raw.indexOf(':');
+        if (sepIndex <= 0 || sepIndex >= raw.length - 1) {
+          throw const FormatException('지원하지 않는 QR 형식입니다');
+        }
+        final ticketId = raw.substring(0, sepIndex);
+        final qrToken = raw.substring(sepIndex + 1);
+
+        result = await functionsService.verifyAndCheckIn(
+          ticketId: ticketId,
+          qrToken: qrToken,
+          staffId: authUser.uid,
+          scannerDeviceId: _scannerDeviceId!,
+          checkinStage: _checkinStage,
+        );
+      }
 
       final success = result['success'] == true;
       final message =

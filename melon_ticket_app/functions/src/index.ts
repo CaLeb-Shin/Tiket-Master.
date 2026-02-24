@@ -2056,3 +2056,209 @@ export const scheduledEventReminders = functions.pubsub
 
     return null;
   });
+
+// ============================================================
+// issueGroupQrToken - 통합 QR 토큰 발급 (같은 주문 다수 티켓)
+// ============================================================
+export const issueGroupQrToken = functions.https.onCall(async (data: any, context) => {
+  const { orderId } = data;
+  const userId = context?.auth?.uid;
+
+  if (!userId) {
+    throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
+  }
+
+  if (!orderId) {
+    throw new functions.https.HttpsError("invalid-argument", "주문 ID가 필요합니다");
+  }
+
+  // 해당 주문의 issued 상태 티켓 조회
+  const ticketsSnap = await db.collection("tickets")
+    .where("orderId", "==", orderId)
+    .where("userId", "==", userId)
+    .where("status", "==", "issued")
+    .get();
+
+  if (ticketsSnap.empty) {
+    throw new functions.https.HttpsError("not-found", "유효한 티켓이 없습니다");
+  }
+
+  const ticketIds = ticketsSnap.docs.map(doc => doc.id);
+  const firstTicket = ticketsSnap.docs[0].data();
+
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    orderId,
+    ticketIds,
+    eventId: firstTicket.eventId,
+    userId,
+    type: "group",
+    iat: now,
+    exp: now + QR_TOKEN_EXPIRY,
+  };
+
+  const token = jwt.sign(payload, JWT_SECRET);
+  const qrData = `group:${orderId}:${token}`;
+
+  return {
+    success: true,
+    token: qrData,
+    exp: payload.exp,
+    ticketCount: ticketIds.length,
+  };
+});
+
+// ============================================================
+// verifyAndCheckInGroup - 통합 QR 일괄 체크인
+// ============================================================
+export const verifyAndCheckInGroup = functions.https.onCall(async (data: any, context) => {
+  const { orderId, qrToken } = data;
+  const scannerDeviceId = (data?.scannerDeviceId as string | undefined)?.trim();
+  const checkinStage = normalizeCheckinStage(data?.checkinStage);
+  const scannerUid = await assertStaffOrAdmin(context?.auth?.uid);
+
+  if (!orderId || !qrToken) {
+    throw new functions.https.HttpsError("invalid-argument", "잘못된 요청입니다");
+  }
+
+  if (!scannerDeviceId) {
+    return { success: false, result: "notAllowedDevice", message: "기기 ID 누락" };
+  }
+
+  // 스캐너 디바이스 검증 (데모 디바이스는 스킵)
+  const isDemoDevice = scannerDeviceId === "admin-demo-device";
+  if (!isDemoDevice) {
+    const devDoc = await db.collection("scannerDevices").doc(scannerDeviceId).get();
+    const dev = devDoc.data();
+    if (!devDoc.exists || !dev) {
+      return { success: false, result: "notAllowedDevice", message: "등록되지 않은 스캐너 기기입니다" };
+    }
+    if (dev.ownerUid !== scannerUid) {
+      return { success: false, result: "notAllowedDevice", message: "현재 계정으로 승인된 기기가 아닙니다" };
+    }
+    if (dev.blocked === true || dev.approved !== true) {
+      return { success: false, result: "notAllowedDevice", message: dev.blocked ? "차단된 기기입니다" : "승인 대기 중입니다" };
+    }
+  }
+
+  // JWT 검증
+  let decoded: any;
+  try {
+    decoded = jwt.verify(qrToken, JWT_SECRET);
+  } catch (error: any) {
+    const result = error.name === "TokenExpiredError" ? "expired" : "invalidSignature";
+    return { success: false, result, message: result === "expired" ? "QR이 만료되었습니다" : "잘못된 QR입니다" };
+  }
+
+  if (decoded.orderId !== orderId || decoded.type !== "group") {
+    return { success: false, result: "invalidTicket", message: "잘못된 통합 QR입니다" };
+  }
+
+  const ticketIds: string[] = decoded.ticketIds || [];
+  if (ticketIds.length === 0) {
+    return { success: false, result: "invalidTicket", message: "티켓 정보가 없습니다" };
+  }
+
+  // 트랜잭션으로 일괄 체크인
+  return db.runTransaction(async (transaction) => {
+    const ticketRefs = ticketIds.map(id => db.collection("tickets").doc(id));
+    const ticketDocs = await Promise.all(ticketRefs.map(ref => transaction.get(ref)));
+
+    let checkedCount = 0;
+    let alreadyCheckedCount = 0;
+    const seatInfoList: string[] = [];
+
+    for (let i = 0; i < ticketDocs.length; i++) {
+      const doc = ticketDocs[i];
+      if (!doc.exists) continue;
+      const t = doc.data()!;
+
+      if (t.status === "canceled") continue;
+
+      // 좌석 정보 조회
+      let seatInfo = "좌석 정보 없음";
+      if (t.seatId) {
+        const seatDoc = await transaction.get(db.collection("seats").doc(t.seatId));
+        const seat = seatDoc.data();
+        if (seat) {
+          seatInfo = `${seat.grade || ""}${seat.grade ? " " : ""}${seat.block}구역 ${seat.row || ""}${seat.row ? "열 " : ""}${seat.number}번`;
+        }
+      } else if (t.entryNumber) {
+        seatInfo = `스탠딩 ${t.entryNumber}번`;
+      }
+
+      if (checkinStage === "entry") {
+        if (t.entryCheckedInAt || t.status === "used") {
+          alreadyCheckedCount++;
+          seatInfoList.push(`${seatInfo} (입장완료)`);
+          continue;
+        }
+        transaction.update(ticketRefs[i], {
+          entryCheckedInAt: admin.firestore.FieldValue.serverTimestamp(),
+          entryCheckinStaffId: scannerUid,
+          lastCheckInStage: "entry",
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } else {
+        if (!t.entryCheckedInAt) {
+          seatInfoList.push(`${seatInfo} (1차 미입장)`);
+          continue;
+        }
+        if (t.intermissionCheckedInAt || t.status === "used") {
+          alreadyCheckedCount++;
+          seatInfoList.push(`${seatInfo} (재입장완료)`);
+          continue;
+        }
+        transaction.update(ticketRefs[i], {
+          intermissionCheckedInAt: admin.firestore.FieldValue.serverTimestamp(),
+          intermissionCheckinStaffId: scannerUid,
+          lastCheckInStage: "intermission",
+          status: "used",
+          usedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+
+      seatInfoList.push(seatInfo);
+      checkedCount++;
+
+      // 체크인 로그
+      const checkinRef = db.collection("checkins").doc();
+      transaction.set(checkinRef, {
+        eventId: decoded.eventId,
+        ticketId: ticketIds[i],
+        staffId: scannerUid,
+        scannerDeviceId,
+        stage: checkinStage,
+        result: "success",
+        seatInfo,
+        scannedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    if (checkedCount === 0 && alreadyCheckedCount > 0) {
+      return {
+        success: false,
+        result: "alreadyUsed",
+        message: `전체 ${ticketIds.length}매 이미 입장 완료`,
+        seatInfo: seatInfoList.join("\n"),
+      };
+    }
+
+    const title = checkinStage === "entry" ? "단체 입장 확인" : "단체 재입장 확인";
+    const msg = alreadyCheckedCount > 0
+      ? `${ticketIds.length}명 중 ${checkedCount}명 추가 입장`
+      : `총 ${checkedCount}명 입장 완료`;
+
+    return {
+      success: true,
+      result: "success",
+      title,
+      message: msg,
+      seatInfo: seatInfoList.join("\n"),
+      stage: checkinStage,
+      checkedCount,
+      totalCount: ticketIds.length,
+    };
+  });
+});
