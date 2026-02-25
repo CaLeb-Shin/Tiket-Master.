@@ -540,7 +540,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen>
   }
 
   void _showVenueDetail(Venue venue) {
-    context.push('/venues/${venue.id}');
+    context.go('/venues/${venue.id}');
   }
 }
 
@@ -3334,7 +3334,7 @@ class _VenueDetailScreenState extends ConsumerState<VenueDetailScreen> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () {
-                          context.push(
+                          context.go(
                             '/venues/${venue.id}/views?name=${Uri.encodeComponent(venue.name)}',
                           );
                         },
@@ -3356,7 +3356,7 @@ class _VenueDetailScreenState extends ConsumerState<VenueDetailScreen> {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      context.push('/venues/${venue.id}/seat-layout');
+                      context.go('/venues/${venue.id}/seat-layout');
                     },
                     icon: const Icon(Icons.grid_on_rounded, size: 18),
                     label: Text(

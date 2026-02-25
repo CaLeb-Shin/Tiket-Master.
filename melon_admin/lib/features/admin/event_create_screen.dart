@@ -1911,7 +1911,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
   Widget _buildNoVenueCard() {
     return InkWell(
-      onTap: () => context.push('/venues'),
+      onTap: () => context.go('/venues'),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(

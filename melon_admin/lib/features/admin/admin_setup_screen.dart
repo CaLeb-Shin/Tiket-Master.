@@ -226,7 +226,7 @@ class _AdminSetupScreenState extends ConsumerState<AdminSetupScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => context.push('/login'),
+                onPressed: () => context.go('/login'),
                 child: Text('로그인하기',
                     style: AdminTheme.sans(
                         fontWeight: FontWeight.w700,

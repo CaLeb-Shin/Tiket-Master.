@@ -57,7 +57,7 @@ class AdminDashboardScreen extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: ElevatedButton(
-              onPressed: () => context.push('/setup'),
+              onPressed: () => context.go('/setup'),
               child: Text(
                 '티켓 어드민 승인 요청',
                 style: AdminTheme.label(fontSize: 12, color: AdminTheme.onAccent),
@@ -99,7 +99,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   child: _QuickMenuCard(
                     icon: Icons.add_circle_outline,
                     title: '공연 등록',
-                    onTap: () => context.push('/events/create'),
+                    onTap: () => context.go('/events/create'),
                   ),
                 ),
                 SizedBox(
@@ -107,7 +107,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   child: _QuickMenuCard(
                     icon: Icons.location_city_outlined,
                     title: '공연장 관리',
-                    onTap: () => context.push('/venues'),
+                    onTap: () => context.go('/venues'),
                   ),
                 ),
                 SizedBox(
@@ -115,7 +115,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   child: _QuickMenuCard(
                     icon: Icons.qr_code_scanner,
                     title: '입장 스캐너',
-                    onTap: () => context.push('/staff/scanner'),
+                    onTap: () => context.go('/staff/scanner'),
                   ),
                 ),
               ],
@@ -193,10 +193,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                           onSelected: (value) {
                             switch (value) {
                               case 'seats':
-                                context.push('/events/${event.id}/seats');
+                                context.go('/events/${event.id}/seats');
                                 break;
                               case 'assignments':
-                                context.push(
+                                context.go(
                                     '/events/${event.id}/assignments');
                                 break;
                             }
