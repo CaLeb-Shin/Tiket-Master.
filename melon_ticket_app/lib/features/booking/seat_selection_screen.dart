@@ -1076,15 +1076,21 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        previewView.is360
+                        previewView.isPanorama360
                             ? Icons.threesixty_rounded
-                            : Icons.zoom_in_rounded,
+                            : previewView.isPanorama180
+                                ? Icons.panorama_horizontal_rounded
+                                : Icons.zoom_in_rounded,
                         size: 14,
                         color: Colors.white.withValues(alpha: 0.9),
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        previewView.is360 ? '360° 터치' : '터치하여 확대',
+                        previewView.isPanorama360
+                            ? '360° 터치'
+                            : previewView.isPanorama180
+                                ? '180° 터치'
+                                : '터치하여 확대',
                         style: AppTheme.nanum(
                           fontSize: 10,
                           fontWeight: FontWeight.w500,
@@ -3884,6 +3890,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
 
   Widget _buildBottomSheet() {
     final screenHeight = MediaQuery.of(context).size.height;
+    final viewType = widget.view.viewType;
     final is360 = widget.view.is360;
 
     return Container(
@@ -3920,7 +3927,11 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    is360 ? Icons.threesixty_rounded : Icons.visibility_rounded,
+                    viewType == 'panorama360'
+                        ? Icons.threesixty_rounded
+                        : viewType == 'panorama180'
+                            ? Icons.panorama_horizontal_rounded
+                            : Icons.visibility_rounded,
                     size: 18,
                     color: const Color(0xFFFDF3F6),
                   ),
@@ -3972,7 +3983,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                '360°',
+                                viewType == 'panorama180' ? '180°' : '360°',
                                 style: AppTheme.nanum(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
@@ -4020,7 +4031,11 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: is360 ? _build360Viewer() : _buildFlatViewer(),
+                  child: viewType == 'panorama360'
+                      ? _buildPanoramaViewer(false)
+                      : viewType == 'panorama180'
+                          ? _buildPanoramaViewer(true)
+                          : _buildFlatViewer(),
                 ),
                 // 예매 바 (AI 추천에서 진입 시에만 표시)
                 if (_hasBookingInfo) _buildBookingBar(),
@@ -4064,14 +4079,17 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
     );
   }
 
-  /// 360° 파노라마 뷰어
-  Widget _build360Viewer() {
+  /// 파노라마 뷰어 (360° / 180°)
+  Widget _buildPanoramaViewer(bool is180) {
+    final label = is180 ? '180°' : '360°';
     return Stack(
       children: [
         ClipRRect(
           child: PanoramaViewer(
             sensorControl: SensorControl.orientation,
             animSpeed: 1.0,
+            minLongitude: is180 ? -90.0 : -180.0,
+            maxLongitude: is180 ? 90.0 : 180.0,
             child: Image.network(
               widget.view.imageUrl,
               fit: BoxFit.cover,
@@ -4096,7 +4114,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                           size: 48, color: AppTheme.textTertiary),
                       const SizedBox(height: 12),
                       Text(
-                        '360° 이미지를 불러올 수 없습니다',
+                        '$label 이미지를 불러올 수 없습니다',
                         style: AppTheme.nanum(
                           fontSize: 13,
                           color: AppTheme.textTertiary,
@@ -4128,7 +4146,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '360° 파노라마 로딩 중...',
+                    '$label 파노라마 로딩 중...',
                     style: AppTheme.nanum(
                       fontSize: 13,
                       color: AppTheme.textTertiary,
@@ -4139,7 +4157,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
             ),
           ),
 
-        // 360° drag hint
+        // Panorama drag hint
         if (_imageLoaded)
           Positioned(
             bottom: 12,
@@ -4156,11 +4174,13 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.threesixty_rounded,
+                    Icon(is180
+                            ? Icons.panorama_horizontal_rounded
+                            : Icons.threesixty_rounded,
                         size: 14, color: AppTheme.gold),
                     const SizedBox(width: 6),
                     Text(
-                      '드래그하여 360° 둘러보기',
+                      '드래그하여 $label 둘러보기',
                       style: AppTheme.nanum(
                         fontSize: 11,
                         color: AppTheme.textSecondary,
@@ -4284,6 +4304,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
   }
 
   Widget _buildFullScreen() {
+    final viewType = widget.view.viewType;
     final is360 = widget.view.is360;
 
     return Scaffold(
@@ -4295,6 +4316,8 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
             PanoramaViewer(
               sensorControl: SensorControl.orientation,
               animSpeed: 1.0,
+              minLongitude: viewType == 'panorama180' ? -90.0 : -180.0,
+              maxLongitude: viewType == 'panorama180' ? 90.0 : 180.0,
               child: Image.network(
                 widget.view.imageUrl,
                 fit: BoxFit.cover,
@@ -4382,7 +4405,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              '360°',
+                              viewType == 'panorama180' ? '180°' : '360°',
                               style: AppTheme.nanum(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w700,
@@ -4476,7 +4499,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                '360°',
+                                viewType == 'panorama180' ? '180°' : '360°',
                                 style: AppTheme.nanum(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,

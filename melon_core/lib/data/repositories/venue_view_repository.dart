@@ -19,8 +19,8 @@ class VenueSeatView {
   final String floor; // 층 (지하1층, 지하2층)
   final String? row; // 열 (1, 2, 3... / null이면 구역 전체)
   final int? seat; // 좌석 번호 (null이면 구역/열 대표 시야)
-  final String imageUrl; // 360° equirectangular 이미지 URL
-  final bool is360; // true: 360° 파노라마, false: 일반 사진
+  final String imageUrl; // 이미지 URL
+  final String viewType; // 'flat', 'panorama180', 'panorama360'
   final String? description; // 시야 설명
 
   const VenueSeatView({
@@ -29,22 +29,32 @@ class VenueSeatView {
     this.row,
     this.seat,
     required this.imageUrl,
-    this.is360 = true,
+    this.viewType = 'panorama360',
     this.description,
   });
+
+  /// 하위호환: 기존 is360 getter
+  bool get is360 => viewType != 'flat';
+  bool get isPanorama180 => viewType == 'panorama180';
+  bool get isPanorama360 => viewType == 'panorama360';
 
   factory VenueSeatView.fromMap(Map<String, dynamic> map) {
     final rawSeat = map['seat'];
     final seat = rawSeat is int
         ? rawSeat
         : (rawSeat is num ? rawSeat.toInt() : int.tryParse('$rawSeat'));
+
+    // viewType 우선, 없으면 is360에서 마이그레이션
+    final viewType = map['viewType'] as String? ??
+        (map['is360'] == false ? 'flat' : 'panorama360');
+
     return VenueSeatView(
       zone: map['zone'] ?? '',
       floor: map['floor'] ?? '1층',
       row: map['row'],
       seat: seat,
       imageUrl: map['imageUrl'] ?? '',
-      is360: map['is360'] ?? true,
+      viewType: viewType,
       description: map['description'],
     );
   }
@@ -56,7 +66,8 @@ class VenueSeatView {
       'row': row,
       'seat': seat,
       'imageUrl': imageUrl,
-      'is360': is360,
+      'viewType': viewType,
+      'is360': is360, // 하위호환
       'description': description,
     };
   }

@@ -542,7 +542,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          '360°',
+                          view.isPanorama180 ? '180°' : '360°',
                           style: AdminTheme.sans(
                             fontSize: 8,
                             fontWeight: FontWeight.w700,
@@ -569,7 +569,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                   ),
                 ),
                 Text(
-                  '${view.floor}${view.is360 ? ' · 360° 파노라마' : ' · 일반 사진'}',
+                  '${view.floor} · ${view.isPanorama360 ? '360° 파노라마' : view.isPanorama180 ? '180° 파노라마' : '일반 사진'}',
                   style: AdminTheme.sans(
                     fontSize: 11,
                     color: AdminTheme.textTertiary,
@@ -687,26 +687,32 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                         ),
                         const SizedBox(width: 8),
                         ToggleButtons(
-                          isSelected: [!entry.is360, entry.is360],
+                          isSelected: [
+                            entry.viewType == 'flat',
+                            entry.viewType == 'panorama180',
+                            entry.viewType == 'panorama360',
+                          ],
                           onPressed: (index) {
-                            setState(() => entry.is360 = index == 1);
+                            setState(() {
+                              entry.viewType = ['flat', 'panorama180', 'panorama360'][index];
+                            });
                           },
                           borderRadius: BorderRadius.circular(4),
                           borderColor: AdminTheme.border,
                           selectedBorderColor: AdminTheme.gold,
                           fillColor: AdminTheme.gold.withValues(alpha: 0.15),
                           constraints:
-                              const BoxConstraints(minHeight: 34, minWidth: 58),
+                              const BoxConstraints(minHeight: 34, minWidth: 48),
                           children: [
                             Padding(
                               padding:
-                                  const EdgeInsets.symmetric(horizontal: 8),
+                                  const EdgeInsets.symmetric(horizontal: 6),
                               child: Text(
                                 '일반',
                                 style: AdminTheme.sans(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: !entry.is360
+                                  color: entry.viewType == 'flat'
                                       ? AdminTheme.gold
                                       : AdminTheme.textTertiary,
                                 ),
@@ -714,13 +720,27 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                             ),
                             Padding(
                               padding:
-                                  const EdgeInsets.symmetric(horizontal: 8),
+                                  const EdgeInsets.symmetric(horizontal: 6),
+                              child: Text(
+                                '180°',
+                                style: AdminTheme.sans(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: entry.viewType == 'panorama180'
+                                      ? AdminTheme.gold
+                                      : AdminTheme.textTertiary,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 6),
                               child: Text(
                                 '360°',
                                 style: AdminTheme.sans(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: entry.is360
+                                  color: entry.viewType == 'panorama360'
                                       ? AdminTheme.gold
                                       : AdminTheme.textTertiary,
                                 ),
@@ -2380,7 +2400,7 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
           row: rowText.isEmpty ? null : rowText,
           seat: seatNumber,
           imageUrl: imageUrl,
-          is360: entry.is360,
+          viewType: entry.viewType,
           description: entry.descCtrl.text.trim().isEmpty
               ? null
               : entry.descCtrl.text.trim(),
@@ -2452,9 +2472,11 @@ class _ZoneViewEntry {
   final TextEditingController rowCtrl;
   final TextEditingController seatCtrl;
   final TextEditingController descCtrl;
-  bool is360 = false;
+  String viewType = 'flat'; // 'flat', 'panorama180', 'panorama360'
   Uint8List? imageBytes;
   String? fileName;
+
+  bool get is360 => viewType != 'flat';
 
   _ZoneViewEntry({
     String zone = '',

@@ -20,6 +20,7 @@ import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/services/functions_service.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:panorama_viewer/panorama_viewer.dart';
 
 const _navy = AppTheme.goldDark;
 const _lineBlue = AppTheme.gold;
@@ -1016,9 +1017,11 @@ class _BoardingPassTicket extends ConsumerWidget {
                   child: Row(
                     children: [
                       Icon(
-                        view.is360
-                            ? Icons.view_in_ar_rounded
-                            : Icons.visibility_rounded,
+                        view.isPanorama360
+                            ? Icons.threesixty_rounded
+                            : view.isPanorama180
+                                ? Icons.panorama_horizontal_rounded
+                                : Icons.visibility_rounded,
                         size: 20,
                         color: AppTheme.gold,
                       ),
@@ -1073,35 +1076,65 @@ class _BoardingPassTicket extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(14),
-                      child: InteractiveViewer(
-                        minScale: 1.0,
-                        maxScale: 4.0,
-                        child: CachedNetworkImage(
-                          imageUrl: view.imageUrl,
-                          fit: BoxFit.contain,
-                          placeholder: (_, __) => const Center(
-                            child: CircularProgressIndicator(
-                                color: AppTheme.gold),
-                          ),
-                          errorWidget: (_, __, ___) => Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.broken_image_rounded,
-                                    size: 40, color: _textSecondary),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '이미지를 불러올 수 없습니다',
-                                  style: AppTheme.nanum(
-                                    fontSize: 13,
-                                    color: _textSecondary,
+                      child: view.is360
+                          ? PanoramaViewer(
+                              sensorControl: SensorControl.orientation,
+                              animSpeed: 1.0,
+                              minLongitude:
+                                  view.isPanorama180 ? -90.0 : -180.0,
+                              maxLongitude:
+                                  view.isPanorama180 ? 90.0 : 180.0,
+                              child: Image.network(
+                                view.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.broken_image_rounded,
+                                          size: 40, color: _textSecondary),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '이미지를 불러올 수 없습니다',
+                                        style: AppTheme.nanum(
+                                          fontSize: 13,
+                                          color: _textSecondary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
+                              ),
+                            )
+                          : InteractiveViewer(
+                              minScale: 1.0,
+                              maxScale: 4.0,
+                              child: CachedNetworkImage(
+                                imageUrl: view.imageUrl,
+                                fit: BoxFit.contain,
+                                placeholder: (_, __) => const Center(
+                                  child: CircularProgressIndicator(
+                                      color: AppTheme.gold),
+                                ),
+                                errorWidget: (_, __, ___) => Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.broken_image_rounded,
+                                          size: 40, color: _textSecondary),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '이미지를 불러올 수 없습니다',
+                                        style: AppTheme.nanum(
+                                          fontSize: 13,
+                                          color: _textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                 ),

@@ -1160,6 +1160,40 @@
       "priority": 55,
       "passes": true,
       "notes": "수정 파일: seat_dot_map.dart (줌 컨트롤 + 층 라벨), seat_selection_screen.dart (데스크탑 레이아웃 + 선택좌석 패널 + 모바일 시트). 기존 InteractiveViewer + CustomPainter 아키텍처 활용, 추가 패키지 없이 구현."
+    },
+    {
+      "id": "MT-056",
+      "title": "좌석 시야 파노라마 뷰어 고도화 — 180°/360° 지원 + 티켓 상세 적용",
+      "description": "Insta360 X4 등으로 촬영한 좌석 시야 사진을 180°/360° 파노라마로 구분 지원. 기존 boolean is360 → viewType enum (flat/panorama180/panorama360) 확장. 티켓 상세에도 PanoramaViewer 적용.",
+      "acceptanceCriteria": [
+        "── VenueSeatView 모델 (melon_core) ──",
+        "viewType 문자열 필드 추가: 'flat', 'panorama180', 'panorama360'",
+        "기존 is360 getter 유지 (하위호환): viewType != 'flat'",
+        "isPanorama180, isPanorama360 getter 추가",
+        "fromMap(): viewType 우선, 없으면 is360에서 마이그레이션",
+        "toMap(): viewType + is360 모두 저장 (하위호환)",
+        "",
+        "── Admin 업로드 화면 (melon_admin) ──",
+        "ToggleButtons 3단: 일반 / 180° / 360°",
+        "_ZoneViewEntry.is360 → viewType 문자열 변경",
+        "뱃지 표시: 180° / 360° 구분",
+        "",
+        "── 좌석 선택 뷰어 (melon_ticket_app) ──",
+        "viewType 3-way 분기: panorama360 → PanoramaViewer(전방위)",
+        "panorama180 → PanoramaViewer(minLon:-90, maxLon:90)",
+        "flat → InteractiveViewer",
+        "아이콘 분기: 360°→threesixty, 180°→panorama_horizontal, flat→visibility",
+        "드래그 힌트 텍스트 동적: '360° 둘러보기' / '180° 둘러보기'",
+        "",
+        "── 티켓 상세 (melon_ticket_app) ──",
+        "360°/180° 시야 → PanoramaViewer 적용 (기존: 무조건 InteractiveViewer)",
+        "flat → InteractiveViewer 유지",
+        "",
+        "flutter analyze 통과"
+      ],
+      "priority": 56,
+      "passes": true,
+      "notes": "수정 파일: venue_view_repository.dart (모델 확장), venue_view_upload_screen.dart (3단 토글), seat_selection_screen.dart (뷰어 분기), ticket_detail_screen.dart (PanoramaViewer 추가). panorama_viewer ^2.0.7의 minLongitude/maxLongitude 파라미터 활용."
     }
   ]
 }
