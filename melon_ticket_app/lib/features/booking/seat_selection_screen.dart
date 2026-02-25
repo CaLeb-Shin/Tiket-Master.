@@ -298,8 +298,16 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                 _selectedFloor = floors.first;
               }
 
-              return _buildMobileLayout(event, seats, floors, isLoggedIn,
-                  venueViews, isStageBottom);
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth > 800) {
+                    return _buildDesktopLayout(event, seats, floors,
+                        isLoggedIn, venueViews, isStageBottom);
+                  }
+                  return _buildMobileLayout(event, seats, floors,
+                      isLoggedIn, venueViews, isStageBottom);
+                },
+              );
             },
           );
         },
@@ -2554,6 +2562,473 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // DESKTOP LAYOUT (width > 800)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildDesktopLayout(
+      Event event,
+      List<Seat> seats,
+      List<String> floors,
+      bool isLoggedIn,
+      Map<String, VenueZoneView> venueViews,
+      bool isStageBottom) {
+    final selectedSeats =
+        seats.where((s) => _selectedSeatIds.contains(s.id)).toList();
+    final totalPrice = selectedSeats.fold<int>(
+        0, (sum, s) => sum + _getGradePrice(s.grade, event));
+
+    return Column(
+      children: [
+        _buildHeader(event),
+        _buildModeSelector(),
+        if (floors.length > 1 && _mode == _SeatMode.zone)
+          _buildFloorTabs(floors),
+        Expanded(
+          child: Row(
+            children: [
+              // 좌측: 도트맵/모드 콘텐츠
+              Expanded(
+                child: _mode == _SeatMode.ai
+                    ? _buildAIMode(
+                        seats, event, venueViews, isLoggedIn, isStageBottom)
+                    : _mode == _SeatMode.dotMap && _dotMapLayout != null
+                        ? _buildDotMapMode(seats, event)
+                        : _mode == _SeatMode.zone
+                            ? _buildZoneMode(seats, event, venueViews)
+                            : _buildQuickMode(seats, event, isStageBottom),
+              ),
+              // 우측: 선택좌석 패널
+              _buildSelectedSeatsPanel(
+                  event, seats, selectedSeats, totalPrice, isLoggedIn),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectedSeatsPanel(Event event, List<Seat> allSeats,
+      List<Seat> selectedSeats, int totalPrice, bool isLoggedIn) {
+    final fmt = NumberFormat('#,###');
+
+    return Container(
+      width: 320,
+      decoration: const BoxDecoration(
+        color: AppTheme.surface,
+        border: Border(left: BorderSide(color: AppTheme.border, width: 0.5)),
+      ),
+      child: Column(
+        children: [
+          // 헤더
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+            decoration: const BoxDecoration(
+              border:
+                  Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  '선택 좌석',
+                  style: AppTheme.nanum(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                if (selectedSeats.isNotEmpty)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.gold.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${selectedSeats.length}',
+                      style: AppTheme.nanum(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.gold,
+                      ),
+                    ),
+                  ),
+                const Spacer(),
+                if (selectedSeats.isNotEmpty)
+                  TextButton(
+                    onPressed: () =>
+                        setState(() => _selectedSeatIds.clear()),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      '전체삭제',
+                      style: AppTheme.nanum(
+                          fontSize: 12, color: AppTheme.textTertiary),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // 좌석 목록
+          Expanded(
+            child: selectedSeats.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.event_seat_outlined,
+                            color: AppTheme.textTertiary, size: 40),
+                        const SizedBox(height: 8),
+                        Text(
+                          '선택한 좌석이 없습니다',
+                          style: AppTheme.nanum(
+                              fontSize: 13, color: AppTheme.textTertiary),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: selectedSeats.length,
+                    separatorBuilder: (_, __) => const Divider(
+                        height: 1, color: AppTheme.border, indent: 20, endIndent: 20),
+                    itemBuilder: (context, index) {
+                      final seat = selectedSeats[index];
+                      final grade = seat.grade ?? 'A';
+                      final gradeColor = _gradeColors[grade] ?? _gradeColors['A']!;
+                      final price = _getGradePrice(seat.grade, event);
+
+                      return Padding(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        child: Row(
+                          children: [
+                            // 등급 뱃지
+                            Container(
+                              width: 36,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                color: gradeColor.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  grade,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: gradeColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            // 좌석 위치
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    seat.displayName,
+                                    style: AppTheme.nanum(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${fmt.format(price)}원',
+                                    style: AppTheme.nanum(
+                                      fontSize: 12,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // 삭제 버튼
+                            InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () => setState(
+                                  () => _selectedSeatIds.remove(seat.id)),
+                              child: const Padding(
+                                padding: EdgeInsets.all(4),
+                                child: Icon(Icons.close_rounded,
+                                    size: 16, color: AppTheme.textTertiary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          // 푸터: 합계 + 선택완료 버튼
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            decoration: const BoxDecoration(
+              border:
+                  Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
+            ),
+            child: Column(
+              children: [
+                if (selectedSeats.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '합계',
+                          style: AppTheme.nanum(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          '${fmt.format(totalPrice)}원',
+                          style: AppTheme.nanum(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.gold,
+                            shadows: AppTheme.textShadowStrong,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: selectedSeats.isNotEmpty
+                          ? AppTheme.goldGradient
+                          : null,
+                      color: selectedSeats.isEmpty ? AppTheme.border : null,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: selectedSeats.isEmpty
+                            ? null
+                            : () => _goCheckoutWithSeats(
+                                  _selectedSeatIds.toList(),
+                                  selectedSeats.length,
+                                  isLoggedIn,
+                                  seatLabels: selectedSeats
+                                      .map((s) => s.displayName)
+                                      .toList(),
+                                  seatGrades: selectedSeats
+                                      .map((s) => s.grade ?? '')
+                                      .toList(),
+                                ),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Center(
+                          child: Text(
+                            selectedSeats.isEmpty
+                                ? '좌석을 선택하세요'
+                                : '선택 완료',
+                            style: AppTheme.nanum(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: selectedSeats.isEmpty
+                                  ? AppTheme.textTertiary
+                                  : const Color(0xFFFDF3F6),
+                              shadows: selectedSeats.isEmpty
+                                  ? null
+                                  : AppTheme.textShadowOnDark,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MOBILE SELECTED SEATS LIST SHEET
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _showSelectedSeatsSheet(
+      Event event, List<Seat> selectedSeats, int totalPrice, bool isLoggedIn) {
+    final fmt = NumberFormat('#,###');
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          // Re-read from parent state in case it changed
+          final seats = selectedSeats;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 10),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+                child: Row(
+                  children: [
+                    Text(
+                      '선택 좌석 ${seats.length}',
+                      style: AppTheme.nanum(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (seats.isNotEmpty)
+                      TextButton(
+                        onPressed: () {
+                          setState(() => _selectedSeatIds.clear());
+                          Navigator.of(ctx).pop();
+                        },
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          '전체삭제',
+                          style: AppTheme.nanum(
+                              fontSize: 12, color: AppTheme.textTertiary),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: AppTheme.border),
+              // Seat list
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(ctx).size.height * 0.35),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  itemCount: seats.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(height: 1, color: AppTheme.border, indent: 20, endIndent: 20),
+                  itemBuilder: (_, i) {
+                    final seat = seats[i];
+                    final grade = seat.grade ?? 'A';
+                    final gradeColor =
+                        _gradeColors[grade] ?? _gradeColors['A']!;
+                    final price = _getGradePrice(seat.grade, event);
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: gradeColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Center(
+                              child: Text(grade,
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: gradeColor)),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              seat.displayName,
+                              style: AppTheme.nanum(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${fmt.format(price)}원',
+                            style: AppTheme.nanum(
+                                fontSize: 12, color: AppTheme.textSecondary),
+                          ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              setState(() => _selectedSeatIds.remove(seat.id));
+                              Navigator.of(ctx).pop();
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(Icons.close_rounded,
+                                  size: 16, color: AppTheme.textTertiary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              // Total
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+                decoration: const BoxDecoration(
+                  border: Border(
+                      top: BorderSide(color: AppTheme.border, width: 0.5)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('합계',
+                        style: AppTheme.nanum(
+                            fontSize: 13, color: AppTheme.textSecondary)),
+                    Text(
+                      '${fmt.format(totalPrice)}원',
+                      style: AppTheme.nanum(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.gold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: MediaQuery.of(ctx).padding.bottom + 8),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // BOTTOM BAR
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -2571,28 +3046,45 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       child: Row(
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  selectedSeats.isEmpty
-                      ? '좌석을 선택하세요'
-                      : '${selectedSeats.length}석 선택',
-                  style: AppTheme.nanum(
-                      fontSize: 13, color: AppTheme.textSecondary),
-                ),
-                if (selectedSeats.isNotEmpty)
-                  Text(
-                    '${fmt.format(totalPrice)}원',
-                    style: AppTheme.nanum(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.gold,
-                      shadows: AppTheme.textShadowStrong,
-                    ),
+            child: GestureDetector(
+              onTap: selectedSeats.isNotEmpty
+                  ? () => _showSelectedSeatsSheet(
+                      event, selectedSeats, totalPrice, isLoggedIn)
+                  : null,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        selectedSeats.isEmpty
+                            ? '좌석을 선택하세요'
+                            : '${selectedSeats.length}석 선택',
+                        style: AppTheme.nanum(
+                            fontSize: 13, color: AppTheme.textSecondary),
+                      ),
+                      if (selectedSeats.isNotEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 2),
+                          child: Icon(Icons.expand_less_rounded,
+                              size: 16, color: AppTheme.textTertiary),
+                        ),
+                    ],
                   ),
-              ],
+                  if (selectedSeats.isNotEmpty)
+                    Text(
+                      '${fmt.format(totalPrice)}원',
+                      style: AppTheme.nanum(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.gold,
+                        shadows: AppTheme.textShadowStrong,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
           const SizedBox(width: 16),
@@ -2745,10 +3237,10 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // DESKTOP LAYOUT (기존 PC 레이아웃 유지)
+  // DESKTOP ZONE LAYOUT (기존 PC 레이아웃 — 구역/블록 기반)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildDesktopLayout(
+  Widget _buildDesktopZoneLayout(
       Event event, List<Seat> seats, List<String> floors, bool isLoggedIn) {
     final priceFormat = NumberFormat('#,###');
     final floorSeats = seats.where((s) => s.floor == _selectedFloor).toList();

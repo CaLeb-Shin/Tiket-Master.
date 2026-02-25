@@ -83,6 +83,38 @@ class _SeatDotMapState extends State<SeatDotMap> {
     }
   }
 
+  // ── Zoom Controls ──
+
+  void _zoomIn() {
+    final currentScale = _ctrl.value.getMaxScaleOnAxis();
+    if (currentScale >= 5.0) return;
+    _applyZoom(1.3);
+  }
+
+  void _zoomOut() {
+    final currentScale = _ctrl.value.getMaxScaleOnAxis();
+    if (currentScale <= 0.4) return;
+    _applyZoom(1 / 1.3);
+  }
+
+  void _applyZoom(double factor) {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final center = renderBox.size.center(Offset.zero);
+
+    // Build zoom transform: translate to center, scale, translate back
+    final zoom = Matrix4.identity()
+      ..setEntry(0, 3, center.dx * (1 - factor))
+      ..setEntry(1, 3, center.dy * (1 - factor))
+      ..setEntry(0, 0, factor)
+      ..setEntry(1, 1, factor);
+    setState(() => _ctrl.value = zoom * _ctrl.value);
+  }
+
+  void _zoomReset() {
+    setState(() => _ctrl.value = Matrix4.identity());
+  }
+
   @override
   Widget build(BuildContext context) {
     final layout = widget.layout;
@@ -90,44 +122,115 @@ class _SeatDotMapState extends State<SeatDotMap> {
     final canvasH = layout.gridRows * _cellSize;
     final seatByGrid = _seatByGrid;
 
+    // 층 구분 정보 계산
+    final floorBounds = _computeFloorBounds(layout);
+
     return Column(
       children: [
         // Legend
         _buildLegend(),
-        // Map
+        // Map + Zoom controls overlay
         Expanded(
-          child: GestureDetector(
-            onTapDown: _onTapDown,
-            child: InteractiveViewer(
-              transformationController: _ctrl,
-              minScale: 0.4,
-              maxScale: 5.0,
-              constrained: false,
-              boundaryMargin: const EdgeInsets.all(100),
-              child: CustomPaint(
-                size: Size(canvasW, canvasH),
-                painter: _DotMapPainter(
-                  layout: layout,
-                  seatByGrid: seatByGrid,
-                  selectedSeatIds: widget.selectedSeatIds,
-                  cellSize: _cellSize,
-                  dotSize: _dotSize,
-                  gradeColors: _gradeColors,
-                  soldColor: _soldColor,
-                  reservedColor: _reservedColor,
-                  selectedColor: _selectedColor,
-                  wheelchairColor: _wheelchairColor,
-                  holdColor: _holdColor,
-                  emptyDotColor: _emptyDotColor,
+          child: Stack(
+            children: [
+              // Map
+              GestureDetector(
+                onTapDown: _onTapDown,
+                child: InteractiveViewer(
+                  transformationController: _ctrl,
+                  minScale: 0.4,
+                  maxScale: 5.0,
+                  constrained: false,
+                  boundaryMargin: const EdgeInsets.all(100),
+                  child: CustomPaint(
+                    size: Size(canvasW, canvasH),
+                    painter: _DotMapPainter(
+                      layout: layout,
+                      seatByGrid: seatByGrid,
+                      selectedSeatIds: widget.selectedSeatIds,
+                      cellSize: _cellSize,
+                      dotSize: _dotSize,
+                      gradeColors: _gradeColors,
+                      soldColor: _soldColor,
+                      reservedColor: _reservedColor,
+                      selectedColor: _selectedColor,
+                      wheelchairColor: _wheelchairColor,
+                      holdColor: _holdColor,
+                      emptyDotColor: _emptyDotColor,
+                      floorBounds: floorBounds,
+                    ),
+                  ),
                 ),
               ),
-            ),
+              // Zoom control buttons — bottom right
+              Positioned(
+                right: 12,
+                bottom: 12,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _zoomButton(Icons.add_rounded, _zoomIn),
+                    const SizedBox(height: 4),
+                    _zoomButton(Icons.remove_rounded, _zoomOut),
+                    const SizedBox(height: 4),
+                    _zoomButton(Icons.crop_free_rounded, _zoomReset),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
         // Selected seat info
         if (_hoveredSeat != null) _buildSeatInfo(_hoveredSeat!),
       ],
     );
+  }
+
+  Widget _zoomButton(IconData icon, VoidCallback onTap) {
+    return Material(
+      color: Colors.transparent,
+      child: Ink(
+        decoration: BoxDecoration(
+          color: AppTheme.surface.withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.border, width: 0.5),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Icon(icon, color: AppTheme.textPrimary, size: 18),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 층별 좌석 영역 범위 계산
+  static Map<String, _FloorBound> _computeFloorBounds(VenueSeatLayout layout) {
+    final bounds = <String, _FloorBound>{};
+    for (final ls in layout.seats) {
+      final floor = ls.floor;
+      if (bounds.containsKey(floor)) {
+        final b = bounds[floor]!;
+        bounds[floor] = _FloorBound(
+          minY: ls.gridY < b.minY ? ls.gridY : b.minY,
+          maxY: ls.gridY > b.maxY ? ls.gridY : b.maxY,
+          minX: ls.gridX < b.minX ? ls.gridX : b.minX,
+          maxX: ls.gridX > b.maxX ? ls.gridX : b.maxX,
+        );
+      } else {
+        bounds[floor] = _FloorBound(
+          minY: ls.gridY,
+          maxY: ls.gridY,
+          minX: ls.gridX,
+          maxX: ls.gridX,
+        );
+      }
+    }
+    return bounds;
   }
 
   Widget _buildLegend() {
@@ -181,6 +284,21 @@ class _SeatDotMapState extends State<SeatDotMap> {
   }
 }
 
+/// 층별 좌석 영역 경계
+class _FloorBound {
+  final int minY;
+  final int maxY;
+  final int minX;
+  final int maxX;
+
+  const _FloorBound({
+    required this.minY,
+    required this.maxY,
+    required this.minX,
+    required this.maxX,
+  });
+}
+
 // ─── Canvas Painter ───
 
 class _DotMapPainter extends CustomPainter {
@@ -196,6 +314,7 @@ class _DotMapPainter extends CustomPainter {
   final Color wheelchairColor;
   final Color holdColor;
   final Color emptyDotColor;
+  final Map<String, _FloorBound> floorBounds;
 
   _DotMapPainter({
     required this.layout,
@@ -210,6 +329,7 @@ class _DotMapPainter extends CustomPainter {
     required this.wheelchairColor,
     required this.holdColor,
     required this.emptyDotColor,
+    required this.floorBounds,
   });
 
   @override
@@ -218,6 +338,9 @@ class _DotMapPainter extends CustomPainter {
 
     // Stage
     _drawStage(canvas, size);
+
+    // Floor labels (draw before seats so seats render on top)
+    _drawFloorLabels(canvas);
 
     // Draw all layout seats
     for (final ls in layout.seats) {
@@ -295,6 +418,50 @@ class _DotMapPainter extends CustomPainter {
             Offset(cx - 3, cy - 3), Offset(cx + 3, cy + 3), xPaint);
         canvas.drawLine(
             Offset(cx + 3, cy - 3), Offset(cx - 3, cy + 3), xPaint);
+      }
+    }
+  }
+
+  void _drawFloorLabels(Canvas canvas) {
+    if (floorBounds.length <= 1) return; // 단층은 라벨 불필요
+
+    for (final entry in floorBounds.entries) {
+      final floor = entry.key;
+      final b = entry.value;
+
+      // 층 라벨을 좌석 영역 좌측 위에 표시
+      final labelX = b.minX * cellSize - 4;
+      final labelY = b.minY * cellSize - 18;
+
+      final tp = TextPainter(
+        text: TextSpan(
+          text: floor,
+          style: const TextStyle(
+            color: Color(0xFF888898),
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1,
+          ),
+        ),
+        textDirection: ui.TextDirection.ltr,
+      );
+      tp.layout();
+      tp.paint(canvas, Offset(labelX, labelY));
+
+      // 층 구분선 (점선 효과 — 짧은 선분 반복)
+      final lineY = b.minY * cellSize - 6;
+      final lineStartX = b.minX * cellSize;
+      final lineEndX = (b.maxX + 1) * cellSize;
+      final linePaint = Paint()
+        ..color = const Color(0xFF444450)
+        ..strokeWidth = 0.5;
+
+      for (double x = lineStartX; x < lineEndX; x += 6) {
+        canvas.drawLine(
+          Offset(x, lineY),
+          Offset(x + 3, lineY),
+          linePaint,
+        );
       }
     }
   }

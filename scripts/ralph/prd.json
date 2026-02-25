@@ -1127,6 +1127,39 @@
       "priority": 54,
       "passes": true,
       "notes": "수정 대상: melon_ticket_app/lib/features/tickets/my_tickets_screen.dart _TicketCard (lines 162-370). _metaRow 2개 제거(lines 292-302), 좌석 정보 행 추가. _TicketCard는 이미 ConsumerWidget — seatRepositoryProvider로 Seat 조회 추가 (ticket_detail_screen.dart의 _seatStreamProvider 패턴 참고). MT-050 구현 시 이 항목과 함께 처리, MT-050도 passes: true로 변경."
+    },
+    {
+      "id": "MT-055",
+      "title": "좌석 선택 UI 고도화 — NOL 티켓 수준 인터랙티브 도트맵",
+      "description": "현재 도트맵 좌석 선택(seat_dot_map.dart)에 줌 컨트롤 버튼(+/-/리셋), 층 구분 라벨, 데스크탑 우측 선택좌석 패널, 모바일 선택좌석 시트를 추가하여 NOL 티켓(인터파크) 수준의 좌석 선택 UX를 구현한다.",
+      "acceptanceCriteria": [
+        "── 줌 컨트롤 (seat_dot_map.dart) ──",
+        "InteractiveViewer 위에 Stack으로 우하단 줌 +/- 버튼 오버레이",
+        "줌 리셋 버튼 (crop_free 아이콘) — Matrix4.identity()로 초기화",
+        "+ 버튼: 현재 스케일 × 1.3 (center 기준), 최대 5.0x",
+        "- 버튼: 현재 스케일 ÷ 1.3, 최소 0.4x",
+        "",
+        "── 층 구분 라벨 (seat_dot_map.dart) ──",
+        "다층 공연장인 경우 각 층 좌석 영역 위에 '1층', '2층' 등 라벨 텍스트 드로잉",
+        "층 구분선: 점선 스타일의 구분선 렌더링",
+        "단층 공연장은 라벨 표시하지 않음",
+        "",
+        "── 데스크탑 선택좌석 패널 (seat_selection_screen.dart) ──",
+        "LayoutBuilder: 너비 > 800px일 때 Row 레이아웃 (좌측 도트맵 + 우측 320px 패널)",
+        "패널 헤더: '선택 좌석' + 갯수 뱃지 + '전체삭제' 버튼",
+        "좌석 목록: 등급 뱃지 + 좌석명(displayName) + 가격 + X 삭제 버튼",
+        "패널 푸터: 합계 금액 + '선택 완료' 버튼 (골드 그라데이션)",
+        "",
+        "── 모바일 선택좌석 시트 ──",
+        "바텀바의 'N석 선택' 텍스트 탭 시 showModalBottomSheet로 선택 좌석 목록 표시",
+        "시트 내 좌석별 삭제 가능, '전체삭제' 버튼",
+        "합계 금액 표시",
+        "",
+        "flutter analyze 통과"
+      ],
+      "priority": 55,
+      "passes": true,
+      "notes": "수정 파일: seat_dot_map.dart (줌 컨트롤 + 층 라벨), seat_selection_screen.dart (데스크탑 레이아웃 + 선택좌석 패널 + 모바일 시트). 기존 InteractiveViewer + CustomPainter 아키텍처 활용, 추가 패키지 없이 구현."
     }
   ]
 }
