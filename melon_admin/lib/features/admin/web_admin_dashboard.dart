@@ -76,7 +76,7 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       ElevatedButton(
-                        onPressed: () => context.push('/setup'),
+                        onPressed: () => context.go('/setup'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AdminTheme.gold,
                           foregroundColor: AdminTheme.onAccent,
@@ -612,13 +612,13 @@ class _DashboardContent extends ConsumerWidget {
                                 _ActionButton(
                                   label: '공연장 관리',
                                   icon: Icons.location_city_rounded,
-                                  onTap: () => context.push('/venues'),
+                                  onTap: () => context.go('/venues'),
                                 ),
                                 _ActionButton(
                                   label: '새 공연 등록',
                                   icon: Icons.add_circle_outline_rounded,
                                   onTap: () =>
-                                      context.push('/events/create'),
+                                      context.go('/events/create'),
                                 ),
                               ],
                             ),
@@ -1244,7 +1244,7 @@ class _EventRowState extends ConsumerState<_EventRow> {
                               style: AdminTheme.sans(fontSize: 13),
                             ),
                             onPressed: (_) =>
-                                context.push('/events/${event.id}/edit'),
+                                context.go('/events/${event.id}/edit'),
                           ),
                           shad.MenuButton(
                             child: Text(
@@ -1252,7 +1252,7 @@ class _EventRowState extends ConsumerState<_EventRow> {
                               style: AdminTheme.sans(fontSize: 13),
                             ),
                             onPressed: (_) =>
-                                context.push('/events/${event.id}/seats'),
+                                context.go('/events/${event.id}/seats'),
                           ),
                           shad.MenuButton(
                             child: Text(
@@ -1260,7 +1260,7 @@ class _EventRowState extends ConsumerState<_EventRow> {
                               style: AdminTheme.sans(fontSize: 13),
                             ),
                             onPressed: (_) =>
-                                context.push('/events/${event.id}/assignments'),
+                                context.go('/events/${event.id}/assignments'),
                           ),
                           shad.MenuButton(
                             child: Text(
@@ -1268,7 +1268,7 @@ class _EventRowState extends ConsumerState<_EventRow> {
                               style: AdminTheme.sans(fontSize: 13),
                             ),
                             onPressed: (_) =>
-                                context.push('/events/${event.id}/bookers'),
+                                context.go('/events/${event.id}/bookers'),
                           ),
                           const shad.MenuDivider(),
                           shad.MenuButton(
@@ -1321,19 +1321,19 @@ class _EventRowState extends ConsumerState<_EventRow> {
         children: [
           shad.MenuButton(
             child: Text('공연 수정', style: AdminTheme.sans(fontSize: 13)),
-            onPressed: (_) => context.push('/events/${event.id}/edit'),
+            onPressed: (_) => context.go('/events/${event.id}/edit'),
           ),
           shad.MenuButton(
             child: Text('좌석 관리', style: AdminTheme.sans(fontSize: 13)),
-            onPressed: (_) => context.push('/events/${event.id}/seats'),
+            onPressed: (_) => context.go('/events/${event.id}/seats'),
           ),
           shad.MenuButton(
             child: Text('배정 현황', style: AdminTheme.sans(fontSize: 13)),
-            onPressed: (_) => context.push('/events/${event.id}/assignments'),
+            onPressed: (_) => context.go('/events/${event.id}/assignments'),
           ),
           shad.MenuButton(
             child: Text('예매자 목록', style: AdminTheme.sans(fontSize: 13)),
-            onPressed: (_) => context.push('/events/${event.id}/bookers'),
+            onPressed: (_) => context.go('/events/${event.id}/bookers'),
           ),
           const shad.MenuDivider(),
           shad.MenuButton(
@@ -1356,7 +1356,7 @@ class _EventRowState extends ConsumerState<_EventRow> {
   void _cloneEvent(Event event) {
     // 공연 복제: 기존 공연 데이터를 기반으로 새 공연 등록 폼 열기
     // EventCreateScreen에 클론 대상 이벤트 ID를 전달하여 데이터 프리필
-    context.push('/events/${event.id}/edit?clone=true');
+    context.go('/events/${event.id}/edit?clone=true');
   }
 
   Future<void> _showDeleteDialog(Event event) async {
@@ -2076,7 +2076,7 @@ class _EventsContent extends ConsumerWidget {
                   ),
                   _ActionButton(
                     label: '새 공연 등록',
-                    onTap: () => context.push('/events/create'),
+                    onTap: () => context.go('/events/create'),
                   ),
                 ],
               ),
