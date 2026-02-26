@@ -439,7 +439,10 @@ B,1층,1,5,R''';
                     ),
                   ),
           ),
-          if (!_uploadSuccess) _buildBottomBar(),
+          if (_isEditMode && _editSelectedSeatIds.isNotEmpty)
+            _buildEditActionBar()
+          else if (!_uploadSuccess)
+            _buildBottomBar(),
         ],
       ),
     );
@@ -1616,7 +1619,7 @@ B,1층,1,5,R''';
         case 'status':
           cmp = a.status.name.compareTo(b.status.name);
           break;
-        default: // seatKey
+        default:
           cmp = a.seatKey.compareTo(b.seatKey);
       }
       return _editSortAsc ? cmp : -cmp;
@@ -1628,189 +1631,167 @@ B,1층,1,5,R''';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Toolbar ──
-        Row(
-          children: [
-            // Grade filter chips
-            GestureDetector(
-              onTap: () => setState(() => _editGradeFilter = null),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _editGradeFilter == null
-                      ? AdminTheme.gold.withValues(alpha: 0.1)
-                      : AdminTheme.background,
-                  borderRadius: BorderRadius.circular(2),
-                  border: Border.all(
-                    color: _editGradeFilter == null
-                        ? AdminTheme.gold.withValues(alpha: 0.3)
-                        : AdminTheme.sage.withValues(alpha: 0.15),
-                    width: 0.5,
-                  ),
-                ),
-                child: Text(
-                  'ALL',
-                  style: AdminTheme.label(
-                    fontSize: 9,
-                    color: _editGradeFilter == null
-                        ? AdminTheme.gold
-                        : AdminTheme.sage,
-                  ),
-                ),
-              ),
+        // ── Quick select bar ──
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AdminTheme.background,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: AdminTheme.sage.withValues(alpha: 0.12),
+              width: 0.5,
             ),
-            ..._gradeOrder.map((g) {
-              final isActive = _editGradeFilter == g;
-              final color = _gradeColors[g] ?? AdminTheme.sage;
-              return Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: GestureDetector(
-                  onTap: () => setState(() {
-                    _editGradeFilter = isActive ? null : g;
-                    _editSelectedSeatIds.clear();
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.touch_app_rounded,
+                      size: 14, color: AdminTheme.gold.withValues(alpha: 0.7)),
+                  const SizedBox(width: 6),
+                  Text(
+                    'QUICK SELECT',
+                    style: AdminTheme.label(
+                        fontSize: 9, color: AdminTheme.gold),
+                  ),
+                  const Spacer(),
+                  if (_editSelectedSeatIds.isNotEmpty)
+                    GestureDetector(
+                      onTap: () =>
+                          setState(() => _editSelectedSeatIds.clear()),
+                      child: Text(
+                        'CLEAR',
+                        style: AdminTheme.label(
+                          fontSize: 9,
+                          color: AdminTheme.textTertiary,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  // Select all
+                  _quickSelectChip(
+                    label: 'ALL ${seats.length}',
+                    isActive: _editSelectedSeatIds.length == seats.length,
+                    color: AdminTheme.gold,
+                    onTap: () {
+                      setState(() {
+                        if (_editSelectedSeatIds.length == seats.length) {
+                          _editSelectedSeatIds.clear();
+                        } else {
+                          _editSelectedSeatIds =
+                              seats.map((s) => s.id).toSet();
+                          _editGradeFilter = null;
+                        }
+                      });
+                    },
+                  ),
+                  // Per grade select
+                  ..._gradeOrder.map((g) {
+                    final gradeSeats =
+                        seats.where((s) => s.grade == g).toList();
+                    if (gradeSeats.isEmpty) return const SizedBox.shrink();
+                    final gradeIds = gradeSeats.map((s) => s.id).toSet();
+                    final allGradeSelected =
+                        gradeIds.every((id) => _editSelectedSeatIds.contains(id));
+                    return _quickSelectChip(
+                      label: '$g ${gradeSeats.length}',
+                      isActive: allGradeSelected,
+                      color: _gradeColors[g] ?? AdminTheme.sage,
+                      onTap: () {
+                        setState(() {
+                          if (allGradeSelected) {
+                            _editSelectedSeatIds.removeAll(gradeIds);
+                          } else {
+                            _editSelectedSeatIds.addAll(gradeIds);
+                          }
+                        });
+                      },
+                    );
                   }),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? color.withValues(alpha: 0.15)
-                          : AdminTheme.background,
-                      borderRadius: BorderRadius.circular(2),
-                      border: Border.all(
-                        color: isActive
-                            ? color.withValues(alpha: 0.4)
-                            : AdminTheme.sage.withValues(alpha: 0.15),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Text(
-                      g,
-                      style: AdminTheme.label(
-                        fontSize: 9,
-                        color: isActive ? color : AdminTheme.sage,
-                      ),
-                    ),
+                  // Select available only
+                  _quickSelectChip(
+                    label: 'available',
+                    icon: Icons.event_seat_outlined,
+                    isActive: false,
+                    color: AdminTheme.success,
+                    onTap: () {
+                      setState(() {
+                        final availableIds = seats
+                            .where((s) => s.status == SeatStatus.available)
+                            .map((s) => s.id)
+                            .toSet();
+                        _editSelectedSeatIds = availableIds;
+                      });
+                    },
                   ),
-                ),
-              );
-            }),
-            const Spacer(),
-
-            // Bulk actions (visible when seats are selected)
-            if (_editSelectedSeatIds.isNotEmpty) ...[
-              Text(
-                '${_editSelectedSeatIds.length}선택',
-                style: AdminTheme.sans(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AdminTheme.gold,
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Bulk grade change
-              PopupMenuButton<String>(
-                tooltip: '등급 일괄 변경',
-                onSelected: (grade) => _bulkChangeGrade(grade),
-                color: AdminTheme.surface,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  side: BorderSide(
-                    color: AdminTheme.sage.withValues(alpha: 0.2),
-                    width: 0.5,
+                  // Select reserved only
+                  _quickSelectChip(
+                    label: 'reserved',
+                    icon: Icons.lock_outline_rounded,
+                    isActive: false,
+                    color: AdminTheme.gold,
+                    onTap: () {
+                      setState(() {
+                        final reservedIds = seats
+                            .where((s) => s.status == SeatStatus.reserved)
+                            .map((s) => s.id)
+                            .toSet();
+                        _editSelectedSeatIds = reservedIds;
+                      });
+                    },
                   ),
-                ),
-                itemBuilder: (_) => _gradeOrder.map((g) {
-                  return PopupMenuItem(
-                    value: g,
-                    height: 36,
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: _gradeColors[g],
-                            borderRadius: BorderRadius.circular(1),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          g,
-                          style: AdminTheme.sans(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: _gradeColors[g] ?? AdminTheme.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AdminTheme.info.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(2),
-                    border: Border.all(
-                      color: AdminTheme.info.withValues(alpha: 0.3),
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.swap_horiz_rounded,
-                          size: 12, color: AdminTheme.info),
-                      const SizedBox(width: 3),
-                      Text(
-                        'GRADE',
-                        style: AdminTheme.label(
-                            fontSize: 9, color: AdminTheme.info),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              // Bulk delete
-              GestureDetector(
-                onTap: _bulkDeleteSeats,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AdminTheme.error.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(2),
-                    border: Border.all(
-                      color: AdminTheme.error.withValues(alpha: 0.3),
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.delete_outline_rounded,
-                          size: 12, color: AdminTheme.error),
-                      const SizedBox(width: 3),
-                      Text(
-                        'DELETE',
-                        style: AdminTheme.label(
-                            fontSize: 9, color: AdminTheme.error),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
               ),
             ],
-          ],
+          ),
         ),
         const SizedBox(height: 12),
 
+        // ── Filter + sort row ──
+        Row(
+          children: [
+            // Filter by grade
+            Text(
+              'FILTER',
+              style: AdminTheme.label(
+                  fontSize: 8, color: AdminTheme.textTertiary),
+            ),
+            const SizedBox(width: 8),
+            _filterChip('ALL', _editGradeFilter == null, () {
+              setState(() => _editGradeFilter = null);
+            }),
+            ..._gradeOrder.map((g) => Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: _filterChip(g, _editGradeFilter == g, () {
+                    setState(() {
+                      _editGradeFilter = _editGradeFilter == g ? null : g;
+                    });
+                  }, color: _gradeColors[g]),
+                )),
+            const Spacer(),
+            // Count
+            Text(
+              '${filtered.length}석',
+              style: AdminTheme.sans(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AdminTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
         // ── Table header ──
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           decoration: BoxDecoration(
             color: AdminTheme.gold.withValues(alpha: 0.04),
             border: Border(
@@ -1823,46 +1804,62 @@ B,1층,1,5,R''';
           child: Row(
             children: [
               // Select all checkbox
-              SizedBox(
-                width: 28,
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      if (allFilteredSelected) {
-                        _editSelectedSeatIds.clear();
-                      } else {
-                        _editSelectedSeatIds =
-                            filtered.map((s) => s.id).toSet();
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    if (allFilteredSelected) {
+                      for (final s in filtered) {
+                        _editSelectedSeatIds.remove(s.id);
                       }
-                    });
-                  },
-                  child: Icon(
-                    allFilteredSelected
-                        ? Icons.check_box_rounded
-                        : Icons.check_box_outline_blank_rounded,
-                    size: 16,
-                    color: allFilteredSelected
-                        ? AdminTheme.gold
-                        : AdminTheme.sage.withValues(alpha: 0.5),
+                    } else {
+                      for (final s in filtered) {
+                        _editSelectedSeatIds.add(s.id);
+                      }
+                    }
+                  });
+                },
+                child: Container(
+                  width: 36,
+                  height: 24,
+                  alignment: Alignment.center,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: allFilteredSelected
+                          ? AdminTheme.gold
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(3),
+                      border: Border.all(
+                        color: allFilteredSelected
+                            ? AdminTheme.gold
+                            : AdminTheme.sage.withValues(alpha: 0.4),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: allFilteredSelected
+                        ? const Icon(Icons.check_rounded,
+                            size: 13, color: AdminTheme.onAccent)
+                        : null,
                   ),
                 ),
               ),
-              _sortableHeader('SEAT', 'seatKey', flex: 4),
+              _sortableHeader('SEAT', 'seatKey', flex: 5),
               _sortableHeader('GRADE', 'grade', flex: 2),
               _sortableHeader('STATUS', 'status', flex: 2),
-              const SizedBox(width: 28), // action column
+              const SizedBox(width: 32),
             ],
           ),
         ),
 
         // ── Seat rows ──
-        ...filtered.take(100).map((seat) => _buildSeatEditRow(seat)),
-        if (filtered.length > 100)
+        ...filtered.take(200).map((seat) => _buildSeatEditRow(seat)),
+        if (filtered.length > 200)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Center(
               child: Text(
-                '... 외 ${filtered.length - 100}개 (필터를 사용하세요)',
+                '... 외 ${filtered.length - 200}개',
                 style: AdminTheme.sans(
                   fontSize: 12,
                   color: AdminTheme.textTertiary,
@@ -1881,10 +1878,10 @@ B,1층,1,5,R''';
               onTap: () => _deleteAllSeats(seats.length),
               child: Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: AdminTheme.error.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(3),
                   border: Border.all(
                     color: AdminTheme.error.withValues(alpha: 0.2),
                     width: 0.5,
@@ -1910,6 +1907,82 @@ B,1층,1,5,R''';
           ],
         ),
       ],
+    );
+  }
+
+  Widget _quickSelectChip({
+    required String label,
+    required bool isActive,
+    required Color color,
+    required VoidCallback onTap,
+    IconData? icon,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isActive
+              ? color.withValues(alpha: 0.18)
+              : AdminTheme.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive
+                ? color.withValues(alpha: 0.5)
+                : AdminTheme.sage.withValues(alpha: 0.15),
+            width: isActive ? 1.5 : 0.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isActive) ...[
+              Icon(Icons.check_rounded, size: 13, color: color),
+              const SizedBox(width: 4),
+            ] else if (icon != null) ...[
+              Icon(icon, size: 12, color: color.withValues(alpha: 0.7)),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: AdminTheme.sans(
+                fontSize: 12,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive ? color : AdminTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _filterChip(String label, bool isActive, VoidCallback onTap,
+      {Color? color}) {
+    final c = color ?? AdminTheme.gold;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: isActive ? c.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(
+            color: isActive
+                ? c.withValues(alpha: 0.4)
+                : AdminTheme.sage.withValues(alpha: 0.12),
+            width: 0.5,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AdminTheme.label(
+            fontSize: 9,
+            color: isActive ? c : AdminTheme.sage,
+          ),
+        ),
+      ),
     );
   }
 
@@ -1958,156 +2031,185 @@ B,1층,1,5,R''';
     final isSelected = _editSelectedSeatIds.contains(seat.id);
     final gradeColor = _gradeColors[seat.grade] ?? AdminTheme.sage;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-      decoration: BoxDecoration(
-        color: isSelected
-            ? AdminTheme.gold.withValues(alpha: 0.04)
-            : Colors.transparent,
-        border: Border(
-          bottom: BorderSide(
-            color: AdminTheme.sage.withValues(alpha: 0.08),
-            width: 0.5,
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          if (isSelected) {
+            _editSelectedSeatIds.remove(seat.id);
+          } else {
+            _editSelectedSeatIds.add(seat.id);
+          }
+        });
+      },
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AdminTheme.gold.withValues(alpha: 0.06)
+              : Colors.transparent,
+          border: Border(
+            bottom: BorderSide(
+              color: AdminTheme.sage.withValues(alpha: 0.08),
+              width: 0.5,
+            ),
+            left: BorderSide(
+              color: isSelected
+                  ? AdminTheme.gold
+                  : Colors.transparent,
+              width: 2,
+            ),
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          // Checkbox
-          SizedBox(
-            width: 28,
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  if (isSelected) {
-                    _editSelectedSeatIds.remove(seat.id);
-                  } else {
-                    _editSelectedSeatIds.add(seat.id);
-                  }
-                });
-              },
-              child: Icon(
-                isSelected
-                    ? Icons.check_box_rounded
-                    : Icons.check_box_outline_blank_rounded,
-                size: 16,
-                color: isSelected
-                    ? AdminTheme.gold
-                    : AdminTheme.sage.withValues(alpha: 0.4),
-              ),
-            ),
-          ),
-          // Seat name
-          Expanded(
-            flex: 4,
-            child: Text(
-              seat.displayName,
-              style: AdminTheme.sans(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: AdminTheme.textPrimary,
-              ),
-            ),
-          ),
-          // Grade (editable via popup)
-          Expanded(
-            flex: 2,
-            child: PopupMenuButton<String>(
-              tooltip: '등급 변경',
-              onSelected: (grade) => _changeSeatGrade(seat.id, grade),
-              color: AdminTheme.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-                side: BorderSide(
-                  color: AdminTheme.sage.withValues(alpha: 0.2),
-                  width: 0.5,
-                ),
-              ),
-              itemBuilder: (_) => _gradeOrder.map((g) {
-                return PopupMenuItem(
-                  value: g,
-                  height: 32,
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: _gradeColors[g],
-                          borderRadius: BorderRadius.circular(1),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        g,
-                        style: AdminTheme.sans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: _gradeColors[g] ?? AdminTheme.textPrimary,
-                        ),
-                      ),
-                      if (seat.grade == g) ...[
-                        const Spacer(),
-                        Icon(Icons.check_rounded,
-                            size: 14, color: _gradeColors[g]),
-                      ],
-                    ],
-                  ),
-                );
-              }).toList(),
+        child: Row(
+          children: [
+            // Checkbox
+            Container(
+              width: 36,
+              height: 24,
+              alignment: Alignment.center,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                width: 18,
+                height: 18,
                 decoration: BoxDecoration(
-                  color: gradeColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(2),
+                  color: isSelected
+                      ? AdminTheme.gold
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(
+                    color: isSelected
+                        ? AdminTheme.gold
+                        : AdminTheme.sage.withValues(alpha: 0.3),
+                    width: 1.5,
+                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: gradeColor,
-                        borderRadius: BorderRadius.circular(1),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      seat.grade ?? 'N/A',
-                      style: AdminTheme.sans(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: gradeColor,
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    Icon(Icons.unfold_more_rounded,
-                        size: 10, color: gradeColor.withValues(alpha: 0.6)),
-                  ],
+                child: isSelected
+                    ? const Icon(Icons.check_rounded,
+                        size: 13, color: AdminTheme.onAccent)
+                    : null,
+              ),
+            ),
+            // Seat name
+            Expanded(
+              flex: 5,
+              child: Text(
+                seat.displayName,
+                style: AdminTheme.sans(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected
+                      ? AdminTheme.textPrimary
+                      : AdminTheme.textSecondary,
                 ),
               ),
             ),
-          ),
-          // Status
-          Expanded(
-            flex: 2,
-            child: _seatStatusBadge(seat.status),
-          ),
-          // Delete single seat
-          SizedBox(
-            width: 28,
-            child: GestureDetector(
-              onTap: () => _deleteSingleSeat(seat),
-              child: Icon(
-                Icons.close_rounded,
-                size: 14,
-                color: AdminTheme.sage.withValues(alpha: 0.4),
+            // Grade (editable via popup)
+            Expanded(
+              flex: 2,
+              child: GestureDetector(
+                onTap: () {}, // prevent row tap
+                child: PopupMenuButton<String>(
+                  tooltip: '등급 변경',
+                  onSelected: (grade) => _changeSeatGrade(seat.id, grade),
+                  color: AdminTheme.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    side: BorderSide(
+                      color: AdminTheme.sage.withValues(alpha: 0.2),
+                      width: 0.5,
+                    ),
+                  ),
+                  itemBuilder: (_) => _gradeOrder.map((g) {
+                    return PopupMenuItem(
+                      value: g,
+                      height: 36,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: _gradeColors[g],
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            g,
+                            style: AdminTheme.sans(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: _gradeColors[g] ?? AdminTheme.textPrimary,
+                            ),
+                          ),
+                          if (seat.grade == g) ...[
+                            const Spacer(),
+                            Icon(Icons.check_rounded,
+                                size: 14, color: _gradeColors[g]),
+                          ],
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: gradeColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: gradeColor,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          seat.grade ?? 'N/A',
+                          style: AdminTheme.sans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: gradeColor,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        Icon(Icons.unfold_more_rounded,
+                            size: 12, color: gradeColor.withValues(alpha: 0.5)),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+            // Status
+            Expanded(
+              flex: 2,
+              child: _seatStatusBadge(seat.status),
+            ),
+            // Delete single seat
+            SizedBox(
+              width: 32,
+              child: GestureDetector(
+                onTap: () => _deleteSingleSeat(seat),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: AdminTheme.sage.withValues(alpha: 0.35),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2137,23 +2239,178 @@ B,1층,1,5,R''';
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 5,
-          height: 5,
+          width: 6,
+          height: 6,
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 5),
         Text(
           label,
           style: AdminTheme.sans(
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: FontWeight.w500,
             color: color,
           ),
         ),
       ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EDIT ACTION BAR — fixed at bottom when seats selected
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildEditActionBar() {
+    final count = _editSelectedSeatIds.length;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        14,
+        20,
+        14 + MediaQuery.of(context).padding.bottom,
+      ),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        border: const Border(
+          top: BorderSide(color: AdminTheme.border, width: 0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Selection count
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AdminTheme.gold.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: AdminTheme.gold.withValues(alpha: 0.3),
+                width: 0.5,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle_rounded,
+                    size: 14, color: AdminTheme.gold),
+                const SizedBox(width: 5),
+                Text(
+                  '$count석 선택됨',
+                  style: AdminTheme.sans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AdminTheme.gold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Clear
+          GestureDetector(
+            onTap: () => setState(() => _editSelectedSeatIds.clear()),
+            child: Text(
+              '해제',
+              style: AdminTheme.sans(
+                fontSize: 12,
+                color: AdminTheme.textTertiary,
+              ),
+            ),
+          ),
+          const Spacer(),
+          // Grade change buttons
+          ..._gradeOrder.map((g) {
+            final color = _gradeColors[g]!;
+            return Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: GestureDetector(
+                onTap: () => _bulkChangeGrade(g),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: color.withValues(alpha: 0.35),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          g,
+                          style: AdminTheme.sans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: color,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+          const SizedBox(width: 8),
+          // Delete button
+          GestureDetector(
+            onTap: _bulkDeleteSeats,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AdminTheme.error.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: AdminTheme.error.withValues(alpha: 0.35),
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.delete_outline_rounded,
+                        size: 15, color: AdminTheme.error),
+                    const SizedBox(width: 4),
+                    Text(
+                      'DELETE',
+                      style: AdminTheme.label(
+                          fontSize: 10, color: AdminTheme.error),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
