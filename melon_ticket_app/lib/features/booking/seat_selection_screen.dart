@@ -4614,11 +4614,42 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                         ),
                       ],
                     ),
-                    child: Transform.rotate(
-                      angle: (progress - 0.5) * pi,
-                      child: CustomPaint(
-                        size: const Size(26, 26),
-                        painter: const _CompassNeedlePainter(),
+                    child: Center(
+                      child: Transform.rotate(
+                        angle: (progress - 0.5) * pi,
+                        child: SizedBox(
+                          width: 14,
+                          height: 30,
+                          child: Column(
+                            children: [
+                              // North needle (gold triangle)
+                              Expanded(
+                                child: ClipPath(
+                                  clipper: _TriangleClipper(),
+                                  child: Container(
+                                      color: const Color(0xFFC9A84C)),
+                                ),
+                              ),
+                              // Center dot
+                              Container(
+                                width: 5,
+                                height: 5,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFC9A84C),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              // South needle (dim triangle)
+                              Expanded(
+                                child: ClipPath(
+                                  clipper: _InvertedTriangleClipper(),
+                                  child: Container(
+                                      color: Color(0x55FFFFFF)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   );
@@ -4815,50 +4846,34 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
 }
 
 // ── Pulsing animation widget ──
-class _CompassNeedlePainter extends CustomPainter {
-  const _CompassNeedlePainter();
-
+// Triangle pointing UP (for north needle)
+class _TriangleClipper extends CustomClipper<Path> {
   @override
-  void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-
-    // North needle (gold)
-    final northPath = Path()
-      ..moveTo(cx, 2)
-      ..lineTo(cx + 7, cy + 1)
-      ..lineTo(cx - 7, cy + 1)
+  Path getClip(Size size) {
+    return Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
       ..close();
-    canvas.drawPath(
-      northPath,
-      Paint()
-        ..color = const Color(0xFFC9A84C)
-        ..style = PaintingStyle.fill,
-    );
-
-    // South needle (dim white)
-    final southPath = Path()
-      ..moveTo(cx, size.height - 2)
-      ..lineTo(cx + 7, cy - 1)
-      ..lineTo(cx - 7, cy - 1)
-      ..close();
-    canvas.drawPath(
-      southPath,
-      Paint()
-        ..color = const Color(0x55FFFFFF)
-        ..style = PaintingStyle.fill,
-    );
-
-    // Center dot
-    canvas.drawCircle(
-      Offset(cx, cy),
-      2.5,
-      Paint()..color = const Color(0xFFC9A84C),
-    );
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+// Triangle pointing DOWN (for south needle)
+class _InvertedTriangleClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    return Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
 
 class _PulsingIcon extends StatefulWidget {
