@@ -372,6 +372,9 @@ class VenueSeatLayout {
   final int gridCols;
   final int gridRows;
   final String stagePosition; // top / bottom
+  final double stageWidthRatio; // 0.0~1.0 (캔버스 대비 비율)
+  final double stageHeight; // px
+  final String stageShape; // rect / arc / trapezoid
   final List<LayoutSeat> seats;
   final List<LayoutLabel> labels; // 텍스트 라벨
   final Map<String, int> gradePrice; // 등급별 가격
@@ -380,6 +383,9 @@ class VenueSeatLayout {
     this.gridCols = 60,
     this.gridRows = 40,
     this.stagePosition = 'top',
+    this.stageWidthRatio = 0.4,
+    this.stageHeight = 28,
+    this.stageShape = 'rect',
     this.seats = const [],
     this.labels = const [],
     this.gradePrice = const {},
@@ -401,6 +407,9 @@ class VenueSeatLayout {
       gridCols: data['gridCols'] ?? 60,
       gridRows: data['gridRows'] ?? 40,
       stagePosition: data['stagePosition'] ?? 'top',
+      stageWidthRatio: (data['stageWidthRatio'] ?? 0.4).toDouble(),
+      stageHeight: (data['stageHeight'] ?? 28).toDouble(),
+      stageShape: data['stageShape'] ?? 'rect',
       seats: (data['seats'] as List<dynamic>?)
               ?.map((s) => LayoutSeat.fromMap(s as Map<String, dynamic>))
               .toList() ??
@@ -418,6 +427,9 @@ class VenueSeatLayout {
       'gridCols': gridCols,
       'gridRows': gridRows,
       'stagePosition': stagePosition,
+      'stageWidthRatio': stageWidthRatio,
+      'stageHeight': stageHeight,
+      'stageShape': stageShape,
       'seats': seats.map((s) => s.toMap()).toList(),
       'labels': labels.map((l) => l.toMap()).toList(),
       'gradePrice': gradePrice,

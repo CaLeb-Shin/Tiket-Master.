@@ -30,6 +30,9 @@ class _SeatLayoutEditorScreenState
   int _gridCols = 60;
   int _gridRows = 40;
   String _stagePosition = 'top';
+  double _stageWidthRatio = 0.4;
+  double _stageHeight = 28;
+  String _stageShape = 'rect'; // rect / arc / trapezoid
   final Map<String, LayoutSeat> _seats = {}; // key: "x,y"
   final Map<String, int> _gradePrice = {
     'VIP': 100000,
@@ -116,6 +119,9 @@ class _SeatLayoutEditorScreenState
           _gridCols = layout.gridCols;
           _gridRows = layout.gridRows;
           _stagePosition = layout.stagePosition;
+          _stageWidthRatio = layout.stageWidthRatio;
+          _stageHeight = layout.stageHeight;
+          _stageShape = layout.stageShape;
           _gradePrice.addAll(layout.gradePrice);
           for (final seat in layout.seats) {
             _seats[seat.key] = seat;
@@ -138,6 +144,9 @@ class _SeatLayoutEditorScreenState
         gridCols: _gridCols,
         gridRows: _gridRows,
         stagePosition: _stagePosition,
+        stageWidthRatio: _stageWidthRatio,
+        stageHeight: _stageHeight,
+        stageShape: _stageShape,
         seats: _seats.values.toList(),
         labels: _labels.values.toList(),
         gradePrice: Map.from(_gradePrice),
@@ -917,6 +926,9 @@ class _SeatLayoutEditorScreenState
               seats: _seats,
               labels: _labels,
               stagePosition: _stagePosition,
+              stageWidthRatio: _stageWidthRatio,
+              stageHeight: _stageHeight,
+              stageShape: _stageShape,
               selectedSeatKey: _selectedSeat?.key,
               gradeColors: gradeColors,
               emptyDotColor: _emptyDotColor,
@@ -1245,7 +1257,7 @@ class _SeatLayoutEditorScreenState
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    Text('무대',
+                    Text('무대 위치',
                         style: AdminTheme.sans(
                             fontSize: 11, color: AdminTheme.textSecondary)),
                     const Spacer(),
@@ -1254,6 +1266,66 @@ class _SeatLayoutEditorScreenState
                     const SizedBox(width: 4),
                     _toggleChip('하단', _stagePosition == 'bottom',
                         () => setState(() => _stagePosition = 'bottom')),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // Stage shape
+                Text('무대 모양',
+                    style: AdminTheme.sans(
+                        fontSize: 10,
+                        color: AdminTheme.textTertiary,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    _stageShapeChip('rect', '사각형'),
+                    const SizedBox(width: 4),
+                    _stageShapeChip('arc', '아치형'),
+                    const SizedBox(width: 4),
+                    _stageShapeChip('trapezoid', '사다리꼴'),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // Stage width
+                Row(
+                  children: [
+                    Text('무대 너비',
+                        style: AdminTheme.sans(
+                            fontSize: 10, color: AdminTheme.textTertiary)),
+                    Expanded(
+                      child: Slider(
+                        value: _stageWidthRatio,
+                        min: 0.15,
+                        max: 0.9,
+                        activeColor: AdminTheme.gold,
+                        onChanged: (v) =>
+                            setState(() => _stageWidthRatio = v),
+                      ),
+                    ),
+                    Text('${(_stageWidthRatio * 100).round()}%',
+                        style: AdminTheme.sans(
+                            fontSize: 10, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+                // Stage height
+                Row(
+                  children: [
+                    Text('무대 높이',
+                        style: AdminTheme.sans(
+                            fontSize: 10, color: AdminTheme.textTertiary)),
+                    Expanded(
+                      child: Slider(
+                        value: _stageHeight,
+                        min: 16,
+                        max: 60,
+                        activeColor: AdminTheme.gold,
+                        onChanged: (v) =>
+                            setState(() => _stageHeight = v),
+                      ),
+                    ),
+                    Text('${_stageHeight.round()}',
+                        style: AdminTheme.sans(
+                            fontSize: 10, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ],
@@ -1817,6 +1889,38 @@ class _SeatLayoutEditorScreenState
     );
   }
 
+  Widget _stageShapeChip(String shape, String label) {
+    final isSelected = _stageShape == shape;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _stageShape = shape),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AdminTheme.gold.withValues(alpha: 0.15)
+                : const Color(0xFF1A1A24),
+            border: Border.all(
+              color: isSelected
+                  ? AdminTheme.gold
+                  : AdminTheme.border.withValues(alpha: 0.5),
+              width: isSelected ? 1.5 : 0.5,
+            ),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Center(
+            child: Text(label,
+                style: AdminTheme.sans(
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? AdminTheme.gold : AdminTheme.textSecondary,
+                )),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _textField({
     required String label,
     required String value,
@@ -1855,6 +1959,9 @@ class _SeatGridPainter extends CustomPainter {
   final Map<String, LayoutSeat> seats;
   final Map<String, LayoutLabel> labels;
   final String stagePosition;
+  final double stageWidthRatio;
+  final double stageHeight;
+  final String stageShape;
   final String? selectedSeatKey;
   final Map<String, Color> gradeColors;
   final Color emptyDotColor;
@@ -1873,6 +1980,9 @@ class _SeatGridPainter extends CustomPainter {
     required this.seats,
     required this.labels,
     required this.stagePosition,
+    required this.stageWidthRatio,
+    required this.stageHeight,
+    required this.stageShape,
     this.selectedSeatKey,
     required this.gradeColors,
     required this.emptyDotColor,
@@ -2103,28 +2213,86 @@ class _SeatGridPainter extends CustomPainter {
   }
 
   void _drawStage(Canvas canvas, Size size) {
-    final stageW = size.width * 0.4;
-    final stageH = 24.0;
+    final stageW = size.width * stageWidthRatio;
+    final stageH = stageHeight;
     final stageX = (size.width - stageW) / 2;
     final stageY = stagePosition == 'top' ? 4.0 : size.height - stageH - 4;
 
     final stagePaint = Paint()
       ..color = const Color(0xFF3A3A44)
       ..style = PaintingStyle.fill;
+    final stageBorderPaint = Paint()
+      ..color = const Color(0xFF4A4A54)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
 
-    final stageRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(stageX, stageY, stageW, stageH),
-      const Radius.circular(4),
-    );
-    canvas.drawRRect(stageRect, stagePaint);
+    switch (stageShape) {
+      case 'arc':
+        // 아치형 — 위가 볼록 (상단) / 아래가 볼록 (하단)
+        final path = Path();
+        if (stagePosition == 'top') {
+          path.moveTo(stageX, stageY + stageH);
+          path.lineTo(stageX, stageY + stageH * 0.4);
+          path.quadraticBezierTo(
+            stageX + stageW / 2, stageY - stageH * 0.3,
+            stageX + stageW, stageY + stageH * 0.4,
+          );
+          path.lineTo(stageX + stageW, stageY + stageH);
+          path.close();
+        } else {
+          path.moveTo(stageX, stageY);
+          path.lineTo(stageX, stageY + stageH * 0.6);
+          path.quadraticBezierTo(
+            stageX + stageW / 2, stageY + stageH * 1.3,
+            stageX + stageW, stageY + stageH * 0.6,
+          );
+          path.lineTo(stageX + stageW, stageY);
+          path.close();
+        }
+        canvas.drawPath(path, stagePaint);
+        canvas.drawPath(path, stageBorderPaint);
+        break;
+
+      case 'trapezoid':
+        // 사다리꼴 — 관객쪽이 넓음
+        final inset = stageW * 0.12;
+        final path = Path();
+        if (stagePosition == 'top') {
+          // 위: 좁은 쪽, 아래: 넓은 쪽
+          path.moveTo(stageX + inset, stageY);
+          path.lineTo(stageX + stageW - inset, stageY);
+          path.lineTo(stageX + stageW, stageY + stageH);
+          path.lineTo(stageX, stageY + stageH);
+          path.close();
+        } else {
+          // 위: 넓은 쪽, 아래: 좁은 쪽
+          path.moveTo(stageX, stageY);
+          path.lineTo(stageX + stageW, stageY);
+          path.lineTo(stageX + stageW - inset, stageY + stageH);
+          path.lineTo(stageX + inset, stageY + stageH);
+          path.close();
+        }
+        canvas.drawPath(path, stagePaint);
+        canvas.drawPath(path, stageBorderPaint);
+        break;
+
+      default: // rect
+        final stageRect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(stageX, stageY, stageW, stageH),
+          const Radius.circular(4),
+        );
+        canvas.drawRRect(stageRect, stagePaint);
+        canvas.drawRRect(stageRect, stageBorderPaint);
+    }
 
     // Stage label
+    final labelSize = math.min(stageH * 0.4, 12.0);
     final textPainter = TextPainter(
-      text: const TextSpan(
+      text: TextSpan(
         text: 'STAGE',
         style: TextStyle(
-          color: Color(0xFF666670),
-          fontSize: 10,
+          color: const Color(0xFF666670),
+          fontSize: labelSize,
           fontWeight: FontWeight.w700,
           letterSpacing: 3,
         ),
