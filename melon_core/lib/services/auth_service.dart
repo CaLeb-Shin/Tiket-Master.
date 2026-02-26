@@ -218,9 +218,9 @@ class AuthService {
     String? photoUrl,
     required String provider,
   }) async {
-    // 오너 이메일만 즉시 admin, 그 외는 user로 생성
+    // 오너 이메일만 즉시 superAdmin, 그 외는 user로 생성
     final role =
-        _isOwnerEmail(email) ? UserRole.admin.name : UserRole.user.name;
+        _isOwnerEmail(email) ? UserRole.superAdmin.name : UserRole.user.name;
 
     // 유니크 추천 코드 생성
     final referralCode = await _generateUniqueReferralCode();
@@ -257,7 +257,7 @@ class AuthService {
   Future<void> _updateUserRoleIfOwner(String uid, String? email) async {
     if (_isOwnerEmail(email)) {
       await _firestore.collection('users').doc(uid).update({
-        'role': UserRole.admin.name,
+        'role': UserRole.superAdmin.name,
         'lastLoginAt': FieldValue.serverTimestamp(),
       });
     } else {

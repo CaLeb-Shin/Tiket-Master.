@@ -59,7 +59,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen>
                 style: AdminTheme.sans(color: AdminTheme.error))),
       ),
       data: (user) {
-        _isSuperAdmin = user?.isSuperAdmin ?? false;
+        _isSuperAdmin = user?.isAdmin ?? false;
         final isSeller = user?.isSeller ?? false;
 
         return Scaffold(
@@ -389,9 +389,7 @@ class _VenueManageScreenState extends ConsumerState<VenueManageScreen>
               borderRadius: BorderRadius.circular(2),
             ),
             child: InkWell(
-              onTap: isSuperAdmin
-                  ? () => _showVenueDetail(venue)
-                  : null,
+              onTap: () => _showVenueDetail(venue),
               borderRadius: BorderRadius.circular(4),
               child: Row(
                 children: [
