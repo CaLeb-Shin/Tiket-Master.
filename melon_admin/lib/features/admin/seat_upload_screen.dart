@@ -229,6 +229,55 @@ B,1층,1,5,R''';
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // CONFIRM REPLACE — existing seats check
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<bool> _confirmReplaceSeats() async {
+    final existingSeats =
+        await ref.read(seatRepositoryProvider).getSeatsByEvent(widget.eventId);
+    if (existingSeats.isEmpty) return true;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AdminTheme.surface,
+        title: Text(
+          '좌석 교체',
+          style: AdminTheme.sans(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AdminTheme.textPrimary,
+          ),
+        ),
+        content: Text(
+          '기존 ${existingSeats.length}개 좌석이 삭제되고 새로 등록됩니다.\n계속하시겠습니까?',
+          style: AdminTheme.sans(
+            fontSize: 14,
+            color: AdminTheme.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('취소',
+                style: AdminTheme.sans(
+                    fontSize: 13, color: AdminTheme.textTertiary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('교체',
+                style: AdminTheme.sans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AdminTheme.gold)),
+          ),
+        ],
+      ),
+    );
+    return confirm == true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // UPLOAD — CSV
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -248,9 +297,15 @@ B,1층,1,5,R''';
       return;
     }
 
+    // Check existing seats and confirm replacement
+    if (!await _confirmReplaceSeats()) return;
+
     setState(() => _isLoading = true);
 
     try {
+      // Delete existing seats first
+      await ref.read(seatRepositoryProvider).deleteAllSeats(widget.eventId);
+
       final count = await ref
           .read(seatRepositoryProvider)
           .createSeatsFromCsv(widget.eventId, seats);
@@ -304,9 +359,15 @@ B,1층,1,5,R''';
       return;
     }
 
+    // Check existing seats and confirm replacement
+    if (!await _confirmReplaceSeats()) return;
+
     setState(() => _isLoading = true);
 
     try {
+      // Delete existing seats first
+      await ref.read(seatRepositoryProvider).deleteAllSeats(widget.eventId);
+
       final seatData = selectedSeats.map((ls) {
         return <String, dynamic>{
           'block': ls.zone,
