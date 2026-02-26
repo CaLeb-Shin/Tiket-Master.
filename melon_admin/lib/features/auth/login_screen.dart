@@ -1,9 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/admin_theme.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
+
+// ─── Brand Logo SVGs ───
+const _kakaoLogoSvg =
+    '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
+    '<path d="M12 3C6.48 3 2 6.36 2 10.5c0 2.69 1.82 5.04 4.55 6.35l-.97 3.54c-.08.28.18.52.41.35l3.66-2.45c.77.12 1.57.17 2.38.17 5.52 0 10-3.33 10-7.46S17.52 3 12 3z" fill="#191600"/>'
+    '</svg>';
+
+const _naverLogoSvg =
+    '<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">'
+    '<path d="M13.56 10.07L6.28 0H0v20h6.44V9.93L13.72 20H20V0h-6.44v10.07z" fill="white"/>'
+    '</svg>';
+
+const _googleLogoSvg =
+    '<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">'
+    '<path d="M43.6 20.1H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.7-.4-3.9z" fill="#FFC107"/>'
+    '<path d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" fill="#FF3D00"/>'
+    '<path d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2A11.9 11.9 0 0124 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" fill="#4CAF50"/>'
+    '<path d="M43.6 20.1H42V20H24v8h11.3a12 12 0 01-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.7-.4-3.9z" fill="#1976D2"/>'
+    '</svg>';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -244,7 +264,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         label: '카카오로 계속하기',
                         color: const Color(0xFFFEE500),
                         textColor: const Color(0xFF191919),
-                        icon: Icons.chat_bubble_rounded,
+                        logoWidget: SvgPicture.string(_kakaoLogoSvg,
+                            width: 20, height: 20),
                         onTap: _signInWithKakao,
                       ),
                       const SizedBox(height: 10),
@@ -252,11 +273,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         label: '네이버로 계속하기',
                         color: const Color(0xFF03C75A),
                         textColor: Colors.white,
-                        icon: Icons.north_east_rounded,
+                        logoWidget: SvgPicture.string(_naverLogoSvg,
+                            width: 18, height: 18),
                         onTap: _signInWithNaver,
                       ),
                       const SizedBox(height: 10),
-                      _buildGoogleButton(),
+                      _buildSocialButton(
+                        label: 'Google로 계속하기',
+                        color: AdminTheme.surface,
+                        textColor: AdminTheme.textPrimary,
+                        logoWidget: SvgPicture.string(_googleLogoSvg,
+                            width: 22, height: 22),
+                        onTap: _signInWithGoogle,
+                        border: true,
+                      ),
                       const SizedBox(height: 28),
 
                       // --- Divider ---
@@ -403,8 +433,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     required String label,
     required Color color,
     required Color textColor,
-    required IconData icon,
+    required Widget logoWidget,
     required VoidCallback onTap,
+    bool border = false,
   }) {
     return PressableScale(
       child: Container(
@@ -412,6 +443,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(4),
+          border: border
+              ? Border.all(color: AdminTheme.border, width: 0.5)
+              : null,
         ),
         child: Material(
           color: Colors.transparent,
@@ -422,7 +456,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  Icon(icon, size: 20, color: textColor),
+                  SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Center(child: logoWidget)),
                   const Spacer(),
                   Text(
                     label,
@@ -430,67 +467,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: textColor,
-                    ),
-                  ),
-                  const Spacer(),
-                  const SizedBox(width: 20),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ──────────────────────────────────────────────
-  //  Google Login Button
-  // ──────────────────────────────────────────────
-
-  Widget _buildGoogleButton() {
-    return PressableScale(
-      child: Container(
-        height: 50,
-        decoration: BoxDecoration(
-          color: AdminTheme.surface,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: AdminTheme.border, width: 0.5),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: _isLoading ? null : _signInWithGoogle,
-            borderRadius: BorderRadius.circular(4),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'G',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF4285F4),
-                          height: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    'Google로 계속하기',
-                    style: AdminTheme.sans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AdminTheme.textPrimary,
                     ),
                   ),
                   const Spacer(),
