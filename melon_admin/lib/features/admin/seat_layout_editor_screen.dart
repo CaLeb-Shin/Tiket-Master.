@@ -1024,70 +1024,109 @@ class _SeatLayoutEditorScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Grade
+                // Grade — Popup 방식
                 Text('등급',
                     style: AdminTheme.sans(
                         fontSize: 10,
                         color: AdminTheme.textTertiary,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 6),
-                Row(
-                  children: ['VIP', 'R', 'S', 'A'].map((grade) {
-                    final isSelected = _selectedGrade == grade;
+                PopupMenuButton<String>(
+                  onSelected: (grade) =>
+                      setState(() => _selectedGrade = grade),
+                  offset: const Offset(0, 40),
+                  color: const Color(0xFF1E1E2A),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: BorderSide(
+                        color: AdminTheme.border.withValues(alpha: 0.6)),
+                  ),
+                  itemBuilder: (_) => ['VIP', 'R', 'S', 'A'].map((grade) {
                     final color = gradeColors[grade]!;
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _selectedGrade = grade),
-                        child: Container(
-                          margin: EdgeInsets.only(
-                              right: grade != 'A' ? 4 : 0),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? color.withValues(alpha: 0.2)
-                                : Colors.transparent,
-                            border: Border.all(
-                              color: isSelected ? color : AdminTheme.border,
-                              width: isSelected ? 1.5 : 0.5,
-                            ),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Column(
-                            children: [
-                              Container(
-                                width: 12,
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  shape: BoxShape.circle,
-                                  boxShadow: isSelected
-                                      ? [
-                                          BoxShadow(
-                                            color:
-                                                color.withValues(alpha: 0.4),
-                                            blurRadius: 6,
-                                          )
-                                        ]
-                                      : null,
+                    final isSelected = _selectedGrade == grade;
+                    return PopupMenuItem<String>(
+                      value: grade,
+                      height: 40,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(4),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: color.withValues(alpha: 0.4),
+                                  blurRadius: 4,
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(grade,
-                                  style: AdminTheme.sans(
-                                    fontSize: 11,
-                                    fontWeight: isSelected
-                                        ? FontWeight.w700
-                                        : FontWeight.w400,
-                                    color: isSelected
-                                        ? color
-                                        : AdminTheme.textSecondary,
-                                  )),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(grade,
+                                style: AdminTheme.sans(
+                                  fontSize: 13,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: isSelected
+                                      ? color
+                                      : AdminTheme.textPrimary,
+                                )),
+                          ),
+                          if (isSelected)
+                            Icon(Icons.check_rounded,
+                                size: 16, color: color),
+                        ],
                       ),
                     );
                   }).toList(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: gradeColors[_selectedGrade]!
+                          .withValues(alpha: 0.12),
+                      border: Border.all(
+                        color: gradeColors[_selectedGrade]!,
+                        width: 1.2,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: gradeColors[_selectedGrade],
+                            borderRadius: BorderRadius.circular(4),
+                            boxShadow: [
+                              BoxShadow(
+                                color: gradeColors[_selectedGrade]!
+                                    .withValues(alpha: 0.5),
+                                blurRadius: 6,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(_selectedGrade,
+                              style: AdminTheme.sans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: gradeColors[_selectedGrade],
+                              )),
+                        ),
+                        Icon(Icons.unfold_more_rounded,
+                            size: 16,
+                            color: gradeColors[_selectedGrade]),
+                      ],
+                    ),
+                  ),
                 ),
 
                 const SizedBox(height: 12),
