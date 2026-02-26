@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:excel/excel.dart' hide Border, TextSpan;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:melon_core/data/models/venue.dart';
@@ -56,6 +57,7 @@ class _SeatLayoutEditorScreenState
   bool _loading = true;
   bool _saving = false;
   bool _isDragging = false;
+  bool _isRightDragging = false;
   bool _showExcelGuide = false;
   Venue? _venue;
 
@@ -171,6 +173,13 @@ class _SeatLayoutEditorScreenState
     setState(() {});
   }
 
+  // ─── Cmd key check ───
+  bool get _isCmdPressed =>
+      HardwareKeyboard.instance.logicalKeysPressed
+          .contains(LogicalKeyboardKey.metaLeft) ||
+      HardwareKeyboard.instance.logicalKeysPressed
+          .contains(LogicalKeyboardKey.metaRight);
+
   // ─── Canvas Tap ───
   void _onCanvasTap(Offset localPosition) {
     final gx = localPosition.dx ~/ _cellSize;
@@ -178,8 +187,9 @@ class _SeatLayoutEditorScreenState
     if (gx < 0 || gx >= _gridCols || gy < 0 || gy >= _gridRows) return;
 
     final key = '$gx,$gy';
+    final effectiveTool = _isCmdPressed ? _EditorTool.erase : _tool;
 
-    switch (_tool) {
+    switch (effectiveTool) {
       case _EditorTool.paint:
         if (!_seats.containsKey(key)) {
           setState(() {
@@ -217,14 +227,27 @@ class _SeatLayoutEditorScreenState
     }
   }
 
+  // ─── Right-click Erase ───
+  void _onCanvasEraseAt(Offset localPosition) {
+    final gx = localPosition.dx ~/ _cellSize;
+    final gy = localPosition.dy ~/ _cellSize;
+    if (gx < 0 || gx >= _gridCols || gy < 0 || gy >= _gridRows) return;
+
+    final key = '$gx,$gy';
+    if (_seats.containsKey(key)) {
+      setState(() => _seats.remove(key));
+    }
+  }
+
   void _onCanvasDrag(Offset localPosition) {
     final gx = localPosition.dx ~/ _cellSize;
     final gy = localPosition.dy ~/ _cellSize;
     if (gx < 0 || gx >= _gridCols || gy < 0 || gy >= _gridRows) return;
 
     final key = '$gx,$gy';
+    final effectiveTool = _isCmdPressed ? _EditorTool.erase : _tool;
 
-    if (_tool == _EditorTool.paint && !_seats.containsKey(key)) {
+    if (effectiveTool == _EditorTool.paint && !_seats.containsKey(key)) {
       setState(() {
         _seats[key] = LayoutSeat(
           gridX: gx,
@@ -235,7 +258,7 @@ class _SeatLayoutEditorScreenState
           seatType: _selectedSeatType,
         );
       });
-    } else if (_tool == _EditorTool.erase && _seats.containsKey(key)) {
+    } else if (effectiveTool == _EditorTool.erase && _seats.containsKey(key)) {
       setState(() => _seats.remove(key));
     }
   }
@@ -528,30 +551,47 @@ class _SeatLayoutEditorScreenState
         maxScale: 4.0,
         constrained: false,
         boundaryMargin: const EdgeInsets.all(200),
-        child: GestureDetector(
-          onTapDown: (details) => _onCanvasTap(details.localPosition),
-          onPanStart: (details) {
-            _isDragging = true;
-            _onCanvasDrag(details.localPosition);
+        child: Listener(
+          onPointerDown: (event) {
+            if ((event.buttons & 0x02) != 0) {
+              _isRightDragging = true;
+              _onCanvasEraseAt(event.localPosition);
+            }
           },
-          onPanUpdate: (details) {
-            if (_isDragging) _onCanvasDrag(details.localPosition);
+          onPointerMove: (event) {
+            if (_isRightDragging) {
+              _onCanvasEraseAt(event.localPosition);
+            }
           },
-          onPanEnd: (_) => _isDragging = false,
-          child: CustomPaint(
-            size: Size(canvasW, canvasH),
-            painter: _SeatGridPainter(
-              gridCols: _gridCols,
-              gridRows: _gridRows,
-              cellSize: _cellSize,
-              dotSize: _dotSize,
-              seats: _seats,
-              stagePosition: _stagePosition,
-              selectedSeatKey: _selectedSeat?.key,
-              gradeColors: gradeColors,
-              emptyDotColor: _emptyDotColor,
-              wheelchairColor: _wheelchairColor,
-              holdColor: _holdColor,
+          onPointerUp: (event) {
+            _isRightDragging = false;
+          },
+          child: GestureDetector(
+            onTapDown: (details) => _onCanvasTap(details.localPosition),
+            onSecondaryTapDown: (_) {}, // prevent browser context menu
+            onPanStart: (details) {
+              _isDragging = true;
+              _onCanvasDrag(details.localPosition);
+            },
+            onPanUpdate: (details) {
+              if (_isDragging) _onCanvasDrag(details.localPosition);
+            },
+            onPanEnd: (_) => _isDragging = false,
+            child: CustomPaint(
+              size: Size(canvasW, canvasH),
+              painter: _SeatGridPainter(
+                gridCols: _gridCols,
+                gridRows: _gridRows,
+                cellSize: _cellSize,
+                dotSize: _dotSize,
+                seats: _seats,
+                stagePosition: _stagePosition,
+                selectedSeatKey: _selectedSeat?.key,
+                gradeColors: gradeColors,
+                emptyDotColor: _emptyDotColor,
+                wheelchairColor: _wheelchairColor,
+                holdColor: _holdColor,
+              ),
             ),
           ),
         ),
@@ -1033,7 +1073,7 @@ class _SeatLayoutEditorScreenState
         children: [
           // Keyboard shortcuts hint
           Text(
-            '드래그하여 연속 배치 · 선택 도구로 좌석 편집',
+            '드래그: 연속 배치 · 우클릭/⌘+클릭: 지우기 · 선택 도구: 좌석 편집',
             style: AdminTheme.sans(fontSize: 11, color: AdminTheme.textTertiary),
           ),
           const Spacer(),
