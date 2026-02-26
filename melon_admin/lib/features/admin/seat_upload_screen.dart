@@ -500,10 +500,17 @@ B,1층,1,5,R''';
                     ),
                   ),
           ),
-          if (_isEditMode)
-            _buildEditActionBar()
-          else if (!_uploadSuccess)
-            _buildBottomBar(),
+          Builder(builder: (_) {
+            final hasSeats = ref
+                    .watch(seatsStreamProvider(widget.eventId))
+                    .whenOrNull(data: (s) => s.isNotEmpty) ??
+                false;
+            if (hasSeats && _editSelectedSeatIds.isNotEmpty) {
+              return _buildEditActionBar();
+            }
+            if (!_uploadSuccess && !hasSeats) return _buildBottomBar();
+            return const SizedBox.shrink();
+          }),
         ],
       ),
     );
@@ -701,12 +708,18 @@ B,1층,1,5,R''';
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildContent() {
+    final seatsAsync = ref.watch(seatsStreamProvider(widget.eventId));
+    final hasExistingSeats = seatsAsync.whenOrNull(
+          data: (seats) => seats.isNotEmpty,
+        ) ??
+        false;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── Page Title ──
         Text(
-          '좌석 등록',
+          hasExistingSeats ? '좌석 관리' : '좌석 등록',
           style: AdminTheme.serif(
             fontSize: 28,
             fontWeight: FontWeight.w300,
@@ -730,12 +743,10 @@ B,1층,1,5,R''';
           const SizedBox(height: 40),
         ],
 
-        // ── Tab switcher (only show when not in success state) ──
-        if (!_uploadSuccess) ...[
+        // ── Upload tabs: only when NO existing seats & not in success state ──
+        if (!_uploadSuccess && !hasExistingSeats) ...[
           _buildTabSwitcher(),
           const SizedBox(height: 28),
-
-          // Tab content
           if (_activeTab == 0)
             _buildDotmapTab()
           else
@@ -1453,60 +1464,6 @@ B,1층,1,5,R''';
                 ),
               ),
               const Spacer(),
-              // Edit mode toggle
-              seatsAsync.whenOrNull(
-                data: (seats) => seats.isNotEmpty
-                    ? GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _isEditMode = !_isEditMode;
-                            _editSelectedSeatIds.clear();
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _isEditMode
-                                ? AdminTheme.gold.withValues(alpha: 0.12)
-                                : AdminTheme.background,
-                            borderRadius: BorderRadius.circular(2),
-                            border: Border.all(
-                              color: _isEditMode
-                                  ? AdminTheme.gold.withValues(alpha: 0.3)
-                                  : AdminTheme.sage.withValues(alpha: 0.2),
-                              width: 0.5,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _isEditMode
-                                    ? Icons.close_rounded
-                                    : Icons.edit_outlined,
-                                size: 12,
-                                color: _isEditMode
-                                    ? AdminTheme.gold
-                                    : AdminTheme.sage,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                _isEditMode ? 'DONE' : 'EDIT',
-                                style: AdminTheme.label(
-                                  fontSize: 9,
-                                  color: _isEditMode
-                                      ? AdminTheme.gold
-                                      : AdminTheme.sage,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : null,
-              ) ?? const SizedBox.shrink(),
-              const SizedBox(width: 8),
               seatsAsync.when(
                 data: (seats) => Container(
                   padding:
@@ -1611,17 +1568,15 @@ B,1층,1,5,R''';
                   // Status bar
                   _buildStatusBar(seats.length, statusCounts),
 
-                  // ── Edit Mode: Seat Table ──
-                  if (_isEditMode) ...[
-                    const SizedBox(height: 20),
-                    Container(
-                      width: double.infinity,
-                      height: 0.5,
-                      color: AdminTheme.sage.withValues(alpha: 0.15),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSeatEditSection(seats),
-                  ],
+                  // ── Seat Edit Table (always shown when seats exist) ──
+                  const SizedBox(height: 20),
+                  Container(
+                    width: double.infinity,
+                    height: 0.5,
+                    color: AdminTheme.sage.withValues(alpha: 0.15),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildSeatEditSection(seats),
                 ],
               );
             },
@@ -2326,7 +2281,6 @@ B,1층,1,5,R''';
 
   Widget _buildEditActionBar() {
     final count = _editSelectedSeatIds.length;
-    final hasSelection = count > 0;
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -2348,173 +2302,131 @@ B,1층,1,5,R''';
           ),
         ],
       ),
-      child: hasSelection
-          ? Row(
+      child: Row(
+        children: [
+          // Selection count
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AdminTheme.gold.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: AdminTheme.gold.withValues(alpha: 0.3),
+                width: 0.5,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Selection count
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AdminTheme.gold.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AdminTheme.gold.withValues(alpha: 0.3),
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.check_circle_rounded,
-                          size: 14, color: AdminTheme.gold),
-                      const SizedBox(width: 5),
-                      Text(
-                        '$count석 선택됨',
-                        style: AdminTheme.sans(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AdminTheme.gold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () => setState(() => _editSelectedSeatIds.clear()),
-                  child: Text(
-                    '해제',
-                    style: AdminTheme.sans(
-                      fontSize: 12,
-                      color: AdminTheme.textTertiary,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                // Grade change buttons
-                ..._gradeOrder.map((g) {
-                  final color = _gradeColors[g]!;
-                  return Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: GestureDetector(
-                      onTap: () => _bulkChangeGrade(g),
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: color.withValues(alpha: 0.35),
-                              width: 0.5,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                g,
-                                style: AdminTheme.sans(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: color,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-                const SizedBox(width: 8),
-                // Delete button
-                GestureDetector(
-                  onTap: _bulkDeleteSeats,
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AdminTheme.error.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: AdminTheme.error.withValues(alpha: 0.35),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.delete_outline_rounded,
-                              size: 15, color: AdminTheme.error),
-                          const SizedBox(width: 4),
-                          Text(
-                            'DELETE',
-                            style: AdminTheme.label(
-                                fontSize: 10, color: AdminTheme.error),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : Row(
-              children: [
-                Icon(Icons.edit_rounded,
-                    size: 14, color: AdminTheme.gold.withValues(alpha: 0.6)),
-                const SizedBox(width: 8),
+                Icon(Icons.check_circle_rounded,
+                    size: 14, color: AdminTheme.gold),
+                const SizedBox(width: 5),
                 Text(
-                  '좌석을 선택하여 등급 변경 또는 삭제',
+                  '$count석 선택됨',
                   style: AdminTheme.sans(
                     fontSize: 13,
-                    color: AdminTheme.textTertiary,
-                  ),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _isEditMode = false;
-                      _editSelectedSeatIds.clear();
-                    });
-                  },
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AdminTheme.gold,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'DONE',
-                        style: AdminTheme.label(
-                          fontSize: 10,
-                          color: AdminTheme.onAccent,
-                        ),
-                      ),
-                    ),
+                    fontWeight: FontWeight.w600,
+                    color: AdminTheme.gold,
                   ),
                 ),
               ],
             ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => setState(() => _editSelectedSeatIds.clear()),
+            child: Text(
+              '해제',
+              style: AdminTheme.sans(
+                fontSize: 12,
+                color: AdminTheme.textTertiary,
+              ),
+            ),
+          ),
+          const Spacer(),
+          // Grade change buttons
+          ..._gradeOrder.map((g) {
+            final color = _gradeColors[g]!;
+            return Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: GestureDetector(
+                onTap: () => _bulkChangeGrade(g),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: color.withValues(alpha: 0.35),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          g,
+                          style: AdminTheme.sans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: color,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+          const SizedBox(width: 8),
+          // Delete button
+          GestureDetector(
+            onTap: _bulkDeleteSeats,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AdminTheme.error.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: AdminTheme.error.withValues(alpha: 0.35),
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.delete_outline_rounded,
+                        size: 15, color: AdminTheme.error),
+                    const SizedBox(width: 4),
+                    Text(
+                      'DELETE',
+                      style: AdminTheme.label(
+                          fontSize: 10, color: AdminTheme.error),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
