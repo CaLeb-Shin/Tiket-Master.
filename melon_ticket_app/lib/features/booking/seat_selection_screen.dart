@@ -2137,23 +2137,23 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
           ? () => _toggleSeat(seat, event, venueViews, allSeats)
           : null,
       child: Container(
-        width: 38,
-        height: 38,
-        margin: const EdgeInsets.all(2),
+        width: 28,
+        height: 28,
+        margin: const EdgeInsets.all(1.5),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(7),
-          border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: borderColor, width: isSelected ? 1.5 : 0.5),
         ),
         child: Stack(
           children: [
             Center(
               child: isSelected
-                  ? const Icon(Icons.check, size: 16, color: Color(0xFFFDF3F6))
+                  ? const Icon(Icons.check, size: 13, color: Color(0xFFFDF3F6))
                   : Text(
                       '${seat.number}',
                       style: AppTheme.nanum(
-                        fontSize: 10,
+                        fontSize: 9,
                         fontWeight: FontWeight.w500,
                         color: isAvailable
                             ? color
@@ -2164,15 +2164,14 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             // 360° view indicator dot
             if (hasView && isAvailable && !isSelected)
               Positioned(
-                top: 2,
-                right: 2,
+                top: 1,
+                right: 1,
                 child: Container(
-                  width: 6,
-                  height: 6,
+                  width: 4,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: AppTheme.gold,
                     shape: BoxShape.circle,
-                    border: Border.all(color: bg, width: 1),
                   ),
                 ),
               ),
