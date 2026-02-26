@@ -3800,15 +3800,15 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
         final coverW = imgW * scale;
         final coverH = imgH * scale;
 
+        // set coverSize BEFORE controller so listener can use it
+        _coverSize = Size(coverW, coverH);
+
         // center the image
         final offsetX = -(coverW - screen.width) / 2;
         final offsetY = -(coverH - screen.height) / 2;
         _controller.value = Matrix4.identity()..translate(offsetX, offsetY);
 
-        setState(() {
-          _coverSize = Size(coverW, coverH);
-          _imageLoaded = true;
-        });
+        setState(() => _imageLoaded = true);
       }),
     );
   }
@@ -4597,20 +4597,27 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                 valueListenable: _panProgress,
                 builder: (context, progress, _) {
                   return Container(
-                    width: 44,
-                    height: 44,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
+                      color: Colors.black.withValues(alpha: 0.65),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppTheme.gold.withValues(alpha: 0.3),
-                        width: 1,
+                        color: const Color(0xFFC9A84C),
+                        width: 1.5,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ],
                     ),
                     child: Transform.rotate(
                       angle: (progress - 0.5) * pi,
-                      child: Icon(Icons.navigation_rounded,
-                          size: 22, color: AppTheme.gold),
+                      child: const Icon(Icons.navigation_rounded,
+                          size: 26, color: Color(0xFFC9A84C)),
                     ),
                   );
                 },
