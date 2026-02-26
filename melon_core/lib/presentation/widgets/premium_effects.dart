@@ -322,12 +322,16 @@ class AnimatedDialogContent extends StatelessWidget {
   final Widget child;
   final double borderRadius;
   final EdgeInsetsGeometry padding;
+  final Color? backgroundColor;
+  final Color? borderColor;
 
   const AnimatedDialogContent({
     super.key,
     required this.child,
     this.borderRadius = 4,
     this.padding = const EdgeInsets.all(28),
+    this.backgroundColor,
+    this.borderColor,
   });
 
   @override
@@ -340,10 +344,10 @@ class AnimatedDialogContent extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 24),
           padding: padding,
           decoration: BoxDecoration(
-            color: AppTheme.surface,
+            color: backgroundColor ?? AppTheme.surface,
             borderRadius: BorderRadius.circular(borderRadius),
             border: Border.all(
-              color: AppTheme.sage.withValues(alpha: 0.15),
+              color: borderColor ?? AppTheme.sage.withValues(alpha: 0.15),
               width: 0.5,
             ),
             boxShadow: AppShadows.elevated,

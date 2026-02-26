@@ -4253,6 +4253,8 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       barrierDismissible: false,
       builder: (ctx) => AnimatedDialogContent(
         padding: const EdgeInsets.all(28),
+        backgroundColor: AdminTheme.surface,
+        borderColor: AdminTheme.border,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
