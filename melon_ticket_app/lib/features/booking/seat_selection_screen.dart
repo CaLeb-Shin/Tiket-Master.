@@ -3758,6 +3758,7 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
   bool _isFullScreen = true;
   bool _imageLoaded = false;
   bool _showDragHint = true;
+  Size? _coverSize;
 
   @override
   void initState() {
@@ -3765,6 +3766,34 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) setState(() => _showDragHint = false);
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadImage());
+  }
+
+  void _loadImage() {
+    final imageProvider = NetworkImage(widget.view.imageUrl);
+    imageProvider.resolve(const ImageConfiguration()).addListener(
+      ImageStreamListener((ImageInfo info, bool _) {
+        if (!mounted) return;
+        final imgW = info.image.width.toDouble();
+        final imgH = info.image.height.toDouble();
+        final screen = MediaQuery.of(context).size;
+
+        // cover scale: fill both dimensions, no black areas
+        final scale = max(screen.width / imgW, screen.height / imgH);
+        final coverW = imgW * scale;
+        final coverH = imgH * scale;
+
+        // center the image
+        final offsetX = -(coverW - screen.width) / 2;
+        final offsetY = -(coverH - screen.height) / 2;
+        _controller.value = Matrix4.identity()..translate(offsetX, offsetY);
+
+        setState(() {
+          _coverSize = Size(coverW, coverH);
+          _imageLoaded = true;
+        });
+      }),
+    );
   }
 
   @override
@@ -4354,22 +4383,38 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                 transformationController: _controller,
                 minScale: 1.0,
                 maxScale: 5.0,
+                constrained: false,
                 boundaryMargin: EdgeInsets.zero,
-                panEnabled: true,
-                scaleEnabled: true,
                 onInteractionStart: (_) {
                   if (_showDragHint) setState(() => _showDragHint = false);
                 },
-                child: SizedBox.expand(
-                  child: Image.network(
-                    widget.view.imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Center(
-                      child: Icon(Icons.image_not_supported_rounded,
-                          size: 48, color: AppTheme.textTertiary),
-                    ),
-                  ),
-                ),
+                child: _coverSize != null
+                    ? SizedBox(
+                        width: _coverSize!.width,
+                        height: _coverSize!.height,
+                        child: Image.network(
+                          widget.view.imageUrl,
+                          width: _coverSize!.width,
+                          height: _coverSize!.height,
+                          fit: BoxFit.fill,
+                          errorBuilder: (_, __, ___) => const Center(
+                            child: Icon(Icons.image_not_supported_rounded,
+                                size: 48, color: AppTheme.textTertiary),
+                          ),
+                        ),
+                      )
+                    : SizedBox(
+                        width: MediaQuery.of(context).size.width,
+                        height: MediaQuery.of(context).size.height,
+                        child: Image.network(
+                          widget.view.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Center(
+                            child: Icon(Icons.image_not_supported_rounded,
+                                size: 48, color: AppTheme.textTertiary),
+                          ),
+                        ),
+                      ),
               ),
             ),
 
