@@ -12,8 +12,8 @@ final storageServiceProvider = Provider<StorageService>((ref) {
 
 class StorageService {
   final _uuid = const Uuid();
-  static const int _maxVenueViewEdge = 1920;
-  static const int _venueViewJpegQuality = 82;
+  static const int _maxVenueViewEdge = 3840;
+  static const int _venueViewJpegQuality = 92;
 
   List<String> _bucketCandidates() {
     final options = Firebase.app().options;
@@ -245,7 +245,7 @@ class StorageService {
       source,
       width: targetWidth,
       height: targetHeight,
-      interpolation: img.Interpolation.linear,
+      interpolation: img.Interpolation.cubic,
     );
   }
 
