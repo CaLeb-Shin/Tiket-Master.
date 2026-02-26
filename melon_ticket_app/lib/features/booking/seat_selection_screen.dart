@@ -3795,8 +3795,8 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
         final imgH = info.image.height.toDouble();
         final screen = MediaQuery.of(context).size;
 
-        // cover scale: fill both dimensions, no black areas
-        final scale = max(screen.width / imgW, screen.height / imgH);
+        // cover scale + 15% extra for slight vertical/horizontal pan room
+        final scale = max(screen.width / imgW, screen.height / imgH) * 1.15;
         final coverW = imgW * scale;
         final coverH = imgH * scale;
 
@@ -4499,89 +4499,6 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
             ),
           ),
 
-          // Rotating compass indicator
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 54,
-            right: 16,
-            child: AnimatedOpacity(
-              opacity: _imageLoaded ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 400),
-              child: ValueListenableBuilder<double>(
-                valueListenable: _panProgress,
-                builder: (context, progress, _) {
-                  return Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppTheme.gold.withValues(alpha: 0.3),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Transform.rotate(
-                      angle: (progress - 0.5) * pi,
-                      child: Icon(Icons.navigation_rounded,
-                          size: 22,
-                          color: AppTheme.gold.withValues(alpha: 0.85)),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-
-          // Horizontal position bar
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: MediaQuery.of(context).padding.bottom + 156,
-            child: AnimatedOpacity(
-              opacity: _imageLoaded ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 400),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40),
-                child: ValueListenableBuilder<double>(
-                  valueListenable: _panProgress,
-                  builder: (context, progress, _) {
-                    return SizedBox(
-                      height: 3,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final barW = constraints.maxWidth * 0.25;
-                          return Stack(
-                            children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                              Positioned(
-                                left: progress *
-                                    (constraints.maxWidth - barW),
-                                child: Container(
-                                  width: barW,
-                                  height: 3,
-                                  decoration: BoxDecoration(
-                                    color:
-                                        AppTheme.gold.withValues(alpha: 0.7),
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
-
           // Top bar
           Positioned(
             top: 0,
@@ -4665,6 +4582,88 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+
+          // Rotating compass indicator (after top bar so it's visible)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 54,
+            right: 16,
+            child: AnimatedOpacity(
+              opacity: _imageLoaded ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 400),
+              child: ValueListenableBuilder<double>(
+                valueListenable: _panProgress,
+                builder: (context, progress, _) {
+                  return Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppTheme.gold.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Transform.rotate(
+                      angle: (progress - 0.5) * pi,
+                      child: Icon(Icons.navigation_rounded,
+                          size: 22, color: AppTheme.gold),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          // Horizontal position bar
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: MediaQuery.of(context).padding.bottom + 156,
+            child: AnimatedOpacity(
+              opacity: _imageLoaded ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 400),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _panProgress,
+                  builder: (context, progress, _) {
+                    return SizedBox(
+                      height: 3,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final barW = constraints.maxWidth * 0.25;
+                          return Stack(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              Positioned(
+                                left: progress *
+                                    (constraints.maxWidth - barW),
+                                child: Container(
+                                  width: barW,
+                                  height: 3,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        AppTheme.gold.withValues(alpha: 0.7),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ),
