@@ -130,6 +130,82 @@ class SeatRepository {
     return count;
   }
 
+  /// 좌석 개별 수정 (어드민)
+  Future<void> updateSeat(String seatId, Map<String, dynamic> data) async {
+    await _firestoreService.seats.doc(seatId).update(data);
+  }
+
+  /// 좌석 개별 삭제
+  Future<void> deleteSeat(String seatId) async {
+    await _firestoreService.seats.doc(seatId).delete();
+  }
+
+  /// 이벤트의 모든 좌석 삭제
+  Future<int> deleteAllSeats(String eventId) async {
+    final snapshot = await _firestoreService.seats
+        .where('eventId', isEqualTo: eventId)
+        .get();
+    var batch = _firestoreService.batch();
+    var pending = 0;
+    int count = 0;
+
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+      count++;
+      pending++;
+      if (pending == 500) {
+        await batch.commit();
+        batch = _firestoreService.batch();
+        pending = 0;
+      }
+    }
+    if (pending > 0) {
+      await batch.commit();
+    }
+    return count;
+  }
+
+  /// 여러 좌석 등급 일괄 변경
+  Future<void> updateSeatsGrade(List<String> seatIds, String grade) async {
+    var batch = _firestoreService.batch();
+    var pending = 0;
+
+    for (final id in seatIds) {
+      batch.update(_firestoreService.seats.doc(id), {'grade': grade});
+      pending++;
+      if (pending == 500) {
+        await batch.commit();
+        batch = _firestoreService.batch();
+        pending = 0;
+      }
+    }
+    if (pending > 0) {
+      await batch.commit();
+    }
+  }
+
+  /// 여러 좌석 일괄 삭제
+  Future<int> deleteSeats(List<String> seatIds) async {
+    var batch = _firestoreService.batch();
+    var pending = 0;
+    int count = 0;
+
+    for (final id in seatIds) {
+      batch.delete(_firestoreService.seats.doc(id));
+      count++;
+      pending++;
+      if (pending == 500) {
+        await batch.commit();
+        batch = _firestoreService.batch();
+        pending = 0;
+      }
+    }
+    if (pending > 0) {
+      await batch.commit();
+    }
+    return count;
+  }
+
   /// CSV로 좌석 일괄 생성 (어드민)
   Future<int> createSeatsFromCsv(
       String eventId, List<Map<String, dynamic>> seatData) async {

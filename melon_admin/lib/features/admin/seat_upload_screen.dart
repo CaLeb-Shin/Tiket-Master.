@@ -56,6 +56,13 @@ class _SeatUploadScreenState extends ConsumerState<SeatUploadScreen> {
   Map<String, int> _uploadedGradeBreakdown = {};
   Map<String, int> _uploadedZoneBreakdown = {};
 
+  // ── Seat editing state ──
+  bool _isEditMode = false;
+  Set<String> _editSelectedSeatIds = {};
+  String? _editGradeFilter;
+  String _editSortBy = 'seatKey'; // seatKey, grade, status
+  bool _editSortAsc = true;
+
   @override
   void initState() {
     super.initState();
@@ -1382,6 +1389,60 @@ B,1층,1,5,R''';
                 ),
               ),
               const Spacer(),
+              // Edit mode toggle
+              seatsAsync.whenOrNull(
+                data: (seats) => seats.isNotEmpty
+                    ? GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _isEditMode = !_isEditMode;
+                            _editSelectedSeatIds.clear();
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _isEditMode
+                                ? AdminTheme.gold.withValues(alpha: 0.12)
+                                : AdminTheme.background,
+                            borderRadius: BorderRadius.circular(2),
+                            border: Border.all(
+                              color: _isEditMode
+                                  ? AdminTheme.gold.withValues(alpha: 0.3)
+                                  : AdminTheme.sage.withValues(alpha: 0.2),
+                              width: 0.5,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _isEditMode
+                                    ? Icons.close_rounded
+                                    : Icons.edit_outlined,
+                                size: 12,
+                                color: _isEditMode
+                                    ? AdminTheme.gold
+                                    : AdminTheme.sage,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _isEditMode ? 'DONE' : 'EDIT',
+                                style: AdminTheme.label(
+                                  fontSize: 9,
+                                  color: _isEditMode
+                                      ? AdminTheme.gold
+                                      : AdminTheme.sage,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : null,
+              ) ?? const SizedBox.shrink(),
+              const SizedBox(width: 8),
               seatsAsync.when(
                 data: (seats) => Container(
                   padding:
@@ -1485,6 +1546,18 @@ B,1층,1,5,R''';
 
                   // Status bar
                   _buildStatusBar(seats.length, statusCounts),
+
+                  // ── Edit Mode: Seat Table ──
+                  if (_isEditMode) ...[
+                    const SizedBox(height: 20),
+                    Container(
+                      width: double.infinity,
+                      height: 0.5,
+                      color: AdminTheme.sage.withValues(alpha: 0.15),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSeatEditSection(seats),
+                  ],
                 ],
               );
             },
@@ -1519,6 +1592,788 @@ B,1층,1,5,R''';
         ],
       ),
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEAT EDIT SECTION — table + toolbar
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildSeatEditSection(List<Seat> seats) {
+    // Apply grade filter
+    final filtered = _editGradeFilter != null
+        ? seats.where((s) => s.grade == _editGradeFilter).toList()
+        : List<Seat>.from(seats);
+
+    // Sort
+    filtered.sort((a, b) {
+      int cmp;
+      switch (_editSortBy) {
+        case 'grade':
+          final ai = _gradeOrder.indexOf(a.grade ?? '');
+          final bi = _gradeOrder.indexOf(b.grade ?? '');
+          cmp = (ai == -1 ? 99 : ai).compareTo(bi == -1 ? 99 : bi);
+          break;
+        case 'status':
+          cmp = a.status.name.compareTo(b.status.name);
+          break;
+        default: // seatKey
+          cmp = a.seatKey.compareTo(b.seatKey);
+      }
+      return _editSortAsc ? cmp : -cmp;
+    });
+
+    final allFilteredSelected = filtered.isNotEmpty &&
+        filtered.every((s) => _editSelectedSeatIds.contains(s.id));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Toolbar ──
+        Row(
+          children: [
+            // Grade filter chips
+            GestureDetector(
+              onTap: () => setState(() => _editGradeFilter = null),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _editGradeFilter == null
+                      ? AdminTheme.gold.withValues(alpha: 0.1)
+                      : AdminTheme.background,
+                  borderRadius: BorderRadius.circular(2),
+                  border: Border.all(
+                    color: _editGradeFilter == null
+                        ? AdminTheme.gold.withValues(alpha: 0.3)
+                        : AdminTheme.sage.withValues(alpha: 0.15),
+                    width: 0.5,
+                  ),
+                ),
+                child: Text(
+                  'ALL',
+                  style: AdminTheme.label(
+                    fontSize: 9,
+                    color: _editGradeFilter == null
+                        ? AdminTheme.gold
+                        : AdminTheme.sage,
+                  ),
+                ),
+              ),
+            ),
+            ..._gradeOrder.map((g) {
+              final isActive = _editGradeFilter == g;
+              final color = _gradeColors[g] ?? AdminTheme.sage;
+              return Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: GestureDetector(
+                  onTap: () => setState(() {
+                    _editGradeFilter = isActive ? null : g;
+                    _editSelectedSeatIds.clear();
+                  }),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? color.withValues(alpha: 0.15)
+                          : AdminTheme.background,
+                      borderRadius: BorderRadius.circular(2),
+                      border: Border.all(
+                        color: isActive
+                            ? color.withValues(alpha: 0.4)
+                            : AdminTheme.sage.withValues(alpha: 0.15),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Text(
+                      g,
+                      style: AdminTheme.label(
+                        fontSize: 9,
+                        color: isActive ? color : AdminTheme.sage,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+            const Spacer(),
+
+            // Bulk actions (visible when seats are selected)
+            if (_editSelectedSeatIds.isNotEmpty) ...[
+              Text(
+                '${_editSelectedSeatIds.length}선택',
+                style: AdminTheme.sans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AdminTheme.gold,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Bulk grade change
+              PopupMenuButton<String>(
+                tooltip: '등급 일괄 변경',
+                onSelected: (grade) => _bulkChangeGrade(grade),
+                color: AdminTheme.surface,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  side: BorderSide(
+                    color: AdminTheme.sage.withValues(alpha: 0.2),
+                    width: 0.5,
+                  ),
+                ),
+                itemBuilder: (_) => _gradeOrder.map((g) {
+                  return PopupMenuItem(
+                    value: g,
+                    height: 36,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: _gradeColors[g],
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          g,
+                          style: AdminTheme.sans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: _gradeColors[g] ?? AdminTheme.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AdminTheme.info.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(2),
+                    border: Border.all(
+                      color: AdminTheme.info.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.swap_horiz_rounded,
+                          size: 12, color: AdminTheme.info),
+                      const SizedBox(width: 3),
+                      Text(
+                        'GRADE',
+                        style: AdminTheme.label(
+                            fontSize: 9, color: AdminTheme.info),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              // Bulk delete
+              GestureDetector(
+                onTap: _bulkDeleteSeats,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AdminTheme.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(2),
+                    border: Border.all(
+                      color: AdminTheme.error.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.delete_outline_rounded,
+                          size: 12, color: AdminTheme.error),
+                      const SizedBox(width: 3),
+                      Text(
+                        'DELETE',
+                        style: AdminTheme.label(
+                            fontSize: 9, color: AdminTheme.error),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // ── Table header ──
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: AdminTheme.gold.withValues(alpha: 0.04),
+            border: Border(
+              bottom: BorderSide(
+                color: AdminTheme.sage.withValues(alpha: 0.15),
+                width: 0.5,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              // Select all checkbox
+              SizedBox(
+                width: 28,
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (allFilteredSelected) {
+                        _editSelectedSeatIds.clear();
+                      } else {
+                        _editSelectedSeatIds =
+                            filtered.map((s) => s.id).toSet();
+                      }
+                    });
+                  },
+                  child: Icon(
+                    allFilteredSelected
+                        ? Icons.check_box_rounded
+                        : Icons.check_box_outline_blank_rounded,
+                    size: 16,
+                    color: allFilteredSelected
+                        ? AdminTheme.gold
+                        : AdminTheme.sage.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              _sortableHeader('SEAT', 'seatKey', flex: 4),
+              _sortableHeader('GRADE', 'grade', flex: 2),
+              _sortableHeader('STATUS', 'status', flex: 2),
+              const SizedBox(width: 28), // action column
+            ],
+          ),
+        ),
+
+        // ── Seat rows ──
+        ...filtered.take(100).map((seat) => _buildSeatEditRow(seat)),
+        if (filtered.length > 100)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: Text(
+                '... 외 ${filtered.length - 100}개 (필터를 사용하세요)',
+                style: AdminTheme.sans(
+                  fontSize: 12,
+                  color: AdminTheme.textTertiary,
+                ),
+              ),
+            ),
+          ),
+
+        const SizedBox(height: 16),
+
+        // ── Delete all button ──
+        Row(
+          children: [
+            const Spacer(),
+            GestureDetector(
+              onTap: () => _deleteAllSeats(seats.length),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AdminTheme.error.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(2),
+                  border: Border.all(
+                    color: AdminTheme.error.withValues(alpha: 0.2),
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.delete_forever_rounded,
+                        size: 14, color: AdminTheme.error),
+                    const SizedBox(width: 6),
+                    Text(
+                      'DELETE ALL ${seats.length} SEATS',
+                      style: AdminTheme.label(
+                        fontSize: 9,
+                        color: AdminTheme.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _sortableHeader(String label, String sortKey, {int flex = 1}) {
+    final isActive = _editSortBy == sortKey;
+    return Expanded(
+      flex: flex,
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            if (_editSortBy == sortKey) {
+              _editSortAsc = !_editSortAsc;
+            } else {
+              _editSortBy = sortKey;
+              _editSortAsc = true;
+            }
+          });
+        },
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: AdminTheme.label(
+                fontSize: 9,
+                color: isActive ? AdminTheme.gold : AdminTheme.sage,
+              ),
+            ),
+            if (isActive) ...[
+              const SizedBox(width: 2),
+              Icon(
+                _editSortAsc
+                    ? Icons.arrow_upward_rounded
+                    : Icons.arrow_downward_rounded,
+                size: 10,
+                color: AdminTheme.gold,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSeatEditRow(Seat seat) {
+    final isSelected = _editSelectedSeatIds.contains(seat.id);
+    final gradeColor = _gradeColors[seat.grade] ?? AdminTheme.sage;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? AdminTheme.gold.withValues(alpha: 0.04)
+            : Colors.transparent,
+        border: Border(
+          bottom: BorderSide(
+            color: AdminTheme.sage.withValues(alpha: 0.08),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Checkbox
+          SizedBox(
+            width: 28,
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (isSelected) {
+                    _editSelectedSeatIds.remove(seat.id);
+                  } else {
+                    _editSelectedSeatIds.add(seat.id);
+                  }
+                });
+              },
+              child: Icon(
+                isSelected
+                    ? Icons.check_box_rounded
+                    : Icons.check_box_outline_blank_rounded,
+                size: 16,
+                color: isSelected
+                    ? AdminTheme.gold
+                    : AdminTheme.sage.withValues(alpha: 0.4),
+              ),
+            ),
+          ),
+          // Seat name
+          Expanded(
+            flex: 4,
+            child: Text(
+              seat.displayName,
+              style: AdminTheme.sans(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AdminTheme.textPrimary,
+              ),
+            ),
+          ),
+          // Grade (editable via popup)
+          Expanded(
+            flex: 2,
+            child: PopupMenuButton<String>(
+              tooltip: '등급 변경',
+              onSelected: (grade) => _changeSeatGrade(seat.id, grade),
+              color: AdminTheme.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+                side: BorderSide(
+                  color: AdminTheme.sage.withValues(alpha: 0.2),
+                  width: 0.5,
+                ),
+              ),
+              itemBuilder: (_) => _gradeOrder.map((g) {
+                return PopupMenuItem(
+                  value: g,
+                  height: 32,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: _gradeColors[g],
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        g,
+                        style: AdminTheme.sans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: _gradeColors[g] ?? AdminTheme.textPrimary,
+                        ),
+                      ),
+                      if (seat.grade == g) ...[
+                        const Spacer(),
+                        Icon(Icons.check_rounded,
+                            size: 14, color: _gradeColors[g]),
+                      ],
+                    ],
+                  ),
+                );
+              }).toList(),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: gradeColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: gradeColor,
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      seat.grade ?? 'N/A',
+                      style: AdminTheme.sans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: gradeColor,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(Icons.unfold_more_rounded,
+                        size: 10, color: gradeColor.withValues(alpha: 0.6)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Status
+          Expanded(
+            flex: 2,
+            child: _seatStatusBadge(seat.status),
+          ),
+          // Delete single seat
+          SizedBox(
+            width: 28,
+            child: GestureDetector(
+              onTap: () => _deleteSingleSeat(seat),
+              child: Icon(
+                Icons.close_rounded,
+                size: 14,
+                color: AdminTheme.sage.withValues(alpha: 0.4),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _seatStatusBadge(SeatStatus status) {
+    Color color;
+    String label;
+    switch (status) {
+      case SeatStatus.available:
+        color = AdminTheme.success;
+        label = 'available';
+        break;
+      case SeatStatus.reserved:
+        color = AdminTheme.gold;
+        label = 'reserved';
+        break;
+      case SeatStatus.used:
+        color = AdminTheme.info;
+        label = 'used';
+        break;
+      case SeatStatus.blocked:
+        color = AdminTheme.error;
+        label = 'blocked';
+        break;
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 5,
+          height: 5,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: AdminTheme.sans(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEAT EDIT ACTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> _changeSeatGrade(String seatId, String grade) async {
+    try {
+      await ref.read(seatRepositoryProvider).updateSeat(seatId, {'grade': grade});
+      ref.invalidate(seatsStreamProvider(widget.eventId));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('등급 변경 실패: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _bulkChangeGrade(String grade) async {
+    if (_editSelectedSeatIds.isEmpty) return;
+    setState(() => _isLoading = true);
+    try {
+      await ref
+          .read(seatRepositoryProvider)
+          .updateSeatsGrade(_editSelectedSeatIds.toList(), grade);
+      ref.invalidate(seatsStreamProvider(widget.eventId));
+      setState(() {
+        _editSelectedSeatIds.clear();
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('일괄 등급 변경 실패: $e')),
+        );
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _deleteSingleSeat(Seat seat) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AdminTheme.surface,
+        title: Text(
+          '좌석 삭제',
+          style: AdminTheme.sans(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AdminTheme.textPrimary,
+          ),
+        ),
+        content: Text(
+          '${seat.displayName}을(를) 삭제하시겠습니까?',
+          style: AdminTheme.sans(
+            fontSize: 14,
+            color: AdminTheme.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('취소',
+                style: AdminTheme.sans(
+                    fontSize: 13, color: AdminTheme.textTertiary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('삭제',
+                style: AdminTheme.sans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AdminTheme.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await ref.read(seatRepositoryProvider).deleteSeat(seat.id);
+      ref.invalidate(seatsStreamProvider(widget.eventId));
+      _editSelectedSeatIds.remove(seat.id);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('삭제 실패: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _bulkDeleteSeats() async {
+    if (_editSelectedSeatIds.isEmpty) return;
+    final count = _editSelectedSeatIds.length;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AdminTheme.surface,
+        title: Text(
+          '좌석 일괄 삭제',
+          style: AdminTheme.sans(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AdminTheme.textPrimary,
+          ),
+        ),
+        content: Text(
+          '선택한 $count개 좌석을 삭제하시겠습니까?',
+          style: AdminTheme.sans(
+            fontSize: 14,
+            color: AdminTheme.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('취소',
+                style: AdminTheme.sans(
+                    fontSize: 13, color: AdminTheme.textTertiary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('$count개 삭제',
+                style: AdminTheme.sans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AdminTheme.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await ref
+          .read(seatRepositoryProvider)
+          .deleteSeats(_editSelectedSeatIds.toList());
+      ref.invalidate(seatsStreamProvider(widget.eventId));
+      setState(() {
+        _editSelectedSeatIds.clear();
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('일괄 삭제 실패: $e')),
+        );
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _deleteAllSeats(int totalCount) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AdminTheme.surface,
+        title: Text(
+          '전체 좌석 삭제',
+          style: AdminTheme.sans(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AdminTheme.textPrimary,
+          ),
+        ),
+        content: Text(
+          '등록된 $totalCount개 좌석을 모두 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+          style: AdminTheme.sans(
+            fontSize: 14,
+            color: AdminTheme.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('취소',
+                style: AdminTheme.sans(
+                    fontSize: 13, color: AdminTheme.textTertiary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('전체 삭제',
+                style: AdminTheme.sans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AdminTheme.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await ref
+          .read(seatRepositoryProvider)
+          .deleteAllSeats(widget.eventId);
+      await ref.read(eventRepositoryProvider).updateEvent(widget.eventId, {
+        'totalSeats': 0,
+        'availableSeats': 0,
+      });
+      ref.invalidate(seatsStreamProvider(widget.eventId));
+      setState(() {
+        _isEditMode = false;
+        _editSelectedSeatIds.clear();
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('전체 삭제 실패: $e')),
+        );
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Widget _gradeChip(String grade, int count, Color color) {
