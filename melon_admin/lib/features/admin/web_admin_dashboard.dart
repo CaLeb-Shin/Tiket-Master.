@@ -7,6 +7,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import '../../app/admin_theme.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/models/event.dart';
+import 'package:melon_core/data/models/app_user.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/services/firestore_service.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
@@ -178,8 +179,6 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
               ),
             ],
           ),
-          // ── 역할 전환 플로팅 바 (superAdmin 전용) ──
-          const RoleSwitcherWidget(),
         ],
       ),
     );
@@ -210,7 +209,7 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
 }
 
 // ─── Sidebar (Editorial Light) ───
-class _Sidebar extends StatefulWidget {
+class _Sidebar extends ConsumerStatefulWidget {
   final int selectedIndex;
   final bool isSuperAdmin;
   final Function(int) onMenuSelected;
@@ -224,10 +223,10 @@ class _Sidebar extends StatefulWidget {
   });
 
   @override
-  State<_Sidebar> createState() => _SidebarState();
+  ConsumerState<_Sidebar> createState() => _SidebarState();
 }
 
-class _SidebarState extends State<_Sidebar> {
+class _SidebarState extends ConsumerState<_Sidebar> {
   int _hoveredIndex = -1;
 
   @override
@@ -394,6 +393,9 @@ class _SidebarState extends State<_Sidebar> {
             ),
           ),
 
+          // Role Switcher (superAdmin only)
+          if (widget.isSuperAdmin) _buildRoleSwitcher(),
+
           // Logout
           Padding(
             padding: const EdgeInsets.all(16),
@@ -510,6 +512,126 @@ class _SidebarState extends State<_Sidebar> {
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoleSwitcher() {
+    final override = ref.watch(roleOverrideProvider);
+    final isTestMode = override != null;
+    final activeRole = override ?? UserRole.superAdmin;
+
+    const roles = [
+      (role: UserRole.user, label: '관객', color: Color(0xFF60A5FA)),
+      (role: UserRole.seller, label: 'Seller', color: Color(0xFF4ADE80)),
+      (role: UserRole.superAdmin, label: 'Master', color: AdminTheme.gold),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AdminTheme.background,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isTestMode
+                ? AdminTheme.warning.withValues(alpha: 0.4)
+                : AdminTheme.border,
+            width: isTestMode ? 1 : 0.5,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 6),
+              child: Row(
+                children: [
+                  if (isTestMode) ...[
+                    Container(
+                      width: 5,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: AdminTheme.warning,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AdminTheme.warning.withValues(alpha: 0.5),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '테스트 모드',
+                      style: AdminTheme.label(
+                        fontSize: 8,
+                        color: AdminTheme.warning,
+                      ),
+                    ),
+                  ] else
+                    Text(
+                      '역할 전환',
+                      style: AdminTheme.label(
+                        fontSize: 8,
+                        color: AdminTheme.textTertiary,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Row(
+              children: roles.map((r) {
+                final isActive = activeRole == r.role;
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      if (r.role == UserRole.superAdmin) {
+                        ref.read(roleOverrideProvider.notifier).state = null;
+                      } else {
+                        ref.read(roleOverrideProvider.notifier).state = r.role;
+                      }
+                    },
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        margin: EdgeInsets.only(
+                            right: r.role != UserRole.superAdmin ? 3 : 0),
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? r.color.withValues(alpha: 0.15)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                            color: isActive
+                                ? r.color.withValues(alpha: 0.4)
+                                : AdminTheme.border.withValues(alpha: 0.3),
+                            width: isActive ? 1 : 0.5,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            r.label,
+                            style: AdminTheme.sans(
+                              fontSize: 10,
+                              fontWeight:
+                                  isActive ? FontWeight.w700 : FontWeight.w500,
+                              color:
+                                  isActive ? r.color : AdminTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
         ),
       ),
     );
