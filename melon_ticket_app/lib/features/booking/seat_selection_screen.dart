@@ -4328,7 +4328,11 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
               child: PanoramaViewer(
                 sensorControl: SensorControl.orientation,
                 animSpeed: 1.0,
-                zoom: 1.5,
+                zoom: 2.0,
+                minZoom: 2.0,
+                maxZoom: 5.0,
+                minLatitude: -40.0,
+                maxLatitude: 40.0,
                 minLongitude: viewType == 'panorama180' ? -90.0 : -180.0,
                 maxLongitude: viewType == 'panorama180' ? 90.0 : 180.0,
                 child: Image.network(
@@ -4345,20 +4349,25 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
               ),
             )
           else
-            InteractiveViewer(
-              transformationController: _controller,
-              minScale: 1.0,
-              maxScale: 5.0,
-              onInteractionStart: (_) {
-                if (_showDragHint) setState(() => _showDragHint = false);
-              },
-              child: SizedBox.expand(
-                child: Image.network(
-                  widget.view.imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Center(
-                    child: Icon(Icons.image_not_supported_rounded,
-                        size: 48, color: AppTheme.textTertiary),
+            ClipRect(
+              child: InteractiveViewer(
+                transformationController: _controller,
+                minScale: 1.0,
+                maxScale: 5.0,
+                boundaryMargin: EdgeInsets.zero,
+                panEnabled: true,
+                scaleEnabled: true,
+                onInteractionStart: (_) {
+                  if (_showDragHint) setState(() => _showDragHint = false);
+                },
+                child: SizedBox.expand(
+                  child: Image.network(
+                    widget.view.imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Center(
+                      child: Icon(Icons.image_not_supported_rounded,
+                          size: 48, color: AppTheme.textTertiary),
+                    ),
                   ),
                 ),
               ),
