@@ -57,7 +57,7 @@ class _SeatUploadScreenState extends ConsumerState<SeatUploadScreen> {
   Map<String, int> _uploadedZoneBreakdown = {};
 
   // ── Seat editing state ──
-  bool _isEditMode = false;
+
   Set<String> _editSelectedSeatIds = {};
   String? _editGradeFilter;
   String _editSortBy = 'seatKey'; // seatKey, grade, status
@@ -66,22 +66,7 @@ class _SeatUploadScreenState extends ConsumerState<SeatUploadScreen> {
   @override
   void initState() {
     super.initState();
-    _csvController.text = '''block,floor,row,number,grade
-A,1층,1,1,VIP
-A,1층,1,2,VIP
-A,1층,1,3,VIP
-A,1층,1,4,R
-A,1층,1,5,R
-A,1층,2,1,R
-A,1층,2,2,S
-A,1층,2,3,S
-A,1층,2,4,S
-A,1층,2,5,A
-B,1층,1,1,A
-B,1층,1,2,A
-B,1층,1,3,S
-B,1층,1,4,S
-B,1층,1,5,R''';
+    _csvController.text = 'block,floor,row,number,grade\n';
     _loadVenueLayout();
   }
 
@@ -2635,7 +2620,6 @@ B,1층,1,5,R''';
       });
       ref.invalidate(seatsStreamProvider(widget.eventId));
       setState(() {
-        _isEditMode = false;
         _editSelectedSeatIds.clear();
         _isLoading = false;
       });
