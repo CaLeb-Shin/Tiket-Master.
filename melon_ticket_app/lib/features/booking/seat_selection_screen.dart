@@ -4616,8 +4616,10 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                     ),
                     child: Transform.rotate(
                       angle: (progress - 0.5) * pi,
-                      child: const Icon(Icons.navigation_rounded,
-                          size: 26, color: Color(0xFFC9A84C)),
+                      child: CustomPaint(
+                        size: const Size(26, 26),
+                        painter: const _CompassNeedlePainter(),
+                      ),
                     ),
                   );
                 },
@@ -4813,6 +4815,52 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
 }
 
 // ── Pulsing animation widget ──
+class _CompassNeedlePainter extends CustomPainter {
+  const _CompassNeedlePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+
+    // North needle (gold)
+    final northPath = Path()
+      ..moveTo(cx, 2)
+      ..lineTo(cx + 7, cy + 1)
+      ..lineTo(cx - 7, cy + 1)
+      ..close();
+    canvas.drawPath(
+      northPath,
+      Paint()
+        ..color = const Color(0xFFC9A84C)
+        ..style = PaintingStyle.fill,
+    );
+
+    // South needle (dim white)
+    final southPath = Path()
+      ..moveTo(cx, size.height - 2)
+      ..lineTo(cx + 7, cy - 1)
+      ..lineTo(cx - 7, cy - 1)
+      ..close();
+    canvas.drawPath(
+      southPath,
+      Paint()
+        ..color = const Color(0x55FFFFFF)
+        ..style = PaintingStyle.fill,
+    );
+
+    // Center dot
+    canvas.drawCircle(
+      Offset(cx, cy),
+      2.5,
+      Paint()..color = const Color(0xFFC9A84C),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
 class _PulsingIcon extends StatefulWidget {
   final Widget child;
   const _PulsingIcon({required this.child});
