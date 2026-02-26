@@ -1897,6 +1897,9 @@ class _SeatGridPainter extends CustomPainter {
 
     final dotR = dotSize / 2 - 1;
 
+    final seatSize = dotSize - 2; // 사각형 크기
+    const seatRadius = Radius.circular(3); // 라운드 코너
+
     for (int y = 0; y < gridRows; y++) {
       for (int x = 0; x < gridCols; x++) {
         final cx = x * cellSize + cellSize / 2;
@@ -1914,10 +1917,25 @@ class _SeatGridPainter extends CustomPainter {
             color = gradeColors[seat.grade] ?? emptyDotColor;
           }
 
+          final seatRect = RRect.fromRectAndRadius(
+            Rect.fromCenter(center: Offset(cx, cy), width: seatSize, height: seatSize),
+            seatRadius,
+          );
+
           final fillPaint = Paint()
             ..color = color
             ..style = PaintingStyle.fill;
-          canvas.drawCircle(Offset(cx, cy), dotR, fillPaint);
+          canvas.drawRRect(seatRect, fillPaint);
+
+          // Subtle inner highlight (top-left light)
+          final highlightPaint = Paint()
+            ..color = Colors.white.withValues(alpha: 0.15)
+            ..style = PaintingStyle.fill;
+          final highlightRect = RRect.fromRectAndRadius(
+            Rect.fromLTWH(cx - seatSize / 2 + 1, cy - seatSize / 2 + 1, seatSize * 0.45, seatSize * 0.35),
+            const Radius.circular(2),
+          );
+          canvas.drawRRect(highlightRect, highlightPaint);
 
           // Selected highlight
           if (key == selectedSeatKey) {
@@ -1925,10 +1943,14 @@ class _SeatGridPainter extends CustomPainter {
               ..color = Colors.white
               ..style = PaintingStyle.stroke
               ..strokeWidth = 2.0;
-            canvas.drawCircle(Offset(cx, cy), dotR + 2, selPaint);
+            final selRect = RRect.fromRectAndRadius(
+              Rect.fromCenter(center: Offset(cx, cy), width: seatSize + 4, height: seatSize + 4),
+              const Radius.circular(4),
+            );
+            canvas.drawRRect(selRect, selPaint);
           }
 
-          // Wheelchair icon indicator (smaller dot inside)
+          // Wheelchair icon indicator (♿ dot)
           if (seat.seatType == SeatType.wheelchair) {
             final iconPaint = Paint()
               ..color = Colors.white
@@ -1948,7 +1970,12 @@ class _SeatGridPainter extends CustomPainter {
                 Offset(cx + 3, cy - 3), Offset(cx - 3, cy + 3), xPaint);
           }
         } else {
-          canvas.drawCircle(Offset(cx, cy), dotR, emptyPaint);
+          // Empty grid dot — small square outline
+          final emptyRect = RRect.fromRectAndRadius(
+            Rect.fromCenter(center: Offset(cx, cy), width: seatSize * 0.5, height: seatSize * 0.5),
+            const Radius.circular(1.5),
+          );
+          canvas.drawRRect(emptyRect, emptyPaint);
         }
       }
     }
@@ -1991,13 +2018,21 @@ class _SeatGridPainter extends CustomPainter {
         ..color = indicatorColor.withValues(alpha: 0.5)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.0;
-      canvas.drawCircle(Offset(cx, cy), dotR + 2, indicatorPaint);
+      final indicatorRect = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(cx, cy), width: seatSize + 4, height: seatSize + 4),
+        const Radius.circular(4),
+      );
+      canvas.drawRRect(indicatorRect, indicatorPaint);
 
       // Glow effect
       final glowPaint = Paint()
-        ..color = indicatorColor.withValues(alpha: 0.15)
+        ..color = indicatorColor.withValues(alpha: 0.12)
         ..style = PaintingStyle.fill;
-      canvas.drawCircle(Offset(cx, cy), dotR + 5, glowPaint);
+      final glowRect = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(cx, cy), width: seatSize + 10, height: seatSize + 10),
+        const Radius.circular(6),
+      );
+      canvas.drawRRect(glowRect, glowPaint);
     }
   }
 
