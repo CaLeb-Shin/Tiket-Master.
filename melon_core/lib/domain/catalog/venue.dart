@@ -312,12 +312,68 @@ class LayoutSeat {
   }
 }
 
+/// 배치도 텍스트 라벨 (층 구분, 열 이름, 커스텀 등)
+class LayoutLabel {
+  final int gridX;
+  final int gridY;
+  final String text;
+  final String type; // 'floor' (1F, 2F), 'section' (A열, B열), 'custom'
+  final double fontSize;
+
+  LayoutLabel({
+    required this.gridX,
+    required this.gridY,
+    required this.text,
+    this.type = 'custom',
+    this.fontSize = 12,
+  });
+
+  String get key => '$gridX,$gridY';
+
+  factory LayoutLabel.fromMap(Map<String, dynamic> map) {
+    return LayoutLabel(
+      gridX: map['x'] ?? 0,
+      gridY: map['y'] ?? 0,
+      text: map['text'] ?? '',
+      type: map['type'] ?? 'custom',
+      fontSize: (map['fontSize'] ?? 12).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'x': gridX,
+      'y': gridY,
+      'text': text,
+      'type': type,
+      'fontSize': fontSize,
+    };
+  }
+
+  LayoutLabel copyWith({
+    int? gridX,
+    int? gridY,
+    String? text,
+    String? type,
+    double? fontSize,
+  }) {
+    return LayoutLabel(
+      gridX: gridX ?? this.gridX,
+      gridY: gridY ?? this.gridY,
+      text: text ?? this.text,
+      type: type ?? this.type,
+      fontSize: fontSize ?? this.fontSize,
+    );
+  }
+}
+
 /// 공연장 좌석 배치도 (도트 그리드 기반)
 class VenueSeatLayout {
   final int gridCols;
   final int gridRows;
   final String stagePosition; // top / bottom
   final List<LayoutSeat> seats;
+  final List<LayoutLabel> labels; // 텍스트 라벨
   final Map<String, int> gradePrice; // 등급별 가격
 
   VenueSeatLayout({
@@ -325,6 +381,7 @@ class VenueSeatLayout {
     this.gridRows = 40,
     this.stagePosition = 'top',
     this.seats = const [],
+    this.labels = const [],
     this.gradePrice = const {},
   });
 
@@ -348,6 +405,10 @@ class VenueSeatLayout {
               ?.map((s) => LayoutSeat.fromMap(s as Map<String, dynamic>))
               .toList() ??
           [],
+      labels: (data['labels'] as List<dynamic>?)
+              ?.map((l) => LayoutLabel.fromMap(l as Map<String, dynamic>))
+              .toList() ??
+          [],
       gradePrice: Map<String, int>.from(data['gradePrice'] ?? {}),
     );
   }
@@ -358,6 +419,7 @@ class VenueSeatLayout {
       'gridRows': gridRows,
       'stagePosition': stagePosition,
       'seats': seats.map((s) => s.toMap()).toList(),
+      'labels': labels.map((l) => l.toMap()).toList(),
       'gradePrice': gradePrice,
     };
   }

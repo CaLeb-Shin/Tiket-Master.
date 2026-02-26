@@ -22,7 +22,7 @@ class SeatLayoutEditorScreen extends ConsumerStatefulWidget {
       _SeatLayoutEditorScreenState();
 }
 
-enum _EditorTool { paint, erase, select, line }
+enum _EditorTool { paint, erase, select, line, text }
 
 class _SeatLayoutEditorScreenState
     extends ConsumerState<SeatLayoutEditorScreen> {
@@ -57,11 +57,16 @@ class _SeatLayoutEditorScreenState
   // ─── Line Tool State ───
   ({int x, int y})? _lineStart; // 라인 시작점
 
+  // ─── Labels ───
+  final Map<String, LayoutLabel> _labels = {}; // key: "x,y"
+
+  // ─── Drag Indicator ───
+  Offset? _dragIndicator; // 현재 드래그 중인 위치 (캔버스 좌표)
+
   // ─── Loading ───
   bool _loading = true;
   bool _saving = false;
   bool _isDragging = false;
-  bool _isRightDragging = false;
   bool _showExcelGuide = false;
   Venue? _venue;
 
@@ -115,6 +120,9 @@ class _SeatLayoutEditorScreenState
           for (final seat in layout.seats) {
             _seats[seat.key] = seat;
           }
+          for (final label in layout.labels) {
+            _labels[label.key] = label;
+          }
         }
         _loading = false;
       });
@@ -131,6 +139,7 @@ class _SeatLayoutEditorScreenState
         gridRows: _gridRows,
         stagePosition: _stagePosition,
         seats: _seats.values.toList(),
+        labels: _labels.values.toList(),
         gradePrice: Map.from(_gradePrice),
       );
 
@@ -222,6 +231,8 @@ class _SeatLayoutEditorScreenState
       setState(() => _tool = _EditorTool.select);
     } else if (key == LogicalKeyboardKey.digit4) {
       setState(() => _tool = _EditorTool.line);
+    } else if (key == LogicalKeyboardKey.digit5) {
+      setState(() => _tool = _EditorTool.text);
     } else if (key == LogicalKeyboardKey.escape) {
       // ESC → 라인 취소 또는 선택 해제
       setState(() {
@@ -294,7 +305,175 @@ class _SeatLayoutEditorScreenState
           setState(() => _lineStart = null);
         }
         break;
+
+      case _EditorTool.text:
+        _showLabelDialog(gx, gy);
+        break;
     }
+  }
+
+  // ─── Label Dialog ───
+  void _showLabelDialog(int gx, int gy, {LayoutLabel? existing}) {
+    final textCtrl = TextEditingController(text: existing?.text ?? '');
+    String labelType = existing?.type ?? 'custom';
+    double fontSize = existing?.fontSize ?? 14;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: AdminTheme.surface,
+          title: Text(
+            existing != null ? '라벨 수정' : '텍스트 라벨 추가',
+            style: AdminTheme.sans(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          content: SizedBox(
+            width: 320,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Quick presets
+                Text('프리셋', style: AdminTheme.sans(fontSize: 11, color: AdminTheme.textTertiary)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _labelPresetChip(ctx, '1F', 'floor', 16, textCtrl, (t, tp, fs) => setDialogState(() { labelType = tp; fontSize = fs; })),
+                    _labelPresetChip(ctx, '2F', 'floor', 16, textCtrl, (t, tp, fs) => setDialogState(() { labelType = tp; fontSize = fs; })),
+                    _labelPresetChip(ctx, '3F', 'floor', 16, textCtrl, (t, tp, fs) => setDialogState(() { labelType = tp; fontSize = fs; })),
+                    _labelPresetChip(ctx, 'A열', 'section', 11, textCtrl, (t, tp, fs) => setDialogState(() { labelType = tp; fontSize = fs; })),
+                    _labelPresetChip(ctx, 'B열', 'section', 11, textCtrl, (t, tp, fs) => setDialogState(() { labelType = tp; fontSize = fs; })),
+                    _labelPresetChip(ctx, 'STAGE', 'custom', 14, textCtrl, (t, tp, fs) => setDialogState(() { labelType = tp; fontSize = fs; })),
+                    _labelPresetChip(ctx, 'CONSOLE', 'custom', 12, textCtrl, (t, tp, fs) => setDialogState(() { labelType = tp; fontSize = fs; })),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                // Text input
+                TextField(
+                  controller: textCtrl,
+                  autofocus: true,
+                  style: AdminTheme.sans(fontSize: 14),
+                  decoration: const InputDecoration(
+                    labelText: '라벨 텍스트',
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Type selector
+                Row(
+                  children: [
+                    Text('유형', style: AdminTheme.sans(fontSize: 11, color: AdminTheme.textTertiary)),
+                    const Spacer(),
+                    ...['floor', 'section', 'custom'].map((t) {
+                      final isSelected = labelType == t;
+                      final display = {'floor': '층 구분', 'section': '구역', 'custom': '커스텀'}[t]!;
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: GestureDetector(
+                          onTap: () => setDialogState(() => labelType = t),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isSelected ? AdminTheme.gold.withValues(alpha: 0.15) : Colors.transparent,
+                              border: Border.all(color: isSelected ? AdminTheme.gold : AdminTheme.border),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(display, style: AdminTheme.sans(
+                              fontSize: 10,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                              color: isSelected ? AdminTheme.gold : AdminTheme.textSecondary,
+                            )),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Font size slider
+                Row(
+                  children: [
+                    Text('크기', style: AdminTheme.sans(fontSize: 11, color: AdminTheme.textTertiary)),
+                    Expanded(
+                      child: Slider(
+                        value: fontSize,
+                        min: 8,
+                        max: 28,
+                        divisions: 20,
+                        activeColor: AdminTheme.gold,
+                        onChanged: (v) => setDialogState(() => fontSize = v),
+                      ),
+                    ),
+                    Text('${fontSize.round()}', style: AdminTheme.sans(fontSize: 12, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            if (existing != null)
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() => _labels.remove(existing.key));
+                },
+                child: Text('삭제', style: TextStyle(color: AdminTheme.error)),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                if (textCtrl.text.trim().isEmpty) return;
+                setState(() {
+                  _labels['$gx,$gy'] = LayoutLabel(
+                    gridX: gx,
+                    gridY: gy,
+                    text: textCtrl.text.trim(),
+                    type: labelType,
+                    fontSize: fontSize,
+                  );
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AdminTheme.gold,
+                foregroundColor: Colors.black87,
+              ),
+              child: Text(existing != null ? '수정' : '추가'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _labelPresetChip(
+    BuildContext ctx,
+    String text,
+    String type,
+    double fontSize,
+    TextEditingController textCtrl,
+    void Function(String, String, double) onApply,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        textCtrl.text = text;
+        onApply(text, type, fontSize);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A24),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: AdminTheme.border.withValues(alpha: 0.5)),
+        ),
+        child: Text(text, style: AdminTheme.sans(fontSize: 10, color: AdminTheme.textSecondary)),
+      ),
+    );
   }
 
   // ─── Line Drawing (Bresenham) ───
@@ -338,22 +517,13 @@ class _SeatLayoutEditorScreenState
     });
   }
 
-  // ─── Right-click Erase ───
-  void _onCanvasEraseAt(Offset localPosition) {
-    final gx = localPosition.dx ~/ _cellSize;
-    final gy = localPosition.dy ~/ _cellSize;
-    if (gx < 0 || gx >= _gridCols || gy < 0 || gy >= _gridRows) return;
-
-    final key = '$gx,$gy';
-    if (_seats.containsKey(key)) {
-      setState(() => _seats.remove(key));
-    }
-  }
-
   void _onCanvasDrag(Offset localPosition) {
     final gx = localPosition.dx ~/ _cellSize;
     final gy = localPosition.dy ~/ _cellSize;
     if (gx < 0 || gx >= _gridCols || gy < 0 || gy >= _gridRows) return;
+
+    // Update drag indicator position
+    _dragIndicator = localPosition;
 
     final key = '$gx,$gy';
     final effectiveTool = _isCmdPressed ? _EditorTool.erase : _tool;
@@ -371,6 +541,8 @@ class _SeatLayoutEditorScreenState
       });
     } else if (effectiveTool == _EditorTool.erase && _seats.containsKey(key)) {
       setState(() => _seats.remove(key));
+    } else {
+      setState(() {}); // trigger repaint for drag indicator
     }
   }
 
@@ -722,48 +894,38 @@ class _SeatLayoutEditorScreenState
         scaleFactor: 80.0, // 기본 200 → 80 (휠 줌 속도 감소)
         constrained: false,
         boundaryMargin: const EdgeInsets.all(200),
-        child: Listener(
-          onPointerDown: (event) {
-            if ((event.buttons & 0x02) != 0) {
-              _isRightDragging = true;
-              _onCanvasEraseAt(event.localPosition);
-            }
+        child: GestureDetector(
+          onTapDown: (details) => _onCanvasTap(details.localPosition),
+          onPanStart: (details) {
+            _isDragging = true;
+            _onCanvasDrag(details.localPosition);
           },
-          onPointerMove: (event) {
-            if (_isRightDragging) {
-              _onCanvasEraseAt(event.localPosition);
-            }
+          onPanUpdate: (details) {
+            if (_isDragging) _onCanvasDrag(details.localPosition);
           },
-          onPointerUp: (event) {
-            _isRightDragging = false;
+          onPanEnd: (_) {
+            _isDragging = false;
+            setState(() => _dragIndicator = null);
           },
-          child: GestureDetector(
-            onTapDown: (details) => _onCanvasTap(details.localPosition),
-            onSecondaryTapDown: (_) {}, // prevent browser context menu
-            onPanStart: (details) {
-              _isDragging = true;
-              _onCanvasDrag(details.localPosition);
-            },
-            onPanUpdate: (details) {
-              if (_isDragging) _onCanvasDrag(details.localPosition);
-            },
-            onPanEnd: (_) => _isDragging = false,
-            child: CustomPaint(
-              size: Size(canvasW, canvasH),
-              painter: _SeatGridPainter(
-                gridCols: _gridCols,
-                gridRows: _gridRows,
-                cellSize: _cellSize,
-                dotSize: _dotSize,
-                seats: _seats,
-                stagePosition: _stagePosition,
-                selectedSeatKey: _selectedSeat?.key,
-                gradeColors: gradeColors,
-                emptyDotColor: _emptyDotColor,
-                wheelchairColor: _wheelchairColor,
-                holdColor: _holdColor,
-                lineStart: _lineStart,
-              ),
+          child: CustomPaint(
+            size: Size(canvasW, canvasH),
+            painter: _SeatGridPainter(
+              gridCols: _gridCols,
+              gridRows: _gridRows,
+              cellSize: _cellSize,
+              dotSize: _dotSize,
+              seats: _seats,
+              labels: _labels,
+              stagePosition: _stagePosition,
+              selectedSeatKey: _selectedSeat?.key,
+              gradeColors: gradeColors,
+              emptyDotColor: _emptyDotColor,
+              wheelchairColor: _wheelchairColor,
+              holdColor: _holdColor,
+              lineStart: _lineStart,
+              dragIndicator: _dragIndicator,
+              currentTool: _tool,
+              isCmdPressed: _isCmdPressed,
             ),
           ),
         ),
@@ -790,6 +952,7 @@ class _SeatLayoutEditorScreenState
                 _EditorTool.erase: '지우개',
                 _EditorTool.select: '선택',
                 _EditorTool.line: '라인',
+                _EditorTool.text: '텍스트',
               }[_tool]!,
               style: AdminTheme.sans(
                   fontSize: 10,
@@ -811,6 +974,9 @@ class _SeatLayoutEditorScreenState
                     const SizedBox(width: 4),
                     _toolButton(_EditorTool.line,
                         Icons.timeline_rounded, '라인'),
+                    const SizedBox(width: 4),
+                    _toolButton(_EditorTool.text,
+                        Icons.text_fields_rounded, '텍스트'),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -823,11 +989,11 @@ class _SeatLayoutEditorScreenState
                   ),
                   child: Column(
                     children: [
-                      _shortcutRow('1 / 2 / 3 / 4', '도구 전환'),
+                      _shortcutRow('1~5', '도구 전환'),
                       const SizedBox(height: 3),
                       _shortcutRow('⌘+1~4', '등급 전환'),
                       const SizedBox(height: 3),
-                      _shortcutRow('우클릭 / ⌘+클릭', '지우기'),
+                      _shortcutRow('⌘+클릭', '지우기'),
                       const SizedBox(height: 3),
                       _shortcutRow('ESC', '취소'),
                     ],
@@ -1153,6 +1319,76 @@ class _SeatLayoutEditorScreenState
             ),
           ],
 
+          // ─── Labels ───
+          if (_labels.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _panelSection(
+              icon: Icons.text_fields_rounded,
+              title: '라벨 (${_labels.length})',
+              trailing: GestureDetector(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('전체 라벨 삭제'),
+                      content: const Text('모든 라벨을 삭제하시겠습니까?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            setState(() => _labels.clear());
+                          },
+                          child: Text('삭제', style: TextStyle(color: AdminTheme.error)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                child: Icon(Icons.delete_outline_rounded, size: 14, color: AdminTheme.textTertiary),
+              ),
+              child: Column(
+                children: _labels.values.map((label) {
+                  final typeIcon = label.type == 'floor'
+                      ? Icons.layers_rounded
+                      : label.type == 'section'
+                          ? Icons.grid_view_rounded
+                          : Icons.text_snippet_rounded;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: GestureDetector(
+                      onTap: () => _showLabelDialog(label.gridX, label.gridY, existing: label),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A1A24),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(typeIcon, size: 12, color: AdminTheme.textTertiary),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                label.text,
+                                style: AdminTheme.sans(fontSize: 11, fontWeight: FontWeight.w500),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Text(
+                              '(${label.gridX},${label.gridY})',
+                              style: AdminTheme.sans(fontSize: 9, color: AdminTheme.textTertiary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+
           // ─── Stats ───
           const SizedBox(height: 10),
           _panelSection(
@@ -1414,11 +1650,11 @@ class _SeatLayoutEditorScreenState
       ),
       child: Row(
         children: [
-          _shortcutBadge('1~4', '도구'),
+          _shortcutBadge('1~5', '도구'),
           const SizedBox(width: 8),
           _shortcutBadge('⌘+1~4', '등급'),
           const SizedBox(width: 8),
-          _shortcutBadge('우클릭', '지우기'),
+          _shortcutBadge('⌘+클릭', '지우기'),
           const SizedBox(width: 8),
           _shortcutBadge('휠', '줌'),
           const Spacer(),
@@ -1617,6 +1853,7 @@ class _SeatGridPainter extends CustomPainter {
   final double cellSize;
   final double dotSize;
   final Map<String, LayoutSeat> seats;
+  final Map<String, LayoutLabel> labels;
   final String stagePosition;
   final String? selectedSeatKey;
   final Map<String, Color> gradeColors;
@@ -1624,6 +1861,9 @@ class _SeatGridPainter extends CustomPainter {
   final Color wheelchairColor;
   final Color holdColor;
   final ({int x, int y})? lineStart;
+  final Offset? dragIndicator;
+  final _EditorTool currentTool;
+  final bool isCmdPressed;
 
   _SeatGridPainter({
     required this.gridCols,
@@ -1631,6 +1871,7 @@ class _SeatGridPainter extends CustomPainter {
     required this.cellSize,
     required this.dotSize,
     required this.seats,
+    required this.labels,
     required this.stagePosition,
     this.selectedSeatKey,
     required this.gradeColors,
@@ -1638,6 +1879,9 @@ class _SeatGridPainter extends CustomPainter {
     required this.wheelchairColor,
     required this.holdColor,
     this.lineStart,
+    this.dragIndicator,
+    required this.currentTool,
+    required this.isCmdPressed,
   });
 
   @override
@@ -1709,6 +1953,11 @@ class _SeatGridPainter extends CustomPainter {
       }
     }
 
+    // ─── Labels ───
+    for (final label in labels.values) {
+      _drawLabel(canvas, label);
+    }
+
     // ─── Line Start Indicator ───
     if (lineStart != null) {
       final lx = lineStart!.x * cellSize + cellSize / 2;
@@ -1722,6 +1971,100 @@ class _SeatGridPainter extends CustomPainter {
       canvas.drawLine(Offset(lx - 8, ly), Offset(lx + 8, ly), startPaint);
       canvas.drawLine(Offset(lx, ly - 8), Offset(lx, ly + 8), startPaint);
     }
+
+    // ─── Drag Indicator ───
+    if (dragIndicator != null) {
+      final effectiveTool = isCmdPressed ? _EditorTool.erase : currentTool;
+      final indicatorColor = effectiveTool == _EditorTool.erase
+          ? const Color(0xFFFF5252)
+          : effectiveTool == _EditorTool.paint
+              ? const Color(0xFF69F0AE)
+              : const Color(0xFF00E5FF);
+
+      // Snap to grid
+      final gx = (dragIndicator!.dx / cellSize).floor();
+      final gy = (dragIndicator!.dy / cellSize).floor();
+      final cx = gx * cellSize + cellSize / 2;
+      final cy = gy * cellSize + cellSize / 2;
+
+      final indicatorPaint = Paint()
+        ..color = indicatorColor.withValues(alpha: 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+      canvas.drawCircle(Offset(cx, cy), dotR + 2, indicatorPaint);
+
+      // Glow effect
+      final glowPaint = Paint()
+        ..color = indicatorColor.withValues(alpha: 0.15)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(cx, cy), dotR + 5, glowPaint);
+    }
+  }
+
+  void _drawLabel(Canvas canvas, LayoutLabel label) {
+    final x = label.gridX * cellSize + cellSize / 2;
+    final y = label.gridY * cellSize + cellSize / 2;
+
+    Color textColor;
+    FontWeight fontWeight;
+    double letterSpacing;
+
+    switch (label.type) {
+      case 'floor':
+        textColor = const Color(0xFFFFD54F); // warm gold
+        fontWeight = FontWeight.w800;
+        letterSpacing = 2.0;
+        break;
+      case 'section':
+        textColor = const Color(0xFFB0BEC5); // soft grey-blue
+        fontWeight = FontWeight.w600;
+        letterSpacing = 0.5;
+        break;
+      default:
+        textColor = const Color(0xFF90A4AE);
+        fontWeight = FontWeight.w500;
+        letterSpacing = 1.0;
+    }
+
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: label.text,
+        style: TextStyle(
+          color: textColor,
+          fontSize: label.fontSize,
+          fontWeight: fontWeight,
+          letterSpacing: letterSpacing,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    );
+    textPainter.layout();
+
+    // Background pill for floor labels
+    if (label.type == 'floor') {
+      final bgRect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(x, y),
+          width: textPainter.width + 16,
+          height: textPainter.height + 8,
+        ),
+        const Radius.circular(4),
+      );
+      final bgPaint = Paint()
+        ..color = const Color(0xFF2A2A34)
+        ..style = PaintingStyle.fill;
+      canvas.drawRRect(bgRect, bgPaint);
+      final borderPaint = Paint()
+        ..color = const Color(0xFFFFD54F).withValues(alpha: 0.3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1;
+      canvas.drawRRect(bgRect, borderPaint);
+    }
+
+    textPainter.paint(
+      canvas,
+      Offset(x - textPainter.width / 2, y - textPainter.height / 2),
+    );
   }
 
   void _drawStage(Canvas canvas, Size size) {
