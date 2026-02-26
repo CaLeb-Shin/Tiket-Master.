@@ -3759,14 +3759,31 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
   bool _imageLoaded = false;
   bool _showDragHint = true;
   Size? _coverSize;
+  final ValueNotifier<double> _panProgress = ValueNotifier(0.5);
 
   @override
   void initState() {
     super.initState();
+    _controller.addListener(_onPanChanged);
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) setState(() => _showDragHint = false);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadImage());
+  }
+
+  void _onPanChanged() {
+    if (_coverSize == null) return;
+    final screen = MediaQuery.of(context).size;
+    final matrix = _controller.value;
+    final scale = matrix.getMaxScaleOnAxis();
+    final tx = matrix.getTranslation().x;
+    final scaledW = _coverSize!.width * scale;
+    final maxOffset = scaledW - screen.width;
+    if (maxOffset <= 0) {
+      _panProgress.value = 0.5;
+      return;
+    }
+    _panProgress.value = ((-tx) / maxOffset).clamp(0.0, 1.0);
   }
 
   void _loadImage() {
@@ -3798,7 +3815,9 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
 
   @override
   void dispose() {
+    _controller.removeListener(_onPanChanged);
     _controller.dispose();
+    _panProgress.dispose();
     super.dispose();
   }
 
@@ -4364,6 +4383,12 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                 maxLatitude: 40.0,
                 minLongitude: viewType == 'panorama180' ? -90.0 : -180.0,
                 maxLongitude: viewType == 'panorama180' ? 90.0 : 180.0,
+                onViewChanged: (lon, lat, tilt) {
+                  final minLon = viewType == 'panorama180' ? -90.0 : -180.0;
+                  final maxLon = viewType == 'panorama180' ? 90.0 : 180.0;
+                  _panProgress.value =
+                      ((lon - minLon) / (maxLon - minLon)).clamp(0.0, 1.0);
+                },
                 child: Image.network(
                   widget.view.imageUrl,
                   fit: BoxFit.cover,
@@ -4469,6 +4494,89 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+          ),
+
+          // Rotating compass indicator
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 54,
+            right: 16,
+            child: AnimatedOpacity(
+              opacity: _imageLoaded ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 400),
+              child: ValueListenableBuilder<double>(
+                valueListenable: _panProgress,
+                builder: (context, progress, _) {
+                  return Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppTheme.gold.withValues(alpha: 0.3),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Transform.rotate(
+                      angle: (progress - 0.5) * pi,
+                      child: Icon(Icons.navigation_rounded,
+                          size: 22,
+                          color: AppTheme.gold.withValues(alpha: 0.85)),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          // Horizontal position bar
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: MediaQuery.of(context).padding.bottom + 156,
+            child: AnimatedOpacity(
+              opacity: _imageLoaded ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 400),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _panProgress,
+                  builder: (context, progress, _) {
+                    return SizedBox(
+                      height: 3,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final barW = constraints.maxWidth * 0.25;
+                          return Stack(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              Positioned(
+                                left: progress *
+                                    (constraints.maxWidth - barW),
+                                child: Container(
+                                  width: barW,
+                                  height: 3,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        AppTheme.gold.withValues(alpha: 0.7),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
