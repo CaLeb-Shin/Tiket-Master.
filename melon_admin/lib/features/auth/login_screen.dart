@@ -306,40 +306,59 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       child: Column(
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: 88,
+            height: 88,
             decoration: BoxDecoration(
               gradient: AdminTheme.goldGradient,
-              borderRadius: BorderRadius.circular(4),
-              boxShadow: AdminShadows.elevated,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: AdminTheme.gold.withValues(alpha: 0.35),
+                  blurRadius: 32,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Center(
               child: Text(
                 'M',
                 style: AdminTheme.serif(
                   color: AdminTheme.onAccent,
-                  fontSize: 34,
+                  fontSize: 46,
                   fontWeight: FontWeight.w800,
                   height: 1,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 14),
-          Text(
-            'MELON TICKET',
-            style: AdminTheme.label(
-              fontSize: 13,
-              color: AdminTheme.gold,
+          const SizedBox(height: 18),
+          ShaderMask(
+            shaderCallback: (bounds) =>
+                AdminTheme.goldGradient.createShader(bounds),
+            child: Text(
+              'MELON TICKET',
+              style: AdminTheme.label(fontSize: 15, color: Colors.white)
+                  .copyWith(letterSpacing: 3),
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             'ADMIN',
-            style: AdminTheme.label(
-              fontSize: 9,
-              color: AdminTheme.sage,
-            ),
+            style: AdminTheme.label(fontSize: 10, color: AdminTheme.sage)
+                .copyWith(letterSpacing: 4),
           ),
         ],
       ),
