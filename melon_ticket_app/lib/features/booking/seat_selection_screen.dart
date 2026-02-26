@@ -3757,6 +3757,15 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
   final TransformationController _controller = TransformationController();
   bool _isFullScreen = true;
   bool _imageLoaded = false;
+  bool _showDragHint = true;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _showDragHint = false);
+    });
+  }
 
   @override
   void dispose() {
@@ -4312,19 +4321,25 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
         children: [
           // Full screen viewer
           if (is360)
-            PanoramaViewer(
-              sensorControl: SensorControl.orientation,
-              animSpeed: 1.0,
-              minLongitude: viewType == 'panorama180' ? -90.0 : -180.0,
-              maxLongitude: viewType == 'panorama180' ? 90.0 : 180.0,
-              child: Image.network(
-                widget.view.imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: Colors.black,
-                  child: const Center(
-                    child: Icon(Icons.image_not_supported_rounded,
-                        size: 48, color: AppTheme.textTertiary),
+            Listener(
+              onPointerDown: (_) {
+                if (_showDragHint) setState(() => _showDragHint = false);
+              },
+              child: PanoramaViewer(
+                sensorControl: SensorControl.orientation,
+                animSpeed: 1.0,
+                zoom: 1.5,
+                minLongitude: viewType == 'panorama180' ? -90.0 : -180.0,
+                maxLongitude: viewType == 'panorama180' ? 90.0 : 180.0,
+                child: Image.network(
+                  widget.view.imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: Colors.black,
+                    child: const Center(
+                      child: Icon(Icons.image_not_supported_rounded,
+                          size: 48, color: AppTheme.textTertiary),
+                    ),
                   ),
                 ),
               ),
@@ -4332,13 +4347,15 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
           else
             InteractiveViewer(
               transformationController: _controller,
-              minScale: 0.5,
+              minScale: 1.0,
               maxScale: 5.0,
-              boundaryMargin: const EdgeInsets.all(80),
-              child: Center(
+              onInteractionStart: (_) {
+                if (_showDragHint) setState(() => _showDragHint = false);
+              },
+              child: SizedBox.expand(
                 child: Image.network(
                   widget.view.imageUrl,
-                  fit: BoxFit.contain,
+                  fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => const Center(
                     child: Icon(Icons.image_not_supported_rounded,
                         size: 48, color: AppTheme.textTertiary),
@@ -4346,6 +4363,62 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                 ),
               ),
             ),
+
+          // 360° drag hint overlay
+          IgnorePointer(
+            child: AnimatedOpacity(
+              opacity: _showDragHint ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 600),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _PulsingIcon(
+                      child: Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppTheme.gold.withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(Icons.threesixty,
+                            size: 36, color: AppTheme.gold),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.swap_horiz_rounded,
+                              size: 16,
+                              color: Colors.white.withValues(alpha: 0.7)),
+                          const SizedBox(width: 8),
+                          Text(
+                            '드래그하여 둘러보기',
+                            style: AppTheme.nanum(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white.withValues(alpha: 0.85),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
 
           // Top bar
           Positioned(
