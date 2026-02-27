@@ -2053,6 +2053,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         seatIds: seatIds,
         eventId: seatRange != null ? widget.eventId : null,
         isZoneMode: isZoneMode,
+        layout: _dotMapLayout,
       ),
     );
   }
@@ -3735,6 +3736,7 @@ class _SeatViewBottomSheet extends StatefulWidget {
   final List<String>? seatIds;
   final String? eventId;
   final bool isZoneMode;
+  final VenueSeatLayout? layout;
 
   const _SeatViewBottomSheet({
     required this.view,
@@ -3747,6 +3749,7 @@ class _SeatViewBottomSheet extends StatefulWidget {
     this.seatIds,
     this.eventId,
     this.isZoneMode = false,
+    this.layout,
   });
 
   @override
@@ -4708,6 +4711,33 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
             ),
           ),
 
+          // Minimap overlay
+          if (widget.layout != null && widget.layout!.seats.isNotEmpty)
+            Positioned(
+              right: 12,
+              bottom: 160 + MediaQuery.of(context).padding.bottom,
+              child: Container(
+                width: 130,
+                height: 95,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: const Color(0x33C9A84C), width: 0.5),
+                ),
+                padding: const EdgeInsets.all(6),
+                child: CustomPaint(
+                  size: const Size(118, 83),
+                  painter: _MinimapPainter(
+                    layout: widget.layout!,
+                    currentZone: widget.zone,
+                    currentRow: widget.row,
+                    currentSeatNumber: widget.view.seat,
+                  ),
+                ),
+              ),
+            ),
+
           // Bottom: grade info + confirm button
           Positioned(
             bottom: 0,
@@ -4929,5 +4959,165 @@ class _PulsingIconState extends State<_PulsingIcon>
   @override
   Widget build(BuildContext context) {
     return ScaleTransition(scale: _scale, child: widget.child);
+  }
+}
+
+// =============================================================================
+// 미니맵 페인터 — 좌석 시야 뷰어용 소형 좌석 배치도
+// =============================================================================
+
+class _MinimapPainter extends CustomPainter {
+  final VenueSeatLayout layout;
+  final String currentZone;
+  final String? currentRow;
+  final int? currentSeatNumber;
+
+  static const _gradeColors = {
+    'VIP': Color(0xFFD4AF37),
+    'R': Color(0xFFE53935),
+    'S': Color(0xFF1E88E5),
+    'A': Color(0xFF43A047),
+  };
+
+  _MinimapPainter({
+    required this.layout,
+    required this.currentZone,
+    this.currentRow,
+    this.currentSeatNumber,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (layout.seats.isEmpty) return;
+
+    // 실제 좌석 범위 계산 (여백 줄이기)
+    int minX = layout.gridCols, maxX = 0;
+    int minY = layout.gridRows, maxY = 0;
+    for (final s in layout.seats) {
+      if (s.gridX < minX) minX = s.gridX;
+      if (s.gridX > maxX) maxX = s.gridX;
+      if (s.gridY < minY) minY = s.gridY;
+      if (s.gridY > maxY) maxY = s.gridY;
+    }
+    minX = (minX - 1).clamp(0, layout.gridCols);
+    maxX = (maxX + 1).clamp(0, layout.gridCols);
+    minY = (minY - 2).clamp(0, layout.gridRows);
+    maxY = (maxY + 1).clamp(0, layout.gridRows);
+
+    final rangeX = (maxX - minX + 1).toDouble();
+    final rangeY = (maxY - minY + 1).toDouble();
+
+    // 스테이지 공간 확보
+    const stageH = 10.0;
+    final availH = size.height - stageH - 4;
+    final cellSize = min(size.width / rangeX, availH / rangeY);
+    final mapW = rangeX * cellSize;
+    final mapH = rangeY * cellSize;
+    final offsetX = (size.width - mapW) / 2;
+    final offsetY = stageH + 4 + (availH - mapH) / 2;
+
+    // 스테이지 그리기
+    final stageW = mapW * layout.stageWidthRatio.clamp(0.3, 0.8);
+    final stageRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(size.width / 2, stageH / 2 + 1),
+        width: stageW,
+        height: stageH - 2,
+      ),
+      const Radius.circular(2),
+    );
+    canvas.drawRRect(
+      stageRect,
+      Paint()..color = const Color(0x44C9A84C),
+    );
+    canvas.drawRRect(
+      stageRect,
+      Paint()
+        ..color = const Color(0x66C9A84C)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5,
+    );
+    // STAGE 삼각형 마커 (텍스트 대신)
+    final stageMark = Path()
+      ..moveTo(size.width / 2 - 3, stageH / 2 - 1)
+      ..lineTo(size.width / 2 + 3, stageH / 2 - 1)
+      ..lineTo(size.width / 2, stageH / 2 + 2)
+      ..close();
+    canvas.drawPath(stageMark, Paint()..color = const Color(0x88C9A84C));
+
+    // 현재 좌석 위치 찾기
+    double? markerCx, markerCy;
+    double zoneCx = 0, zoneCy = 0;
+    int zoneCount = 0;
+
+    // 좌석 그리기
+    final dotR = (cellSize * 0.35).clamp(0.8, 2.5);
+    for (final s in layout.seats) {
+      final cx = offsetX + (s.gridX - minX) * cellSize + cellSize / 2;
+      final cy = offsetY + (s.gridY - minY) * cellSize + cellSize / 2;
+
+      final isCurrentZone = s.zone == currentZone;
+
+      if (isCurrentZone) {
+        zoneCx += cx;
+        zoneCy += cy;
+        zoneCount++;
+
+        // 정확한 좌석 매칭
+        if (currentRow != null && s.row == currentRow) {
+          if (currentSeatNumber != null && s.number == currentSeatNumber) {
+            markerCx = cx;
+            markerCy = cy;
+          } else if (markerCx == null) {
+            // row만 매칭 — row 중앙으로 폴백
+            markerCx = cx;
+            markerCy = cy;
+          }
+        }
+      }
+
+      final baseColor = _gradeColors[s.grade] ?? const Color(0xFF666666);
+      final color = isCurrentZone
+          ? baseColor
+          : baseColor.withValues(alpha: 0.15);
+
+      canvas.drawCircle(Offset(cx, cy), dotR, Paint()..color = color);
+    }
+
+    // 마커 위치 결정 (좌석 > row > zone 중앙)
+    if (markerCx == null && zoneCount > 0) {
+      markerCx = zoneCx / zoneCount;
+      markerCy = zoneCy / zoneCount;
+    }
+
+    // 현재 위치 마커 (골드 원)
+    if (markerCx != null && markerCy != null) {
+      final markerR = (cellSize * 1.5).clamp(3.0, 6.0);
+      // 외곽 글로우
+      canvas.drawCircle(
+        Offset(markerCx!, markerCy!),
+        markerR + 2,
+        Paint()..color = const Color(0x33C9A84C),
+      );
+      // 메인 마커
+      canvas.drawCircle(
+        Offset(markerCx!, markerCy!),
+        markerR,
+        Paint()..color = const Color(0xFFC9A84C),
+      );
+      // 안쪽 밝은 점
+      canvas.drawCircle(
+        Offset(markerCx!, markerCy!),
+        markerR * 0.4,
+        Paint()..color = const Color(0xFFFFF8E1),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MinimapPainter oldDelegate) {
+    return oldDelegate.currentZone != currentZone ||
+        oldDelegate.currentRow != currentRow ||
+        oldDelegate.currentSeatNumber != currentSeatNumber;
   }
 }
