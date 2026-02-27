@@ -48,7 +48,6 @@ class _EventSeatManagerScreenState
   List<_SeatInfo> _seatInfos = [];
   final _searchController = TextEditingController();
   String _searchQuery = '';
-  bool _isDotMapView = true; // true=dotmap, false=table
   _SeatInfo? _selectedSeat;
 
   // ── Summary counts ──
@@ -308,8 +307,15 @@ class _EventSeatManagerScreenState
           else ...[
             _buildSummaryBar(),
             _buildToolbar(),
+            // 상단: 도트맵
+            SizedBox(
+              height: 380,
+              child: _buildDotMapView(),
+            ),
+            const Divider(height: 1, color: AdminTheme.border),
+            // 하단: 테이블
             Expanded(
-              child: _isDotMapView ? _buildDotMapView() : _buildTableView(),
+              child: _buildTableView(),
             ),
           ],
         ],
@@ -514,41 +520,6 @@ class _EventSeatManagerScreenState
                   isDense: true,
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          // View toggle
-          Container(
-            height: 36,
-            decoration: BoxDecoration(
-              color: AdminTheme.surface,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(
-                color: AdminTheme.sage.withValues(alpha: 0.2),
-                width: 0.5,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _viewToggleButton(
-                  icon: Icons.grid_view_rounded,
-                  label: '도트맵',
-                  isActive: _isDotMapView,
-                  onTap: () => setState(() => _isDotMapView = true),
-                ),
-                Container(
-                  width: 0.5,
-                  height: 20,
-                  color: AdminTheme.sage.withValues(alpha: 0.2),
-                ),
-                _viewToggleButton(
-                  icon: Icons.table_rows_rounded,
-                  label: '테이블',
-                  isActive: !_isDotMapView,
-                  onTap: () => setState(() => _isDotMapView = false),
-                ),
-              ],
             ),
           ),
         ],

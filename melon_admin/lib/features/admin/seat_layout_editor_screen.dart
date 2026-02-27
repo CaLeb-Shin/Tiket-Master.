@@ -72,6 +72,10 @@ class _SeatLayoutEditorScreenState
   // ─── Drag Indicator ───
   Offset? _dragIndicator; // 현재 드래그 중인 위치 (캔버스 좌표)
 
+  // ─── Canvas Direct Manipulation ───
+  String? _dragTarget; // 'stage_left' | 'stage_right' | 'stage_bottom' | 'label:x,y' | 'divider:idx' | null
+  Offset? _dragStartPos; // 드래그 시작 위치
+
   // ─── Loading ───
   bool _loading = true;
   bool _saving = false;
@@ -270,33 +274,129 @@ class _SeatLayoutEditorScreenState
           .contains(LogicalKeyboardKey.metaRight);
 
   // ─── Canvas Tap ───
+  // ─── Hit Test System ───
+  Rect _getStageRect() {
+    final canvasW = _gridCols * _cellSize;
+    final stageW = canvasW * _stageWidthRatio;
+    final stageX = (canvasW - stageW) / 2;
+    final stageY = _stagePosition == 'top' ? 4.0 : _gridRows * _cellSize - _stageHeight - 4;
+    return Rect.fromLTWH(stageX, stageY, stageW, _stageHeight);
+  }
+
+  String? _hitTest(Offset pos) {
+    // 1. Stage handles (stage step)
+    if (_step == _EditorStep.stage) {
+      final sr = _getStageRect();
+      const h = 10.0; // handle hit area
+      // Left edge
+      if ((pos.dx - sr.left).abs() < h && pos.dy > sr.top - h && pos.dy < sr.bottom + h) {
+        return 'stage_left';
+      }
+      // Right edge
+      if ((pos.dx - sr.right).abs() < h && pos.dy > sr.top - h && pos.dy < sr.bottom + h) {
+        return 'stage_right';
+      }
+      // Bottom edge (top position) or Top edge (bottom position)
+      if (_stagePosition == 'top') {
+        if ((pos.dy - sr.bottom).abs() < h && pos.dx > sr.left - h && pos.dx < sr.right + h) {
+          return 'stage_bottom';
+        }
+      } else {
+        if ((pos.dy - sr.top).abs() < h && pos.dx > sr.left - h && pos.dx < sr.right + h) {
+          return 'stage_bottom';
+        }
+      }
+    }
+
+    // 2. Labels (structure step)
+    if (_step == _EditorStep.structure) {
+      for (final label in _labels.values) {
+        final lx = label.gridX * _cellSize + _cellSize / 2;
+        final ly = label.gridY * _cellSize + _cellSize / 2;
+        final hitSize = label.fontSize * label.text.length * 0.4 + 16;
+        if ((pos.dx - lx).abs() < hitSize && (pos.dy - ly).abs() < label.fontSize + 8) {
+          return 'label:${label.key}';
+        }
+      }
+    }
+
+    return null;
+  }
+
+  void _removeSeatsInStageArea() {
+    final sr = _getStageRect();
+    final keysToRemove = <String>[];
+    for (final entry in _seats.entries) {
+      final cx = entry.value.gridX * _cellSize + _cellSize / 2;
+      final cy = entry.value.gridY * _cellSize + _cellSize / 2;
+      if (sr.contains(Offset(cx, cy))) {
+        keysToRemove.add(entry.key);
+      }
+    }
+    for (final key in keysToRemove) {
+      _seats.remove(key);
+    }
+  }
+
+  void _removeSeatsOnDivider(LayoutDivider d) {
+    final keysToRemove = <String>[];
+    for (final entry in _seats.entries) {
+      final sx = entry.value.gridX;
+      final sy = entry.value.gridY;
+      // Check distance from seat to divider line
+      final dx = d.endX - d.startX;
+      final dy = d.endY - d.startY;
+      final lenSq = dx * dx + dy * dy;
+      if (lenSq == 0) continue;
+      final t = ((sx - d.startX) * dx + (sy - d.startY) * dy) / lenSq;
+      if (t < 0 || t > 1) continue;
+      final projX = d.startX + t * dx;
+      final projY = d.startY + t * dy;
+      final dist = math.sqrt(math.pow(sx - projX, 2) + math.pow(sy - projY, 2));
+      if (dist < 0.8) keysToRemove.add(entry.key);
+    }
+    for (final key in keysToRemove) {
+      _seats.remove(key);
+    }
+  }
+
+  void _removeSeatsAtLabel(LayoutLabel label) {
+    final key = '${label.gridX},${label.gridY}';
+    _seats.remove(key);
+    // Also remove adjacent cells based on text length
+    final span = (label.text.length * 0.5).ceil();
+    for (var dx = -span; dx <= span; dx++) {
+      _seats.remove('${label.gridX + dx},${label.gridY}');
+    }
+  }
+
   void _onCanvasTap(Offset localPosition) {
     final gx = localPosition.dx ~/ _cellSize;
     final gy = localPosition.dy ~/ _cellSize;
     if (gx < 0 || gx >= _gridCols || gy < 0 || gy >= _gridRows) return;
 
-    // Stage 스텝에서는 캔버스 상호작용 없음
+    // Stage 스텝: 빈 곳 탭 시 무시 (드래그 핸들만 사용)
     if (_step == _EditorStep.stage) return;
 
-    // Structure 스텝에서는 구분선/라벨 도구만 사용
+    // Structure 스텝: 라벨 탭 → 편집 다이얼로그, 빈 곳 탭 → 새 라벨
     if (_step == _EditorStep.structure) {
+      // 기존 라벨 탭 → 편집
+      for (final label in _labels.values) {
+        final lx = label.gridX * _cellSize + _cellSize / 2;
+        final ly = label.gridY * _cellSize + _cellSize / 2;
+        final hitSize = label.fontSize * label.text.length * 0.4 + 16;
+        if ((localPosition.dx - lx).abs() < hitSize &&
+            (localPosition.dy - ly).abs() < label.fontSize + 8) {
+          _showLabelDialog(label.gridX, label.gridY, existing: label);
+          return;
+        }
+      }
+      // 빈 곳 탭 → 라벨 모드면 새 라벨, 아니면 구분선 시작점
       if (_tool == _EditorTool.text) {
         _showLabelDialog(gx, gy);
       } else {
-        // 구분선 그리기 (2점 클릭)
-        if (_dividerStart == null) {
-          setState(() => _dividerStart = (x: gx, y: gy));
-        } else {
-          setState(() {
-            _dividers.add(LayoutDivider(
-              startX: _dividerStart!.x,
-              startY: _dividerStart!.y,
-              endX: gx,
-              endY: gy,
-            ));
-            _dividerStart = null;
-          });
-        }
+        // 구분선 시작점 설정 (드래그로 끝점 결정)
+        setState(() => _dividerStart = (x: gx, y: gy));
       }
       return;
     }
@@ -562,34 +662,165 @@ class _SeatLayoutEditorScreenState
     });
   }
 
-  void _onCanvasDrag(Offset localPosition) {
-    if (_step != _EditorStep.seats) return; // 좌석 배치 스텝에서만 드래그
-    final gx = localPosition.dx ~/ _cellSize;
-    final gy = localPosition.dy ~/ _cellSize;
-    if (gx < 0 || gx >= _gridCols || gy < 0 || gy >= _gridRows) return;
+  void _onCanvasDragStart(Offset localPosition) {
+    _isDragging = true;
+    _dragStartPos = localPosition;
 
-    // Update drag indicator position
-    _dragIndicator = localPosition;
-
-    final key = '$gx,$gy';
-    final effectiveTool = _isCmdPressed ? _EditorTool.erase : _tool;
-
-    if (effectiveTool == _EditorTool.paint && !_seats.containsKey(key)) {
-      setState(() {
-        _seats[key] = LayoutSeat(
-          gridX: gx,
-          gridY: gy,
-          zone: _currentZone,
-          floor: _currentFloor,
-          grade: _selectedGrade,
-          seatType: _selectedSeatType,
-        );
-      });
-    } else if (effectiveTool == _EditorTool.erase && _seats.containsKey(key)) {
-      setState(() => _seats.remove(key));
-    } else {
-      setState(() {}); // trigger repaint for drag indicator
+    // Stage step: check for handle drag
+    if (_step == _EditorStep.stage) {
+      final hit = _hitTest(localPosition);
+      if (hit != null && hit.startsWith('stage_')) {
+        _dragTarget = hit;
+        return;
+      }
     }
+
+    // Structure step: check for label drag or start divider
+    if (_step == _EditorStep.structure) {
+      final hit = _hitTest(localPosition);
+      if (hit != null && hit.startsWith('label:')) {
+        _dragTarget = hit;
+        return;
+      }
+      // 구분선 시작 (tap에서 이미 _dividerStart 설정됨)
+      if (_tool != _EditorTool.text && _dividerStart == null) {
+        final gx = localPosition.dx ~/ _cellSize;
+        final gy = localPosition.dy ~/ _cellSize;
+        if (gx >= 0 && gx < _gridCols && gy >= 0 && gy < _gridRows) {
+          setState(() => _dividerStart = (x: gx, y: gy));
+        }
+      }
+    }
+
+    // Seats step: normal paint/erase drag
+    if (_step == _EditorStep.seats) {
+      _onCanvasDragUpdate(localPosition);
+    }
+  }
+
+  void _onCanvasDragUpdate(Offset localPosition) {
+    // Stage step: handle resize
+    if (_step == _EditorStep.stage && _dragTarget != null) {
+      final canvasW = _gridCols * _cellSize;
+      final canvasH = _gridRows * _cellSize;
+      final sr = _getStageRect();
+
+      if (_dragTarget == 'stage_left' || _dragTarget == 'stage_right') {
+        // Symmetric resize: adjust width ratio
+        final center = canvasW / 2;
+        final halfW = (_dragTarget == 'stage_right')
+            ? (localPosition.dx - center).abs()
+            : (center - localPosition.dx).abs();
+        final newRatio = (halfW * 2 / canvasW).clamp(0.15, 0.9);
+        setState(() {
+          _stageWidthRatio = newRatio;
+          _removeSeatsInStageArea();
+        });
+      } else if (_dragTarget == 'stage_bottom') {
+        final newH = _stagePosition == 'top'
+            ? (localPosition.dy - sr.top).clamp(16.0, 60.0)
+            : (sr.bottom - localPosition.dy).clamp(16.0, 60.0);
+        setState(() {
+          _stageHeight = newH;
+          _removeSeatsInStageArea();
+        });
+      }
+      return;
+    }
+
+    // Structure step: label drag or divider preview
+    if (_step == _EditorStep.structure) {
+      if (_dragTarget != null && _dragTarget!.startsWith('label:')) {
+        final key = _dragTarget!.substring(6); // "x,y"
+        final label = _labels[key];
+        if (label != null) {
+          final gx = localPosition.dx ~/ _cellSize;
+          final gy = localPosition.dy ~/ _cellSize;
+          if (gx >= 0 && gx < _gridCols && gy >= 0 && gy < _gridRows) {
+            setState(() {
+              _labels.remove(key);
+              final moved = LayoutLabel(
+                gridX: gx,
+                gridY: gy,
+                text: label.text,
+                type: label.type,
+                fontSize: label.fontSize,
+              );
+              _labels[moved.key] = moved;
+              _dragTarget = 'label:${moved.key}';
+              _removeSeatsAtLabel(moved);
+            });
+          }
+        }
+        return;
+      }
+      // 구분선 드래그 중: 끝점 미리보기 업데이트
+      if (_dividerStart != null) {
+        final gx = localPosition.dx ~/ _cellSize;
+        final gy = localPosition.dy ~/ _cellSize;
+        setState(() => _dragIndicator = localPosition);
+        return;
+      }
+      return;
+    }
+
+    // Seats step: paint/erase drag
+    if (_step == _EditorStep.seats) {
+      final gx = localPosition.dx ~/ _cellSize;
+      final gy = localPosition.dy ~/ _cellSize;
+      if (gx < 0 || gx >= _gridCols || gy < 0 || gy >= _gridRows) return;
+
+      _dragIndicator = localPosition;
+      final key = '$gx,$gy';
+      final effectiveTool = _isCmdPressed ? _EditorTool.erase : _tool;
+
+      if (effectiveTool == _EditorTool.paint && !_seats.containsKey(key)) {
+        setState(() {
+          _seats[key] = LayoutSeat(
+            gridX: gx,
+            gridY: gy,
+            zone: _currentZone,
+            floor: _currentFloor,
+            grade: _selectedGrade,
+            seatType: _selectedSeatType,
+          );
+        });
+      } else if (effectiveTool == _EditorTool.erase &&
+          _seats.containsKey(key)) {
+        setState(() => _seats.remove(key));
+      } else {
+        setState(() {}); // trigger repaint for drag indicator
+      }
+    }
+  }
+
+  void _onCanvasDragEnd() {
+    // Structure step: 구분선 완성
+    if (_step == _EditorStep.structure && _dividerStart != null && _dragIndicator != null) {
+      final gx = _dragIndicator!.dx ~/ _cellSize;
+      final gy = _dragIndicator!.dy ~/ _cellSize;
+      if (gx >= 0 && gx < _gridCols && gy >= 0 && gy < _gridRows) {
+        // 시작점과 끝점이 다른 경우에만 추가
+        if (gx != _dividerStart!.x || gy != _dividerStart!.y) {
+          final divider = LayoutDivider(
+            startX: _dividerStart!.x,
+            startY: _dividerStart!.y,
+            endX: gx,
+            endY: gy,
+          );
+          _dividers.add(divider);
+          _removeSeatsOnDivider(divider);
+        }
+      }
+    }
+
+    setState(() {
+      _isDragging = false;
+      _dragTarget = null;
+      _dragStartPos = null;
+      _dragIndicator = null;
+      _dividerStart = null;
+    });
   }
 
   // ─── Excel Import (Enhanced) ───
@@ -943,15 +1174,13 @@ class _SeatLayoutEditorScreenState
         child: GestureDetector(
           onTapDown: (details) => _onCanvasTap(details.localPosition),
           onPanStart: (details) {
-            _isDragging = true;
-            _onCanvasDrag(details.localPosition);
+            _onCanvasDragStart(details.localPosition);
           },
           onPanUpdate: (details) {
-            if (_isDragging) _onCanvasDrag(details.localPosition);
+            if (_isDragging) _onCanvasDragUpdate(details.localPosition);
           },
           onPanEnd: (_) {
-            _isDragging = false;
-            setState(() => _dragIndicator = null);
+            _onCanvasDragEnd();
           },
           child: CustomPaint(
             size: Size(canvasW, canvasH),
@@ -977,6 +1206,7 @@ class _SeatLayoutEditorScreenState
               isCmdPressed: _isCmdPressed,
               dividers: _dividers,
               dividerStart: _dividerStart,
+              editorStep: _step,
             ),
           ),
         ),
@@ -2277,6 +2507,7 @@ class _SeatGridPainter extends CustomPainter {
   final bool isCmdPressed;
   final List<LayoutDivider> dividers;
   final ({int x, int y})? dividerStart;
+  final _EditorStep editorStep;
 
   _SeatGridPainter({
     required this.gridCols,
@@ -2300,6 +2531,7 @@ class _SeatGridPainter extends CustomPainter {
     required this.isCmdPressed,
     this.dividers = const [],
     this.dividerStart,
+    this.editorStep = _EditorStep.seats,
   });
 
   @override
@@ -2618,6 +2850,52 @@ class _SeatGridPainter extends CustomPainter {
         stageY + (stageH - textPainter.height) / 2,
       ),
     );
+
+    // Draw drag handles (stage step only)
+    if (editorStep == _EditorStep.stage) {
+      final handlePaint = Paint()
+        ..color = const Color(0xFF00E5FF)
+        ..style = PaintingStyle.fill;
+      final handleBorder = Paint()
+        ..color = const Color(0xFF00E5FF).withValues(alpha: 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1;
+      const hs = 5.0; // handle size
+
+      // Left handle
+      final ly = stageY + stageH / 2;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(stageX, ly), width: hs * 2, height: hs * 3),
+          const Radius.circular(2),
+        ),
+        handlePaint,
+      );
+      // Right handle
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(stageX + stageW, ly), width: hs * 2, height: hs * 3),
+          const Radius.circular(2),
+        ),
+        handlePaint,
+      );
+      // Bottom/Top handle (audience side)
+      final bx = stageX + stageW / 2;
+      final by = stagePosition == 'top' ? stageY + stageH : stageY;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(bx, by), width: hs * 3, height: hs * 2),
+          const Radius.circular(2),
+        ),
+        handlePaint,
+      );
+
+      // Hint border around stage
+      canvas.drawRect(
+        Rect.fromLTWH(stageX - 1, stageY - 1, stageW + 2, stageH + 2),
+        handleBorder,
+      );
+    }
   }
 
   void _drawDividers(Canvas canvas) {

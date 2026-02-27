@@ -1416,7 +1416,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                     child: TextButton(
                       onPressed: () {
                         Navigator.of(sheetContext).pop();
-                        context.push('/seats/${event.id}');
+                        context.push('/seats/${event.id}?mode=dotmap');
                       },
                       style: TextButton.styleFrom(
                         shape: RoundedRectangleBorder(

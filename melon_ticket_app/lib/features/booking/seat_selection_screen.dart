@@ -44,6 +44,7 @@ class _SeatRecommendation {
 class SeatSelectionScreen extends ConsumerStatefulWidget {
   final String eventId;
   final bool openAIFirst;
+  final String? initialMode;
   final int? initialAIQuantity;
   final int? initialAIMaxBudget;
   final String? initialAIInstrument;
@@ -53,6 +54,7 @@ class SeatSelectionScreen extends ConsumerStatefulWidget {
     super.key,
     required this.eventId,
     this.openAIFirst = false,
+    this.initialMode,
     this.initialAIQuantity,
     this.initialAIMaxBudget,
     this.initialAIInstrument,
@@ -92,7 +94,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   String? _selectedZone;
 
   // ── Quick Mode ──
-  String _quickGrade = '자동';
+  String _quickGrade = 'VIP';
   int _quickQuantity = 2;
 
   // ── Standing Mode ──
@@ -141,7 +143,13 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   void initState() {
     super.initState();
 
-    if (widget.openAIFirst) {
+    if (widget.initialMode == 'dotmap') {
+      _mode = _SeatMode.dotMap;
+    } else if (widget.initialMode == 'zone') {
+      _mode = _SeatMode.zone;
+    } else if (widget.initialMode == 'quick') {
+      _mode = _SeatMode.quick;
+    } else if (widget.openAIFirst) {
       _mode = _SeatMode.ai;
     }
 
@@ -2191,13 +2199,18 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   Widget _buildQuickMode(List<Seat> seats, Event event, bool isStageBottom) {
     final available =
         seats.where((s) => s.status == SeatStatus.available).toList();
+    const gradeOrder = ['VIP', 'R', 'S', 'A'];
     final availableGrades = available
         .map((s) => s.grade)
         .where((g) => g != null)
         .cast<String>()
         .toSet()
         .toList()
-      ..sort();
+      ..sort((a, b) {
+        final ai = gradeOrder.indexOf(a);
+        final bi = gradeOrder.indexOf(b);
+        return (ai == -1 ? 99 : ai).compareTo(bi == -1 ? 99 : bi);
+      });
     final fmt = NumberFormat('#,###');
 
     final previewSeats =
@@ -2257,9 +2270,9 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: ['자동', ...availableGrades].map((g) {
+            children: availableGrades.map((g) {
               final isActive = _quickGrade == g;
-              final color = g == '자동' ? AppTheme.gold : _getGradeColor(g);
+              final color = _getGradeColor(g);
               return GestureDetector(
                 onTap: () => setState(() => _quickGrade = g),
                 child: AnimatedContainer(
@@ -2275,7 +2288,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     ),
                   ),
                   child: Text(
-                    g == '자동' ? '자동 배정' : '$g석',
+                    '$g석',
                     style: AppTheme.nanum(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -2491,11 +2504,9 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
 
   List<Seat> _autoAssignSeats(List<Seat> available, int quantity,
       String gradePreference, bool isStageBottom) {
-    final filtered = gradePreference == '자동'
-        ? available
-        : available
-            .where((s) => s.grade?.toUpperCase() == gradePreference)
-            .toList();
+    final filtered = available
+        .where((s) => s.grade?.toUpperCase() == gradePreference)
+        .toList();
 
     if (filtered.length < quantity) {
       return _findBestConsecutive(available, quantity, isStageBottom);
