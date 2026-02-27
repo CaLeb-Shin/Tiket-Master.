@@ -537,12 +537,12 @@ class _InfoColumn extends StatelessWidget {
           Text(
             value,
             style: AppTheme.sans(
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: FontWeight.w500,
               color: valueColor ?? AppTheme.textPrimary,
             ),
             textAlign: TextAlign.center,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           if (subValue != null) ...[
@@ -1409,7 +1409,7 @@ class _ShareSheet extends ConsumerWidget {
                     Text(
                       event.title,
                       style: AppTheme.serif(
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: AppTheme.textPrimary,
                         height: 1.3,

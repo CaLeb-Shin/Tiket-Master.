@@ -489,8 +489,19 @@ class _SeatInfoRow extends StatelessWidget {
     return FutureBuilder(
       future: ref.read(seatRepositoryProvider).getSeat(ticket.seatId),
       builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildRow(
+            badge: _gradeBadge('···', AppTheme.textTertiary),
+            text: '좌석 정보 불러오는 중',
+            checkedIn: false,
+          );
+        }
         if (!snapshot.hasData || snapshot.data == null) {
-          return const SizedBox(height: 36);
+          return _buildRow(
+            badge: _gradeBadge('좌석', AppTheme.textSecondary),
+            text: '좌석 배정 완료',
+            checkedIn: ticket.isEntryCheckedIn,
+          );
         }
         final seat = snapshot.data!;
         final grade = seat.grade ?? '';
