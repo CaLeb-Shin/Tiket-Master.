@@ -4803,6 +4803,25 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                           ],
                         ),
                       ],
+                      const SizedBox(height: 8),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.visibility_outlined,
+                              size: 13,
+                              color: Colors.white.withValues(alpha: 0.35)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '화면상 시야는 실제보다 멀게 느껴질 수 있으며, 실제 거리는 더 가깝습니다.',
+                              style: AppTheme.nanum(
+                                fontSize: 10.5,
+                                color: Colors.white.withValues(alpha: 0.35),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 14),
                       // Confirm button
                       SizedBox(
