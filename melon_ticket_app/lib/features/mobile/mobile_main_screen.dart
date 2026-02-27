@@ -1158,7 +1158,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    fromLink ? '링크 공연 AI 예매 조건' : 'AI 예매 조건',
+                    fromLink ? '링크 공연 AI 예매' : 'AI 예매 + 360° 시야보기',
                     style: AppTheme.serif(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -1168,7 +1168,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '세 가지만 고르면 바로 자동 배치됩니다.',
+                    '조건을 선택하면 AI가 최적 좌석을 배치합니다.',
                     style: AppTheme.sans(
                       fontSize: 13,
                       color: AppTheme.textSecondary,
@@ -1404,6 +1404,34 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                           fontWeight: FontWeight.w600,
                           color: AppTheme.onAccent,
                           letterSpacing: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // ── 직접 좌석 선택 ──
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        context.push('/seats/${event.id}');
+                      },
+                      style: TextButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: AppTheme.sage.withValues(alpha: 0.2),
+                            width: 0.5,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        '직접 좌석 선택하기 →',
+                        style: AppTheme.sans(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
                         ),
                       ),
                     ),
