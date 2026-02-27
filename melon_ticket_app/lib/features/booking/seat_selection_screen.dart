@@ -2041,6 +2041,8 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (context) => _SeatViewBottomSheet(
         view: view,
@@ -4745,12 +4747,12 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
             right: 0,
             child: ClipRRect(
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                 child: Container(
                   padding: EdgeInsets.fromLTRB(
-                      20, 16, 20, MediaQuery.of(context).padding.bottom + 16),
+                      20, 12, 20, MediaQuery.of(context).padding.bottom + 12),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.75),
+                    color: Colors.black.withValues(alpha: 0.4),
                     border: const Border(
                       top: BorderSide(
                           color: Color(0x33C9A84C), width: 0.5),
