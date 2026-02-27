@@ -113,9 +113,12 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
 
     return Scaffold(
       backgroundColor: AdminTheme.background,
-      body: Stack(
-        children: [
-          Row(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          const minWidth = 960.0;
+          final needsScroll = constraints.maxWidth < minWidth;
+
+          Widget mainRow = Row(
             children: [
               // ── 고정형 사이드바 ──
               _Sidebar(
@@ -178,8 +181,23 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
                 ),
               ),
             ],
-          ),
-        ],
+          );
+
+          if (needsScroll) {
+            mainRow = SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: minWidth,
+                height: constraints.maxHeight,
+                child: mainRow,
+              ),
+            );
+          }
+
+          return Stack(
+            children: [mainRow],
+          );
+        },
       ),
     );
   }
