@@ -776,7 +776,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               child: _modeTab(
                   _SeatMode.dotMap, Icons.grid_on_rounded, '좌석 선택'),
             ),
-          _modeTab(_SeatMode.zone, Icons.grid_view_rounded, '구역 선택'),
+          _modeTab(_SeatMode.zone, Icons.grid_view_rounded, '좌석 선택'),
           const SizedBox(width: 6),
           _modeTab(_SeatMode.quick, Icons.bolt_rounded, '빠른 예매'),
         ],
