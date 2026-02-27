@@ -367,6 +367,36 @@ class LayoutLabel {
   }
 }
 
+/// 배치도 구분선 (팬스/통로 등 시각적 경계선)
+class LayoutDivider {
+  final int startX;
+  final int startY;
+  final int endX;
+  final int endY;
+
+  LayoutDivider({
+    required this.startX,
+    required this.startY,
+    required this.endX,
+    required this.endY,
+  });
+
+  String get key => '$startX,$startY-$endX,$endY';
+
+  factory LayoutDivider.fromMap(Map<String, dynamic> map) {
+    return LayoutDivider(
+      startX: map['sx'] ?? 0,
+      startY: map['sy'] ?? 0,
+      endX: map['ex'] ?? 0,
+      endY: map['ey'] ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {'sx': startX, 'sy': startY, 'ex': endX, 'ey': endY};
+  }
+}
+
 /// 공연장 좌석 배치도 (도트 그리드 기반)
 class VenueSeatLayout {
   final int gridCols;
@@ -377,6 +407,7 @@ class VenueSeatLayout {
   final String stageShape; // rect / arc / trapezoid
   final List<LayoutSeat> seats;
   final List<LayoutLabel> labels; // 텍스트 라벨
+  final List<LayoutDivider> dividers; // 구분선 (팬스/통로)
   final Map<String, int> gradePrice; // 등급별 가격
 
   VenueSeatLayout({
@@ -388,6 +419,7 @@ class VenueSeatLayout {
     this.stageShape = 'rect',
     this.seats = const [],
     this.labels = const [],
+    this.dividers = const [],
     this.gradePrice = const {},
   });
 
@@ -418,6 +450,10 @@ class VenueSeatLayout {
               ?.map((l) => LayoutLabel.fromMap(l as Map<String, dynamic>))
               .toList() ??
           [],
+      dividers: (data['dividers'] as List<dynamic>?)
+              ?.map((d) => LayoutDivider.fromMap(d as Map<String, dynamic>))
+              .toList() ??
+          [],
       gradePrice: Map<String, int>.from(data['gradePrice'] ?? {}),
     );
   }
@@ -432,6 +468,7 @@ class VenueSeatLayout {
       'stageShape': stageShape,
       'seats': seats.map((s) => s.toMap()).toList(),
       'labels': labels.map((l) => l.toMap()).toList(),
+      'dividers': dividers.map((d) => d.toMap()).toList(),
       'gradePrice': gradePrice,
     };
   }

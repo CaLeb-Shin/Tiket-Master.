@@ -23,6 +23,7 @@ class SeatLayoutEditorScreen extends ConsumerStatefulWidget {
 }
 
 enum _EditorTool { paint, erase, select, line, text }
+enum _EditorStep { stage, structure, seats }
 
 class _SeatLayoutEditorScreenState
     extends ConsumerState<SeatLayoutEditorScreen> {
@@ -42,6 +43,7 @@ class _SeatLayoutEditorScreenState
   };
 
   // ─── Editor State ───
+  _EditorStep _step = _EditorStep.stage;
   _EditorTool _tool = _EditorTool.paint;
   String _selectedGrade = 'VIP';
   SeatType _selectedSeatType = SeatType.normal;
@@ -49,6 +51,10 @@ class _SeatLayoutEditorScreenState
   String _currentFloor = '1층';
   LayoutSeat? _selectedSeat;
   final Set<String> _multiSelected = {};
+
+  // ─── Dividers (구분선) ───
+  final List<LayoutDivider> _dividers = [];
+  ({int x, int y})? _dividerStart; // 구분선 시작점
 
   // ─── Canvas State ───
   final TransformationController _transformCtrl = TransformationController();
@@ -129,7 +135,10 @@ class _SeatLayoutEditorScreenState
           for (final label in layout.labels) {
             _labels[label.key] = label;
           }
+          _dividers.addAll(layout.dividers);
         }
+        // 기존 데이터가 있으면 좌석 배치 스텝으로 시작
+        if (_seats.isNotEmpty) _step = _EditorStep.seats;
         _loading = false;
       });
     } else if (mounted) {
@@ -149,6 +158,7 @@ class _SeatLayoutEditorScreenState
         stageShape: _stageShape,
         seats: _seats.values.toList(),
         labels: _labels.values.toList(),
+        dividers: List.from(_dividers),
         gradePrice: Map.from(_gradePrice),
       );
 
@@ -264,6 +274,32 @@ class _SeatLayoutEditorScreenState
     final gx = localPosition.dx ~/ _cellSize;
     final gy = localPosition.dy ~/ _cellSize;
     if (gx < 0 || gx >= _gridCols || gy < 0 || gy >= _gridRows) return;
+
+    // Stage 스텝에서는 캔버스 상호작용 없음
+    if (_step == _EditorStep.stage) return;
+
+    // Structure 스텝에서는 구분선/라벨 도구만 사용
+    if (_step == _EditorStep.structure) {
+      if (_tool == _EditorTool.text) {
+        _showLabelDialog(gx, gy);
+      } else {
+        // 구분선 그리기 (2점 클릭)
+        if (_dividerStart == null) {
+          setState(() => _dividerStart = (x: gx, y: gy));
+        } else {
+          setState(() {
+            _dividers.add(LayoutDivider(
+              startX: _dividerStart!.x,
+              startY: _dividerStart!.y,
+              endX: gx,
+              endY: gy,
+            ));
+            _dividerStart = null;
+          });
+        }
+      }
+      return;
+    }
 
     final key = '$gx,$gy';
     final effectiveTool = _isCmdPressed ? _EditorTool.erase : _tool;
@@ -527,6 +563,7 @@ class _SeatLayoutEditorScreenState
   }
 
   void _onCanvasDrag(Offset localPosition) {
+    if (_step != _EditorStep.seats) return; // 좌석 배치 스텝에서만 드래그
     final gx = localPosition.dx ~/ _cellSize;
     final gy = localPosition.dy ~/ _cellSize;
     if (gx < 0 || gx >= _gridCols || gy < 0 || gy >= _gridRows) return;
@@ -938,6 +975,8 @@ class _SeatLayoutEditorScreenState
               dragIndicator: _dragIndicator,
               currentTool: _tool,
               isCmdPressed: _isCmdPressed,
+              dividers: _dividers,
+              dividerStart: _dividerStart,
             ),
           ),
         ),
@@ -951,222 +990,681 @@ class _SeatLayoutEditorScreenState
         color: AdminTheme.surface,
         border: Border(left: BorderSide(color: AdminTheme.border, width: 0.5)),
       ),
-      child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Column(
         children: [
-          // ─── Tools ───
-          _panelSection(
-            icon: Icons.construction_rounded,
-            title: '도구',
-            trailing: Text(
-              {
-                _EditorTool.paint: '페인트',
-                _EditorTool.erase: '지우개',
-                _EditorTool.select: '선택',
-                _EditorTool.line: '라인',
-                _EditorTool.text: '텍스트',
-              }[_tool]!,
-              style: AdminTheme.sans(
-                  fontSize: 10,
-                  color: AdminTheme.gold,
-                  fontWeight: FontWeight.w600),
+          // ─── Step Tabs ───
+          _buildStepTabs(),
+          // ─── Step Content ───
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              children: switch (_step) {
+                _EditorStep.stage => _buildStagePanel(),
+                _EditorStep.structure => _buildStructurePanel(),
+                _EditorStep.seats => _buildSeatsPanel(),
+              },
             ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    _toolButton(
-                        _EditorTool.paint, Icons.brush_rounded, '페인트'),
-                    const SizedBox(width: 4),
-                    _toolButton(_EditorTool.erase,
-                        Icons.auto_fix_high_rounded, '지우개'),
-                    const SizedBox(width: 4),
-                    _toolButton(
-                        _EditorTool.select, Icons.near_me_rounded, '선택'),
-                    const SizedBox(width: 4),
-                    _toolButton(_EditorTool.line,
-                        Icons.timeline_rounded, '라인'),
-                    const SizedBox(width: 4),
-                    _toolButton(_EditorTool.text,
-                        Icons.text_fields_rounded, '텍스트'),
-                  ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepTabs() {
+    Widget tab(_EditorStep step, String label, IconData icon) {
+      final active = _step == step;
+      final index = _EditorStep.values.indexOf(step) + 1;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => setState(() {
+            _step = step;
+            _dividerStart = null;
+          }),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: active ? AdminTheme.gold : Colors.transparent,
+                  width: 2,
                 ),
-                const SizedBox(height: 8),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 6),
+                  width: 16,
+                  height: 16,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1A1A24),
-                    borderRadius: BorderRadius.circular(4),
+                    shape: BoxShape.circle,
+                    color: active
+                        ? AdminTheme.gold.withValues(alpha: 0.2)
+                        : Colors.transparent,
+                    border: Border.all(
+                      color: active ? AdminTheme.gold : AdminTheme.textTertiary,
+                      width: 1,
+                    ),
                   ),
-                  child: Column(
-                    children: [
-                      _shortcutRow('1~5', '도구 전환'),
-                      const SizedBox(height: 3),
-                      _shortcutRow('⌘+1~4', '등급 전환'),
-                      const SizedBox(height: 3),
-                      _shortcutRow('⌘+클릭', '지우기'),
-                      const SizedBox(height: 3),
-                      _shortcutRow('ESC', '취소'),
-                    ],
+                  child: Center(
+                    child: Text(
+                      '$index',
+                      style: AdminTheme.sans(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: active ? AdminTheme.gold : AdminTheme.textTertiary,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  label,
+                  style: AdminTheme.sans(
+                    fontSize: 11,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                    color: active ? AdminTheme.gold : AdminTheme.textTertiary,
                   ),
                 ),
               ],
             ),
           ),
+        ),
+      );
+    }
 
-          const SizedBox(height: 10),
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AdminTheme.border, width: 0.5)),
+      ),
+      child: Row(
+        children: [
+          tab(_EditorStep.stage, '무대', Icons.stadium_rounded),
+          tab(_EditorStep.structure, '구조', Icons.account_tree_rounded),
+          tab(_EditorStep.seats, '좌석', Icons.event_seat_rounded),
+        ],
+      ),
+    );
+  }
 
-          // ─── Grade + Type ───
-          _panelSection(
-            icon: Icons.palette_rounded,
-            title: '브러시 설정',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  // ─── Step 1: 무대 설정 ───
+  List<Widget> _buildStagePanel() {
+    return [
+      _panelSection(
+        icon: Icons.grid_on_rounded,
+        title: '그리드 크기',
+        child: Row(
+          children: [
+            Expanded(
+              child: _textField(
+                label: '열',
+                value: '$_gridCols',
+                onChanged: (v) {
+                  final n = int.tryParse(v);
+                  if (n != null && n > 0 && n <= 120) {
+                    setState(() => _gridCols = n);
+                  }
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Text('×',
+                  style: AdminTheme.sans(
+                      fontSize: 14, color: AdminTheme.textTertiary)),
+            ),
+            Expanded(
+              child: _textField(
+                label: '행',
+                value: '$_gridRows',
+                onChanged: (v) {
+                  final n = int.tryParse(v);
+                  if (n != null && n > 0 && n <= 80) {
+                    setState(() => _gridRows = n);
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 10),
+      _panelSection(
+        icon: Icons.stadium_rounded,
+        title: '무대 설정',
+        child: Column(
+          children: [
+            Row(
               children: [
-                // Grade — Popup 방식
-                Text('등급',
+                Text('무대 위치',
                     style: AdminTheme.sans(
-                        fontSize: 10,
-                        color: AdminTheme.textTertiary,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 6),
-                PopupMenuButton<String>(
-                  onSelected: (grade) =>
-                      setState(() => _selectedGrade = grade),
-                  offset: const Offset(0, 40),
-                  color: const Color(0xFF1E1E2A),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    side: BorderSide(
-                        color: AdminTheme.border.withValues(alpha: 0.6)),
+                        fontSize: 11, color: AdminTheme.textSecondary)),
+                const Spacer(),
+                _toggleChip('상단', _stagePosition == 'top',
+                    () => setState(() => _stagePosition = 'top')),
+                const SizedBox(width: 4),
+                _toggleChip('하단', _stagePosition == 'bottom',
+                    () => setState(() => _stagePosition = 'bottom')),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text('무대 모양',
+                style: AdminTheme.sans(
+                    fontSize: 10,
+                    color: AdminTheme.textTertiary,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                _stageShapeChip('rect', '사각형'),
+                const SizedBox(width: 4),
+                _stageShapeChip('arc', '아치형'),
+                const SizedBox(width: 4),
+                _stageShapeChip('trapezoid', '사다리꼴'),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Text('무대 너비',
+                    style: AdminTheme.sans(
+                        fontSize: 10, color: AdminTheme.textTertiary)),
+                Expanded(
+                  child: Slider(
+                    value: _stageWidthRatio,
+                    min: 0.15,
+                    max: 0.9,
+                    activeColor: AdminTheme.gold,
+                    onChanged: (v) =>
+                        setState(() => _stageWidthRatio = v),
                   ),
-                  itemBuilder: (_) => ['VIP', 'R', 'S', 'A'].map((grade) {
-                    final color = gradeColors[grade]!;
-                    final isSelected = _selectedGrade == grade;
-                    return PopupMenuItem<String>(
-                      value: grade,
-                      height: 40,
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 14,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              color: color,
-                              borderRadius: BorderRadius.circular(4),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: color.withValues(alpha: 0.4),
-                                  blurRadius: 4,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(grade,
-                                style: AdminTheme.sans(
-                                  fontSize: 13,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                  color: isSelected
-                                      ? color
-                                      : AdminTheme.textPrimary,
-                                )),
-                          ),
-                          if (isSelected)
-                            Icon(Icons.check_rounded,
-                                size: 16, color: color),
-                        ],
+                ),
+                Text('${(_stageWidthRatio * 100).round()}%',
+                    style: AdminTheme.sans(
+                        fontSize: 10, fontWeight: FontWeight.w600)),
+              ],
+            ),
+            Row(
+              children: [
+                Text('무대 높이',
+                    style: AdminTheme.sans(
+                        fontSize: 10, color: AdminTheme.textTertiary)),
+                Expanded(
+                  child: Slider(
+                    value: _stageHeight,
+                    min: 16,
+                    max: 60,
+                    activeColor: AdminTheme.gold,
+                    onChanged: (v) =>
+                        setState(() => _stageHeight = v),
+                  ),
+                ),
+                Text('${_stageHeight.round()}',
+                    style: AdminTheme.sans(
+                        fontSize: 10, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 20),
+      _stepNavButton('다음: 구조 설정 →', () => setState(() => _step = _EditorStep.structure)),
+    ];
+  }
+
+  // ─── Step 2: 구조 설정 ───
+  List<Widget> _buildStructurePanel() {
+    return [
+      _panelSection(
+        icon: Icons.fence_rounded,
+        title: '구분선 (팬스)',
+        trailing: _dividerStart != null
+            ? GestureDetector(
+                onTap: () => setState(() => _dividerStart = null),
+                child: Text('취소', style: AdminTheme.sans(fontSize: 10, color: AdminTheme.error)),
+              )
+            : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A24),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _dividerStart != null ? Icons.fiber_manual_record : Icons.touch_app_rounded,
+                    size: 14,
+                    color: _dividerStart != null ? AdminTheme.gold : AdminTheme.textTertiary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _dividerStart != null
+                          ? '끝점을 클릭하세요 (시작: ${_dividerStart!.x},${_dividerStart!.y})'
+                          : '캔버스에서 시작점을 클릭하세요',
+                      style: AdminTheme.sans(
+                        fontSize: 11,
+                        color: _dividerStart != null ? AdminTheme.gold : AdminTheme.textSecondary,
                       ),
-                    );
-                  }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_dividers.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ..._dividers.asMap().entries.map((entry) {
+                final i = entry.key;
+                final d = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     decoration: BoxDecoration(
-                      color: gradeColors[_selectedGrade]!
-                          .withValues(alpha: 0.12),
-                      border: Border.all(
-                        color: gradeColors[_selectedGrade]!,
-                        width: 1.2,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
+                      color: const Color(0xFF1A1A24),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Row(
                       children: [
-                        Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: gradeColors[_selectedGrade],
-                            borderRadius: BorderRadius.circular(4),
-                            boxShadow: [
-                              BoxShadow(
-                                color: gradeColors[_selectedGrade]!
-                                    .withValues(alpha: 0.5),
-                                blurRadius: 6,
-                              ),
-                            ],
+                        Icon(Icons.remove_rounded, size: 12, color: AdminTheme.textTertiary),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '(${d.startX},${d.startY}) → (${d.endX},${d.endY})',
+                            style: AdminTheme.sans(fontSize: 10, color: AdminTheme.textSecondary),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(_selectedGrade,
-                              style: AdminTheme.sans(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: gradeColors[_selectedGrade],
-                              )),
+                        GestureDetector(
+                          onTap: () => setState(() => _dividers.removeAt(i)),
+                          child: Icon(Icons.close_rounded, size: 14, color: AdminTheme.textTertiary),
                         ),
-                        Icon(Icons.unfold_more_rounded,
-                            size: 16,
-                            color: gradeColors[_selectedGrade]),
                       ],
                     ),
                   ),
+                );
+              }),
+            ],
+          ],
+        ),
+      ),
+      const SizedBox(height: 10),
+      _panelSection(
+        icon: Icons.text_fields_rounded,
+        title: '라벨',
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: () => setState(() => _tool = _tool == _EditorTool.text ? _EditorTool.paint : _EditorTool.text),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _tool == _EditorTool.text ? AdminTheme.gold.withValues(alpha: 0.15) : Colors.transparent,
+                  border: Border.all(color: _tool == _EditorTool.text ? AdminTheme.gold : AdminTheme.border),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-
-                const SizedBox(height: 12),
-
-                // Seat Type
-                Text('유형',
-                    style: AdminTheme.sans(
-                        fontSize: 10,
-                        color: AdminTheme.textTertiary,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: SeatType.values.map((type) {
-                    final isSelected = _selectedSeatType == type;
-                    return GestureDetector(
-                      onTap: () =>
-                          setState(() => _selectedSeatType = type),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AdminTheme.gold.withValues(alpha: 0.15)
-                              : Colors.transparent,
-                          border: Border.all(
-                            color: isSelected
-                                ? AdminTheme.gold
-                                : AdminTheme.border,
-                            width: isSelected ? 1.5 : 0.5,
+                child: Text(
+                  _tool == _EditorTool.text ? '배치 중' : '배치',
+                  style: AdminTheme.sans(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: _tool == _EditorTool.text ? AdminTheme.gold : AdminTheme.textTertiary,
+                  ),
+                ),
+              ),
+            ),
+            if (_labels.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: () => setState(() => _labels.clear()),
+                child: Icon(Icons.delete_outline_rounded, size: 14, color: AdminTheme.textTertiary),
+              ),
+            ],
+          ],
+        ),
+        child: Column(
+          children: [
+            if (_labels.isEmpty)
+              Text(
+                '캔버스를 클릭하여 라벨 배치 (라벨 모드 활성화 시)',
+                style: AdminTheme.sans(fontSize: 10, color: AdminTheme.textTertiary),
+              )
+            else
+              ..._labels.values.map((label) {
+                final typeIcon = label.type == 'floor'
+                    ? Icons.layers_rounded
+                    : label.type == 'section'
+                        ? Icons.grid_view_rounded
+                        : Icons.text_snippet_rounded;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: GestureDetector(
+                    onTap: () => _showLabelDialog(label.gridX, label.gridY, existing: label),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A1A24),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(typeIcon, size: 12, color: AdminTheme.textTertiary),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              label.text,
+                              style: AdminTheme.sans(fontSize: 11, fontWeight: FontWeight.w500),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          borderRadius: BorderRadius.circular(6),
+                          Text(
+                            '(${label.gridX},${label.gridY})',
+                            style: AdminTheme.sans(fontSize: 9, color: AdminTheme.textTertiary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+      const SizedBox(height: 20),
+      Row(
+        children: [
+          Expanded(child: _stepNavButton('← 무대 설정', () => setState(() => _step = _EditorStep.stage))),
+          const SizedBox(width: 8),
+          Expanded(child: _stepNavButton('좌석 배치 →', () => setState(() => _step = _EditorStep.seats))),
+        ],
+      ),
+    ];
+  }
+
+  // ─── Step 3: 좌석 배치 ───
+  List<Widget> _buildSeatsPanel() {
+    return [
+      // Tools
+      _panelSection(
+        icon: Icons.construction_rounded,
+        title: '도구',
+        trailing: Text(
+          {
+            _EditorTool.paint: '페인트',
+            _EditorTool.erase: '지우개',
+            _EditorTool.select: '선택',
+            _EditorTool.line: '라인',
+            _EditorTool.text: '텍스트',
+          }[_tool]!,
+          style: AdminTheme.sans(
+              fontSize: 10,
+              color: AdminTheme.gold,
+              fontWeight: FontWeight.w600),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                _toolButton(
+                    _EditorTool.paint, Icons.brush_rounded, '페인트'),
+                const SizedBox(width: 4),
+                _toolButton(_EditorTool.erase,
+                    Icons.auto_fix_high_rounded, '지우개'),
+                const SizedBox(width: 4),
+                _toolButton(
+                    _EditorTool.select, Icons.near_me_rounded, '선택'),
+                const SizedBox(width: 4),
+                _toolButton(_EditorTool.line,
+                    Icons.timeline_rounded, '라인'),
+                const SizedBox(width: 4),
+                _toolButton(_EditorTool.text,
+                    Icons.text_fields_rounded, '텍스트'),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A24),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Column(
+                children: [
+                  _shortcutRow('1~5', '도구 전환'),
+                  const SizedBox(height: 3),
+                  _shortcutRow('⌘+1~4', '등급 전환'),
+                  const SizedBox(height: 3),
+                  _shortcutRow('⌘+클릭', '지우기'),
+                  const SizedBox(height: 3),
+                  _shortcutRow('ESC', '취소'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+
+      const SizedBox(height: 10),
+
+      // Brush Settings
+      _panelSection(
+        icon: Icons.palette_rounded,
+        title: '브러시 설정',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('등급',
+                style: AdminTheme.sans(
+                    fontSize: 10,
+                    color: AdminTheme.textTertiary,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            PopupMenuButton<String>(
+              onSelected: (grade) =>
+                  setState(() => _selectedGrade = grade),
+              offset: const Offset(0, 40),
+              color: const Color(0xFF1E1E2A),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(
+                    color: AdminTheme.border.withValues(alpha: 0.6)),
+              ),
+              itemBuilder: (_) => ['VIP', 'R', 'S', 'A'].map((grade) {
+                final color = gradeColors[grade]!;
+                final isSelected = _selectedGrade == grade;
+                return PopupMenuItem<String>(
+                  value: grade,
+                  height: 40,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.4),
+                              blurRadius: 4,
+                            ),
+                          ],
                         ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(grade,
+                            style: AdminTheme.sans(
+                              fontSize: 13,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? color
+                                  : AdminTheme.textPrimary,
+                            )),
+                      ),
+                      if (isSelected)
+                        Icon(Icons.check_rounded,
+                            size: 16, color: color),
+                    ],
+                  ),
+                );
+              }).toList(),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: gradeColors[_selectedGrade]!
+                      .withValues(alpha: 0.12),
+                  border: Border.all(
+                    color: gradeColors[_selectedGrade]!,
+                    width: 1.2,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: gradeColors[_selectedGrade],
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: gradeColors[_selectedGrade]!
+                                .withValues(alpha: 0.5),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(_selectedGrade,
+                          style: AdminTheme.sans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: gradeColors[_selectedGrade],
+                          )),
+                    ),
+                    Icon(Icons.unfold_more_rounded,
+                        size: 16,
+                        color: gradeColors[_selectedGrade]),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            Text('유형',
+                style: AdminTheme.sans(
+                    fontSize: 10,
+                    color: AdminTheme.textTertiary,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: SeatType.values.map((type) {
+                final isSelected = _selectedSeatType == type;
+                return GestureDetector(
+                  onTap: () =>
+                      setState(() => _selectedSeatType = type),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AdminTheme.gold.withValues(alpha: 0.15)
+                          : Colors.transparent,
+                      border: Border.all(
+                        color: isSelected
+                            ? AdminTheme.gold
+                            : AdminTheme.border,
+                        width: isSelected ? 1.5 : 0.5,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      type.displayName,
+                      style: AdminTheme.sans(
+                        fontSize: 11,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                        color: isSelected
+                            ? AdminTheme.gold
+                            : AdminTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 12),
+
+            Text('구역',
+                style: AdminTheme.sans(
+                    fontSize: 10,
+                    color: AdminTheme.textTertiary,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            _textField(
+              label: '구역명 (A, B, C...)',
+              value: _currentZone,
+              onChanged: (v) => setState(() => _currentZone = v),
+            ),
+
+            const SizedBox(height: 12),
+
+            Text('층',
+                style: AdminTheme.sans(
+                    fontSize: 10,
+                    color: AdminTheme.textTertiary,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            Row(
+              children: _floorPresets.map((floor) {
+                final isSelected = _currentFloor == floor;
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () =>
+                        setState(() => _currentFloor = floor),
+                    child: Container(
+                      margin: EdgeInsets.only(
+                          right: floor != '4층' ? 4 : 0),
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 7),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AdminTheme.gold
+                                .withValues(alpha: 0.15)
+                            : const Color(0xFF1A1A24),
+                        border: Border.all(
+                          color: isSelected
+                              ? AdminTheme.gold
+                              : AdminTheme.border
+                                  .withValues(alpha: 0.5),
+                          width: isSelected ? 1.5 : 0.5,
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Center(
                         child: Text(
-                          type.displayName,
+                          floor,
                           style: AdminTheme.sans(
                             fontSize: 11,
                             fontWeight: isSelected
-                                ? FontWeight.w600
+                                ? FontWeight.w700
                                 : FontWeight.w400,
                             color: isSelected
                                 ? AdminTheme.gold
@@ -1174,342 +1672,109 @@ class _SeatLayoutEditorScreenState
                           ),
                         ),
                       ),
-                    );
-                  }).toList(),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Zone
-                Text('구역',
-                    style: AdminTheme.sans(
-                        fontSize: 10,
-                        color: AdminTheme.textTertiary,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 6),
-                _textField(
-                  label: '구역명 (A, B, C...)',
-                  value: _currentZone,
-                  onChanged: (v) => setState(() => _currentZone = v),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Floor with presets
-                Text('층',
-                    style: AdminTheme.sans(
-                        fontSize: 10,
-                        color: AdminTheme.textTertiary,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 6),
-                Row(
-                  children: _floorPresets.map((floor) {
-                    final isSelected = _currentFloor == floor;
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () =>
-                            setState(() => _currentFloor = floor),
-                        child: Container(
-                          margin: EdgeInsets.only(
-                              right: floor != '4층' ? 4 : 0),
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 7),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AdminTheme.gold
-                                    .withValues(alpha: 0.15)
-                                : const Color(0xFF1A1A24),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AdminTheme.gold
-                                  : AdminTheme.border
-                                      .withValues(alpha: 0.5),
-                              width: isSelected ? 1.5 : 0.5,
-                            ),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Center(
-                            child: Text(
-                              floor,
-                              style: AdminTheme.sans(
-                                fontSize: 11,
-                                fontWeight: isSelected
-                                    ? FontWeight.w700
-                                    : FontWeight.w400,
-                                color: isSelected
-                                    ? AdminTheme.gold
-                                    : AdminTheme.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // ─── Grid Settings ───
-          _panelSection(
-            icon: Icons.grid_on_rounded,
-            title: '그리드',
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _textField(
-                        label: '열',
-                        value: '$_gridCols',
-                        onChanged: (v) {
-                          final n = int.tryParse(v);
-                          if (n != null && n > 0 && n <= 120) {
-                            setState(() => _gridCols = n);
-                          }
-                        },
-                      ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: Text('×',
-                          style: AdminTheme.sans(
-                              fontSize: 14, color: AdminTheme.textTertiary)),
-                    ),
-                    Expanded(
-                      child: _textField(
-                        label: '행',
-                        value: '$_gridRows',
-                        onChanged: (v) {
-                          final n = int.tryParse(v);
-                          if (n != null && n > 0 && n <= 80) {
-                            setState(() => _gridRows = n);
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Text('무대 위치',
-                        style: AdminTheme.sans(
-                            fontSize: 11, color: AdminTheme.textSecondary)),
-                    const Spacer(),
-                    _toggleChip('상단', _stagePosition == 'top',
-                        () => setState(() => _stagePosition = 'top')),
-                    const SizedBox(width: 4),
-                    _toggleChip('하단', _stagePosition == 'bottom',
-                        () => setState(() => _stagePosition = 'bottom')),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                // Stage shape
-                Text('무대 모양',
-                    style: AdminTheme.sans(
-                        fontSize: 10,
-                        color: AdminTheme.textTertiary,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    _stageShapeChip('rect', '사각형'),
-                    const SizedBox(width: 4),
-                    _stageShapeChip('arc', '아치형'),
-                    const SizedBox(width: 4),
-                    _stageShapeChip('trapezoid', '사다리꼴'),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                // Stage width
-                Row(
-                  children: [
-                    Text('무대 너비',
-                        style: AdminTheme.sans(
-                            fontSize: 10, color: AdminTheme.textTertiary)),
-                    Expanded(
-                      child: Slider(
-                        value: _stageWidthRatio,
-                        min: 0.15,
-                        max: 0.9,
-                        activeColor: AdminTheme.gold,
-                        onChanged: (v) =>
-                            setState(() => _stageWidthRatio = v),
-                      ),
-                    ),
-                    Text('${(_stageWidthRatio * 100).round()}%',
-                        style: AdminTheme.sans(
-                            fontSize: 10, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-                // Stage height
-                Row(
-                  children: [
-                    Text('무대 높이',
-                        style: AdminTheme.sans(
-                            fontSize: 10, color: AdminTheme.textTertiary)),
-                    Expanded(
-                      child: Slider(
-                        value: _stageHeight,
-                        min: 16,
-                        max: 60,
-                        activeColor: AdminTheme.gold,
-                        onChanged: (v) =>
-                            setState(() => _stageHeight = v),
-                      ),
-                    ),
-                    Text('${_stageHeight.round()}',
-                        style: AdminTheme.sans(
-                            fontSize: 10, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // ─── Grade Prices ───
-          _panelSection(
-            icon: Icons.payments_rounded,
-            title: '등급별 가격',
-            child: Column(
-              children: ['VIP', 'R', 'S', 'A']
-                  .map((grade) => Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: gradeColors[grade],
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            SizedBox(
-                              width: 32,
-                              child: Text(grade,
-                                  style: AdminTheme.sans(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600)),
-                            ),
-                            Expanded(
-                              child: _textField(
-                                label: '',
-                                value: '${_gradePrice[grade] ?? 0}',
-                                onChanged: (v) {
-                                  final n = int.tryParse(v);
-                                  if (n != null) {
-                                    setState(
-                                        () => _gradePrice[grade] = n);
-                                  }
-                                },
-                                suffix: '원',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ))
-                  .toList(),
-            ),
-          ),
-
-          // ─── Selected Seat Info ───
-          if (_selectedSeat != null) ...[
-            const SizedBox(height: 10),
-            _panelSection(
-              icon: Icons.touch_app_rounded,
-              title: '선택된 좌석',
-              child: _buildSelectedSeatPanel(),
+                  ),
+                );
+              }).toList(),
             ),
           ],
+        ),
+      ),
 
-          // ─── Labels ───
-          if (_labels.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _panelSection(
-              icon: Icons.text_fields_rounded,
-              title: '라벨 (${_labels.length})',
-              trailing: GestureDetector(
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('전체 라벨 삭제'),
-                      content: const Text('모든 라벨을 삭제하시겠습니까?'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            setState(() => _labels.clear());
-                          },
-                          child: Text('삭제', style: TextStyle(color: AdminTheme.error)),
+      const SizedBox(height: 10),
+
+      // Grade Prices
+      _panelSection(
+        icon: Icons.payments_rounded,
+        title: '등급별 가격',
+        child: Column(
+          children: ['VIP', 'R', 'S', 'A']
+              .map((grade) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: gradeColors[grade],
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        SizedBox(
+                          width: 32,
+                          child: Text(grade,
+                              style: AdminTheme.sans(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600)),
+                        ),
+                        Expanded(
+                          child: _textField(
+                            label: '',
+                            value: '${_gradePrice[grade] ?? 0}',
+                            onChanged: (v) {
+                              final n = int.tryParse(v);
+                              if (n != null) {
+                                setState(
+                                    () => _gradePrice[grade] = n);
+                              }
+                            },
+                            suffix: '원',
+                          ),
                         ),
                       ],
                     ),
-                  );
-                },
-                child: Icon(Icons.delete_outline_rounded, size: 14, color: AdminTheme.textTertiary),
-              ),
-              child: Column(
-                children: _labels.values.map((label) {
-                  final typeIcon = label.type == 'floor'
-                      ? Icons.layers_rounded
-                      : label.type == 'section'
-                          ? Icons.grid_view_rounded
-                          : Icons.text_snippet_rounded;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: GestureDetector(
-                      onTap: () => _showLabelDialog(label.gridX, label.gridY, existing: label),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A24),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(typeIcon, size: 12, color: AdminTheme.textTertiary),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                label.text,
-                                style: AdminTheme.sans(fontSize: 11, fontWeight: FontWeight.w500),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            Text(
-                              '(${label.gridX},${label.gridY})',
-                              style: AdminTheme.sans(fontSize: 9, color: AdminTheme.textTertiary),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ],
+                  ))
+              .toList(),
+        ),
+      ),
 
-          // ─── Stats ───
-          const SizedBox(height: 10),
-          _panelSection(
-            icon: Icons.analytics_rounded,
-            title: '현황',
-            child: Column(
-              children: _buildStats(),
+      // Selected Seat Info
+      if (_selectedSeat != null) ...[
+        const SizedBox(height: 10),
+        _panelSection(
+          icon: Icons.touch_app_rounded,
+          title: '선택된 좌석',
+          child: _buildSelectedSeatPanel(),
+        ),
+      ],
+
+      // Stats
+      const SizedBox(height: 10),
+      _panelSection(
+        icon: Icons.analytics_rounded,
+        title: '현황',
+        child: Column(
+          children: _buildStats(),
+        ),
+      ),
+
+      const SizedBox(height: 20),
+      _stepNavButton('← 구조 설정', () => setState(() => _step = _EditorStep.structure)),
+    ];
+  }
+
+  Widget _stepNavButton(String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: AdminTheme.gold.withValues(alpha: 0.1),
+          border: Border.all(color: AdminTheme.gold.withValues(alpha: 0.3)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: AdminTheme.sans(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AdminTheme.gold,
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -2010,6 +2275,8 @@ class _SeatGridPainter extends CustomPainter {
   final Offset? dragIndicator;
   final _EditorTool currentTool;
   final bool isCmdPressed;
+  final List<LayoutDivider> dividers;
+  final ({int x, int y})? dividerStart;
 
   _SeatGridPainter({
     required this.gridCols,
@@ -2031,12 +2298,17 @@ class _SeatGridPainter extends CustomPainter {
     this.dragIndicator,
     required this.currentTool,
     required this.isCmdPressed,
+    this.dividers = const [],
+    this.dividerStart,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     // ─── Stage area ───
     _drawStage(canvas, size);
+
+    // ─── Dividers (구분선) ───
+    _drawDividers(canvas);
 
     // ─── Empty dots ───
     final emptyPaint = Paint()
@@ -2346,6 +2618,68 @@ class _SeatGridPainter extends CustomPainter {
         stageY + (stageH - textPainter.height) / 2,
       ),
     );
+  }
+
+  void _drawDividers(Canvas canvas) {
+    if (dividers.isEmpty && dividerStart == null) return;
+
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.3)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    // 완성된 구분선들
+    for (final d in dividers) {
+      final x1 = d.startX * cellSize + cellSize / 2;
+      final y1 = d.startY * cellSize + cellSize / 2;
+      final x2 = d.endX * cellSize + cellSize / 2;
+      final y2 = d.endY * cellSize + cellSize / 2;
+      _drawDashedLine(canvas, Offset(x1, y1), Offset(x2, y2), paint);
+    }
+
+    // 구분선 시작점 표시
+    if (dividerStart != null) {
+      final cx = dividerStart!.x * cellSize + cellSize / 2;
+      final cy = dividerStart!.y * cellSize + cellSize / 2;
+      canvas.drawCircle(
+        Offset(cx, cy),
+        6,
+        Paint()
+          ..color = const Color(0xFF00E5FF)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+      // 십자 표시
+      canvas.drawLine(
+        Offset(cx - 8, cy), Offset(cx + 8, cy),
+        Paint()..color = const Color(0x8800E5FF)..strokeWidth = 0.5,
+      );
+      canvas.drawLine(
+        Offset(cx, cy - 8), Offset(cx, cy + 8),
+        Paint()..color = const Color(0x8800E5FF)..strokeWidth = 0.5,
+      );
+    }
+  }
+
+  void _drawDashedLine(Canvas canvas, Offset p1, Offset p2, Paint paint) {
+    final dx = p2.dx - p1.dx;
+    final dy = p2.dy - p1.dy;
+    final dist = math.sqrt(dx * dx + dy * dy);
+    if (dist < 1) return;
+
+    const dashLen = 4.0;
+    const gapLen = 3.0;
+    final unitX = dx / dist;
+    final unitY = dy / dist;
+
+    double drawn = 0;
+    while (drawn < dist) {
+      final start = Offset(p1.dx + unitX * drawn, p1.dy + unitY * drawn);
+      final endD = math.min(drawn + dashLen, dist);
+      final end = Offset(p1.dx + unitX * endD, p1.dy + unitY * endD);
+      canvas.drawLine(start, end, paint);
+      drawn += dashLen + gapLen;
+    }
   }
 
   @override
