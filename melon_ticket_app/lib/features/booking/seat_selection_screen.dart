@@ -5004,28 +5004,29 @@ class _MinimapPainter extends CustomPainter {
     if (layout.seats.isEmpty) return;
 
     // 실제 좌석 범위 계산 (여백 줄이기)
-    int minX = layout.gridCols, maxX = 0;
-    int minY = layout.gridRows, maxY = 0;
+    double minX = layout.canvasWidth, maxX = 0;
+    double minY = layout.canvasHeight, maxY = 0;
     for (final s in layout.seats) {
-      if (s.gridX < minX) minX = s.gridX;
-      if (s.gridX > maxX) maxX = s.gridX;
-      if (s.gridY < minY) minY = s.gridY;
-      if (s.gridY > maxY) maxY = s.gridY;
+      if (s.x < minX) minX = s.x;
+      if (s.x > maxX) maxX = s.x;
+      if (s.y < minY) minY = s.y;
+      if (s.y > maxY) maxY = s.y;
     }
-    minX = (minX - 1).clamp(0, layout.gridCols);
-    maxX = (maxX + 1).clamp(0, layout.gridCols);
-    minY = (minY - 2).clamp(0, layout.gridRows);
-    maxY = (maxY + 1).clamp(0, layout.gridRows);
+    final pad = 16.0; // 여백 (px)
+    minX = (minX - pad).clamp(0, layout.canvasWidth);
+    maxX = (maxX + pad).clamp(0, layout.canvasWidth);
+    minY = (minY - pad * 2).clamp(0, layout.canvasHeight);
+    maxY = (maxY + pad).clamp(0, layout.canvasHeight);
 
-    final rangeX = (maxX - minX + 1).toDouble();
-    final rangeY = (maxY - minY + 1).toDouble();
+    final rangeX = (maxX - minX).clamp(1.0, double.infinity);
+    final rangeY = (maxY - minY).clamp(1.0, double.infinity);
 
     // 스테이지 공간 확보
     const stageH = 10.0;
     final availH = size.height - stageH - 4;
-    final cellSize = min(size.width / rangeX, availH / rangeY);
-    final mapW = rangeX * cellSize;
-    final mapH = rangeY * cellSize;
+    final scaleF = min(size.width / rangeX, availH / rangeY);
+    final mapW = rangeX * scaleF;
+    final mapH = rangeY * scaleF;
     final offsetX = (size.width - mapW) / 2;
     final offsetY = stageH + 4 + (availH - mapH) / 2;
 
@@ -5064,10 +5065,10 @@ class _MinimapPainter extends CustomPainter {
     int zoneCount = 0;
 
     // 좌석 그리기
-    final dotR = (cellSize * 0.35).clamp(0.8, 2.5);
+    final dotR = (scaleF * 5.0).clamp(0.8, 2.5);
     for (final s in layout.seats) {
-      final cx = offsetX + (s.gridX - minX) * cellSize + cellSize / 2;
-      final cy = offsetY + (s.gridY - minY) * cellSize + cellSize / 2;
+      final cx = offsetX + (s.x - minX) / rangeX * mapW;
+      final cy = offsetY + (s.y - minY) / rangeY * mapH;
 
       final isCurrentZone = s.zone == currentZone;
 
@@ -5105,7 +5106,7 @@ class _MinimapPainter extends CustomPainter {
 
     // 현재 위치 마커 (골드 원)
     if (markerCx != null && markerCy != null) {
-      final markerR = (cellSize * 1.5).clamp(3.0, 6.0);
+      final markerR = (scaleF * 20.0).clamp(3.0, 6.0);
       // 외곽 글로우
       canvas.drawCircle(
         Offset(markerCx!, markerCy!),

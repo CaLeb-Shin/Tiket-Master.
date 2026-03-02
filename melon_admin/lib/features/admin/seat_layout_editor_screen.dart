@@ -143,7 +143,10 @@ class _SeatLayoutEditorScreenState
           _stageShape = layout.stageShape;
           _gradePrice.addAll(layout.gradePrice);
           for (final seat in layout.seats) {
-            _seats[seat.key] = seat;
+            // Editor uses grid-based keys for internal lookup
+            final gx = (seat.x / _cellSize).floor();
+            final gy = (seat.y / _cellSize).floor();
+            _seats['$gx,$gy'] = seat;
           }
           for (final label in layout.labels) {
             _labels[label.key] = label;
@@ -334,22 +337,25 @@ class _SeatLayoutEditorScreenState
         _labels.clear();
 
         for (final s in aiSeats) {
-          final seat = LayoutSeat(
-            gridX: (s['x'] as num).toInt(),
-            gridY: (s['y'] as num).toInt(),
+          final gx = (s['x'] as num).toInt();
+          final gy = (s['y'] as num).toInt();
+          final seat = LayoutSeat.fromGrid(
+            gridX: gx,
+            gridY: gy,
+            cellSize: _cellSize,
             zone: s['zone'] ?? '',
             floor: s['floor'] ?? '1층',
             row: (s['row'] ?? '').toString(),
             number: (s['number'] as num?)?.toInt() ?? 0,
             grade: s['grade'] ?? 'A',
           );
-          _seats[seat.key] = seat;
+          _seats['$gx,$gy'] = seat;
         }
 
         for (final l in aiLabels) {
           final label = LayoutLabel(
-            gridX: (l['x'] as num).toInt(),
-            gridY: (l['y'] as num).toInt(),
+            x: (l['x'] as num).toInt() * _cellSize + _cellSize / 2,
+            y: (l['y'] as num).toInt() * _cellSize + _cellSize / 2,
             text: l['text'] ?? '',
             type: l['type'] ?? 'section',
           );
@@ -389,23 +395,26 @@ class _SeatLayoutEditorScreenState
 
   // ─── Auto Numbering ───
   void _autoNumber() {
-    // Group seats by zone + floor + row (same gridY)
+    // Group seats by zone + floor + row (same y)
     final grouped = <String, List<LayoutSeat>>{};
     for (final seat in _seats.values) {
-      final rowKey = '${seat.zone}_${seat.floor}_${seat.gridY}';
+      final rowKey = '${seat.zone}_${seat.floor}_${seat.y}';
       grouped.putIfAbsent(rowKey, () => []).add(seat);
     }
 
-    // Sort each group by gridX and assign numbers
+    // Sort each group by x and assign numbers
     int rowIndex = 0;
     final sortedKeys = grouped.keys.toList()..sort();
     for (final key in sortedKeys) {
       final group = grouped[key]!;
-      group.sort((a, b) => a.gridX.compareTo(b.gridX));
+      group.sort((a, b) => a.x.compareTo(b.x));
       rowIndex++;
       for (int i = 0; i < group.length; i++) {
         final seat = group[i];
-        _seats[seat.key] = seat.copyWith(
+        // Use grid-based key for editor internal map
+        final gx = (seat.x / _cellSize).floor();
+        final gy = (seat.y / _cellSize).floor();
+        _seats['$gx,$gy'] = seat.copyWith(
           row: '$rowIndex',
           number: i + 1,
         );
@@ -506,8 +515,8 @@ class _SeatLayoutEditorScreenState
     // 2. Labels (structure step)
     if (_step == _EditorStep.structure) {
       for (final label in _labels.values) {
-        final lx = label.gridX * _cellSize + _cellSize / 2;
-        final ly = label.gridY * _cellSize + _cellSize / 2;
+        final lx = label.x;
+        final ly = label.y;
         final hitSize = label.fontSize * label.text.length * 0.4 + 16;
         if ((pos.dx - lx).abs() < hitSize && (pos.dy - ly).abs() < label.fontSize + 8) {
           return 'label:${label.key}';
@@ -522,8 +531,8 @@ class _SeatLayoutEditorScreenState
     final sr = _getStageRect();
     final keysToRemove = <String>[];
     for (final entry in _seats.entries) {
-      final cx = entry.value.gridX * _cellSize + _cellSize / 2;
-      final cy = entry.value.gridY * _cellSize + _cellSize / 2;
+      final cx = entry.value.x;
+      final cy = entry.value.y;
       if (sr.contains(Offset(cx, cy))) {
         keysToRemove.add(entry.key);
       }
@@ -536,9 +545,9 @@ class _SeatLayoutEditorScreenState
   void _removeSeatsOnDivider(LayoutDivider d) {
     final keysToRemove = <String>[];
     for (final entry in _seats.entries) {
-      final sx = entry.value.gridX;
-      final sy = entry.value.gridY;
-      // Check distance from seat to divider line
+      final sx = entry.value.x;
+      final sy = entry.value.y;
+      // Check distance from seat to divider line (all in px coordinates now)
       final dx = d.endX - d.startX;
       final dy = d.endY - d.startY;
       final lenSq = dx * dx + dy * dy;
@@ -548,7 +557,7 @@ class _SeatLayoutEditorScreenState
       final projX = d.startX + t * dx;
       final projY = d.startY + t * dy;
       final dist = math.sqrt(math.pow(sx - projX, 2) + math.pow(sy - projY, 2));
-      if (dist < 0.8) keysToRemove.add(entry.key);
+      if (dist < _cellSize * 0.8) keysToRemove.add(entry.key);
     }
     for (final key in keysToRemove) {
       _seats.remove(key);
@@ -556,12 +565,17 @@ class _SeatLayoutEditorScreenState
   }
 
   void _removeSeatsAtLabel(LayoutLabel label) {
-    final key = '${label.gridX},${label.gridY}';
-    _seats.remove(key);
-    // Also remove adjacent cells based on text length
-    final span = (label.text.length * 0.5).ceil();
-    for (var dx = -span; dx <= span; dx++) {
-      _seats.remove('${label.gridX + dx},${label.gridY}');
+    // Remove seats that overlap with the label position
+    final keysToRemove = <String>[];
+    final hitWidth = label.text.length * label.fontSize * 0.4 + 16;
+    for (final entry in _seats.entries) {
+      if ((entry.value.x - label.x).abs() < hitWidth &&
+          (entry.value.y - label.y).abs() < label.fontSize + 8) {
+        keysToRemove.add(entry.key);
+      }
+    }
+    for (final key in keysToRemove) {
+      _seats.remove(key);
     }
   }
 
@@ -577,12 +591,12 @@ class _SeatLayoutEditorScreenState
     if (_step == _EditorStep.structure) {
       // 기존 라벨 탭 → 편집
       for (final label in _labels.values) {
-        final lx = label.gridX * _cellSize + _cellSize / 2;
-        final ly = label.gridY * _cellSize + _cellSize / 2;
+        final lx = label.x;
+        final ly = label.y;
         final hitSize = label.fontSize * label.text.length * 0.4 + 16;
         if ((localPosition.dx - lx).abs() < hitSize &&
             (localPosition.dy - ly).abs() < label.fontSize + 8) {
-          _showLabelDialog(label.gridX, label.gridY, existing: label);
+          _showLabelDialog(gx, gy, existing: label);
           return;
         }
       }
@@ -604,8 +618,8 @@ class _SeatLayoutEditorScreenState
         if (!_seats.containsKey(key)) {
           setState(() {
             _seats[key] = LayoutSeat(
-              gridX: gx,
-              gridY: gy,
+              x: gx * _cellSize + _cellSize / 2,
+              y: gy * _cellSize + _cellSize / 2,
               zone: _currentZone,
               floor: _currentFloor,
               grade: _selectedGrade,
@@ -770,13 +784,14 @@ class _SeatLayoutEditorScreenState
                 Navigator.pop(ctx);
                 if (textCtrl.text.trim().isEmpty) return;
                 setState(() {
-                  _labels['$gx,$gy'] = LayoutLabel(
-                    gridX: gx,
-                    gridY: gy,
+                  final label = LayoutLabel(
+                    x: gx * _cellSize + _cellSize / 2,
+                    y: gy * _cellSize + _cellSize / 2,
                     text: textCtrl.text.trim(),
                     type: labelType,
                     fontSize: fontSize,
                   );
+                  _labels[label.key] = label;
                 });
               },
               style: ElevatedButton.styleFrom(
@@ -845,8 +860,8 @@ class _SeatLayoutEditorScreenState
         final key = '${p.x},${p.y}';
         if (!_seats.containsKey(key)) {
           _seats[key] = LayoutSeat(
-            gridX: p.x,
-            gridY: p.y,
+            x: p.x * _cellSize + _cellSize / 2,
+            y: p.y * _cellSize + _cellSize / 2,
             zone: _currentZone,
             floor: _currentFloor,
             grade: _selectedGrade,
@@ -935,8 +950,8 @@ class _SeatLayoutEditorScreenState
             setState(() {
               _labels.remove(key);
               final moved = LayoutLabel(
-                gridX: gx,
-                gridY: gy,
+                x: gx * _cellSize + _cellSize / 2,
+                y: gy * _cellSize + _cellSize / 2,
                 text: label.text,
                 type: label.type,
                 fontSize: label.fontSize,
@@ -972,8 +987,8 @@ class _SeatLayoutEditorScreenState
       if (effectiveTool == _EditorTool.paint && !_seats.containsKey(key)) {
         setState(() {
           _seats[key] = LayoutSeat(
-            gridX: gx,
-            gridY: gy,
+            x: gx * _cellSize + _cellSize / 2,
+            y: gy * _cellSize + _cellSize / 2,
             zone: _currentZone,
             floor: _currentFloor,
             grade: _selectedGrade,
@@ -998,10 +1013,10 @@ class _SeatLayoutEditorScreenState
         // 시작점과 끝점이 다른 경우에만 추가
         if (gx != _dividerStart!.x || gy != _dividerStart!.y) {
           final divider = LayoutDivider(
-            startX: _dividerStart!.x,
-            startY: _dividerStart!.y,
-            endX: gx,
-            endY: gy,
+            startX: _dividerStart!.x * _cellSize + _cellSize / 2,
+            startY: _dividerStart!.y * _cellSize + _cellSize / 2,
+            endX: gx * _cellSize + _cellSize / 2,
+            endY: gy * _cellSize + _cellSize / 2,
           );
           _dividers.add(divider);
           _removeSeatsOnDivider(divider);
@@ -1075,17 +1090,19 @@ class _SeatLayoutEditorScreenState
 
   void _applyParsedSeats(List<LayoutSeat> imported) {
     // Adjust grid size to fit imported data
-    int maxX = 0, maxY = 0;
+    double maxX = 0, maxY = 0;
     for (final s in imported) {
-      if (s.gridX > maxX) maxX = s.gridX;
-      if (s.gridY > maxY) maxY = s.gridY;
+      if (s.x > maxX) maxX = s.x;
+      if (s.y > maxY) maxY = s.y;
     }
 
     setState(() {
-      _gridCols = math.max(_gridCols, maxX + 5);
-      _gridRows = math.max(_gridRows, maxY + 5);
+      _gridCols = math.max(_gridCols, (maxX / _cellSize).ceil() + 5);
+      _gridRows = math.max(_gridRows, (maxY / _cellSize).ceil() + 5);
       for (final seat in imported) {
-        _seats[seat.key] = seat;
+        final gx = (seat.x / _cellSize).floor();
+        final gy = (seat.y / _cellSize).floor();
+        _seats['$gx,$gy'] = seat;
       }
     });
 
@@ -1394,7 +1411,9 @@ class _SeatLayoutEditorScreenState
               stageShape: _stageShape,
               backgroundImage: _backgroundImage,
               backgroundOpacity: _backgroundOpacity,
-              selectedSeatKey: _selectedSeat?.key,
+              selectedSeatKey: _selectedSeat != null
+                  ? '${(_selectedSeat!.x / _cellSize).floor()},${(_selectedSeat!.y / _cellSize).floor()}'
+                  : null,
               gradeColors: gradeColors,
               emptyDotColor: _emptyDotColor,
               wheelchairColor: _wheelchairColor,
@@ -1836,7 +1855,7 @@ class _SeatLayoutEditorScreenState
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            '(${d.startX},${d.startY}) → (${d.endX},${d.endY})',
+                            '(${d.startX.toInt()},${d.startY.toInt()}) → (${d.endX.toInt()},${d.endY.toInt()})',
                             style: AdminTheme.sans(fontSize: 10, color: AdminTheme.textSecondary),
                           ),
                         ),
@@ -1905,7 +1924,7 @@ class _SeatLayoutEditorScreenState
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: GestureDetector(
-                    onTap: () => _showLabelDialog(label.gridX, label.gridY, existing: label),
+                    onTap: () => _showLabelDialog((label.x ~/ _cellSize), (label.y ~/ _cellSize), existing: label),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       decoration: BoxDecoration(
@@ -1924,7 +1943,7 @@ class _SeatLayoutEditorScreenState
                             ),
                           ),
                           Text(
-                            '(${label.gridX},${label.gridY})',
+                            '(${label.x.toInt()},${label.y.toInt()})',
                             style: AdminTheme.sans(fontSize: 9, color: AdminTheme.textTertiary),
                           ),
                         ],
@@ -2386,7 +2405,7 @@ class _SeatLayoutEditorScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '위치: (${seat.gridX}, ${seat.gridY})',
+          '위치: (${seat.x.toInt()}, ${seat.y.toInt()})',
           style:
               AdminTheme.sans(fontSize: 11, color: AdminTheme.textTertiary),
         ),
@@ -2496,7 +2515,10 @@ class _SeatLayoutEditorScreenState
       seatType: seatType,
     );
     setState(() {
-      _seats[updated.key] = updated;
+      // Use grid-based key for editor internal map
+      final gx = (updated.x / _cellSize).floor();
+      final gy = (updated.y / _cellSize).floor();
+      _seats['$gx,$gy'] = updated;
       _selectedSeat = updated;
     });
   }
@@ -3050,8 +3072,8 @@ class _SeatGridPainter extends CustomPainter {
   }
 
   void _drawLabel(Canvas canvas, LayoutLabel label) {
-    final x = label.gridX * cellSize + cellSize / 2;
-    final y = label.gridY * cellSize + cellSize / 2;
+    final x = label.x;
+    final y = label.y;
 
     Color textColor;
     FontWeight fontWeight;
@@ -3276,13 +3298,9 @@ class _SeatGridPainter extends CustomPainter {
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
-    // 완성된 구분선들
+    // 완성된 구분선들 (already in px coordinates)
     for (final d in dividers) {
-      final x1 = d.startX * cellSize + cellSize / 2;
-      final y1 = d.startY * cellSize + cellSize / 2;
-      final x2 = d.endX * cellSize + cellSize / 2;
-      final y2 = d.endY * cellSize + cellSize / 2;
-      _drawDashedLine(canvas, Offset(x1, y1), Offset(x2, y2), paint);
+      _drawDashedLine(canvas, Offset(d.startX, d.startY), Offset(d.endX, d.endY), paint);
     }
 
     // 구분선 시작점 표시

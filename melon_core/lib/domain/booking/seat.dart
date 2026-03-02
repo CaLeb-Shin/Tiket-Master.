@@ -13,8 +13,8 @@ class Seat {
   final SeatStatus status;
   final String? orderId; // 예약된 경우 주문 ID
   final DateTime? reservedAt;
-  final int? gridX; // 도트맵 X 좌표
-  final int? gridY; // 도트맵 Y 좌표
+  final double? dotX; // 도트맵 X 좌표 (자유 좌표 px)
+  final double? dotY; // 도트맵 Y 좌표 (자유 좌표 px)
   final String seatType; // 좌석 유형 (normal/wheelchair/reserved_hold)
 
   Seat({
@@ -29,8 +29,8 @@ class Seat {
     required this.status,
     this.orderId,
     this.reservedAt,
-    this.gridX,
-    this.gridY,
+    this.dotX,
+    this.dotY,
     this.seatType = 'normal',
   });
 
@@ -64,8 +64,8 @@ class Seat {
       status: SeatStatus.fromString(data['status']),
       orderId: data['orderId'],
       reservedAt: (data['reservedAt'] as Timestamp?)?.toDate(),
-      gridX: data['gridX'],
-      gridY: data['gridY'],
+      dotX: (data['dotX'] ?? data['gridX'])?.toDouble(),
+      dotY: (data['dotY'] ?? data['gridY'])?.toDouble(),
       seatType: data['seatType'] ?? 'normal',
     );
   }
@@ -82,8 +82,10 @@ class Seat {
       'status': status.name,
       'orderId': orderId,
       'reservedAt': reservedAt != null ? Timestamp.fromDate(reservedAt!) : null,
-      if (gridX != null) 'gridX': gridX,
-      if (gridY != null) 'gridY': gridY,
+      if (dotX != null) 'dotX': dotX,
+      if (dotY != null) 'dotY': dotY,
+      if (dotX != null) 'gridX': dotX!.toInt(), // 레거시 호환
+      if (dotY != null) 'gridY': dotY!.toInt(), // 레거시 호환
       'seatType': seatType,
     };
   }
@@ -93,8 +95,8 @@ class Seat {
     String? orderId,
     DateTime? reservedAt,
     String? grade,
-    int? gridX,
-    int? gridY,
+    double? dotX,
+    double? dotY,
     String? seatType,
   }) {
     return Seat(
@@ -109,8 +111,8 @@ class Seat {
       status: status ?? this.status,
       orderId: orderId ?? this.orderId,
       reservedAt: reservedAt ?? this.reservedAt,
-      gridX: gridX ?? this.gridX,
-      gridY: gridY ?? this.gridY,
+      dotX: dotX ?? this.dotX,
+      dotY: dotY ?? this.dotY,
       seatType: seatType ?? this.seatType,
     );
   }

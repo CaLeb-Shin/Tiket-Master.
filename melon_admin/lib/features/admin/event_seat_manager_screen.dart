@@ -815,9 +815,9 @@ class _EventSeatManagerScreenState
                   _detailRow('등급', seat.grade ?? '-'),
                   _detailRow('상태', _statusLabel(seat.status)),
                   _detailRow('유형', seat.seatType),
-                  if (seat.gridX != null && seat.gridY != null)
+                  if (seat.dotX != null && seat.dotY != null)
                     _detailRow(
-                        '그리드', '(${seat.gridX}, ${seat.gridY})'),
+                        '그리드', '(${seat.dotX!.toStringAsFixed(0)}, ${seat.dotY!.toStringAsFixed(0)})'),
 
                   if (order != null || user != null) ...[
                     const SizedBox(height: 24),
@@ -1400,9 +1400,9 @@ class _SeatDotMapPainter extends CustomPainter {
     if (seatInfos.isEmpty) return;
 
     // ── Determine grid bounds ──
-    // If seats have gridX/gridY, use them. Otherwise, auto-arrange.
+    // If seats have dotX/dotY, use them. Otherwise, auto-arrange.
     final hasGrid = seatInfos.any(
-        (info) => info.seat.gridX != null && info.seat.gridY != null);
+        (info) => info.seat.dotX != null && info.seat.dotY != null);
 
     if (hasGrid) {
       _paintWithGrid(canvas, size);
@@ -1412,20 +1412,20 @@ class _SeatDotMapPainter extends CustomPainter {
   }
 
   void _paintWithGrid(Canvas canvas, Size size) {
-    int minX = 999999, maxX = -999999;
-    int minY = 999999, maxY = -999999;
+    double minX = 999999, maxX = -999999;
+    double minY = 999999, maxY = -999999;
 
     for (final info in seatInfos) {
-      final x = info.seat.gridX ?? 0;
-      final y = info.seat.gridY ?? 0;
+      final x = info.seat.dotX ?? 0.0;
+      final y = info.seat.dotY ?? 0.0;
       if (x < minX) minX = x;
       if (x > maxX) maxX = x;
       if (y < minY) minY = y;
       if (y > maxY) maxY = y;
     }
 
-    final rangeX = (maxX - minX).clamp(1, 999999);
-    final rangeY = (maxY - minY).clamp(1, 999999);
+    final rangeX = (maxX - minX).clamp(1.0, 999999.0);
+    final rangeY = (maxY - minY).clamp(1.0, 999999.0);
 
     const padding = 20.0;
     final drawW = size.width - padding * 2;
@@ -1436,8 +1436,8 @@ class _SeatDotMapPainter extends CustomPainter {
     final dotRadius = (cellW < cellH ? cellW : cellH) * 0.35;
 
     for (final info in seatInfos) {
-      final gx = info.seat.gridX ?? 0;
-      final gy = info.seat.gridY ?? 0;
+      final gx = info.seat.dotX ?? 0.0;
+      final gy = info.seat.dotY ?? 0.0;
 
       final cx = padding + (gx - minX) * cellW + cellW / 2;
       final cy = padding + (gy - minY) * cellH + cellH / 2;
@@ -1615,7 +1615,7 @@ class _DotMapInteractive extends StatelessWidget {
 
   _SeatInfo? _hitTestSeat(Offset position) {
     final hasGrid = seatInfos
-        .any((info) => info.seat.gridX != null && info.seat.gridY != null);
+        .any((info) => info.seat.dotX != null && info.seat.dotY != null);
 
     if (hasGrid) {
       return _hitTestGrid(position);
@@ -1625,20 +1625,20 @@ class _DotMapInteractive extends StatelessWidget {
   }
 
   _SeatInfo? _hitTestGrid(Offset position) {
-    int minX = 999999, maxX = -999999;
-    int minY = 999999, maxY = -999999;
+    double minX = 999999, maxX = -999999;
+    double minY = 999999, maxY = -999999;
 
     for (final info in seatInfos) {
-      final x = info.seat.gridX ?? 0;
-      final y = info.seat.gridY ?? 0;
+      final x = info.seat.dotX ?? 0.0;
+      final y = info.seat.dotY ?? 0.0;
       if (x < minX) minX = x;
       if (x > maxX) maxX = x;
       if (y < minY) minY = y;
       if (y > maxY) maxY = y;
     }
 
-    final rangeX = (maxX - minX).clamp(1, 999999);
-    final rangeY = (maxY - minY).clamp(1, 999999);
+    final rangeX = (maxX - minX).clamp(1.0, 999999.0);
+    final rangeY = (maxY - minY).clamp(1.0, 999999.0);
 
     const padding = 20.0;
     final drawW = canvasSize.width - padding * 2;
@@ -1649,8 +1649,8 @@ class _DotMapInteractive extends StatelessWidget {
     final hitRadius = (cellW < cellH ? cellW : cellH) * 0.5;
 
     for (final info in seatInfos) {
-      final gx = info.seat.gridX ?? 0;
-      final gy = info.seat.gridY ?? 0;
+      final gx = info.seat.dotX ?? 0.0;
+      final gy = info.seat.dotY ?? 0.0;
 
       final cx = padding + (gx - minX) * cellW + cellW / 2;
       final cy = padding + (gy - minY) * cellH + cellH / 2;

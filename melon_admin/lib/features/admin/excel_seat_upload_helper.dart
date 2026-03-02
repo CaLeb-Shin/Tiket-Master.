@@ -690,7 +690,7 @@ class EnhancedExcelParser {
         gx = int.tryParse(numStr) ?? (seats.length % 60);
       }
 
-      seats.add(LayoutSeat(
+      seats.add(LayoutSeat.fromGrid(
         gridX: gx,
         gridY: gy,
         zone: zone.isNotEmpty ? zone : sheetName,
@@ -748,7 +748,7 @@ class EnhancedExcelParser {
         final gx = c - startCol;
         final gy = r - startRow;
 
-        seats.add(LayoutSeat(
+        seats.add(LayoutSeat.fromGrid(
           gridX: gx,
           gridY: gy,
           zone: sheetName,
@@ -803,7 +803,7 @@ class EnhancedExcelParser {
           continue;
         }
 
-        seats.add(LayoutSeat(
+        seats.add(LayoutSeat.fromGrid(
           gridX: c - 1,
           gridY: rowNum - 1,
           zone: sheetName,

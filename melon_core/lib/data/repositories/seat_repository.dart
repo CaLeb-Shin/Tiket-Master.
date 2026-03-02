@@ -93,8 +93,8 @@ class SeatRepository {
       final row = data['row'] as String?;
       final number = data['number'] as int;
       final grade = data['grade'] as String?;
-      final gridX = data['gridX'] as int?;
-      final gridY = data['gridY'] as int?;
+      final dotX = (data['dotX'] as num?)?.toDouble();
+      final dotY = (data['dotY'] as num?)?.toDouble();
       final seatType = data['seatType'] as String? ?? 'normal';
 
       final seatKey = row != null && row.isNotEmpty
@@ -111,8 +111,10 @@ class SeatRepository {
         'seatKey': seatKey,
         'grade': grade,
         'status': SeatStatus.available.name,
-        if (gridX != null) 'gridX': gridX,
-        if (gridY != null) 'gridY': gridY,
+        if (dotX != null) 'dotX': dotX,
+        if (dotY != null) 'dotY': dotY,
+        if (dotX != null) 'gridX': dotX.toInt(), // 레거시 호환
+        if (dotY != null) 'gridY': dotY.toInt(), // 레거시 호환
         'seatType': seatType,
       });
       count++;

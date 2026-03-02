@@ -31,7 +31,8 @@ class _SeatDotMapState extends State<SeatDotMap> {
 
   static const double _dotSize = 16.0;
   static const double _dotGap = 3.0;
-  static const double _cellSize = _dotSize + _dotGap;
+  /// 줌 계산 참조용 (레거시). 실제 렌더링은 LayoutSeat.x/y 사용.
+  static const double _dotSpacing = _dotSize + _dotGap;
 
   // Grade colors
   static const Map<String, Color> _gradeColors = {
@@ -54,13 +55,13 @@ class _SeatDotMapState extends State<SeatDotMap> {
     super.dispose();
   }
 
-  /// layout seat key → event Seat 매핑
-  Map<String, Seat> get _seatByGrid {
+  /// LayoutSeat.key → event Seat 매핑 (의미 기반 키 매칭)
+  Map<String, Seat> get _seatByLayoutKey {
     final map = <String, Seat>{};
     for (final seat in widget.seats) {
-      if (seat.gridX != null && seat.gridY != null) {
-        map['${seat.gridX},${seat.gridY}'] = seat;
-      }
+      // Seat: block/floor/row/number → LayoutSeat.key: "zone:floor:row:number"
+      final key = '${seat.block}:${seat.floor}:${seat.row ?? ''}:${seat.number}';
+      map[key] = seat;
     }
     return map;
   }
@@ -70,16 +71,25 @@ class _SeatDotMapState extends State<SeatDotMap> {
     final scenePoint =
         MatrixUtils.transformPoint(matrix, details.localPosition);
 
-    final gx = scenePoint.dx ~/ _cellSize;
-    final gy = scenePoint.dy ~/ _cellSize;
-    final key = '$gx,$gy';
-
-    final seatByGrid = _seatByGrid;
-    if (seatByGrid.containsKey(key)) {
-      final seat = seatByGrid[key]!;
-      if (seat.status == SeatStatus.available && seat.seatType != 'reserved_hold') {
-        widget.onSeatTap(seat);
+    // 근접 좌석 탐색 (hit radius 기반)
+    LayoutSeat? nearest;
+    double nearestDist = 15.0; // hit radius (px)
+    for (final ls in widget.layout.seats) {
+      final d = (Offset(ls.x, ls.y) - scenePoint).distance;
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearest = ls;
       }
+    }
+
+    if (nearest == null) return;
+
+    final seatByKey = _seatByLayoutKey;
+    final eventSeat = seatByKey[nearest.key];
+    if (eventSeat != null &&
+        eventSeat.status == SeatStatus.available &&
+        eventSeat.seatType != 'reserved_hold') {
+      widget.onSeatTap(eventSeat);
     }
   }
 
@@ -118,9 +128,9 @@ class _SeatDotMapState extends State<SeatDotMap> {
   @override
   Widget build(BuildContext context) {
     final layout = widget.layout;
-    final canvasW = layout.gridCols * _cellSize;
-    final canvasH = layout.gridRows * _cellSize;
-    final seatByGrid = _seatByGrid;
+    final canvasW = layout.canvasWidth;
+    final canvasH = layout.canvasHeight;
+    final seatByKey = _seatByLayoutKey;
 
     // 층 구분 정보 계산
     final floorBounds = _computeFloorBounds(layout);
@@ -146,9 +156,8 @@ class _SeatDotMapState extends State<SeatDotMap> {
                     size: Size(canvasW, canvasH),
                     painter: _DotMapPainter(
                       layout: layout,
-                      seatByGrid: seatByGrid,
+                      seatByKey: seatByKey,
                       selectedSeatIds: widget.selectedSeatIds,
-                      cellSize: _cellSize,
                       dotSize: _dotSize,
                       gradeColors: _gradeColors,
                       soldColor: _soldColor,
@@ -208,7 +217,7 @@ class _SeatDotMapState extends State<SeatDotMap> {
     );
   }
 
-  /// 층별 좌석 영역 범위 계산
+  /// 층별 좌석 영역 범위 계산 (자유 좌표 기반)
   static Map<String, _FloorBound> _computeFloorBounds(VenueSeatLayout layout) {
     final bounds = <String, _FloorBound>{};
     for (final ls in layout.seats) {
@@ -216,17 +225,17 @@ class _SeatDotMapState extends State<SeatDotMap> {
       if (bounds.containsKey(floor)) {
         final b = bounds[floor]!;
         bounds[floor] = _FloorBound(
-          minY: ls.gridY < b.minY ? ls.gridY : b.minY,
-          maxY: ls.gridY > b.maxY ? ls.gridY : b.maxY,
-          minX: ls.gridX < b.minX ? ls.gridX : b.minX,
-          maxX: ls.gridX > b.maxX ? ls.gridX : b.maxX,
+          minY: ls.y < b.minY ? ls.y : b.minY,
+          maxY: ls.y > b.maxY ? ls.y : b.maxY,
+          minX: ls.x < b.minX ? ls.x : b.minX,
+          maxX: ls.x > b.maxX ? ls.x : b.maxX,
         );
       } else {
         bounds[floor] = _FloorBound(
-          minY: ls.gridY,
-          maxY: ls.gridY,
-          minX: ls.gridX,
-          maxX: ls.gridX,
+          minY: ls.y,
+          maxY: ls.y,
+          minX: ls.x,
+          maxX: ls.x,
         );
       }
     }
@@ -284,12 +293,12 @@ class _SeatDotMapState extends State<SeatDotMap> {
   }
 }
 
-/// 층별 좌석 영역 경계
+/// 층별 좌석 영역 경계 (자유 좌표 기반)
 class _FloorBound {
-  final int minY;
-  final int maxY;
-  final int minX;
-  final int maxX;
+  final double minY;
+  final double maxY;
+  final double minX;
+  final double maxX;
 
   const _FloorBound({
     required this.minY,
@@ -303,9 +312,8 @@ class _FloorBound {
 
 class _DotMapPainter extends CustomPainter {
   final VenueSeatLayout layout;
-  final Map<String, Seat> seatByGrid;
+  final Map<String, Seat> seatByKey;
   final Set<String> selectedSeatIds;
-  final double cellSize;
   final double dotSize;
   final Map<String, Color> gradeColors;
   final Color soldColor;
@@ -318,9 +326,8 @@ class _DotMapPainter extends CustomPainter {
 
   _DotMapPainter({
     required this.layout,
-    required this.seatByGrid,
+    required this.seatByKey,
     required this.selectedSeatIds,
-    required this.cellSize,
     required this.dotSize,
     required this.gradeColors,
     required this.soldColor,
@@ -344,11 +351,11 @@ class _DotMapPainter extends CustomPainter {
 
     // Draw all layout seats
     for (final ls in layout.seats) {
-      final cx = ls.gridX * cellSize + cellSize / 2;
-      final cy = ls.gridY * cellSize + cellSize / 2;
+      final cx = ls.x;
+      final cy = ls.y;
       final key = ls.key;
 
-      final eventSeat = seatByGrid[key];
+      final eventSeat = seatByKey[key];
 
       Color dotColor;
       bool isSelected = false;
@@ -430,8 +437,8 @@ class _DotMapPainter extends CustomPainter {
       final b = entry.value;
 
       // 층 라벨을 좌석 영역 좌측 위에 표시
-      final labelX = b.minX * cellSize - 4;
-      final labelY = b.minY * cellSize - 18;
+      final labelX = b.minX - 4;
+      final labelY = b.minY - 18;
 
       final tp = TextPainter(
         text: TextSpan(
@@ -449,9 +456,9 @@ class _DotMapPainter extends CustomPainter {
       tp.paint(canvas, Offset(labelX, labelY));
 
       // 층 구분선 (점선 효과 — 짧은 선분 반복)
-      final lineY = b.minY * cellSize - 6;
-      final lineStartX = b.minX * cellSize;
-      final lineEndX = (b.maxX + 1) * cellSize;
+      final lineY = b.minY - 6;
+      final lineStartX = b.minX;
+      final lineEndX = b.maxX + _dotPadding;
       final linePaint = Paint()
         ..color = const Color(0xFF444450)
         ..strokeWidth = 0.5;
@@ -466,9 +473,12 @@ class _DotMapPainter extends CustomPainter {
     }
   }
 
+  /// 층 구분선 우측 패딩 (좌석 도트 크기 + 여유)
+  static const double _dotPadding = 16.0;
+
   void _drawStage(Canvas canvas, Size size) {
-    final stageW = size.width * 0.35;
-    final stageH = 28.0;
+    final stageW = size.width * layout.stageWidthRatio;
+    final stageH = layout.stageHeight;
     final stageX = (size.width - stageW) / 2;
     final stageY =
         layout.stagePosition == 'top' ? 4.0 : size.height - stageH - 4;

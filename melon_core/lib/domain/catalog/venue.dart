@@ -240,9 +240,11 @@ enum SeatType {
 }
 
 /// 좌석 배치도에서의 개별 좌석 위치
+/// v1: gridX/gridY (int, 60x40 그리드)
+/// v2: x/y (double, 자유 좌표 px)
 class LayoutSeat {
-  final int gridX;
-  final int gridY;
+  final double x;  // 캔버스 X 좌표 (px)
+  final double y;  // 캔버스 Y 좌표 (px)
   final String zone;       // 구역 (A, B, C 등)
   final String floor;      // 층 (1층, 2층 등)
   final String row;        // 열 이름 (1, 2, A, B 등)
@@ -251,8 +253,8 @@ class LayoutSeat {
   final SeatType seatType; // 좌석 유형
 
   LayoutSeat({
-    required this.gridX,
-    required this.gridY,
+    required this.x,
+    required this.y,
     this.zone = '',
     this.floor = '1층',
     this.row = '',
@@ -261,16 +263,59 @@ class LayoutSeat {
     this.seatType = SeatType.normal,
   });
 
-  String get key => '$gridX,$gridY';
+  /// 레거시 호환 생성자 (그리드 좌표 → 픽셀 변환)
+  factory LayoutSeat.fromGrid({
+    required int gridX,
+    required int gridY,
+    String zone = '',
+    String floor = '1층',
+    String row = '',
+    int number = 0,
+    required String grade,
+    SeatType seatType = SeatType.normal,
+    double cellSize = 16.0,
+  }) {
+    return LayoutSeat(
+      x: gridX * cellSize + cellSize / 2,
+      y: gridY * cellSize + cellSize / 2,
+      zone: zone,
+      floor: floor,
+      row: row,
+      number: number,
+      grade: grade,
+      seatType: seatType,
+    );
+  }
+
+  /// 레거시 그리드 좌표 (역변환, 하위 호환용)
+  int get gridX => (x / 16.0).floor();
+  int get gridY => (y / 16.0).floor();
+
+  /// 의미 기반 키 (위치 변경해도 유지)
+  String get key {
+    if (zone.isNotEmpty && row.isNotEmpty && number > 0) {
+      return '$zone:$floor:$row:$number';
+    }
+    return '${x.toStringAsFixed(1)},${y.toStringAsFixed(1)}';
+  }
 
   factory LayoutSeat.fromMap(Map<String, dynamic> map) {
+    final rawX = map['x'];
+    final rawY = map['y'];
+    // v1(int) → 자동 변환: gridCoord * 16 + 8 (셀 중심)
+    final double px = rawX is int
+        ? rawX * 16.0 + 8.0
+        : (rawX as num?)?.toDouble() ?? 0.0;
+    final double py = rawY is int
+        ? rawY * 16.0 + 8.0
+        : (rawY as num?)?.toDouble() ?? 0.0;
     return LayoutSeat(
-      gridX: map['x'] ?? 0,
-      gridY: map['y'] ?? 0,
+      x: px,
+      y: py,
       zone: map['zone'] ?? '',
       floor: map['floor'] ?? '1층',
-      row: map['row'] ?? '',
-      number: map['number'] ?? 0,
+      row: (map['row'] ?? '').toString(),
+      number: (map['number'] as num?)?.toInt() ?? 0,
       grade: map['grade'] ?? 'A',
       seatType: SeatType.fromString(map['type']),
     );
@@ -278,8 +323,8 @@ class LayoutSeat {
 
   Map<String, dynamic> toMap() {
     return {
-      'x': gridX,
-      'y': gridY,
+      'x': x,
+      'y': y,
       'zone': zone,
       'floor': floor,
       'row': row,
@@ -290,8 +335,8 @@ class LayoutSeat {
   }
 
   LayoutSeat copyWith({
-    int? gridX,
-    int? gridY,
+    double? x,
+    double? y,
     String? zone,
     String? floor,
     String? row,
@@ -300,8 +345,8 @@ class LayoutSeat {
     SeatType? seatType,
   }) {
     return LayoutSeat(
-      gridX: gridX ?? this.gridX,
-      gridY: gridY ?? this.gridY,
+      x: x ?? this.x,
+      y: y ?? this.y,
       zone: zone ?? this.zone,
       floor: floor ?? this.floor,
       row: row ?? this.row,
@@ -314,26 +359,33 @@ class LayoutSeat {
 
 /// 배치도 텍스트 라벨 (층 구분, 열 이름, 커스텀 등)
 class LayoutLabel {
-  final int gridX;
-  final int gridY;
+  final double x;
+  final double y;
   final String text;
   final String type; // 'floor' (1F, 2F), 'section' (A열, B열), 'custom'
   final double fontSize;
 
   LayoutLabel({
-    required this.gridX,
-    required this.gridY,
+    required this.x,
+    required this.y,
     required this.text,
     this.type = 'custom',
     this.fontSize = 12,
   });
 
-  String get key => '$gridX,$gridY';
+  /// 레거시 호환
+  int get gridX => (x / 16.0).floor();
+  int get gridY => (y / 16.0).floor();
+  String get key => '${x.toStringAsFixed(1)},${y.toStringAsFixed(1)}';
 
   factory LayoutLabel.fromMap(Map<String, dynamic> map) {
+    final rawX = map['x'];
+    final rawY = map['y'];
+    final double px = rawX is int ? rawX * 16.0 + 8.0 : (rawX as num?)?.toDouble() ?? 0.0;
+    final double py = rawY is int ? rawY * 16.0 + 8.0 : (rawY as num?)?.toDouble() ?? 0.0;
     return LayoutLabel(
-      gridX: map['x'] ?? 0,
-      gridY: map['y'] ?? 0,
+      x: px,
+      y: py,
       text: map['text'] ?? '',
       type: map['type'] ?? 'custom',
       fontSize: (map['fontSize'] ?? 12).toDouble(),
@@ -342,8 +394,8 @@ class LayoutLabel {
 
   Map<String, dynamic> toMap() {
     return {
-      'x': gridX,
-      'y': gridY,
+      'x': x,
+      'y': y,
       'text': text,
       'type': type,
       'fontSize': fontSize,
@@ -351,15 +403,15 @@ class LayoutLabel {
   }
 
   LayoutLabel copyWith({
-    int? gridX,
-    int? gridY,
+    double? x,
+    double? y,
     String? text,
     String? type,
     double? fontSize,
   }) {
     return LayoutLabel(
-      gridX: gridX ?? this.gridX,
-      gridY: gridY ?? this.gridY,
+      x: x ?? this.x,
+      y: y ?? this.y,
       text: text ?? this.text,
       type: type ?? this.type,
       fontSize: fontSize ?? this.fontSize,
@@ -369,10 +421,10 @@ class LayoutLabel {
 
 /// 배치도 구분선 (팬스/통로 등 시각적 경계선)
 class LayoutDivider {
-  final int startX;
-  final int startY;
-  final int endX;
-  final int endY;
+  final double startX;
+  final double startY;
+  final double endX;
+  final double endY;
 
   LayoutDivider({
     required this.startX,
@@ -381,14 +433,17 @@ class LayoutDivider {
     required this.endY,
   });
 
-  String get key => '$startX,$startY-$endX,$endY';
+  String get key =>
+      '${startX.toStringAsFixed(1)},${startY.toStringAsFixed(1)}-'
+      '${endX.toStringAsFixed(1)},${endY.toStringAsFixed(1)}';
 
   factory LayoutDivider.fromMap(Map<String, dynamic> map) {
+    double _px(dynamic v) => v is int ? v * 16.0 + 8.0 : (v as num?)?.toDouble() ?? 0.0;
     return LayoutDivider(
-      startX: map['sx'] ?? 0,
-      startY: map['sy'] ?? 0,
-      endX: map['ex'] ?? 0,
-      endY: map['ey'] ?? 0,
+      startX: _px(map['sx']),
+      startY: _px(map['sy']),
+      endX: _px(map['ex']),
+      endY: _px(map['ey']),
     );
   }
 
@@ -397,22 +452,30 @@ class LayoutDivider {
   }
 }
 
-/// 공연장 좌석 배치도 (도트 그리드 기반)
+/// 공연장 좌석 배치도
+/// layoutVersion 1: 레거시 그리드 (60x40, int 좌표)
+/// layoutVersion 2: 자유 좌표 (2000x1400 기본, double px 좌표)
 class VenueSeatLayout {
-  final int gridCols;
-  final int gridRows;
+  final int layoutVersion; // 1=그리드, 2=자유좌표
+  final double canvasWidth;  // 레퍼런스 캔버스 너비 (px)
+  final double canvasHeight; // 레퍼런스 캔버스 높이 (px)
+  final int gridCols; // 레거시 호환용
+  final int gridRows; // 레거시 호환용
   final String stagePosition; // top / bottom
   final double stageWidthRatio; // 0.0~1.0 (캔버스 대비 비율)
   final double stageHeight; // px
   final String stageShape; // rect / arc / trapezoid
   final List<LayoutSeat> seats;
-  final List<LayoutLabel> labels; // 텍스트 라벨
-  final List<LayoutDivider> dividers; // 구분선 (팬스/통로)
-  final Map<String, int> gradePrice; // 등급별 가격
-  final String? backgroundImageUrl; // 배치도 배경 이미지 URL
-  final double backgroundOpacity; // 배경 이미지 투명도 (0.0~1.0)
+  final List<LayoutLabel> labels;
+  final List<LayoutDivider> dividers;
+  final Map<String, int> gradePrice;
+  final String? backgroundImageUrl;
+  final double backgroundOpacity;
 
   VenueSeatLayout({
+    this.layoutVersion = 2,
+    this.canvasWidth = 2000,
+    this.canvasHeight = 1400,
     this.gridCols = 60,
     this.gridRows = 40,
     this.stagePosition = 'top',
@@ -439,9 +502,19 @@ class VenueSeatLayout {
 
   factory VenueSeatLayout.fromMap(Map<String, dynamic>? data) {
     if (data == null) return VenueSeatLayout();
+    final version = data['layoutVersion'] ?? 1;
+    final cols = data['gridCols'] ?? 60;
+    final rows = data['gridRows'] ?? 40;
     return VenueSeatLayout(
-      gridCols: data['gridCols'] ?? 60,
-      gridRows: data['gridRows'] ?? 40,
+      layoutVersion: version is int ? version : 1,
+      canvasWidth: version >= 2
+          ? (data['canvasWidth'] ?? 2000).toDouble()
+          : (cols as int) * 16.0,
+      canvasHeight: version >= 2
+          ? (data['canvasHeight'] ?? 1400).toDouble()
+          : (rows as int) * 16.0,
+      gridCols: cols is int ? cols : 60,
+      gridRows: rows is int ? rows : 40,
       stagePosition: data['stagePosition'] ?? 'top',
       stageWidthRatio: (data['stageWidthRatio'] ?? 0.4).toDouble(),
       stageHeight: (data['stageHeight'] ?? 28).toDouble(),
@@ -466,6 +539,9 @@ class VenueSeatLayout {
 
   Map<String, dynamic> toMap() {
     return {
+      'layoutVersion': layoutVersion,
+      'canvasWidth': canvasWidth,
+      'canvasHeight': canvasHeight,
       'gridCols': gridCols,
       'gridRows': gridRows,
       'stagePosition': stagePosition,
