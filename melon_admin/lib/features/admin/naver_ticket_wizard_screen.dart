@@ -133,10 +133,7 @@ class _NaverTicketWizardScreenState
 
           // ── Content ──
           Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: _buildStep(),
-            ),
+            child: _buildStep(),
           ),
         ],
       ),
