@@ -862,6 +862,11 @@ class EnhancedExcelParser {
     int skipped = 0;
     int noColorSkipped = 0;
 
+    // Debug: track color → grade classification
+    final colorGradeMap = <String, String>{}; // hex → grade
+    final colorCountMap = <String, int>{}; // hex → count
+    final skippedColors = <String, int>{}; // hex → count (skipped)
+
     // Track row numbers per row-index using row label columns
     final rowLabels = <int, String>{}; // row index → row number string
     for (final labelCol in rowLabelCols) {
@@ -891,12 +896,18 @@ class EnhancedExcelParser {
 
         // Get background color — use theme resolver first, then excel package fallback
         final resolvedHex = colorResolver.getBackgroundColor(sheetName, r, c);
-        final bgHex = resolvedHex ?? cell.cellStyle?.backgroundColor.colorHex ?? 'none';
+        final excelHex = cell.cellStyle?.backgroundColor.colorHex ?? 'none';
+        final bgHex = resolvedHex ?? excelHex;
         final grade = _colorHexToGrade(bgHex);
         if (grade == null) {
           noColorSkipped++;
+          skippedColors[bgHex] = (skippedColors[bgHex] ?? 0) + 1;
           continue;
         }
+
+        // Track color→grade for debug
+        colorGradeMap[bgHex] = grade;
+        colorCountMap[bgHex] = (colorCountMap[bgHex] ?? 0) + 1;
 
         // Find which block this column belongs to
         String zone = sheetName;
@@ -933,6 +944,27 @@ class EnhancedExcelParser {
     if (blockRanges.isNotEmpty) {
       final blockNames = blockRanges.map((b) => b.name).join(', ');
       warnings.add('시트 "$sheetName": 감지된 블록: $blockNames');
+    }
+
+    // Debug: color resolution summary
+    if (colorGradeMap.isNotEmpty) {
+      final colorSummary = colorGradeMap.entries
+          .map((e) => '#${e.key}→${e.value}(${colorCountMap[e.key]}석)')
+          .join(', ');
+      warnings.add('[디버그] 색상→등급: $colorSummary');
+    }
+    if (skippedColors.isNotEmpty) {
+      final skipSummary = skippedColors.entries
+          .map((e) => '#${e.key}(${e.value}개)')
+          .join(', ');
+      warnings.add('[디버그] 건너뛴 색상: $skipSummary');
+    }
+    // Resolver debug
+    for (final info in colorResolver.debugInfo) {
+      warnings.add('[디버그] $info');
+    }
+    if (colorResolver.parseError != null) {
+      errors.add('[디버그] 색상 해석기 오류: ${colorResolver.parseError}');
     }
   }
 
@@ -1163,15 +1195,24 @@ class _ThemeColorResolver {
   // sheetName → { rowIndex → { colIndex → styleIndex } }
   final Map<String, Map<int, Map<int, int>>> _cellStyles = {};
 
+  // Debug info
+  final List<String> debugInfo = [];
+  String? parseError;
+
   _ThemeColorResolver(List<int> xlsxBytes) {
     try {
       final arch = archive.ZipDecoder().decodeBytes(xlsxBytes);
       final themeColors = _parseTheme(arch);
+      debugInfo.add('테마색상 ${themeColors.length}개 파싱');
       _parseFills(arch, themeColors);
+      debugInfo.add('채우기 ${_fillColors.length}개 해석 → ${_fillColors.entries.map((e) => 'fill${e.key}=#${e.value}').join(', ')}');
       _parseStyleXfs(arch);
+      debugInfo.add('스타일→채우기 매핑 ${_styleFillMap.length}개');
       _parseSheets(arch);
-    } catch (_) {
-      // Silently fail — fall back to excel package's (broken) color data
+      debugInfo.add('시트 ${_cellStyles.length}개: ${_cellStyles.keys.join(', ')}');
+    } catch (e) {
+      parseError = e.toString();
+      debugInfo.add('⚠️ 파싱 실패: $e');
     }
   }
 
