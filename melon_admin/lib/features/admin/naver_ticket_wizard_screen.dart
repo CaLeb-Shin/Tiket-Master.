@@ -1030,6 +1030,12 @@ class _NaverTicketWizardScreenState
                 ),
               ],
 
+              // 등급별 좌석 상세 (로드 성공 시)
+              if (_seatData != null && _seatData!.seats.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _buildSeatDetailSection(),
+              ],
+
               // 좌석 수 적으면 경고
               if (_seatData != null && _seatData!.totalSeats < 10) ...[
                 const SizedBox(height: 12),
@@ -1116,12 +1122,14 @@ class _NaverTicketWizardScreenState
                         foregroundColor: AdminTheme.textSecondary),
                   ),
                   const Spacer(),
-                  TextButton(
-                    onPressed: () => setState(() => _currentStep = 2),
-                    child: const Text('건너뛰기 →'),
-                    style: TextButton.styleFrom(
-                        foregroundColor: AdminTheme.textTertiary),
-                  ),
+                  if (_seatData == null) ...[
+                    TextButton(
+                      onPressed: () => setState(() => _currentStep = 2),
+                      child: const Text('건너뛰기 →'),
+                      style: TextButton.styleFrom(
+                          foregroundColor: AdminTheme.textTertiary),
+                    ),
+                  ],
                   const SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: _seatData != null && !_isUploadingSeats
@@ -1134,7 +1142,7 @@ class _NaverTicketWizardScreenState
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: AdminTheme.onAccent),
                           )
-                        : const Text('좌석 등록'),
+                        : Text(_seatData != null ? '좌석 등록 →' : '좌석 등록'),
                   ),
                 ],
               ),
@@ -1143,6 +1151,152 @@ class _NaverTicketWizardScreenState
         ),
       ),
     );
+  }
+
+  static const _gradeColors = {
+    'VIP': Color(0xFFC9A84C),
+    'R': Color(0xFFE53935),
+    'S': Color(0xFF1E88E5),
+    'A': Color(0xFF43A047),
+  };
+
+  Widget _buildSeatDetailSection() {
+    if (_seatData == null) return const SizedBox.shrink();
+
+    // Group seats by grade → row → seat numbers
+    final gradeRows = <String, Map<String, List<int>>>{};
+    for (final seat in _seatData!.seats) {
+      final grade = seat['grade']?.toString() ?? 'S';
+      final row = seat['row']?.toString() ?? '?';
+      final num = int.tryParse(seat['number']?.toString() ?? '') ?? 0;
+      gradeRows.putIfAbsent(grade, () => {});
+      gradeRows[grade]!.putIfAbsent(row, () => []);
+      gradeRows[grade]![row]!.add(num);
+    }
+
+    // Sort rows and seats
+    for (final grade in gradeRows.keys) {
+      for (final row in gradeRows[grade]!.keys) {
+        gradeRows[grade]![row]!.sort();
+      }
+    }
+
+    const gradeOrder = ['VIP', 'R', 'S', 'A'];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: AdminTheme.border,
+          width: 0.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.event_seat_outlined,
+                  size: 14, color: AdminTheme.gold),
+              const SizedBox(width: 6),
+              Text('등급별 좌석 상세',
+                  style: AdminTheme.sans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AdminTheme.gold)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final grade in gradeOrder)
+            if (gradeRows.containsKey(grade)) ...[
+              _buildGradeDetail(grade, gradeRows[grade]!),
+              const SizedBox(height: 8),
+            ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGradeDetail(String grade, Map<String, List<int>> rows) {
+    final color = _gradeColors[grade] ?? AdminTheme.textSecondary;
+    final totalSeats = rows.values.fold<int>(0, (sum, list) => sum + list.length);
+
+    // Sort rows naturally (numeric then alphabetic)
+    final sortedRows = rows.keys.toList()
+      ..sort((a, b) {
+        final na = int.tryParse(a);
+        final nb = int.tryParse(b);
+        if (na != null && nb != null) return na.compareTo(nb);
+        return a.compareTo(b);
+      });
+
+    // Compact format: "1열(1~30), 2열(1~28), ..."
+    final rowSummaries = <String>[];
+    for (final row in sortedRows) {
+      final seats = rows[row]!;
+      if (seats.isEmpty) continue;
+      final rangeStr = _compactRange(seats);
+      rowSummaries.add('${row}열($rangeStr)');
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(grade,
+                  style: AdminTheme.sans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: color)),
+            ),
+            const SizedBox(width: 8),
+            Text('${totalSeats}석  ·  ${sortedRows.length}열',
+                style: AdminTheme.sans(
+                    fontSize: 11, color: AdminTheme.textTertiary)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          rowSummaries.join(', '),
+          style: AdminTheme.sans(
+            fontSize: 10,
+            color: AdminTheme.textTertiary,
+            height: 1.5,
+          ),
+          maxLines: 4,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  /// Convert sorted seat numbers to compact range string: "1~30" or "1~10, 15~20"
+  String _compactRange(List<int> sorted) {
+    if (sorted.isEmpty) return '';
+    final ranges = <String>[];
+    int start = sorted[0];
+    int end = sorted[0];
+    for (int i = 1; i < sorted.length; i++) {
+      if (sorted[i] == end + 1) {
+        end = sorted[i];
+      } else {
+        ranges.add(start == end ? '$start' : '$start~$end');
+        start = sorted[i];
+        end = sorted[i];
+      }
+    }
+    ranges.add(start == end ? '$start' : '$start~$end');
+    return ranges.join(', ');
   }
 
   Widget _parseDetailRow(String label, String value) {
