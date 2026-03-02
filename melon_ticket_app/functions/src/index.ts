@@ -123,7 +123,7 @@ async function assertAdmin(uid?: string): Promise<string> {
     throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
   }
   const role = (await getUserRole(uid)).toLowerCase();
-  if (role !== "admin" && role !== "master") {
+  if (role !== "admin" && role !== "superadmin") {
     throw new functions.https.HttpsError("permission-denied", "관리자 권한이 필요합니다");
   }
   return uid;
@@ -133,8 +133,8 @@ async function assertStaffOrAdmin(uid?: string): Promise<string> {
   if (!uid) {
     throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
   }
-  const role = await getUserRole(uid);
-  if (role !== "admin" && role !== "staff") {
+  const role = (await getUserRole(uid)).toLowerCase();
+  if (role !== "admin" && role !== "superadmin" && role !== "staff") {
     throw new functions.https.HttpsError("permission-denied", "스태프 권한이 필요합니다");
   }
   return uid;
