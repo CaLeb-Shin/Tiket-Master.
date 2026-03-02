@@ -144,6 +144,70 @@ class FunctionsService {
     return Map<String, dynamic>.from(result.data);
   }
 
+  // ─── 네이버 티켓 ───────────────────────────────────
+
+  /// 네이버 주문 생성 + 좌석 배정 + 티켓 발급
+  Future<Map<String, dynamic>> createNaverOrder({
+    required String eventId,
+    required String naverOrderId,
+    required String buyerName,
+    required String buyerPhone,
+    required String productName,
+    required String seatGrade,
+    required int quantity,
+    required String orderDate,
+    String? memo,
+  }) async {
+    final callable = _functions.httpsCallable('createNaverOrder');
+    final result = await callable.call({
+      'eventId': eventId,
+      'naverOrderId': naverOrderId,
+      'buyerName': buyerName,
+      'buyerPhone': buyerPhone,
+      'productName': productName,
+      'seatGrade': seatGrade,
+      'quantity': quantity,
+      'orderDate': orderDate,
+      if (memo != null) 'memo': memo,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 네이버 주문 취소 + 좌석 해제 + 번호 땡김
+  Future<Map<String, dynamic>> cancelNaverOrder({
+    required String orderId,
+  }) async {
+    final callable = _functions.httpsCallable('cancelNaverOrder');
+    final result = await callable.call({
+      'orderId': orderId,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 모바일 티켓 QR 토큰 발급 (비로그인)
+  Future<Map<String, dynamic>> issueMobileQrToken({
+    required String ticketId,
+    required String accessToken,
+  }) async {
+    final callable = _functions.httpsCallable('issueMobileQrToken');
+    final result = await callable.call({
+      'ticketId': ticketId,
+      'accessToken': accessToken,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 모바일 티켓 공개 조회 (비로그인)
+  Future<Map<String, dynamic>> getMobileTicketByToken({
+    required String accessToken,
+  }) async {
+    final callable = _functions.httpsCallable('getMobileTicketByToken');
+    final result = await callable.call({
+      'accessToken': accessToken,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
   /// 통합 QR 일괄 체크인
   Future<Map<String, dynamic>> verifyAndCheckInGroup({
     required String orderId,

@@ -1117,6 +1117,11 @@ export const verifyAndCheckIn = functions.https.onCall(async (data: any, context
   const scannerUid = await assertStaffOrAdmin(context?.auth?.uid);
   const actorStaffId = scannerUid;
 
+  // 모바일 티켓(mt_) 분기 — 선언을 최상단에 배치
+  const isMobileTicket = (ticketId || "").startsWith("mt_");
+  const actualTicketId = isMobileTicket ? ticketId.substring(3) : ticketId;
+  const collectionName = isMobileTicket ? "mobileTickets" : "tickets";
+
   if (!ticketId || !qrToken) {
     throw new functions.https.HttpsError("invalid-argument", "잘못된 요청입니다");
   }
@@ -1205,8 +1210,8 @@ export const verifyAndCheckIn = functions.https.onCall(async (data: any, context
   }
 
   // 티켓 ID 일치 확인
-  if (decoded.ticketId !== ticketId) {
-    await logCheckin(ticketId, actorStaffId, "invalidTicket", "티켓 ID 불일치", {
+  if (decoded.ticketId !== actualTicketId) {
+    await logCheckin(actualTicketId, actorStaffId, "invalidTicket", "티켓 ID 불일치", {
       stage: checkinStage,
       scannerDeviceId,
       eventId: decoded?.eventId,
@@ -1220,11 +1225,11 @@ export const verifyAndCheckIn = functions.https.onCall(async (data: any, context
 
   // 트랜잭션으로 체크인 처리
   return db.runTransaction(async (transaction) => {
-    const ticketRef = db.collection("tickets").doc(ticketId);
+    const ticketRef = db.collection(collectionName).doc(actualTicketId);
     const ticketDoc = await transaction.get(ticketRef);
 
     if (!ticketDoc.exists) {
-      await logCheckin(ticketId, actorStaffId, "invalidTicket", "티켓 없음", {
+      await logCheckin(actualTicketId, actorStaffId, "invalidTicket", "티켓 없음", {
         stage: checkinStage,
         scannerDeviceId,
       });
@@ -1252,8 +1257,9 @@ export const verifyAndCheckIn = functions.https.onCall(async (data: any, context
       };
     }
 
-    if (ticket.status === "canceled") {
-      await logCheckin(ticketId, actorStaffId, "canceled", "취소된 티켓", {
+    const isCanceled = ticket.status === "canceled" || ticket.status === "cancelled";
+    if (isCanceled) {
+      await logCheckin(actualTicketId, actorStaffId, "canceled", "취소된 티켓", {
         stage: checkinStage,
         scannerDeviceId,
         eventId,
@@ -1309,11 +1315,16 @@ export const verifyAndCheckIn = functions.https.onCall(async (data: any, context
     }
 
     // 좌석 정보 조회
-    const seatDoc = await transaction.get(db.collection("seats").doc(ticket.seatId));
-    const seat = seatDoc.data();
-    const seatInfo = seat
-      ? `${seat.block}구역 ${seat.floor} ${seat.row || ""}열 ${seat.number}번`
-      : "좌석 정보 없음";
+    let seatInfo = "좌석 정보 없음";
+    if (isMobileTicket) {
+      seatInfo = ticket.seatInfo || `${ticket.seatGrade} #${ticket.entryNumber}`;
+    } else if (ticket.seatId) {
+      const seatDoc = await transaction.get(db.collection("seats").doc(ticket.seatId));
+      const seat = seatDoc.data();
+      seatInfo = seat
+        ? `${seat.block}구역 ${seat.floor} ${seat.row || ""}열 ${seat.number}번`
+        : "좌석 정보 없음";
+    }
 
     if (checkinStage === "entry") {
       transaction.update(ticketRef, {
@@ -1333,14 +1344,18 @@ export const verifyAndCheckIn = functions.https.onCall(async (data: any, context
       });
     }
 
-    if (seatDoc.exists) {
-      transaction.update(seatDoc.ref, { status: "used" });
+    if (!isMobileTicket && ticket.seatId) {
+      const seatRef = db.collection("seats").doc(ticket.seatId);
+      transaction.update(seatRef, { status: "used" });
+    } else if (isMobileTicket && ticket.seatId) {
+      const seatRef = db.collection("seats").doc(ticket.seatId);
+      transaction.update(seatRef, { status: "used" });
     }
 
     const checkinRef = db.collection("checkins").doc();
     transaction.set(checkinRef, {
       eventId,
-      ticketId,
+      ticketId: actualTicketId,
       staffId: actorStaffId,
       scannerDeviceId,
       stage: checkinStage,
@@ -2389,3 +2404,346 @@ JSON만 반환하고 다른 텍스트는 포함하지 마세요.`;
       throw new functions.https.HttpsError("internal", `AI 분석 실패: ${e.message}`);
     }
   });
+
+// ============================================================
+// 네이버 티켓 파이프라인
+// ============================================================
+
+import { v4 as uuidv4 } from "uuid";
+
+/**
+ * 네이버 주문 생성 + 등급별 선착순 좌석 배정 + 모바일 티켓 발급
+ */
+export const createNaverOrder = functions.https.onCall(async (data: any, context) => {
+  await assertAdmin(context?.auth?.uid);
+
+  const {
+    eventId, naverOrderId, buyerName, buyerPhone,
+    productName, seatGrade, quantity, orderDate, memo,
+  } = data;
+
+  if (!eventId || !naverOrderId || !buyerName || !buyerPhone || !seatGrade || !quantity) {
+    throw new functions.https.HttpsError("invalid-argument", "필수 필드가 누락되었습니다");
+  }
+
+  // 중복 주문번호 체크
+  const dupSnap = await db.collection("naverOrders")
+    .where("naverOrderId", "==", naverOrderId)
+    .where("eventId", "==", eventId)
+    .limit(1).get();
+  if (!dupSnap.empty) {
+    throw new functions.https.HttpsError("already-exists", "이미 등록된 네이버 주문번호입니다");
+  }
+
+  // 이벤트 존재 확인
+  const eventDoc = await db.collection("events").doc(eventId).get();
+  if (!eventDoc.exists) {
+    throw new functions.https.HttpsError("not-found", "이벤트를 찾을 수 없습니다");
+  }
+
+  // 해당 등급의 available 좌석 조회 (선착순: number 순)
+  const seatsSnap = await db.collection("seats")
+    .where("eventId", "==", eventId)
+    .where("grade", "==", seatGrade)
+    .where("status", "==", "available")
+    .orderBy("number")
+    .limit(quantity)
+    .get();
+
+  if (seatsSnap.size < quantity) {
+    throw new functions.https.HttpsError(
+      "resource-exhausted",
+      `${seatGrade} 등급 잔여 좌석이 부족합니다 (잔여: ${seatsSnap.size}, 요청: ${quantity})`
+    );
+  }
+
+  // 현재 해당 등급의 active 티켓 수 (entryNumber 계산용)
+  const activeTicketsSnap = await db.collection("mobileTickets")
+    .where("eventId", "==", eventId)
+    .where("seatGrade", "==", seatGrade)
+    .where("status", "==", "active")
+    .get();
+  let nextEntryNumber = activeTicketsSnap.size + 1;
+
+  const now = admin.firestore.Timestamp.now();
+  const ticketIds: string[] = [];
+  const ticketUrls: { ticketId: string; accessToken: string; entryNumber: number; url: string }[] = [];
+  const batch = db.batch();
+
+  seatsSnap.docs.forEach((seatDoc, i) => {
+    const seat = seatDoc.data();
+    const ticketRef = db.collection("mobileTickets").doc();
+    const accessToken = uuidv4();
+    const entryNumber = nextEntryNumber + i;
+    const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
+      .filter(Boolean).join(" ");
+
+    batch.set(ticketRef, {
+      naverOrderId: "", // placeholder, set after order creation
+      eventId,
+      seatGrade,
+      seatId: seatDoc.id,
+      seatNumber: `${seat.number}`,
+      seatInfo,
+      buyerName,
+      buyerPhone,
+      status: "active",
+      issuedAt: now,
+      usedAt: null,
+      cancelledAt: null,
+      qrVersion: 1,
+      accessToken,
+      entryNumber,
+      entryCheckedInAt: null,
+      lastCheckInStage: null,
+    });
+
+    // 좌석 예약
+    batch.update(seatDoc.ref, {
+      status: "reserved",
+      updatedAt: now,
+    });
+
+    ticketIds.push(ticketRef.id);
+    ticketUrls.push({
+      ticketId: ticketRef.id,
+      accessToken,
+      entryNumber,
+      url: `https://melonticket-web-20260216.vercel.app/m/${accessToken}`,
+    });
+  });
+
+  // NaverOrder 생성
+  const orderRef = db.collection("naverOrders").doc();
+  batch.set(orderRef, {
+    naverOrderId,
+    buyerName,
+    buyerPhone,
+    productName: productName || "",
+    quantity,
+    orderDate: orderDate ? admin.firestore.Timestamp.fromDate(new Date(orderDate)) : now,
+    status: "confirmed",
+    ticketIds,
+    eventId,
+    seatGrade,
+    createdAt: now,
+    cancelledAt: null,
+    cancelReason: null,
+    memo: memo || null,
+  });
+
+  // 티켓의 naverOrderId 업데이트
+  ticketIds.forEach((tid) => {
+    batch.update(db.collection("mobileTickets").doc(tid), {
+      naverOrderId: orderRef.id,
+    });
+  });
+
+  await batch.commit();
+
+  functions.logger.info(
+    `네이버 주문 생성: ${naverOrderId}, ${buyerName}, ${seatGrade} x${quantity}, 티켓 ${ticketIds.length}장`
+  );
+
+  return {
+    success: true,
+    orderId: orderRef.id,
+    tickets: ticketUrls,
+  };
+});
+
+/**
+ * 네이버 주문 취소 + 좌석 해제 + 번호 땡김
+ */
+export const cancelNaverOrder = functions.https.onCall(async (data: any, context) => {
+  await assertAdmin(context?.auth?.uid);
+
+  const { orderId } = data;
+  if (!orderId) {
+    throw new functions.https.HttpsError("invalid-argument", "orderId가 필요합니다");
+  }
+
+  const orderRef = db.collection("naverOrders").doc(orderId);
+  const orderDoc = await orderRef.get();
+  if (!orderDoc.exists) {
+    throw new functions.https.HttpsError("not-found", "주문을 찾을 수 없습니다");
+  }
+
+  const order = orderDoc.data()!;
+  if (order.status !== "confirmed") {
+    throw new functions.https.HttpsError("failed-precondition", "이미 취소된 주문입니다");
+  }
+
+  const now = admin.firestore.Timestamp.now();
+  const batch = db.batch();
+  const ticketIds: string[] = order.ticketIds || [];
+
+  // 각 티켓 취소 + 좌석 해제
+  for (const tid of ticketIds) {
+    const ticketRef = db.collection("mobileTickets").doc(tid);
+    const ticketDoc = await ticketRef.get();
+    if (!ticketDoc.exists) continue;
+
+    const ticket = ticketDoc.data()!;
+    batch.update(ticketRef, {
+      status: "cancelled",
+      cancelledAt: now,
+    });
+
+    // 좌석 해제
+    if (ticket.seatId) {
+      batch.update(db.collection("seats").doc(ticket.seatId), {
+        status: "available",
+        updatedAt: now,
+      });
+    }
+  }
+
+  // 주문 상태 변경
+  batch.update(orderRef, {
+    status: "cancelled",
+    cancelledAt: now,
+  });
+
+  await batch.commit();
+
+  // 번호 재배정 (땡김)
+  const resequenced = await resequenceEntryNumbers(order.eventId, order.seatGrade);
+
+  functions.logger.info(
+    `네이버 주문 취소: ${orderId}, 티켓 ${ticketIds.length}장 취소, ${resequenced}건 재배정`
+  );
+
+  return {
+    success: true,
+    cancelledTickets: ticketIds.length,
+    resequencedCount: resequenced,
+  };
+});
+
+/**
+ * entryNumber 재배정 — 취소 후 갭 없는 순번 보장
+ */
+async function resequenceEntryNumbers(eventId: string, seatGrade: string): Promise<number> {
+  const activeSnap = await db.collection("mobileTickets")
+    .where("eventId", "==", eventId)
+    .where("seatGrade", "==", seatGrade)
+    .where("status", "==", "active")
+    .orderBy("issuedAt")
+    .get();
+
+  const batch = db.batch();
+  let updated = 0;
+
+  activeSnap.docs.forEach((doc, i) => {
+    const currentNumber = doc.data().entryNumber;
+    const newNumber = i + 1;
+    if (currentNumber !== newNumber) {
+      batch.update(doc.ref, { entryNumber: newNumber });
+      updated++;
+    }
+  });
+
+  if (updated > 0) {
+    await batch.commit();
+  }
+  return updated;
+}
+
+/**
+ * 모바일 티켓 QR 토큰 발급 (비로그인 — accessToken 검증)
+ */
+export const issueMobileQrToken = functions.https.onCall(async (data: any) => {
+  const { ticketId, accessToken } = data;
+  if (!ticketId || !accessToken) {
+    throw new functions.https.HttpsError("invalid-argument", "ticketId와 accessToken이 필요합니다");
+  }
+
+  const ticketDoc = await db.collection("mobileTickets").doc(ticketId).get();
+  if (!ticketDoc.exists) {
+    throw new functions.https.HttpsError("not-found", "티켓을 찾을 수 없습니다");
+  }
+
+  const ticket = ticketDoc.data()!;
+  if (ticket.accessToken !== accessToken) {
+    throw new functions.https.HttpsError("permission-denied", "잘못된 접근입니다");
+  }
+
+  if (ticket.status === "cancelled") {
+    throw new functions.https.HttpsError("failed-precondition", "취소된 티켓입니다");
+  }
+
+  const token = jwt.sign(
+    {
+      ticketId,
+      eventId: ticket.eventId,
+      qrVersion: ticket.qrVersion || 1,
+      type: "mobile",
+    },
+    JWT_SECRET,
+    { expiresIn: QR_TOKEN_EXPIRY }
+  );
+
+  return {
+    success: true,
+    token,
+    exp: Math.floor(Date.now() / 1000) + QR_TOKEN_EXPIRY,
+  };
+});
+
+/**
+ * 모바일 티켓 공개 조회 (비로그인 — accessToken으로 조회)
+ */
+export const getMobileTicketByToken = functions.https.onCall(async (data: any) => {
+  const { accessToken } = data;
+  if (!accessToken) {
+    throw new functions.https.HttpsError("invalid-argument", "accessToken이 필요합니다");
+  }
+
+  const ticketSnap = await db.collection("mobileTickets")
+    .where("accessToken", "==", accessToken)
+    .limit(1)
+    .get();
+
+  if (ticketSnap.empty) {
+    throw new functions.https.HttpsError("not-found", "티켓을 찾을 수 없습니다");
+  }
+
+  const ticketDoc = ticketSnap.docs[0];
+  const ticket = ticketDoc.data();
+
+  // 이벤트 정보 로드
+  const eventDoc = await db.collection("events").doc(ticket.eventId).get();
+  const event = eventDoc.exists ? eventDoc.data() : null;
+
+  // 좌석 공개 여부
+  let isRevealed = true;
+  if (event?.revealAt) {
+    const revealAt = event.revealAt.toDate ? event.revealAt.toDate() : new Date(event.revealAt);
+    isRevealed = new Date() >= revealAt;
+  }
+
+  return {
+    success: true,
+    ticket: {
+      id: ticketDoc.id,
+      eventId: ticket.eventId,
+      seatGrade: ticket.seatGrade,
+      seatInfo: isRevealed ? ticket.seatInfo : null,
+      seatNumber: isRevealed ? ticket.seatNumber : null,
+      buyerName: ticket.buyerName,
+      status: ticket.status,
+      entryNumber: ticket.entryNumber,
+      qrVersion: ticket.qrVersion || 1,
+      isCheckedIn: !!ticket.entryCheckedInAt,
+    },
+    event: event ? {
+      title: event.title,
+      posterUrl: event.posterUrl || null,
+      date: event.date,
+      venueName: event.venueName || "",
+      revealAt: event.revealAt,
+    } : null,
+    isRevealed,
+  };
+});
