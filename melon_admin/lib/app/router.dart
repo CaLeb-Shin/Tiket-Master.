@@ -22,6 +22,7 @@ import '../features/admin/super_admin_screen.dart';
 import '../features/admin/event_seat_manager_screen.dart';
 import '../features/admin/sales_stats_screen.dart';
 import '../features/admin/naver_order_screen.dart';
+import '../features/admin/naver_ticket_wizard_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -59,6 +60,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/setup',
             name: 'adminSetup',
             builder: (context, state) => const AdminSetupScreen(),
+          ),
+          GoRoute(
+            path: '/naver-ticket',
+            name: 'naverTicketWizard',
+            builder: (context, state) => const NaverTicketWizardScreen(),
           ),
           GoRoute(
             path: '/events/create',

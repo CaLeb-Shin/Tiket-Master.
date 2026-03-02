@@ -335,6 +335,18 @@ class _SidebarState extends ConsumerState<_Sidebar> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Column(
                 children: [
+                  _buildMenuItem(
+                    -1,
+                    'N',
+                    '네이버 티켓',
+                    selectable: false,
+                    routePath: '/naver-ticket',
+                    onTap: () => context.go('/naver-ticket'),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Divider(color: AdminTheme.border, height: 1),
+                  ),
                   _buildMenuItem(0, '01', '대시보드'),
                   const SizedBox(height: 2),
                   _buildMenuItem(1, '02', '공연 관리'),
