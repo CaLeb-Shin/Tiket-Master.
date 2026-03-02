@@ -360,8 +360,10 @@ class _SeatUploadScreenState extends ConsumerState<SeatUploadScreen> {
           'row': ls.row.isNotEmpty ? ls.row : null,
           'number': ls.number,
           'grade': ls.grade,
-          'gridX': ls.gridX,
-          'gridY': ls.gridY,
+          'dotX': ls.x,
+          'dotY': ls.y,
+          'gridX': ls.x.toInt(),
+          'gridY': ls.y.toInt(),
           'seatType': ls.seatType.name,
         };
       }).toList();
@@ -3755,30 +3757,31 @@ class _DotmapInteractiveCanvas extends StatelessWidget {
   LayoutSeat? _hitTestSeat(Offset position) {
     if (layout.seats.isEmpty) return null;
 
-    int minX = 999999, maxX = -999999;
-    int minY = 999999, maxY = -999999;
+    double minX = double.infinity, maxX = double.negativeInfinity;
+    double minY = double.infinity, maxY = double.negativeInfinity;
 
     for (final seat in layout.seats) {
-      if (seat.gridX < minX) minX = seat.gridX;
-      if (seat.gridX > maxX) maxX = seat.gridX;
-      if (seat.gridY < minY) minY = seat.gridY;
-      if (seat.gridY > maxY) maxY = seat.gridY;
+      if (seat.x < minX) minX = seat.x;
+      if (seat.x > maxX) maxX = seat.x;
+      if (seat.y < minY) minY = seat.y;
+      if (seat.y > maxY) maxY = seat.y;
     }
 
-    final rangeX = (maxX - minX).clamp(1, 999999);
-    final rangeY = (maxY - minY).clamp(1, 999999);
+    final rangeX = (maxX - minX).clamp(1.0, double.infinity);
+    final rangeY = (maxY - minY).clamp(1.0, double.infinity);
 
     const padding = 24.0;
     final drawW = canvasSize.width - padding * 2;
     final drawH = canvasSize.height - padding * 2;
 
-    final cellW = drawW / (rangeX + 1);
-    final cellH = drawH / (rangeY + 1);
-    final hitRadius = (cellW < cellH ? cellW : cellH) * 0.5;
+    final scaleX = drawW / rangeX;
+    final scaleY = drawH / rangeY;
+    final scale = scaleX < scaleY ? scaleX : scaleY;
+    final hitRadius = (scale * 8.0).clamp(4.0, 16.0);
 
     for (final seat in layout.seats) {
-      final cx = padding + (seat.gridX - minX) * cellW + cellW / 2;
-      final cy = padding + (seat.gridY - minY) * cellH + cellH / 2;
+      final cx = padding + (seat.x - minX) * scale;
+      final cy = padding + (seat.y - minY) * scale;
 
       if ((position - Offset(cx, cy)).distance <= hitRadius) {
         return seat;
@@ -3805,30 +3808,31 @@ class _DotmapPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (layout.seats.isEmpty) return;
 
-    int minX = 999999, maxX = -999999;
-    int minY = 999999, maxY = -999999;
+    double minX = double.infinity, maxX = double.negativeInfinity;
+    double minY = double.infinity, maxY = double.negativeInfinity;
 
     for (final seat in layout.seats) {
-      if (seat.gridX < minX) minX = seat.gridX;
-      if (seat.gridX > maxX) maxX = seat.gridX;
-      if (seat.gridY < minY) minY = seat.gridY;
-      if (seat.gridY > maxY) maxY = seat.gridY;
+      if (seat.x < minX) minX = seat.x;
+      if (seat.x > maxX) maxX = seat.x;
+      if (seat.y < minY) minY = seat.y;
+      if (seat.y > maxY) maxY = seat.y;
     }
 
-    final rangeX = (maxX - minX).clamp(1, 999999);
-    final rangeY = (maxY - minY).clamp(1, 999999);
+    final rangeX = (maxX - minX).clamp(1.0, double.infinity);
+    final rangeY = (maxY - minY).clamp(1.0, double.infinity);
 
     const padding = 24.0;
     final drawW = size.width - padding * 2;
     final drawH = size.height - padding * 2;
 
-    final cellW = drawW / (rangeX + 1);
-    final cellH = drawH / (rangeY + 1);
-    final dotRadius = ((cellW < cellH ? cellW : cellH) * 0.35).clamp(2.0, 8.0);
+    final scaleX = drawW / rangeX;
+    final scaleY = drawH / rangeY;
+    final scale = scaleX < scaleY ? scaleX : scaleY;
+    final dotRadius = (scale * 3.0).clamp(2.0, 8.0);
 
     for (final seat in layout.seats) {
-      final cx = padding + (seat.gridX - minX) * cellW + cellW / 2;
-      final cy = padding + (seat.gridY - minY) * cellH + cellH / 2;
+      final cx = padding + (seat.x - minX) * scale;
+      final cy = padding + (seat.y - minY) * scale;
 
       final isSelected = selectedKeys.contains(seat.key);
       final gradeColor = _gradeColorForPaint(seat.grade);
