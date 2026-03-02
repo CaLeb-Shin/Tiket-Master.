@@ -882,11 +882,18 @@ class EnhancedExcelParser {
 
         if (labelGrade != null) {
           gradeLabelRows[r] = labelGrade;
-          // Map the label's background color to this grade
+          // Map the label's background color to this grade (ALWAYS overrides hue)
           final hex = colorResolver.getBackgroundColor(sheetName, r, c);
-          if (hex != null && _colorHexToGrade(hex) == null) {
-            // Color exists but wasn't classified → map it explicitly
+          if (hex != null && hex != 'FFFFFF' && hex != '000000') {
             gradeLabelColors[hex] = labelGrade;
+          }
+          // Also check excel package color as fallback
+          final epHex = cell.cellStyle?.backgroundColor.colorHex;
+          if (epHex != null && epHex != 'none' && epHex.length >= 6) {
+            final rgb = epHex.length == 8 ? epHex.substring(2).toUpperCase() : epHex.toUpperCase();
+            if (rgb != 'FFFFFF' && rgb != '000000') {
+              gradeLabelColors[rgb] = labelGrade;
+            }
           }
         }
       }
@@ -950,9 +957,12 @@ class EnhancedExcelParser {
         final excelHex = cell.cellStyle?.backgroundColor.colorHex ?? 'none';
         final bgHex = resolvedHex ?? excelHex;
 
-        // Grade detection: 1) color hue, 2) label-mapped color, 3) row-based label fallback
-        String? grade = _colorHexToGrade(bgHex);
-        grade ??= gradeLabelColors[bgHex]; // label-mapped color (e.g., purple=R)
+        // Grade detection priority:
+        // 1) Label-mapped color (text "R석" + color → that color = R, overrides hue)
+        // 2) Color hue classification
+        // 3) Row-based label fallback (nearest grade label above)
+        String? grade = gradeLabelColors[bgHex]; // label text overrides hue!
+        grade ??= _colorHexToGrade(bgHex);
         if (grade == null) {
           // Fallback: use grade label row range
           grade = _getRowFallbackGrade(r);
