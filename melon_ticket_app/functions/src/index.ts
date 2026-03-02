@@ -123,7 +123,7 @@ async function assertAdmin(uid?: string): Promise<string> {
     throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
   }
   const role = await getUserRole(uid);
-  if (role !== "admin") {
+  if (role !== "admin" && role !== "master") {
     throw new functions.https.HttpsError("permission-denied", "관리자 권한이 필요합니다");
   }
   return uid;
