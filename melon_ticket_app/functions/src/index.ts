@@ -2747,3 +2747,179 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
     isRevealed,
   };
 });
+
+// ============================================================
+// 봇 연동용 HTTP 엔드포인트 (API 키 인증)
+// ============================================================
+
+const BOT_API_KEY = functions.config().bot?.apikey || process.env.BOT_API_KEY || "melon-bot-secret-2026";
+
+/**
+ * 봇에서 호출하는 네이버 주문 생성 HTTP 엔드포인트
+ * POST /createNaverOrderHttp
+ * Header: Authorization: Bearer {BOT_API_KEY}
+ * Body: { eventId, naverOrderId, buyerName, buyerPhone, productName, seatGrade, quantity, orderDate?, memo? }
+ */
+export const createNaverOrderHttp = functions.https.onRequest(async (req, res) => {
+  // CORS
+  res.set("Access-Control-Allow-Origin", "*");
+  if (req.method === "OPTIONS") {
+    res.set("Access-Control-Allow-Methods", "POST");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.status(204).send("");
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  // API 키 인증
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.replace("Bearer ", "");
+  if (token !== BOT_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  try {
+    const {
+      eventId, naverOrderId, buyerName, buyerPhone,
+      productName, seatGrade, quantity, orderDate, memo,
+    } = req.body;
+
+    if (!eventId || !naverOrderId || !buyerName || !buyerPhone || !seatGrade || !quantity) {
+      res.status(400).json({ error: "필수 필드가 누락되었습니다" });
+      return;
+    }
+
+    // 중복 주문번호 체크
+    const dupSnap = await db.collection("naverOrders")
+      .where("naverOrderId", "==", naverOrderId)
+      .where("eventId", "==", eventId)
+      .limit(1).get();
+    if (!dupSnap.empty) {
+      res.status(409).json({ error: "이미 등록된 네이버 주문번호입니다" });
+      return;
+    }
+
+    // 이벤트 존재 확인
+    const eventDoc = await db.collection("events").doc(eventId).get();
+    if (!eventDoc.exists) {
+      res.status(404).json({ error: "이벤트를 찾을 수 없습니다" });
+      return;
+    }
+
+    // 해당 등급의 available 좌석 조회 (선착순: number 순)
+    const seatsSnap = await db.collection("seats")
+      .where("eventId", "==", eventId)
+      .where("grade", "==", seatGrade)
+      .where("status", "==", "available")
+      .orderBy("number")
+      .limit(quantity)
+      .get();
+
+    if (seatsSnap.size < quantity) {
+      res.status(422).json({
+        error: `${seatGrade} 등급 잔여 좌석이 부족합니다 (잔여: ${seatsSnap.size}, 요청: ${quantity})`,
+      });
+      return;
+    }
+
+    // 현재 해당 등급의 active 티켓 수 (entryNumber 계산용)
+    const activeTicketsSnap = await db.collection("mobileTickets")
+      .where("eventId", "==", eventId)
+      .where("seatGrade", "==", seatGrade)
+      .where("status", "==", "active")
+      .get();
+    let nextEntryNumber = activeTicketsSnap.size + 1;
+
+    const now = admin.firestore.Timestamp.now();
+    const ticketIds: string[] = [];
+    const ticketUrls: { ticketId: string; accessToken: string; entryNumber: number; url: string }[] = [];
+    const batch = db.batch();
+
+    seatsSnap.docs.forEach((seatDoc, i) => {
+      const seat = seatDoc.data();
+      const ticketRef = db.collection("mobileTickets").doc();
+      const accessToken = uuidv4();
+      const entryNumber = nextEntryNumber + i;
+      const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
+        .filter(Boolean).join(" ");
+
+      batch.set(ticketRef, {
+        naverOrderId: "",
+        eventId,
+        seatGrade,
+        seatId: seatDoc.id,
+        seatNumber: `${seat.number}`,
+        seatInfo,
+        buyerName,
+        buyerPhone,
+        status: "active",
+        issuedAt: now,
+        usedAt: null,
+        cancelledAt: null,
+        qrVersion: 1,
+        accessToken,
+        entryNumber,
+        entryCheckedInAt: null,
+        lastCheckInStage: null,
+      });
+
+      batch.update(seatDoc.ref, {
+        status: "reserved",
+        updatedAt: now,
+      });
+
+      ticketIds.push(ticketRef.id);
+      ticketUrls.push({
+        ticketId: ticketRef.id,
+        accessToken,
+        entryNumber,
+        url: `https://melonticket-web-20260216.vercel.app/m/${accessToken}`,
+      });
+    });
+
+    // NaverOrder 생성
+    const orderRef = db.collection("naverOrders").doc();
+    batch.set(orderRef, {
+      naverOrderId,
+      buyerName,
+      buyerPhone,
+      productName: productName || "",
+      quantity,
+      orderDate: orderDate ? admin.firestore.Timestamp.fromDate(new Date(orderDate)) : now,
+      status: "confirmed",
+      ticketIds,
+      eventId,
+      seatGrade,
+      createdAt: now,
+      cancelledAt: null,
+      cancelReason: null,
+      memo: memo || null,
+    });
+
+    ticketIds.forEach((tid) => {
+      batch.update(db.collection("mobileTickets").doc(tid), {
+        naverOrderId: orderRef.id,
+      });
+    });
+
+    await batch.commit();
+
+    functions.logger.info(
+      `[봇] 네이버 주문 생성: ${naverOrderId}, ${buyerName}, ${seatGrade} x${quantity}, 티켓 ${ticketIds.length}장`
+    );
+
+    res.status(200).json({
+      success: true,
+      orderId: orderRef.id,
+      tickets: ticketUrls,
+    });
+  } catch (err: any) {
+    functions.logger.error("createNaverOrderHttp 오류:", err);
+    res.status(500).json({ error: err.message || "Internal server error" });
+  }
+});
