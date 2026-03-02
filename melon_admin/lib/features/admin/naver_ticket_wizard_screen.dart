@@ -56,6 +56,8 @@ class _NaverTicketWizardScreenState
   bool _isCreatingEvent = false;
   final _naverUrlCtrl = TextEditingController();
   bool _isFetchingProduct = false;
+  bool _isFetchingStore = false;
+  List<Map<String, dynamic>> _storeProducts = [];
 
   // Step 2: 좌석 등록
   ParsedSeatData? _seatData;
@@ -196,11 +198,11 @@ class _NaverTicketWizardScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('네이버 스토어 URL',
+                    Text('네이버 스토어에서 가져오기',
                         style: AdminTheme.sans(
                             fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 4),
-                    Text('URL을 입력하면 공연명, 가격, 포스터를 자동으로 가져옵니다',
+                    Text('스토어 URL → 상품 목록에서 선택  /  상품 URL → 바로 정보 가져오기',
                         style: AdminTheme.sans(
                             fontSize: 11, color: AdminTheme.textTertiary)),
                     const SizedBox(height: 12),
@@ -214,18 +216,20 @@ class _NaverTicketWizardScreenState
                               hintText: 'https://smartstore.naver.com/...',
                               isDense: true,
                             ),
-                            onSubmitted: (_) => _fetchNaverProduct(),
+                            onSubmitted: (_) => _onNaverUrlSubmit(),
                           ),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton(
-                          onPressed: _isFetchingProduct ? null : _fetchNaverProduct,
+                          onPressed: (_isFetchingProduct || _isFetchingStore)
+                              ? null
+                              : _onNaverUrlSubmit,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AdminTheme.gold,
                             foregroundColor: AdminTheme.onAccent,
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           ),
-                          child: _isFetchingProduct
+                          child: (_isFetchingProduct || _isFetchingStore)
                               ? const SizedBox(
                                   width: 16, height: 16,
                                   child: CircularProgressIndicator(
@@ -234,6 +238,78 @@ class _NaverTicketWizardScreenState
                         ),
                       ],
                     ),
+
+                    // 스토어 상품 목록
+                    if (_storeProducts.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text('상품을 선택하세요 (${_storeProducts.length}개)',
+                          style: AdminTheme.sans(
+                              fontSize: 12, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      ...List.generate(
+                        _storeProducts.length,
+                        (i) {
+                          final p = _storeProducts[i];
+                          final title = p['title'] as String? ?? '';
+                          final price = p['price'] as int? ?? 0;
+                          final imgUrl = p['imageUrl'] as String? ?? '';
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: GestureDetector(
+                              onTap: () => _selectStoreProduct(p),
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: AdminTheme.surface,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                      color: AdminTheme.border, width: 0.5),
+                                ),
+                                child: Row(
+                                  children: [
+                                    if (imgUrl.isNotEmpty)
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(3),
+                                        child: Image.network(imgUrl,
+                                            width: 40, height: 40,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) =>
+                                                const SizedBox(width: 40, height: 40)),
+                                      ),
+                                    if (imgUrl.isNotEmpty)
+                                      const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(title,
+                                              style: AdminTheme.sans(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis),
+                                          if (price > 0)
+                                            Text(
+                                                '₩${NumberFormat('#,###').format(price)}',
+                                                style: AdminTheme.sans(
+                                                    fontSize: 11,
+                                                    color: AdminTheme
+                                                        .textSecondary)),
+                                        ],
+                                      ),
+                                    ),
+                                    const Icon(Icons.arrow_forward_ios,
+                                        size: 12,
+                                        color: AdminTheme.textTertiary),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -546,6 +622,73 @@ class _NaverTicketWizardScreenState
       _createdEventId = eventId;
       _currentStep = seatSnap.docs.isEmpty ? 1 : 2;
     });
+  }
+
+  void _onNaverUrlSubmit() {
+    final url = _naverUrlCtrl.text.trim();
+    if (url.contains('/products/')) {
+      _fetchNaverProduct();
+    } else {
+      _fetchNaverStore();
+    }
+  }
+
+  Future<void> _fetchNaverStore() async {
+    final url = _naverUrlCtrl.text.trim();
+    if (url.isEmpty) return;
+    if (!url.contains('smartstore.naver.com')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('네이버 스마트스토어 URL을 입력하세요')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isFetchingStore = true;
+      _storeProducts = [];
+    });
+
+    try {
+      final fs = ref.read(functionsServiceProvider);
+      final result = await fs.callHttpFunction('scrapeNaverStoreHttp', {
+        'storeUrl': url,
+      });
+
+      if (result['success'] == true) {
+        final products = (result['products'] as List<dynamic>? ?? [])
+            .map((p) => Map<String, dynamic>.from(p as Map))
+            .toList();
+        setState(() => _storeProducts = products);
+
+        if (products.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('상품을 찾을 수 없습니다')),
+          );
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('스토어 조회 실패: $e')),
+      );
+    } finally {
+      setState(() => _isFetchingStore = false);
+    }
+  }
+
+  Future<void> _selectStoreProduct(Map<String, dynamic> product) async {
+    final productUrl = product['url'] as String? ?? '';
+    setState(() {
+      _naverUrlCtrl.text = productUrl;
+      _naverProductUrl = productUrl;
+      _titleCtrl.text = product['title'] as String? ?? '';
+      _storeProducts = []; // 목록 닫기
+    });
+
+    // 상세 정보 가져오기 (옵션/가격)
+    if (productUrl.isNotEmpty) {
+      _naverUrlCtrl.text = productUrl;
+      await _fetchNaverProduct();
+    }
   }
 
   Future<void> _fetchNaverProduct() async {

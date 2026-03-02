@@ -3208,3 +3208,110 @@ export const scrapeNaverProductHttp = functions
       res.status(500).json({ error: err.message || "스크래핑 실패" });
     }
   });
+
+/**
+ * 네이버 스마트스토어 전체 상품 목록 크롤링
+ * POST /scrapeNaverStoreHttp
+ * Body: { storeUrl } — e.g. "https://smartstore.naver.com/melon_symphony_orchestra"
+ */
+export const scrapeNaverStoreHttp = functions
+  .runWith({ timeoutSeconds: 30, memory: "256MB" })
+  .https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.replace("Bearer ", "");
+    let isAuthed = token === BOT_API_KEY;
+    if (!isAuthed) {
+      try {
+        await admin.auth().verifyIdToken(token);
+        isAuthed = true;
+      } catch { /* not a valid firebase token */ }
+    }
+    if (!isAuthed) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const { storeUrl } = req.body;
+    if (!storeUrl) {
+      res.status(400).json({ error: "storeUrl 필요" });
+      return;
+    }
+
+    try {
+      // 스토어 이름 추출 (e.g. "melon_symphony_orchestra")
+      const storeMatch = storeUrl.match(/smartstore\.naver\.com\/([^\/\?]+)/);
+      if (!storeMatch) {
+        res.status(400).json({ error: "올바른 스마트스토어 URL이 아닙니다" });
+        return;
+      }
+      const storeName = storeMatch[1];
+
+      // 네이버 스마트스토어 내부 API로 상품 목록 조회
+      const apiUrl = `https://smartstore.naver.com/i/v1/stores/${storeName}/products?page=1&pageSize=40&sortType=RECENT`;
+      const response = await fetch(apiUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept-Language": "ko-KR,ko;q=0.9",
+          "Referer": `https://smartstore.naver.com/${storeName}`,
+        },
+      });
+
+      let products: any[] = [];
+
+      if (response.ok) {
+        const data: any = await response.json();
+        const items = data?.simpleProducts || data?.products || [];
+        products = items.map((item: any) => ({
+          productNo: item.id || item.productNo || "",
+          title: item.name || item.productName || "",
+          price: item.salePrice || item.price || 0,
+          imageUrl: item.representImageUrl || item.productImage || item.imageUrl || "",
+          url: `https://smartstore.naver.com/${storeName}/products/${item.id || item.productNo}`,
+          stockQuantity: item.stockQuantity ?? null,
+          saleStatus: item.saleStatus || "",
+        }));
+      }
+
+      // fallback: 스토어 메인 페이지 HTML 파싱
+      if (products.length === 0) {
+        const htmlResponse = await fetch(`https://smartstore.naver.com/${storeName}`, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "ko-KR,ko;q=0.9",
+          },
+        });
+
+        if (htmlResponse.ok) {
+          const html = await htmlResponse.text();
+          const stateMatch = html.match(/window\.__PRELOADED_STATE__\s*=\s*(".*?")\s*[;<]/);
+          if (stateMatch) {
+            try {
+              const jsonStr = JSON.parse(stateMatch[1]);
+              const state = JSON.parse(jsonStr);
+              const items = state?.products?.list || state?.products?.A || [];
+              products = (Array.isArray(items) ? items : []).map((item: any) => ({
+                productNo: item.id || item.productNo || "",
+                title: item.name || item.productName || "",
+                price: item.salePrice || item.price || 0,
+                imageUrl: item.representImageUrl || item.productImage || "",
+                url: `https://smartstore.naver.com/${storeName}/products/${item.id || item.productNo}`,
+                stockQuantity: item.stockQuantity ?? null,
+                saleStatus: item.saleStatus || "",
+              }));
+            } catch (parseErr: any) {
+              functions.logger.warn("스토어 PRELOADED_STATE 파싱 실패:", parseErr.message);
+            }
+          }
+        }
+      }
+
+      res.status(200).json({ success: true, storeName, products });
+    } catch (err: any) {
+      functions.logger.error("스토어 스크래핑 에러:", err);
+      res.status(500).json({ error: err.message || "스크래핑 실패" });
+    }
+  });
