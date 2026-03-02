@@ -1,4 +1,7 @@
 {
+  "firestore": {
+    "rules": "melon_ticket_app/firestore.rules"
+  },
   "functions": {
     "source": "melon_ticket_app/functions",
     "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"]

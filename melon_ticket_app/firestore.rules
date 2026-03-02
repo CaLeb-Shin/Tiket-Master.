@@ -151,6 +151,30 @@ service cloud.firestore {
       }
     }
 
+    // 네이버 상품 목록 (봇이 동기화, 어드민 읽기)
+    match /naverProducts/{productId} {
+      allow read: if isAdmin();
+      allow write: if false; // CF에서만
+    }
+
+    // 네이버 주문 (어드민 읽기)
+    match /naverOrders/{orderId} {
+      allow read: if isAdmin();
+      allow write: if false; // CF에서만
+    }
+
+    // 모바일 티켓 (어드민 읽기)
+    match /mobileTickets/{ticketId} {
+      allow read: if isAdmin();
+      allow write: if false; // CF에서만
+    }
+
+    // SMS 태스크 (어드민 읽기)
+    match /smsTasks/{taskId} {
+      allow read: if isAdmin();
+      allow write: if false; // CF에서만
+    }
+
     // 공연장 요청 (셀러: 생성/읽기, 슈퍼어드민: 전체)
     match /venueRequests/{requestId} {
       allow read: if request.auth != null &&
