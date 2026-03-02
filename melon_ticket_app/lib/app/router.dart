@@ -17,6 +17,7 @@ import '../features/demo/demo_flow_screen.dart';
 import '../features/orders/my_orders_screen.dart';
 import '../features/mileage/mileage_history_screen.dart';
 import '../features/hall/hall_screen.dart';
+import '../features/mobile_ticket/mobile_ticket_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -186,6 +187,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final hallId = state.pathParameters['hallId']!;
               return HallScreen(hallId: hallId);
+            },
+          ),
+
+          // 네이버 모바일 티켓 (비로그인, 공개 URL)
+          GoRoute(
+            path: '/m/:accessToken',
+            name: 'mobileTicket',
+            builder: (context, state) {
+              final accessToken = state.pathParameters['accessToken']!;
+              return MobileTicketPage(accessToken: accessToken);
             },
           ),
 
