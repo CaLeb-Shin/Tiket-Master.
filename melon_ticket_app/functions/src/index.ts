@@ -2684,9 +2684,12 @@ export const issueMobileQrToken = functions.https.onCall(async (data: any) => {
     { expiresIn: QR_TOKEN_EXPIRY }
   );
 
+  // QR 데이터: mt_{ticketId}:{jwt} 형식 (스캐너가 mt_ 접두어로 모바일 티켓 구분)
+  const qrData = `mt_${ticketId}:${token}`;
+
   return {
     success: true,
-    token,
+    token: qrData,
     exp: Math.floor(Date.now() / 1000) + QR_TOKEN_EXPIRY,
   };
 });
@@ -2739,8 +2742,8 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
     },
     event: event ? {
       title: event.title,
-      posterUrl: event.posterUrl || null,
-      date: event.date,
+      imageUrl: event.imageUrl || null,
+      startAt: event.startAt,
       venueName: event.venueName || "",
       revealAt: event.revealAt,
     } : null,
@@ -2922,4 +2925,29 @@ export const createNaverOrderHttp = functions.https.onRequest(async (req, res) =
     functions.logger.error("createNaverOrderHttp 오류:", err);
     res.status(500).json({ error: err.message || "Internal server error" });
   }
+});
+
+/**
+ * 봇에서 이벤트 목록 조회용 HTTP 엔드포인트
+ */
+export const listEventsHttp = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.replace("Bearer ", "");
+  if (token !== BOT_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const snap = await db.collection("events").orderBy("date", "desc").get();
+  const events = snap.docs.map((doc) => {
+    const d = doc.data();
+    return {
+      id: doc.id,
+      title: d.title || "",
+      venueName: d.venueName || "",
+      date: d.date ? d.date.toDate().toISOString() : "",
+    };
+  });
+  res.status(200).json({ events });
 });

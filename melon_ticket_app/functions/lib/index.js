@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createNaverOrderHttp = exports.getMobileTicketByToken = exports.issueMobileQrToken = exports.cancelNaverOrder = exports.createNaverOrder = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.listEventsHttp = exports.createNaverOrderHttp = exports.getMobileTicketByToken = exports.issueMobileQrToken = exports.cancelNaverOrder = exports.createNaverOrder = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -2255,9 +2255,11 @@ exports.issueMobileQrToken = functions.https.onCall(async (data) => {
         qrVersion: ticket.qrVersion || 1,
         type: "mobile",
     }, JWT_SECRET, { expiresIn: QR_TOKEN_EXPIRY });
+    // QR 데이터: mt_{ticketId}:{jwt} 형식 (스캐너가 mt_ 접두어로 모바일 티켓 구분)
+    const qrData = `mt_${ticketId}:${token}`;
     return {
         success: true,
-        token,
+        token: qrData,
         exp: Math.floor(Date.now() / 1000) + QR_TOKEN_EXPIRY,
     };
 });
@@ -2303,8 +2305,8 @@ exports.getMobileTicketByToken = functions.https.onCall(async (data) => {
         },
         event: event ? {
             title: event.title,
-            posterUrl: event.posterUrl || null,
-            date: event.date,
+            imageUrl: event.imageUrl || null,
+            startAt: event.startAt,
             venueName: event.venueName || "",
             revealAt: event.revealAt,
         } : null,
@@ -2460,5 +2462,28 @@ exports.createNaverOrderHttp = functions.https.onRequest(async (req, res) => {
         functions.logger.error("createNaverOrderHttp 오류:", err);
         res.status(500).json({ error: err.message || "Internal server error" });
     }
+});
+/**
+ * 봇에서 이벤트 목록 조회용 HTTP 엔드포인트
+ */
+exports.listEventsHttp = functions.https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.replace("Bearer ", "");
+    if (token !== BOT_API_KEY) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+    }
+    const snap = await db.collection("events").orderBy("date", "desc").get();
+    const events = snap.docs.map((doc) => {
+        const d = doc.data();
+        return {
+            id: doc.id,
+            title: d.title || "",
+            venueName: d.venueName || "",
+            date: d.date ? d.date.toDate().toISOString() : "",
+        };
+    });
+    res.status(200).json({ events });
 });
 //# sourceMappingURL=index.js.map
