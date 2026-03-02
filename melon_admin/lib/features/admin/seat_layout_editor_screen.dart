@@ -375,7 +375,7 @@ class _SeatLayoutEditorScreenState
     final gy = localPosition.dy ~/ _cellSize;
     if (gx < 0 || gx >= _gridCols || gy < 0 || gy >= _gridRows) return;
 
-    // Stage 스텝: 빈 곳 탭 시 무시 (드래그 핸들만 사용)
+    // Stage 스텝: 탭은 무시 (드래그 핸들로만 조작)
     if (_step == _EditorStep.stage) return;
 
     // Structure 스텝: 라벨 탭 → 편집 다이얼로그, 빈 곳 탭 → 새 라벨
@@ -1168,9 +1168,11 @@ class _SeatLayoutEditorScreenState
         transformationController: _transformCtrl,
         minScale: 0.2,
         maxScale: 5.0,
-        scaleFactor: 80.0, // 기본 200 → 80 (휠 줌 속도 감소)
+        scaleFactor: 80.0,
         constrained: false,
         boundaryMargin: const EdgeInsets.all(200),
+        // stage/structure 단계에서는 pan 비활성화 → GestureDetector가 드래그 수신
+        panEnabled: _step == _EditorStep.seats,
         child: GestureDetector(
           onTapDown: (details) => _onCanvasTap(details.localPosition),
           onPanStart: (details) {
@@ -2856,44 +2858,54 @@ class _SeatGridPainter extends CustomPainter {
       final handlePaint = Paint()
         ..color = const Color(0xFF00E5FF)
         ..style = PaintingStyle.fill;
-      final handleBorder = Paint()
-        ..color = const Color(0xFF00E5FF).withValues(alpha: 0.5)
+      final handleGlow = Paint()
+        ..color = const Color(0xFF00E5FF).withValues(alpha: 0.25)
+        ..style = PaintingStyle.fill;
+      final selectionBorder = Paint()
+        ..color = const Color(0xFF00E5FF).withValues(alpha: 0.6)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1;
-      const hs = 5.0; // handle size
+        ..strokeWidth = 1.5;
 
-      // Left handle
+      // Selection border around stage
+      canvas.drawRect(
+        Rect.fromLTWH(stageX - 2, stageY - 2, stageW + 4, stageH + 4),
+        selectionBorder,
+      );
+
+      // Left handle — 좌우 화살표 힌트
       final ly = stageY + stageH / 2;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset(stageX, ly), width: hs * 2, height: hs * 3),
-          const Radius.circular(2),
-        ),
-        handlePaint,
-      );
+      canvas.drawCircle(Offset(stageX, ly), 10, handleGlow);
+      canvas.drawCircle(Offset(stageX, ly), 6, handlePaint);
+
       // Right handle
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset(stageX + stageW, ly), width: hs * 2, height: hs * 3),
-          const Radius.circular(2),
-        ),
-        handlePaint,
-      );
-      // Bottom/Top handle (audience side)
+      canvas.drawCircle(Offset(stageX + stageW, ly), 10, handleGlow);
+      canvas.drawCircle(Offset(stageX + stageW, ly), 6, handlePaint);
+
+      // Bottom handle (audience side)
       final bx = stageX + stageW / 2;
       final by = stagePosition == 'top' ? stageY + stageH : stageY;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset(bx, by), width: hs * 3, height: hs * 2),
-          const Radius.circular(2),
-        ),
-        handlePaint,
-      );
+      canvas.drawCircle(Offset(bx, by), 10, handleGlow);
+      canvas.drawCircle(Offset(bx, by), 6, handlePaint);
 
-      // Hint border around stage
-      canvas.drawRect(
-        Rect.fromLTWH(stageX - 1, stageY - 1, stageW + 2, stageH + 2),
-        handleBorder,
+      // "드래그하여 크기 조절" hint text
+      final hintPainter = TextPainter(
+        text: const TextSpan(
+          text: '← 드래그하여 크기 조절 →',
+          style: TextStyle(
+            color: Color(0xFF00E5FF),
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        textDirection: ui.TextDirection.ltr,
+      );
+      hintPainter.layout();
+      hintPainter.paint(
+        canvas,
+        Offset(
+          stageX + (stageW - hintPainter.width) / 2,
+          (stagePosition == 'top' ? stageY + stageH + 8 : stageY - hintPainter.height - 8),
+        ),
       );
     }
   }
