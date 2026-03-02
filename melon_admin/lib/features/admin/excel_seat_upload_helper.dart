@@ -659,6 +659,9 @@ class EnhancedExcelParser {
       return;
     }
 
+    // Detect 좌석수 column (네이버 format: total seats per row)
+    final seatCountIdx = _findCol(header, ['좌석수', 'count', '수량']);
+
     int skippedRows = 0;
     for (int r = 1; r < sheet.maxRows; r++) {
       String cellVal(int? idx) {
@@ -668,7 +671,7 @@ class EnhancedExcelParser {
         return cell.value?.toString().trim() ?? '';
       }
 
-      final zone = cellVal(zoneIdx);
+      var zone = cellVal(zoneIdx);
       final floor = cellVal(floorIdx);
       final grade = cellVal(gradeIdx);
       if (grade.isEmpty) {
@@ -676,32 +679,83 @@ class EnhancedExcelParser {
         continue;
       }
 
-      final rowName = cellVal(rowIdx);
+      final normalizedGrade = _normalizeGrade(grade);
+      if (!_isValidGrade(normalizedGrade)) {
+        skippedRows++;
+        continue;
+      }
+
+      var rowName = cellVal(rowIdx);
       final numStr = cellVal(numIdx);
       final xStr = cellVal(xIdx);
       final yStr = cellVal(yIdx);
       final typeStr = cellVal(typeIdx);
 
-      int gx = int.tryParse(xStr) ?? -1;
-      int gy = int.tryParse(yStr) ?? -1;
-
-      if (gx < 0 || gy < 0) {
-        gy = int.tryParse(rowName) ?? r;
-        gx = int.tryParse(numStr) ?? (seats.length % 60);
+      // Parse "B블록1열" format from 열 column → zone="B블록", row="1"
+      if (rowName.isNotEmpty && zone.isEmpty) {
+        final blockRowMatch =
+            RegExp(r'^([A-Za-z가-힣]+블록?)(\d+)열?$').firstMatch(rowName);
+        if (blockRowMatch != null) {
+          zone = blockRowMatch.group(1)!;
+          rowName = blockRowMatch.group(2)!;
+        } else {
+          // Try extracting just the number (e.g. "3열" → "3")
+          final rowNumMatch = RegExp(r'(\d+)').firstMatch(rowName);
+          if (rowNumMatch != null) {
+            rowName = rowNumMatch.group(1)!;
+          }
+        }
       }
 
-      seats.add(LayoutSeat.fromGrid(
-        gridX: gx,
-        gridY: gy,
-        zone: zone.isNotEmpty ? zone : sheetName,
-        floor: floor.isNotEmpty ? floor : defaultFloor,
-        row: rowName,
-        number: int.tryParse(numStr) ?? 0,
-        grade: _normalizeGrade(grade),
-        seatType: typeStr.isNotEmpty
-            ? SeatType.fromString(typeStr)
-            : SeatType.normal,
-      ));
+      // Expand space-separated seat numbers (네이버 format: "1 2 3 4 5 6 7 8 9 10")
+      final seatNumbers = numStr.split(RegExp(r'[\s,]+'))
+          .where((s) => s.isNotEmpty && int.tryParse(s) != null)
+          .map((s) => int.parse(s))
+          .toList();
+
+      if (seatNumbers.length > 1) {
+        // Multiple seats in one row → expand each
+        final gy = int.tryParse(yStr) ??
+            int.tryParse(rowName) ?? r;
+        for (final seatNum in seatNumbers) {
+          seats.add(LayoutSeat.fromGrid(
+            gridX: seatNum,
+            gridY: gy,
+            zone: zone.isNotEmpty ? zone : sheetName,
+            floor: floor.isNotEmpty ? floor : defaultFloor,
+            row: rowName,
+            number: seatNum,
+            grade: normalizedGrade,
+            seatType: typeStr.isNotEmpty
+                ? SeatType.fromString(typeStr)
+                : SeatType.normal,
+          ));
+        }
+      } else {
+        // Single seat or non-numeric → original logic
+        int gx = int.tryParse(xStr) ?? -1;
+        int gy = int.tryParse(yStr) ?? -1;
+
+        if (gx < 0 || gy < 0) {
+          gy = int.tryParse(rowName) ?? r;
+          gx = seatNumbers.isNotEmpty
+              ? seatNumbers.first
+              : (seats.length % 60);
+        }
+
+        seats.add(LayoutSeat.fromGrid(
+          gridX: gx,
+          gridY: gy,
+          zone: zone.isNotEmpty ? zone : sheetName,
+          floor: floor.isNotEmpty ? floor : defaultFloor,
+          row: rowName,
+          number: seatNumbers.isNotEmpty ? seatNumbers.first : 0,
+          grade: normalizedGrade,
+          seatType: typeStr.isNotEmpty
+              ? SeatType.fromString(typeStr)
+              : SeatType.normal,
+        ));
+      }
     }
 
     if (skippedRows > 0) {
@@ -830,12 +884,22 @@ class EnhancedExcelParser {
   }
 
   static String _normalizeGrade(String raw) {
-    final upper = raw.toUpperCase().trim();
-    if (upper == 'VIP' || upper == 'V') return 'VIP';
-    if (upper == 'R' || upper == 'ROYAL') return 'R';
-    if (upper == 'S' || upper == 'STANDARD') return 'S';
-    if (upper == 'A' || upper == 'ECONOMY') return 'A';
-    return upper;
+    // Strip 석/등급 suffix (네이버 format: VIP석, R석, S석, A석)
+    final cleaned = raw.toUpperCase().trim()
+        .replaceAll(RegExp(r'석$'), '')
+        .replaceAll(RegExp(r'등급$'), '')
+        .replaceAll(RegExp(r'좌석$'), '')
+        .trim();
+    if (cleaned == 'VIP' || cleaned == 'V') return 'VIP';
+    if (cleaned == 'R' || cleaned == 'ROYAL') return 'R';
+    if (cleaned == 'S' || cleaned == 'STANDARD') return 'S';
+    if (cleaned == 'A' || cleaned == 'ECONOMY') return 'A';
+    // Handle prefixed grades (시야방해R석 → R)
+    if (cleaned.contains('VIP')) return 'VIP';
+    if (RegExp(r'\bR\b').hasMatch(cleaned)) return 'R';
+    if (RegExp(r'\bS\b').hasMatch(cleaned)) return 'S';
+    if (RegExp(r'\bA\b').hasMatch(cleaned)) return 'A';
+    return cleaned;
   }
 
   static bool _isValidGrade(String grade) {
