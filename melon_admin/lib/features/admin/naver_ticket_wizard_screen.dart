@@ -1163,25 +1163,45 @@ class _NaverTicketWizardScreenState
   Widget _buildSeatDetailSection() {
     if (_seatData == null) return const SizedBox.shrink();
 
-    // Group seats by grade → row → seat numbers
-    final gradeRows = <String, Map<String, List<int>>>{};
+    // Group seats by grade → zone → row → seat numbers (상품별좌석현황 format)
+    // Key: "$grade|$floor|$zone|$row"
+    final seatRows = <_SeatRow>[];
+    final groupMap = <String, List<int>>{};
     for (final seat in _seatData!.seats) {
       final grade = seat['grade']?.toString() ?? 'S';
+      final floor = seat['floor']?.toString() ?? '1층';
+      final zone = seat['block']?.toString() ?? '';
       final row = seat['row']?.toString() ?? '?';
       final num = int.tryParse(seat['number']?.toString() ?? '') ?? 0;
-      gradeRows.putIfAbsent(grade, () => {});
-      gradeRows[grade]!.putIfAbsent(row, () => []);
-      gradeRows[grade]![row]!.add(num);
-    }
-
-    // Sort rows and seats
-    for (final grade in gradeRows.keys) {
-      for (final row in gradeRows[grade]!.keys) {
-        gradeRows[grade]![row]!.sort();
-      }
+      final key = '$grade|$floor|$zone|$row';
+      groupMap.putIfAbsent(key, () => []);
+      groupMap[key]!.add(num);
     }
 
     const gradeOrder = ['VIP', 'R', 'S', 'A'];
+    for (final entry in groupMap.entries) {
+      final parts = entry.key.split('|');
+      entry.value.sort();
+      seatRows.add(_SeatRow(
+        grade: parts[0],
+        floor: parts[1],
+        zone: parts[2],
+        row: parts[3],
+        seats: entry.value,
+      ));
+    }
+
+    // Sort: grade order → zone → row (numeric)
+    seatRows.sort((a, b) {
+      final ga = gradeOrder.indexOf(a.grade);
+      final gb = gradeOrder.indexOf(b.grade);
+      if (ga != gb) return (ga == -1 ? 99 : ga).compareTo(gb == -1 ? 99 : gb);
+      final za = a.zone.compareTo(b.zone);
+      if (za != 0) return za;
+      final ra = int.tryParse(a.row) ?? 999;
+      final rb = int.tryParse(b.row) ?? 999;
+      return ra.compareTo(rb);
+    });
 
     return Container(
       width: double.infinity,
@@ -1189,10 +1209,7 @@ class _NaverTicketWizardScreenState
       decoration: BoxDecoration(
         color: AdminTheme.surface,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: AdminTheme.border,
-          width: 0.5,
-        ),
+        border: Border.all(color: AdminTheme.border, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1202,81 +1219,96 @@ class _NaverTicketWizardScreenState
               const Icon(Icons.event_seat_outlined,
                   size: 14, color: AdminTheme.gold),
               const SizedBox(width: 6),
-              Text('등급별 좌석 상세',
+              Text('상품별 좌석현황',
                   style: AdminTheme.sans(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AdminTheme.gold)),
+              const Spacer(),
+              Text('${seatRows.length}행',
+                  style: AdminTheme.sans(
+                      fontSize: 10, color: AdminTheme.textTertiary)),
             ],
           ),
           const SizedBox(height: 10),
-          for (final grade in gradeOrder)
-            if (gradeRows.containsKey(grade)) ...[
-              _buildGradeDetail(grade, gradeRows[grade]!),
-              const SizedBox(height: 8),
-            ],
+          // Table header
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+            decoration: BoxDecoration(
+              color: AdminTheme.gold.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Row(
+              children: [
+                _tableHeader('등급', 50),
+                _tableHeader('층', 36),
+                _tableHeader('구역', 50),
+                _tableHeader('열', 36),
+                _tableHeader('좌석수', 40),
+                Expanded(child: Text('좌석번호',
+                    style: AdminTheme.sans(fontSize: 10, fontWeight: FontWeight.w600,
+                        color: AdminTheme.textSecondary))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Table rows (scrollable, max 300px)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 300),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: seatRows.length,
+              itemBuilder: (ctx, i) {
+                final sr = seatRows[i];
+                final color = _gradeColors[sr.grade] ?? AdminTheme.textSecondary;
+                return Container(
+                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                          color: AdminTheme.border.withValues(alpha: 0.3),
+                          width: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(width: 50, child: Text('${sr.grade}석',
+                          style: AdminTheme.sans(fontSize: 10,
+                              fontWeight: FontWeight.w600, color: color))),
+                      SizedBox(width: 36, child: Text(sr.floor,
+                          style: AdminTheme.sans(fontSize: 10,
+                              color: AdminTheme.textTertiary))),
+                      SizedBox(width: 50, child: Text(sr.zone,
+                          style: AdminTheme.sans(fontSize: 10,
+                              color: AdminTheme.textTertiary))),
+                      SizedBox(width: 36, child: Text('${sr.row}열',
+                          style: AdminTheme.sans(fontSize: 10,
+                              color: AdminTheme.textPrimary))),
+                      SizedBox(width: 40, child: Text('${sr.seats.length}',
+                          style: AdminTheme.sans(fontSize: 10,
+                              color: AdminTheme.textTertiary))),
+                      Expanded(child: Text(
+                          _compactRange(sr.seats),
+                          style: AdminTheme.sans(fontSize: 10,
+                              color: AdminTheme.textTertiary),
+                          overflow: TextOverflow.ellipsis)),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildGradeDetail(String grade, Map<String, List<int>> rows) {
-    final color = _gradeColors[grade] ?? AdminTheme.textSecondary;
-    final totalSeats = rows.values.fold<int>(0, (sum, list) => sum + list.length);
-
-    // Sort rows naturally (numeric then alphabetic)
-    final sortedRows = rows.keys.toList()
-      ..sort((a, b) {
-        final na = int.tryParse(a);
-        final nb = int.tryParse(b);
-        if (na != null && nb != null) return na.compareTo(nb);
-        return a.compareTo(b);
-      });
-
-    // Compact format: "1열(1~30), 2열(1~28), ..."
-    final rowSummaries = <String>[];
-    for (final row in sortedRows) {
-      final seats = rows[row]!;
-      if (seats.isEmpty) continue;
-      final rangeStr = _compactRange(seats);
-      rowSummaries.add('${row}열($rangeStr)');
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(3),
-              ),
-              child: Text(grade,
-                  style: AdminTheme.sans(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: color)),
-            ),
-            const SizedBox(width: 8),
-            Text('${totalSeats}석  ·  ${sortedRows.length}열',
-                style: AdminTheme.sans(
-                    fontSize: 11, color: AdminTheme.textTertiary)),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          rowSummaries.join(', '),
-          style: AdminTheme.sans(
-            fontSize: 10,
-            color: AdminTheme.textTertiary,
-            height: 1.5,
-          ),
-          maxLines: 4,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+  Widget _tableHeader(String label, double width) {
+    return SizedBox(
+      width: width,
+      child: Text(label,
+          style: AdminTheme.sans(fontSize: 10, fontWeight: FontWeight.w600,
+              color: AdminTheme.textSecondary)),
     );
   }
 
@@ -2207,6 +2239,22 @@ class _SmsBadgeInline extends StatelessWidget {
 }
 
 // ─── Parsed Seat Data Helper ───
+
+class _SeatRow {
+  final String grade;
+  final String floor;
+  final String zone;
+  final String row;
+  final List<int> seats;
+
+  const _SeatRow({
+    required this.grade,
+    required this.floor,
+    required this.zone,
+    required this.row,
+    required this.seats,
+  });
+}
 
 class ParsedSeatData {
   final List<Map<String, dynamic>> seats;
