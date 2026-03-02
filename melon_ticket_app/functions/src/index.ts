@@ -2629,48 +2629,18 @@ export const cancelNaverOrder = functions.https.onCall(async (data: any, context
 
   await batch.commit();
 
-  // 번호 재배정 (땡김)
-  const resequenced = await resequenceEntryNumbers(order.eventId, order.seatGrade);
+  // resequence 제거 — 취소된 좌석은 비워두고 다음 주문자가 그 자리에 배정됨
+  // 기존 티켓 holders의 entryNumber는 변경 없음
 
   functions.logger.info(
-    `네이버 주문 취소: ${orderId}, 티켓 ${ticketIds.length}장 취소, ${resequenced}건 재배정`
+    `네이버 주문 취소: ${orderId}, 티켓 ${ticketIds.length}장 취소`
   );
 
   return {
     success: true,
     cancelledTickets: ticketIds.length,
-    resequencedCount: resequenced,
   };
 });
-
-/**
- * entryNumber 재배정 — 취소 후 갭 없는 순번 보장
- */
-async function resequenceEntryNumbers(eventId: string, seatGrade: string): Promise<number> {
-  const activeSnap = await db.collection("mobileTickets")
-    .where("eventId", "==", eventId)
-    .where("seatGrade", "==", seatGrade)
-    .where("status", "==", "active")
-    .orderBy("issuedAt")
-    .get();
-
-  const batch = db.batch();
-  let updated = 0;
-
-  activeSnap.docs.forEach((doc, i) => {
-    const currentNumber = doc.data().entryNumber;
-    const newNumber = i + 1;
-    if (currentNumber !== newNumber) {
-      batch.update(doc.ref, { entryNumber: newNumber });
-      updated++;
-    }
-  });
-
-  if (updated > 0) {
-    await batch.commit();
-  }
-  return updated;
-}
 
 /**
  * 모바일 티켓 QR 토큰 발급 (비로그인 — accessToken 검증)
