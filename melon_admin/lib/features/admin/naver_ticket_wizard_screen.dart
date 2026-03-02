@@ -183,10 +183,6 @@ class _NaverTicketWizardScreenState
                       fontSize: 13, color: AdminTheme.textTertiary)),
               const SizedBox(height: 32),
 
-              // 기존 공연 선택
-              _buildExistingEventSelector(),
-              const SizedBox(height: 24),
-
               // 네이버 URL 자동 채우기
               Container(
                 padding: const EdgeInsets.all(20),
@@ -313,6 +309,10 @@ class _NaverTicketWizardScreenState
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // 기존 공연 선택
+              _buildExistingEventSelector(),
               const SizedBox(height: 16),
 
               // 또는 새로 만들기
