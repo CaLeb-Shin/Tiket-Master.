@@ -1410,6 +1410,14 @@ class _EventRowState extends ConsumerState<_EventRow> {
                             onPressed: (_) =>
                                 context.go('/events/${event.id}/bookers'),
                           ),
+                          shad.MenuButton(
+                            child: Text(
+                              '네이버 주문',
+                              style: AdminTheme.sans(fontSize: 13),
+                            ),
+                            onPressed: (_) =>
+                                context.go('/events/${event.id}/naver-orders'),
+                          ),
                           const shad.MenuDivider(),
                           shad.MenuButton(
                             child: Text(
@@ -1474,6 +1482,10 @@ class _EventRowState extends ConsumerState<_EventRow> {
           shad.MenuButton(
             child: Text('예매자 목록', style: AdminTheme.sans(fontSize: 13)),
             onPressed: (_) => context.go('/events/${event.id}/bookers'),
+          ),
+          shad.MenuButton(
+            child: Text('네이버 주문', style: AdminTheme.sans(fontSize: 13)),
+            onPressed: (_) => context.go('/events/${event.id}/naver-orders'),
           ),
           const shad.MenuDivider(),
           shad.MenuButton(

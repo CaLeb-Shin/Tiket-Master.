@@ -21,6 +21,7 @@ import '../features/admin/settlement_screen.dart';
 import '../features/admin/super_admin_screen.dart';
 import '../features/admin/event_seat_manager_screen.dart';
 import '../features/admin/sales_stats_screen.dart';
+import '../features/admin/naver_order_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -98,6 +99,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final eventId = state.pathParameters['eventId']!;
               return EventSeatManagerScreen(eventId: eventId);
+            },
+          ),
+          GoRoute(
+            path: '/events/:eventId/naver-orders',
+            name: 'adminNaverOrders',
+            builder: (context, state) {
+              final eventId = state.pathParameters['eventId']!;
+              return NaverOrderScreen(eventId: eventId);
             },
           ),
           GoRoute(
