@@ -54,7 +54,6 @@ class _NaverTicketWizardScreenState
   String? _posterUrl;
   String? _naverProductUrl; // 네이버 스토어 상품 URL (모바일 티켓에서 포스터 클릭 시 이동)
   bool _isCreatingEvent = false;
-  final _naverUrlCtrl = TextEditingController();
   bool _isFetchingProduct = false;
   bool _isFetchingStore = false;
   List<Map<String, dynamic>> _storeProducts = [];
@@ -191,40 +190,34 @@ class _NaverTicketWizardScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('네이버 스토어에서 가져오기',
-                        style: AdminTheme.sans(
-                            fontSize: 14, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    Text('스토어 URL → 상품 목록에서 선택  /  상품 URL → 바로 정보 가져오기',
-                        style: AdminTheme.sans(
-                            fontSize: 11, color: AdminTheme.textTertiary)),
-                    const SizedBox(height: 12),
-
-                    // URL 입력
-                    TextField(
-                      controller: _naverUrlCtrl,
-                      style: AdminTheme.sans(fontSize: 14),
-                      decoration: const InputDecoration(
-                        labelText: '스토어 또는 상품 URL',
-                      ),
-                      onSubmitted: (_) => _onNaverUrlSubmit(),
+                    Row(
+                      children: [
+                        const Icon(Icons.store_rounded,
+                            size: 18, color: AdminTheme.gold),
+                        const SizedBox(width: 8),
+                        Text('내 네이버 스토어',
+                            style: AdminTheme.sans(
+                                fontSize: 14, fontWeight: FontWeight.w600)),
+                        const Spacer(),
+                        Text('melon_symphony_orchestra',
+                            style: AdminTheme.sans(
+                                fontSize: 11, color: AdminTheme.textTertiary)),
+                      ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
 
-                    // 가져오기 버튼
+                    // 불러오기 버튼
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: (_isFetchingProduct || _isFetchingStore)
-                            ? null
-                            : _onNaverUrlSubmit,
-                        child: (_isFetchingProduct || _isFetchingStore)
+                        onPressed: _isFetchingStore ? null : _fetchMyStore,
+                        child: _isFetchingStore
                             ? const SizedBox(
                                 width: 18, height: 18,
                                 child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     color: AdminTheme.onAccent))
-                            : const Text('가져오기'),
+                            : const Text('스토어에서 상품 불러오기'),
                       ),
                     ),
 
@@ -617,25 +610,10 @@ class _NaverTicketWizardScreenState
     });
   }
 
-  void _onNaverUrlSubmit() {
-    final url = _naverUrlCtrl.text.trim();
-    if (url.contains('/products/')) {
-      _fetchNaverProduct();
-    } else {
-      _fetchNaverStore();
-    }
-  }
+  static const _myStoreUrl =
+      'https://smartstore.naver.com/melon_symphony_orchestra';
 
-  Future<void> _fetchNaverStore() async {
-    final url = _naverUrlCtrl.text.trim();
-    if (url.isEmpty) return;
-    if (!url.contains('smartstore.naver.com')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('네이버 스마트스토어 URL을 입력하세요')),
-      );
-      return;
-    }
-
+  Future<void> _fetchMyStore() async {
     setState(() {
       _isFetchingStore = true;
       _storeProducts = [];
@@ -644,7 +622,7 @@ class _NaverTicketWizardScreenState
     try {
       final fs = ref.read(functionsServiceProvider);
       final result = await fs.callHttpFunction('scrapeNaverStoreHttp', {
-        'storeUrl': url,
+        'storeUrl': _myStoreUrl,
       });
 
       if (result['success'] == true) {
@@ -671,7 +649,6 @@ class _NaverTicketWizardScreenState
   Future<void> _selectStoreProduct(Map<String, dynamic> product) async {
     final productUrl = product['url'] as String? ?? '';
     setState(() {
-      _naverUrlCtrl.text = productUrl;
       _naverProductUrl = productUrl;
       _titleCtrl.text = product['title'] as String? ?? '';
       _storeProducts = []; // 목록 닫기
@@ -679,15 +656,12 @@ class _NaverTicketWizardScreenState
 
     // 상세 정보 가져오기 (옵션/가격)
     if (productUrl.isNotEmpty) {
-      _naverUrlCtrl.text = productUrl;
-      await _fetchNaverProduct();
+      await _fetchNaverProductByUrl(productUrl);
     }
   }
 
-  Future<void> _fetchNaverProduct() async {
-    final url = _naverUrlCtrl.text.trim();
-    if (url.isEmpty) return;
-    if (!url.contains('smartstore.naver.com')) {
+  Future<void> _fetchNaverProductByUrl(String url) async {
+    if (url.isEmpty || !url.contains('smartstore.naver.com')) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('네이버 스마트스토어 URL을 입력하세요')),
       );
