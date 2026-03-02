@@ -2738,6 +2738,7 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
       startAt: event.startAt,
       venueName: event.venueName || "",
       revealAt: event.revealAt,
+      naverProductUrl: event.naverProductUrl || null,
     } : null,
     isRevealed,
   };
@@ -3035,3 +3036,175 @@ export const markSmsSentHttp = functions.https.onRequest(async (req, res) => {
   await db.collection("smsTasks").doc(taskId).update(updateData);
   res.status(200).json({ success: true });
 });
+
+/**
+ * 봇용 — 네이버 주문번호로 취소 처리
+ * POST /cancelNaverOrderHttp
+ * Body: { naverOrderId }
+ */
+export const cancelNaverOrderHttp = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.replace("Bearer ", "");
+  if (token !== BOT_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const { naverOrderId } = req.body;
+  if (!naverOrderId) {
+    res.status(400).json({ error: "naverOrderId 필요" });
+    return;
+  }
+
+  // naverOrderId로 Firestore 문서 조회
+  const snap = await db.collection("naverOrders")
+    .where("naverOrderId", "==", naverOrderId)
+    .limit(1)
+    .get();
+
+  if (snap.empty) {
+    res.status(404).json({ error: "해당 네이버 주문을 찾을 수 없습니다" });
+    return;
+  }
+
+  const orderDoc = snap.docs[0];
+  const order = orderDoc.data();
+
+  if (order.status !== "confirmed") {
+    res.status(200).json({ success: true, message: "이미 취소된 주문", alreadyCancelled: true });
+    return;
+  }
+
+  const now = admin.firestore.Timestamp.now();
+  const batch = db.batch();
+  const ticketIds: string[] = order.ticketIds || [];
+
+  for (const tid of ticketIds) {
+    const ticketRef = db.collection("mobileTickets").doc(tid);
+    const ticketDoc = await ticketRef.get();
+    if (!ticketDoc.exists) continue;
+
+    const ticket = ticketDoc.data()!;
+    batch.update(ticketRef, { status: "cancelled", cancelledAt: now });
+
+    if (ticket.seatId) {
+      batch.update(db.collection("seats").doc(ticket.seatId), {
+        status: "available",
+        updatedAt: now,
+      });
+    }
+  }
+
+  batch.update(orderDoc.ref, { status: "cancelled", cancelledAt: now });
+  await batch.commit();
+
+  functions.logger.info(`봇 자동 취소: naverOrderId=${naverOrderId}, 티켓 ${ticketIds.length}장`);
+
+  res.status(200).json({
+    success: true,
+    cancelledTickets: ticketIds.length,
+    orderId: orderDoc.id,
+  });
+});
+
+/**
+ * 네이버 스토어 상품 정보 크롤링 (공개 페이지)
+ * POST /scrapeNaverProductHttp
+ * Body: { url } — e.g. "https://smartstore.naver.com/storename/products/12345"
+ */
+export const scrapeNaverProductHttp = functions
+  .runWith({ timeoutSeconds: 30, memory: "256MB" })
+  .https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.replace("Bearer ", "");
+    // Admin Firebase Auth token 또는 BOT_API_KEY
+    let isAuthed = token === BOT_API_KEY;
+    if (!isAuthed) {
+      try {
+        await admin.auth().verifyIdToken(token);
+        isAuthed = true;
+      } catch { /* not a valid firebase token */ }
+    }
+    if (!isAuthed) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const { url } = req.body;
+    if (!url) {
+      res.status(400).json({ error: "url 필요" });
+      return;
+    }
+
+    try {
+      // 네이버 스마트스토어 상품 페이지 HTML fetch
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept-Language": "ko-KR,ko;q=0.9",
+        },
+      });
+
+      if (!response.ok) {
+        res.status(400).json({ error: `페이지 요청 실패: ${response.status}` });
+        return;
+      }
+
+      const html = await response.text();
+
+      // 네이버 스마트스토어는 window.__PRELOADED_STATE__ 에 JSON 데이터를 넣어둠
+      const stateMatch = html.match(/window\.__PRELOADED_STATE__\s*=\s*(".*?")\s*[;<]/);
+      let product: any = {};
+
+      if (stateMatch) {
+        try {
+          // JSON-encoded string inside quotes — need double parse
+          const jsonStr = JSON.parse(stateMatch[1]);
+          const state = JSON.parse(jsonStr);
+
+          const productInfo = state?.product?.A || state?.product?.a || {};
+          const channel = state?.channel || {};
+
+          product = {
+            title: productInfo.name || "",
+            price: productInfo.salePrice || productInfo.price || 0,
+            imageUrl: productInfo.representImage?.url || productInfo.productImages?.[0]?.url || "",
+            options: (productInfo.optionCombinations || []).map((opt: any) => ({
+              name: opt.optionName1 || opt.name || "",
+              price: opt.price || productInfo.salePrice || 0,
+              stockQuantity: opt.stockQuantity ?? null,
+            })),
+            storeName: channel.channelName || "",
+          };
+        } catch (parseErr: any) {
+          functions.logger.warn("PRELOADED_STATE 파싱 실패:", parseErr.message);
+        }
+      }
+
+      // fallback: OG 태그에서 추출
+      if (!product.title) {
+        const ogTitle = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/);
+        product.title = ogTitle?.[1] || "";
+      }
+      if (!product.imageUrl) {
+        const ogImage = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/);
+        product.imageUrl = ogImage?.[1] || "";
+      }
+      if (!product.price) {
+        const priceMatch = html.match(/<meta\s+property="product:price:amount"\s+content="(\d+)"/);
+        product.price = priceMatch ? parseInt(priceMatch[1]) : 0;
+      }
+
+      res.status(200).json({ success: true, product });
+    } catch (err: any) {
+      functions.logger.error("스크래핑 에러:", err);
+      res.status(500).json({ error: err.message || "스크래핑 실패" });
+    }
+  });

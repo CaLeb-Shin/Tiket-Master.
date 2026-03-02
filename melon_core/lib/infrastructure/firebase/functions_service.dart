@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 final functionsServiceProvider =
     Provider<FunctionsService>((ref) => FunctionsService());
@@ -206,6 +209,23 @@ class FunctionsService {
       'accessToken': accessToken,
     });
     return Map<String, dynamic>.from(result.data);
+  }
+
+  /// HTTP CF 호출 (onRequest 엔드포인트용, Firebase Auth 토큰 사용)
+  Future<Map<String, dynamic>> callHttpFunction(
+      String functionName, Map<String, dynamic> body) async {
+    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    final uri = Uri.parse(
+        'https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net/$functionName');
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(body),
+    );
+    return Map<String, dynamic>.from(jsonDecode(response.body));
   }
 
   /// 통합 QR 일괄 체크인

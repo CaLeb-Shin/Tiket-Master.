@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -51,7 +52,10 @@ class _NaverTicketWizardScreenState
   };
   Uint8List? _posterBytes;
   String? _posterUrl;
+  String? _naverProductUrl; // 네이버 스토어 상품 URL (모바일 티켓에서 포스터 클릭 시 이동)
   bool _isCreatingEvent = false;
+  final _naverUrlCtrl = TextEditingController();
+  bool _isFetchingProduct = false;
 
   // Step 2: 좌석 등록
   ParsedSeatData? _seatData;
@@ -180,6 +184,60 @@ class _NaverTicketWizardScreenState
               // 기존 공연 선택
               _buildExistingEventSelector(),
               const SizedBox(height: 24),
+
+              // 네이버 URL 자동 채우기
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AdminTheme.card,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: AdminTheme.gold.withValues(alpha: 0.3), width: 0.5),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('네이버 스토어 URL',
+                        style: AdminTheme.sans(
+                            fontSize: 14, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    Text('URL을 입력하면 공연명, 가격, 포스터를 자동으로 가져옵니다',
+                        style: AdminTheme.sans(
+                            fontSize: 11, color: AdminTheme.textTertiary)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _naverUrlCtrl,
+                            style: AdminTheme.sans(fontSize: 13),
+                            decoration: const InputDecoration(
+                              hintText: 'https://smartstore.naver.com/...',
+                              isDense: true,
+                            ),
+                            onSubmitted: (_) => _fetchNaverProduct(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: _isFetchingProduct ? null : _fetchNaverProduct,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AdminTheme.gold,
+                            foregroundColor: AdminTheme.onAccent,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          child: _isFetchingProduct
+                              ? const SizedBox(
+                                  width: 16, height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: AdminTheme.onAccent))
+                              : const Text('가져오기'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
 
               // 또는 새로 만들기
               Container(
@@ -490,6 +548,76 @@ class _NaverTicketWizardScreenState
     });
   }
 
+  Future<void> _fetchNaverProduct() async {
+    final url = _naverUrlCtrl.text.trim();
+    if (url.isEmpty) return;
+    if (!url.contains('smartstore.naver.com')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('네이버 스마트스토어 URL을 입력하세요')),
+      );
+      return;
+    }
+
+    setState(() => _isFetchingProduct = true);
+
+    try {
+      final fs = ref.read(functionsServiceProvider);
+      final result = await fs.callHttpFunction('scrapeNaverProductHttp', {
+        'url': url,
+      });
+
+      if (result['success'] == true && result['product'] != null) {
+        final p = result['product'] as Map<String, dynamic>;
+        setState(() {
+          if (p['title'] != null && (p['title'] as String).isNotEmpty) {
+            _titleCtrl.text = p['title'];
+          }
+          _naverProductUrl = url;
+
+          // 옵션에서 등급+가격 추출
+          final options = p['options'] as List<dynamic>? ?? [];
+          if (options.isNotEmpty) {
+            _enabledGrades.clear();
+            for (final opt in options) {
+              final name = (opt['name'] as String? ?? '').toUpperCase();
+              for (final grade in _gradeOrder) {
+                if (name.contains(grade)) {
+                  _enabledGrades.add(grade);
+                  final price = opt['price'] as int? ?? 0;
+                  if (price > 0) {
+                    _gradePriceControllers[grade]?.text = price.toString();
+                  }
+                  break;
+                }
+              }
+            }
+          }
+        });
+
+        // 포스터 이미지 URL → bytes
+        final imageUrl = p['imageUrl'] as String? ?? '';
+        if (imageUrl.isNotEmpty) {
+          try {
+            final response = await http.get(Uri.parse(imageUrl));
+            if (response.statusCode == 200) {
+              setState(() => _posterBytes = response.bodyBytes);
+            }
+          } catch (_) {}
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('상품 정보를 가져왔습니다')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('가져오기 실패: $e')),
+      );
+    } finally {
+      setState(() => _isFetchingProduct = false);
+    }
+  }
+
   Future<void> _pickPoster() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
@@ -554,6 +682,14 @@ class _NaverTicketWizardScreenState
 
       final eventRepo = ref.read(eventRepositoryProvider);
       final eventId = await eventRepo.createEvent(event);
+
+      // 네이버 상품 URL 저장 (모바일 티켓에서 포스터 클릭 시 이동)
+      if (_naverProductUrl != null && _naverProductUrl!.isNotEmpty) {
+        await FirebaseFirestore.instance
+            .collection('events')
+            .doc(eventId)
+            .update({'naverProductUrl': _naverProductUrl});
+      }
 
       if (!mounted) return;
       setState(() {

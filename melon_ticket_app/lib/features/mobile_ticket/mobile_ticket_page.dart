@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:melon_core/melon_core.dart';
 
 // =============================================================================
@@ -153,6 +154,7 @@ class _TicketView extends ConsumerWidget {
 
     final eventTitle = event['title'] as String? ?? '공연';
     final imageUrl = event['imageUrl'] as String?;
+    final naverProductUrl = event['naverProductUrl'] as String?;
     final venueName = event['venueName'] as String? ?? '';
     final startAtStr = event['startAt'] as String?;
     DateTime? startAt;
@@ -278,24 +280,30 @@ class _TicketView extends ConsumerWidget {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Poster thumbnail
+                          // Poster thumbnail (tap → Naver store)
                           if (imageUrl != null && imageUrl.isNotEmpty)
-                            Container(
-                              width: 64,
-                              height: 88,
-                              margin: const EdgeInsets.only(right: 14),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: _border, width: 0.5),
-                              ),
-                              clipBehavior: Clip.antiAlias,
-                              child: Image.network(
-                                imageUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  color: const Color(0xFFF0ECE4),
-                                  child: const Icon(Icons.music_note_rounded,
-                                      color: _textTertiary, size: 24),
+                            GestureDetector(
+                              onTap: naverProductUrl != null && naverProductUrl.isNotEmpty
+                                  ? () => launchUrl(Uri.parse(naverProductUrl),
+                                      mode: LaunchMode.externalApplication)
+                                  : null,
+                              child: Container(
+                                width: 64,
+                                height: 88,
+                                margin: const EdgeInsets.only(right: 14),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: _border, width: 0.5),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: Image.network(
+                                  imageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: const Color(0xFFF0ECE4),
+                                    child: const Icon(Icons.music_note_rounded,
+                                        color: _textTertiary, size: 24),
+                                  ),
                                 ),
                               ),
                             ),
