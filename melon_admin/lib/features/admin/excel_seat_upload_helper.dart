@@ -18,9 +18,10 @@ import '../../app/admin_theme.dart';
 
 /// Detected Excel format type
 enum ExcelFormat {
-  visual,   // 셀 위치 = 좌석 위치, 셀 값 = 등급
-  list,     // 컬럼: 구역, 층, 열, 번호, 등급
-  rowCol,   // 행 = 좌석열, 열 = 좌석번호, 셀 값 = 등급
+  visual,      // 셀 위치 = 좌석 위치, 셀 값 = 등급
+  colorCoded,  // 셀 배경색 = 등급, 셀 값 = 좌석번호 (좌석배치도)
+  list,        // 컬럼: 구역, 층, 열, 번호, 등급
+  rowCol,      // 행 = 좌석열, 열 = 좌석번호, 셀 값 = 등급
 }
 
 /// Result from parsing an Excel file
@@ -541,6 +542,9 @@ class EnhancedExcelParser {
         case ExcelFormat.list:
           _parseListFormat(sheet, sheetName, floor, allSeats, allWarnings, allErrors);
           break;
+        case ExcelFormat.colorCoded:
+          _parseColorCodedFormat(sheet, sheetName, floor, allSeats, allWarnings, allErrors);
+          break;
         case ExcelFormat.visual:
           _parseVisualFormat(sheet, sheetName, floor, allSeats, allWarnings, allErrors);
           break;
@@ -623,6 +627,30 @@ class EnhancedExcelParser {
     if (totalNonEmptyCells > 0 &&
         gradeCellCount / totalNonEmptyCells > 0.6) {
       return ExcelFormat.visual;
+    }
+
+    // Check for color-coded layout: numeric cells with colored backgrounds
+    // (좌석배치도: 셀 값 = 좌석번호, 배경색 = 등급)
+    int coloredNumericCells = 0;
+    int totalNumericCells = 0;
+    final scanRowsColor = math.min(sheet.maxRows, 15);
+    final scanColsColor = math.min(sheet.maxColumns, 20);
+    for (int r = 1; r < scanRowsColor; r++) {
+      for (int c = 0; c < scanColsColor; c++) {
+        final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r));
+        final val = cell.value?.toString().trim() ?? '';
+        if (val.isEmpty) continue;
+        if (int.tryParse(val) == null) continue;
+        totalNumericCells++;
+        final bgHex = cell.cellStyle?.backgroundColor.colorHex ?? 'none';
+        if (bgHex != 'none' && bgHex != 'FF000000' && bgHex != 'FFFFFFFF') {
+          coloredNumericCells++;
+        }
+      }
+    }
+    if (totalNumericCells > 5 && coloredNumericCells / totalNumericCells > 0.3) {
+      return ExcelFormat.colorCoded;
     }
 
     // Default to row/col
@@ -761,6 +789,188 @@ class EnhancedExcelParser {
     if (skippedRows > 0) {
       warnings.add('시트 "$sheetName": 등급 없는 $skippedRows개 행 건너뜀.');
     }
+  }
+
+  /// Parse color-coded layout (셀 배경색 = 등급, 셀 값 = 좌석번호)
+  /// 좌석배치도 엑셀: 빨강=VIP, 파랑=R, 초록=S, 노랑=A, 검정=미판매
+  static void _parseColorCodedFormat(
+    Sheet sheet,
+    String sheetName,
+    String defaultFloor,
+    List<LayoutSeat> seats,
+    List<String> warnings,
+    List<String> errors,
+  ) {
+    // 1) Detect block headers (cells containing "블록")
+    // Maps column ranges to block names
+    final blockRanges = <_BlockRange>[];
+    final rowLabelCols = <int>{}; // columns that contain row labels (열)
+
+    for (int r = 0; r < math.min(sheet.maxRows, 5); r++) {
+      for (int c = 0; c < sheet.maxColumns; c++) {
+        final val = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r))
+            .value?.toString().trim() ?? '';
+        if (val.contains('블록')) {
+          // Extract block name: "A블록(157)" → "A블록"
+          final name = RegExp(r'([A-Za-z가-힣]*블록)')
+              .firstMatch(val)?.group(1) ?? val;
+          blockRanges.add(_BlockRange(name: name, startCol: c, headerRow: r));
+        }
+        if (val == '열') {
+          rowLabelCols.add(c);
+        }
+      }
+    }
+
+    // Sort blocks by column position and assign end columns
+    blockRanges.sort((a, b) => a.startCol.compareTo(b.startCol));
+    for (int i = 0; i < blockRanges.length; i++) {
+      if (i + 1 < blockRanges.length) {
+        blockRanges[i].endCol = blockRanges[i + 1].startCol - 1;
+      } else {
+        blockRanges[i].endCol = sheet.maxColumns - 1;
+      }
+    }
+
+    // 2) Detect floor from sheet content
+    String floor = defaultFloor;
+    for (int r = 0; r < math.min(sheet.maxRows, 5); r++) {
+      for (int c = 0; c < sheet.maxColumns; c++) {
+        final val = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r))
+            .value?.toString().trim() ?? '';
+        final floorMatch = RegExp(r'(\d)층').firstMatch(val);
+        if (floorMatch != null) {
+          floor = '${floorMatch.group(1)}층';
+          break;
+        }
+      }
+    }
+
+    // 3) Scan all cells: numeric value + colored background → seat
+    int parsed = 0;
+    int skipped = 0;
+    int noColorSkipped = 0;
+
+    // Track row numbers per row-index using row label columns
+    final rowLabels = <int, String>{}; // row index → row number string
+    for (final labelCol in rowLabelCols) {
+      for (int r = 0; r < sheet.maxRows; r++) {
+        final val = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: labelCol, rowIndex: r))
+            .value?.toString().trim() ?? '';
+        if (val.isNotEmpty && int.tryParse(val) != null) {
+          rowLabels[r] = val;
+        }
+      }
+    }
+
+    for (int r = 0; r < sheet.maxRows; r++) {
+      for (int c = 0; c < sheet.maxColumns; c++) {
+        // Skip row label columns
+        if (rowLabelCols.contains(c)) continue;
+
+        final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r));
+        final val = cell.value?.toString().trim() ?? '';
+        if (val.isEmpty) continue;
+
+        // Must be numeric (seat number)
+        final seatNum = int.tryParse(val);
+        if (seatNum == null) continue;
+
+        // Get background color
+        final bgHex = cell.cellStyle?.backgroundColor.colorHex ?? 'none';
+        final grade = _colorHexToGrade(bgHex);
+        if (grade == null) {
+          noColorSkipped++;
+          continue;
+        }
+
+        // Find which block this column belongs to
+        String zone = sheetName;
+        for (final block in blockRanges) {
+          if (c >= block.startCol && c <= block.endCol) {
+            zone = block.name;
+            break;
+          }
+        }
+
+        // Row number from label columns
+        final rowName = rowLabels[r] ?? '${r + 1}';
+
+        seats.add(LayoutSeat.fromGrid(
+          gridX: seatNum,
+          gridY: int.tryParse(rowName) ?? r,
+          zone: zone,
+          floor: floor,
+          row: rowName,
+          number: seatNum,
+          grade: grade,
+        ));
+        parsed++;
+      }
+    }
+
+    if (parsed == 0) {
+      errors.add('시트 "$sheetName": 색상 코딩된 좌석을 찾을 수 없습니다.');
+    }
+    if (noColorSkipped > 0) {
+      warnings.add(
+          '시트 "$sheetName": 배경색 없는 $noColorSkipped개 숫자 셀 건너뜀.');
+    }
+    if (blockRanges.isNotEmpty) {
+      final blockNames = blockRanges.map((b) => b.name).join(', ');
+      warnings.add('시트 "$sheetName": 감지된 블록: $blockNames');
+    }
+  }
+
+  /// Map Excel background color hex to grade
+  /// 빨강/빨강계열 → VIP, 파랑 → R, 초록 → S, 노랑 → A
+  /// 검정/흰색/없음 → null (skip)
+  static String? _colorHexToGrade(String hex) {
+    if (hex == 'none' || hex.isEmpty) return null;
+
+    // Remove FF prefix if present (ARGB → RGB)
+    String rgb = hex;
+    if (rgb.length == 8) rgb = rgb.substring(2);
+    if (rgb.length != 6) return null;
+
+    final r = int.tryParse(rgb.substring(0, 2), radix: 16) ?? 0;
+    final g = int.tryParse(rgb.substring(2, 4), radix: 16) ?? 0;
+    final b = int.tryParse(rgb.substring(4, 6), radix: 16) ?? 0;
+
+    // Skip black (미판매), white (배경), and near-transparent
+    if (r < 30 && g < 30 && b < 30) return null;    // black
+    if (r > 240 && g > 240 && b > 240) return null;  // white
+    if (r == 0 && g == 0 && b == 0) return null;      // pure black
+
+    // Yellow: high R, high G, low B → A
+    if (r > 180 && g > 180 && b < 100) return 'A';
+
+    // Red/burgundy/salmon: high R, low-mid G, low B → VIP
+    if (r > 140 && g < 120 && b < 120) return 'VIP';
+
+    // Purple: moderate R, low G, high-ish B → VIP (시야방해석 등)
+    if (r > 90 && g < 120 && b > 120 && r < b + 50) return 'VIP';
+
+    // Blue: low R, moderate G, high B → R
+    if (b > 140 && r < 120) return 'R';
+
+    // Green: low R, high G, low B → S
+    if (g > 140 && r < 120 && b < 120) return 'S';
+
+    // Green (brighter): like #9BBB59
+    if (g > 150 && r < g && b < g) return 'S';
+
+    // Blue (softer): like #4F81BD
+    if (b > 120 && r < b && g < b) return 'R';
+
+    // Orange/warm: high R, moderate G → could be A or VIP
+    if (r > 200 && g > 100 && g < 180 && b < 100) return 'A';
+
+    return null; // Unknown color → skip
   }
 
   /// Parse visual layout (cell position = seat position)
@@ -905,6 +1115,21 @@ class EnhancedExcelParser {
   static bool _isValidGrade(String grade) {
     return {'VIP', 'R', 'S', 'A'}.contains(grade);
   }
+}
+
+/// Helper: block column range for color-coded format
+class _BlockRange {
+  final String name;
+  final int startCol;
+  final int headerRow;
+  int endCol;
+
+  _BlockRange({
+    required this.name,
+    required this.startCol,
+    required this.headerRow,
+    this.endCol = 0,
+  });
 }
 
 // ═══════════════════════════════════════════════════

@@ -1177,8 +1177,10 @@ class _NaverTicketWizardScreenState
     switch (format) {
       case ExcelFormat.list:
         return '리스트 (네이버 좌석현황)';
+      case ExcelFormat.colorCoded:
+        return '색상 코딩 (좌석배치도)';
       case ExcelFormat.visual:
-        return '비주얼 (좌석배치도)';
+        return '비주얼 (등급 텍스트)';
       case ExcelFormat.rowCol:
         return '행열 매트릭스';
     }
