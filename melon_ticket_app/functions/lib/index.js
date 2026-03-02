@@ -32,11 +32,15 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
+const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 admin.initializeApp();
 const db = admin.firestore();
 // JWT 시크릿 (실제 운영 시 환경 변수로 관리)
@@ -1710,5 +1714,305 @@ exports.scheduledEventReminders = functions.pubsub
         functions.logger.info(`리뷰 요청 알림: ${eventDoc.id}, ${sent}명`);
     }
     return null;
+});
+// ============================================================
+// issueGroupQrToken - 통합 QR 토큰 발급 (같은 주문 다수 티켓)
+// ============================================================
+exports.issueGroupQrToken = functions.https.onCall(async (data, context) => {
+    const { orderId } = data;
+    const userId = context?.auth?.uid;
+    if (!userId) {
+        throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
+    }
+    if (!orderId) {
+        throw new functions.https.HttpsError("invalid-argument", "주문 ID가 필요합니다");
+    }
+    // 해당 주문의 issued 상태 티켓 조회
+    const ticketsSnap = await db.collection("tickets")
+        .where("orderId", "==", orderId)
+        .where("userId", "==", userId)
+        .where("status", "==", "issued")
+        .get();
+    if (ticketsSnap.empty) {
+        throw new functions.https.HttpsError("not-found", "유효한 티켓이 없습니다");
+    }
+    const ticketIds = ticketsSnap.docs.map(doc => doc.id);
+    const firstTicket = ticketsSnap.docs[0].data();
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+        orderId,
+        ticketIds,
+        eventId: firstTicket.eventId,
+        userId,
+        type: "group",
+        iat: now,
+        exp: now + QR_TOKEN_EXPIRY,
+    };
+    const token = jwt.sign(payload, JWT_SECRET);
+    const qrData = `group:${orderId}:${token}`;
+    return {
+        success: true,
+        token: qrData,
+        exp: payload.exp,
+        ticketCount: ticketIds.length,
+    };
+});
+// ============================================================
+// verifyAndCheckInGroup - 통합 QR 일괄 체크인
+// ============================================================
+exports.verifyAndCheckInGroup = functions.https.onCall(async (data, context) => {
+    const { orderId, qrToken } = data;
+    const scannerDeviceId = data?.scannerDeviceId?.trim();
+    const checkinStage = normalizeCheckinStage(data?.checkinStage);
+    const scannerUid = await assertStaffOrAdmin(context?.auth?.uid);
+    if (!orderId || !qrToken) {
+        throw new functions.https.HttpsError("invalid-argument", "잘못된 요청입니다");
+    }
+    if (!scannerDeviceId) {
+        return { success: false, result: "notAllowedDevice", message: "기기 ID 누락" };
+    }
+    // 스캐너 디바이스 검증 (데모 디바이스는 스킵)
+    const isDemoDevice = scannerDeviceId === "admin-demo-device";
+    if (!isDemoDevice) {
+        const devDoc = await db.collection("scannerDevices").doc(scannerDeviceId).get();
+        const dev = devDoc.data();
+        if (!devDoc.exists || !dev) {
+            return { success: false, result: "notAllowedDevice", message: "등록되지 않은 스캐너 기기입니다" };
+        }
+        if (dev.ownerUid !== scannerUid) {
+            return { success: false, result: "notAllowedDevice", message: "현재 계정으로 승인된 기기가 아닙니다" };
+        }
+        if (dev.blocked === true || dev.approved !== true) {
+            return { success: false, result: "notAllowedDevice", message: dev.blocked ? "차단된 기기입니다" : "승인 대기 중입니다" };
+        }
+    }
+    // JWT 검증
+    let decoded;
+    try {
+        decoded = jwt.verify(qrToken, JWT_SECRET);
+    }
+    catch (error) {
+        const result = error.name === "TokenExpiredError" ? "expired" : "invalidSignature";
+        return { success: false, result, message: result === "expired" ? "QR이 만료되었습니다" : "잘못된 QR입니다" };
+    }
+    if (decoded.orderId !== orderId || decoded.type !== "group") {
+        return { success: false, result: "invalidTicket", message: "잘못된 통합 QR입니다" };
+    }
+    const ticketIds = decoded.ticketIds || [];
+    if (ticketIds.length === 0) {
+        return { success: false, result: "invalidTicket", message: "티켓 정보가 없습니다" };
+    }
+    // 트랜잭션으로 일괄 체크인
+    return db.runTransaction(async (transaction) => {
+        const ticketRefs = ticketIds.map(id => db.collection("tickets").doc(id));
+        const ticketDocs = await Promise.all(ticketRefs.map(ref => transaction.get(ref)));
+        let checkedCount = 0;
+        let alreadyCheckedCount = 0;
+        const seatInfoList = [];
+        for (let i = 0; i < ticketDocs.length; i++) {
+            const doc = ticketDocs[i];
+            if (!doc.exists)
+                continue;
+            const t = doc.data();
+            if (t.status === "canceled")
+                continue;
+            // 좌석 정보 조회
+            let seatInfo = "좌석 정보 없음";
+            if (t.seatId) {
+                const seatDoc = await transaction.get(db.collection("seats").doc(t.seatId));
+                const seat = seatDoc.data();
+                if (seat) {
+                    seatInfo = `${seat.grade || ""}${seat.grade ? " " : ""}${seat.block}구역 ${seat.row || ""}${seat.row ? "열 " : ""}${seat.number}번`;
+                }
+            }
+            else if (t.entryNumber) {
+                seatInfo = `스탠딩 ${t.entryNumber}번`;
+            }
+            if (checkinStage === "entry") {
+                if (t.entryCheckedInAt || t.status === "used") {
+                    alreadyCheckedCount++;
+                    seatInfoList.push(`${seatInfo} (입장완료)`);
+                    continue;
+                }
+                transaction.update(ticketRefs[i], {
+                    entryCheckedInAt: admin.firestore.FieldValue.serverTimestamp(),
+                    entryCheckinStaffId: scannerUid,
+                    lastCheckInStage: "entry",
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            }
+            else {
+                if (!t.entryCheckedInAt) {
+                    seatInfoList.push(`${seatInfo} (1차 미입장)`);
+                    continue;
+                }
+                if (t.intermissionCheckedInAt || t.status === "used") {
+                    alreadyCheckedCount++;
+                    seatInfoList.push(`${seatInfo} (재입장완료)`);
+                    continue;
+                }
+                transaction.update(ticketRefs[i], {
+                    intermissionCheckedInAt: admin.firestore.FieldValue.serverTimestamp(),
+                    intermissionCheckinStaffId: scannerUid,
+                    lastCheckInStage: "intermission",
+                    status: "used",
+                    usedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            }
+            seatInfoList.push(seatInfo);
+            checkedCount++;
+            // 체크인 로그
+            const checkinRef = db.collection("checkins").doc();
+            transaction.set(checkinRef, {
+                eventId: decoded.eventId,
+                ticketId: ticketIds[i],
+                staffId: scannerUid,
+                scannerDeviceId,
+                stage: checkinStage,
+                result: "success",
+                seatInfo,
+                scannedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+        if (checkedCount === 0 && alreadyCheckedCount > 0) {
+            return {
+                success: false,
+                result: "alreadyUsed",
+                message: `전체 ${ticketIds.length}매 이미 입장 완료`,
+                seatInfo: seatInfoList.join("\n"),
+            };
+        }
+        const title = checkinStage === "entry" ? "단체 입장 확인" : "단체 재입장 확인";
+        const msg = alreadyCheckedCount > 0
+            ? `${ticketIds.length}명 중 ${checkedCount}명 추가 입장`
+            : `총 ${checkedCount}명 입장 완료`;
+        return {
+            success: true,
+            result: "success",
+            title,
+            message: msg,
+            seatInfo: seatInfoList.join("\n"),
+            stage: checkinStage,
+            checkedCount,
+            totalCount: ticketIds.length,
+        };
+    });
+});
+// ═══════════════════════════════════════════════════════════════════════════
+// AI 좌석 자동 인식 — Claude Vision으로 배치도 이미지 분석
+// ═══════════════════════════════════════════════════════════════════════════
+exports.analyzeSeatLayout = functions
+    .runWith({ timeoutSeconds: 120, memory: "512MB" })
+    .https.onCall(async (data, context) => {
+    await assertAdmin(context?.auth?.uid);
+    const { imageUrl, gridCols, gridRows, stagePosition } = data;
+    if (!imageUrl || !gridCols || !gridRows) {
+        throw new functions.https.HttpsError("invalid-argument", "imageUrl, gridCols, gridRows가 필요합니다");
+    }
+    // 환경 변수에서 API 키 가져오기 (.env.local 또는 Secret Manager)
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+        throw new functions.https.HttpsError("failed-precondition", "ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다. functions/.env 파일에 추가해주세요.");
+    }
+    const anthropic = new sdk_1.default({ apiKey });
+    // 이미지 다운로드
+    let imageBase64;
+    let mediaType;
+    try {
+        const response = await fetch(imageUrl);
+        const buffer = await response.arrayBuffer();
+        imageBase64 = Buffer.from(buffer).toString("base64");
+        const ct = response.headers.get("content-type") || "image/jpeg";
+        if (ct.includes("png"))
+            mediaType = "image/png";
+        else if (ct.includes("webp"))
+            mediaType = "image/webp";
+        else if (ct.includes("gif"))
+            mediaType = "image/gif";
+        else
+            mediaType = "image/jpeg";
+    }
+    catch (e) {
+        throw new functions.https.HttpsError("internal", `이미지 다운로드 실패: ${e}`);
+    }
+    const stagePos = stagePosition || "top";
+    const prompt = `이 이미지는 공연장 좌석배치도입니다.
+이 배치도를 ${gridCols}x${gridRows} 그리드에 매핑해주세요.
+무대 위치: ${stagePos === "top" ? "상단" : "하단"}
+
+각 좌석의 위치를 분석하여 다음 JSON 형식으로 반환해주세요:
+
+{
+  "seats": [
+    {"x": 0, "y": 0, "zone": "A", "floor": "1층", "row": "1", "number": 1, "grade": "VIP"},
+    ...
+  ],
+  "labels": [
+    {"x": 0, "y": 0, "text": "A구역", "type": "section"},
+    ...
+  ],
+  "stageWidthRatio": 0.4,
+  "stageHeight": 28
+}
+
+규칙:
+1. x는 0~${gridCols - 1}, y는 0~${gridRows - 1} 범위
+2. 무대는 ${stagePos === "top" ? "상단(y=0 근처)" : "하단(y=${gridRows - 1} 근처)"}에 위치
+3. 좌석 구역(zone)은 이미지에 표시된 구역명을 사용 (A, B, C, D 등)
+4. 등급(grade)은 좌석 위치 기반으로 추정: 무대 가까운 정면=VIP, 정면 중간=R, 측면/후면=S, 2층/맨뒤=A
+5. 열(row)과 번호(number)는 구역 내에서 순서대로 배정
+6. 구역 라벨도 적절한 위치에 추가
+7. 좌석 간 간격을 1셀 유지하여 도트맵처럼 보이게
+8. 실제 좌석이 있는 위치만 포함 (빈 공간은 비워두기)
+9. 이미지에서 보이는 좌석 배치 패턴을 최대한 정확하게 반영
+
+JSON만 반환하고 다른 텍스트는 포함하지 마세요.`;
+    try {
+        const response = await anthropic.messages.create({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 16000,
+            messages: [
+                {
+                    role: "user",
+                    content: [
+                        {
+                            type: "image",
+                            source: {
+                                type: "base64",
+                                media_type: mediaType,
+                                data: imageBase64,
+                            },
+                        },
+                        { type: "text", text: prompt },
+                    ],
+                },
+            ],
+        });
+        // 응답에서 JSON 추출
+        const textBlock = response.content.find((b) => b.type === "text");
+        if (!textBlock || textBlock.type !== "text") {
+            throw new functions.https.HttpsError("internal", "AI 응답에 텍스트가 없습니다");
+        }
+        let jsonStr = textBlock.text.trim();
+        // 코드블록 래핑 제거
+        if (jsonStr.startsWith("```")) {
+            jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+        }
+        const parsed = JSON.parse(jsonStr);
+        return {
+            success: true,
+            seats: parsed.seats || [],
+            labels: parsed.labels || [],
+            stageWidthRatio: parsed.stageWidthRatio,
+            stageHeight: parsed.stageHeight,
+            totalSeats: (parsed.seats || []).length,
+        };
+    }
+    catch (e) {
+        if (e.code)
+            throw e; // HttpsError는 그대로
+        throw new functions.https.HttpsError("internal", `AI 분석 실패: ${e.message}`);
+    }
 });
 //# sourceMappingURL=index.js.map

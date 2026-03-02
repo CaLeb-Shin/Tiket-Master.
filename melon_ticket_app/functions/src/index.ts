@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as jwt from "jsonwebtoken";
+import Anthropic from "@anthropic-ai/sdk";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -2262,3 +2263,129 @@ export const verifyAndCheckInGroup = functions.https.onCall(async (data: any, co
     };
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AI 좌석 자동 인식 — Claude Vision으로 배치도 이미지 분석
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const analyzeSeatLayout = functions
+  .runWith({ timeoutSeconds: 120, memory: "512MB" })
+  .https.onCall(async (data: any, context) => {
+    await assertAdmin(context?.auth?.uid);
+
+    const { imageUrl, gridCols, gridRows, stagePosition } = data;
+    if (!imageUrl || !gridCols || !gridRows) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "imageUrl, gridCols, gridRows가 필요합니다"
+      );
+    }
+
+    // 환경 변수에서 API 키 가져오기 (.env.local 또는 Secret Manager)
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다. functions/.env 파일에 추가해주세요."
+      );
+    }
+
+    const anthropic = new Anthropic({ apiKey });
+
+    // 이미지 다운로드
+    let imageBase64: string;
+    let mediaType: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+    try {
+      const response = await fetch(imageUrl);
+      const buffer = await response.arrayBuffer();
+      imageBase64 = Buffer.from(buffer).toString("base64");
+      const ct = response.headers.get("content-type") || "image/jpeg";
+      if (ct.includes("png")) mediaType = "image/png";
+      else if (ct.includes("webp")) mediaType = "image/webp";
+      else if (ct.includes("gif")) mediaType = "image/gif";
+      else mediaType = "image/jpeg";
+    } catch (e) {
+      throw new functions.https.HttpsError("internal", `이미지 다운로드 실패: ${e}`);
+    }
+
+    const stagePos = stagePosition || "top";
+    const prompt = `이 이미지는 공연장 좌석배치도입니다.
+이 배치도를 ${gridCols}x${gridRows} 그리드에 매핑해주세요.
+무대 위치: ${stagePos === "top" ? "상단" : "하단"}
+
+각 좌석의 위치를 분석하여 다음 JSON 형식으로 반환해주세요:
+
+{
+  "seats": [
+    {"x": 0, "y": 0, "zone": "A", "floor": "1층", "row": "1", "number": 1, "grade": "VIP"},
+    ...
+  ],
+  "labels": [
+    {"x": 0, "y": 0, "text": "A구역", "type": "section"},
+    ...
+  ],
+  "stageWidthRatio": 0.4,
+  "stageHeight": 28
+}
+
+규칙:
+1. x는 0~${gridCols - 1}, y는 0~${gridRows - 1} 범위
+2. 무대는 ${stagePos === "top" ? "상단(y=0 근처)" : "하단(y=${gridRows - 1} 근처)"}에 위치
+3. 좌석 구역(zone)은 이미지에 표시된 구역명을 사용 (A, B, C, D 등)
+4. 등급(grade)은 좌석 위치 기반으로 추정: 무대 가까운 정면=VIP, 정면 중간=R, 측면/후면=S, 2층/맨뒤=A
+5. 열(row)과 번호(number)는 구역 내에서 순서대로 배정
+6. 구역 라벨도 적절한 위치에 추가
+7. 좌석 간 간격을 1셀 유지하여 도트맵처럼 보이게
+8. 실제 좌석이 있는 위치만 포함 (빈 공간은 비워두기)
+9. 이미지에서 보이는 좌석 배치 패턴을 최대한 정확하게 반영
+
+JSON만 반환하고 다른 텍스트는 포함하지 마세요.`;
+
+    try {
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 16000,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: mediaType,
+                  data: imageBase64,
+                },
+              },
+              { type: "text", text: prompt },
+            ],
+          },
+        ],
+      });
+
+      // 응답에서 JSON 추출
+      const textBlock = response.content.find((b) => b.type === "text");
+      if (!textBlock || textBlock.type !== "text") {
+        throw new functions.https.HttpsError("internal", "AI 응답에 텍스트가 없습니다");
+      }
+
+      let jsonStr = textBlock.text.trim();
+      // 코드블록 래핑 제거
+      if (jsonStr.startsWith("```")) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      }
+
+      const parsed = JSON.parse(jsonStr);
+      return {
+        success: true,
+        seats: parsed.seats || [],
+        labels: parsed.labels || [],
+        stageWidthRatio: parsed.stageWidthRatio,
+        stageHeight: parsed.stageHeight,
+        totalSeats: (parsed.seats || []).length,
+      };
+    } catch (e: any) {
+      if (e.code) throw e; // HttpsError는 그대로
+      throw new functions.https.HttpsError("internal", `AI 분석 실패: ${e.message}`);
+    }
+  });

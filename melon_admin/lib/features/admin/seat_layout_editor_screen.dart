@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:melon_core/data/models/venue.dart';
 import 'package:melon_core/data/repositories/venue_repository.dart';
 import 'package:melon_core/infrastructure/firebase/storage_service.dart';
@@ -82,6 +83,7 @@ class _SeatLayoutEditorScreenState
   double _backgroundOpacity = 0.3;
   ui.Image? _backgroundImage;
   bool _uploadingImage = false;
+  bool _analyzingWithAI = false;
 
   // ─── Loading ───
   bool _loading = true;
@@ -270,6 +272,119 @@ class _SeatLayoutEditorScreenState
       _backgroundImageUrl = null;
       _backgroundImage = null;
     });
+  }
+
+  Future<void> _analyzeWithAI() async {
+    if (_backgroundImageUrl == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('먼저 배치도 이미지를 업로드해주세요')),
+      );
+      return;
+    }
+
+    setState(() => _analyzingWithAI = true);
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'analyzeSeatLayout',
+        options: HttpsCallableOptions(timeout: const Duration(seconds: 120)),
+      );
+
+      final result = await callable.call({
+        'imageUrl': _backgroundImageUrl,
+        'gridCols': _gridCols,
+        'gridRows': _gridRows,
+        'stagePosition': _stagePosition,
+      });
+
+      final data = result.data as Map<String, dynamic>;
+      if (data['success'] != true) {
+        throw Exception('AI 분석 실패');
+      }
+
+      final aiSeats = (data['seats'] as List<dynamic>?) ?? [];
+      final aiLabels = (data['labels'] as List<dynamic>?) ?? [];
+
+      // 기존 좌석 교체 확인
+      if (_seats.isNotEmpty) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('AI 좌석 배치'),
+            content: Text(
+              'AI가 ${aiSeats.length}개 좌석을 인식했습니다.\n기존 ${_seats.length}개 좌석을 교체하시겠습니까?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('교체',
+                    style: TextStyle(color: AdminTheme.gold)),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+      }
+
+      setState(() {
+        _seats.clear();
+        _labels.clear();
+
+        for (final s in aiSeats) {
+          final seat = LayoutSeat(
+            gridX: (s['x'] as num).toInt(),
+            gridY: (s['y'] as num).toInt(),
+            zone: s['zone'] ?? '',
+            floor: s['floor'] ?? '1층',
+            row: (s['row'] ?? '').toString(),
+            number: (s['number'] as num?)?.toInt() ?? 0,
+            grade: s['grade'] ?? 'A',
+          );
+          _seats[seat.key] = seat;
+        }
+
+        for (final l in aiLabels) {
+          final label = LayoutLabel(
+            gridX: (l['x'] as num).toInt(),
+            gridY: (l['y'] as num).toInt(),
+            text: l['text'] ?? '',
+            type: l['type'] ?? 'section',
+          );
+          _labels[label.key] = label;
+        }
+
+        if (data['stageWidthRatio'] != null) {
+          _stageWidthRatio = (data['stageWidthRatio'] as num).toDouble();
+        }
+        if (data['stageHeight'] != null) {
+          _stageHeight = (data['stageHeight'] as num).toDouble();
+        }
+
+        _step = _EditorStep.seats;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('AI 인식 완료: ${aiSeats.length}개 좌석 배치됨'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('AI 분석 실패: $e'),
+            backgroundColor: AdminTheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _analyzingWithAI = false);
+    }
   }
 
   // ─── Auto Numbering ───
@@ -1584,6 +1699,41 @@ class _SeatLayoutEditorScreenState
                           fontSize: 10, fontWeight: FontWeight.w600)),
                 ],
               ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _analyzingWithAI ? null : _analyzeWithAI,
+                  icon: _analyzingWithAI
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.black87))
+                      : const Icon(Icons.auto_fix_high_rounded, size: 16),
+                  label: Text(
+                    _analyzingWithAI ? 'AI 분석 중...' : 'AI 좌석 자동 인식',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AdminTheme.gold,
+                    foregroundColor: Colors.black87,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6)),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+              if (_analyzingWithAI) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Claude AI가 배치도를 분석하고 있습니다...\n약 30초~1분 소요됩니다',
+                  style: AdminTheme.sans(
+                      fontSize: 9, color: AdminTheme.textTertiary),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ] else ...[
               SizedBox(
                 width: double.infinity,
