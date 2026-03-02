@@ -199,68 +199,33 @@ class _NaverTicketWizardScreenState
                         style: AdminTheme.sans(
                             fontSize: 11, color: AdminTheme.textTertiary)),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _naverUrlCtrl,
-                            style: AdminTheme.sans(
-                                fontSize: 13, color: AdminTheme.textPrimary),
-                            decoration: InputDecoration(
-                              hintText: 'https://smartstore.naver.com/...',
-                              hintStyle: AdminTheme.sans(
-                                  fontSize: 13, color: AdminTheme.textTertiary),
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 12),
-                              filled: true,
-                              fillColor: AdminTheme.surface,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: const BorderSide(
-                                    color: AdminTheme.border, width: 0.5),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: const BorderSide(
-                                    color: AdminTheme.border, width: 0.5),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: const BorderSide(
-                                    color: AdminTheme.gold, width: 1),
-                              ),
-                            ),
-                            onSubmitted: (_) => _onNaverUrlSubmit(),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          height: 42,
-                          child: ElevatedButton.icon(
-                            onPressed: (_isFetchingProduct || _isFetchingStore)
-                                ? null
-                                : _onNaverUrlSubmit,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AdminTheme.gold,
-                              foregroundColor: AdminTheme.onAccent,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 20),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                            icon: (_isFetchingProduct || _isFetchingStore)
-                                ? const SizedBox(
-                                    width: 16, height: 16,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: AdminTheme.onAccent))
-                                : const Icon(Icons.download_rounded, size: 18),
-                            label: const Text('가져오기'),
-                          ),
-                        ),
-                      ],
+
+                    // URL 입력
+                    TextField(
+                      controller: _naverUrlCtrl,
+                      style: AdminTheme.sans(fontSize: 14),
+                      decoration: const InputDecoration(
+                        labelText: '스토어 또는 상품 URL',
+                      ),
+                      onSubmitted: (_) => _onNaverUrlSubmit(),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 가져오기 버튼
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: (_isFetchingProduct || _isFetchingStore)
+                            ? null
+                            : _onNaverUrlSubmit,
+                        child: (_isFetchingProduct || _isFetchingStore)
+                            ? const SizedBox(
+                                width: 18, height: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AdminTheme.onAccent))
+                            : const Text('가져오기'),
+                      ),
                     ),
 
                     // 스토어 상품 목록
