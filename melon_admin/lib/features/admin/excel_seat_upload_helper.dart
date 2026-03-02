@@ -857,10 +857,61 @@ class EnhancedExcelParser {
       }
     }
 
-    // 3) Scan all cells: numeric value + colored background → seat
+    // 3) Scan for grade labels → build row-range → grade map (fallback)
+    // Labels like "VIP석", "R석", "S석", "A석" define seat sections
+    final gradeLabelRows = <int, String>{}; // row → grade from label
+    final gradeLabelColors = <String, String>{}; // fill hex → grade from label
+    for (int r = 0; r < sheet.maxRows; r++) {
+      for (int c = 0; c < sheet.maxColumns; c++) {
+        final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r));
+        final val = cell.value?.toString().trim() ?? '';
+        if (val.isEmpty) continue;
+
+        String? labelGrade;
+        final upper = val.toUpperCase().replaceAll(' ', '');
+        if (upper.contains('VIP')) {
+          labelGrade = 'VIP';
+        } else if (RegExp(r'^R석?$|^R좌석|^R등급|^R\s*석|R석', caseSensitive: false).hasMatch(val)) {
+          labelGrade = 'R';
+        } else if (RegExp(r'^S석?$|^S좌석|^S등급|^S\s*석|S석', caseSensitive: false).hasMatch(val)) {
+          labelGrade = 'S';
+        } else if (RegExp(r'^A석?$|^A좌석|^A등급|^A\s*석|A석', caseSensitive: false).hasMatch(val)) {
+          labelGrade = 'A';
+        }
+
+        if (labelGrade != null) {
+          gradeLabelRows[r] = labelGrade;
+          // Map the label's background color to this grade
+          final hex = colorResolver.getBackgroundColor(sheetName, r, c);
+          if (hex != null && _colorHexToGrade(hex) == null) {
+            // Color exists but wasn't classified → map it explicitly
+            gradeLabelColors[hex] = labelGrade;
+          }
+        }
+      }
+    }
+
+    // Build row → fallback grade map from labels
+    // Each label covers rows below it until the next label
+    final sortedLabelRows = gradeLabelRows.keys.toList()..sort();
+    String? _getRowFallbackGrade(int row) {
+      String? grade;
+      for (final lr in sortedLabelRows) {
+        if (lr <= row) {
+          grade = gradeLabelRows[lr];
+        } else {
+          break;
+        }
+      }
+      return grade;
+    }
+
+    // 4) Scan all cells: numeric value + colored background → seat
     int parsed = 0;
     int skipped = 0;
     int noColorSkipped = 0;
+    int labelFallbackCount = 0;
 
     // Debug: track color → grade classification
     final colorGradeMap = <String, String>{}; // hex → grade
@@ -898,11 +949,20 @@ class EnhancedExcelParser {
         final resolvedHex = colorResolver.getBackgroundColor(sheetName, r, c);
         final excelHex = cell.cellStyle?.backgroundColor.colorHex ?? 'none';
         final bgHex = resolvedHex ?? excelHex;
-        final grade = _colorHexToGrade(bgHex);
+
+        // Grade detection: 1) color hue, 2) label-mapped color, 3) row-based label fallback
+        String? grade = _colorHexToGrade(bgHex);
+        grade ??= gradeLabelColors[bgHex]; // label-mapped color (e.g., purple=R)
         if (grade == null) {
-          noColorSkipped++;
-          skippedColors[bgHex] = (skippedColors[bgHex] ?? 0) + 1;
-          continue;
+          // Fallback: use grade label row range
+          grade = _getRowFallbackGrade(r);
+          if (grade != null) {
+            labelFallbackCount++;
+          } else {
+            noColorSkipped++;
+            skippedColors[bgHex] = (skippedColors[bgHex] ?? 0) + 1;
+            continue;
+          }
         }
 
         // Track color→grade for debug
@@ -945,6 +1005,15 @@ class EnhancedExcelParser {
       final blockNames = blockRanges.map((b) => b.name).join(', ');
       warnings.add('시트 "$sheetName": 감지된 블록: $blockNames');
     }
+    if (labelFallbackCount > 0) {
+      warnings.add('시트 "$sheetName": 라벨 기반 등급 배정 ${labelFallbackCount}석 (색상 없는 좌석 → 근처 등급 라벨로 배정)');
+    }
+    if (gradeLabelRows.isNotEmpty) {
+      final labelSummary = gradeLabelRows.entries
+          .map((e) => '행${e.key}=${e.value}')
+          .join(', ');
+      warnings.add('[디버그] 감지된 등급 라벨: $labelSummary');
+    }
 
     // Debug: color resolution summary
     if (colorGradeMap.isNotEmpty) {
@@ -958,6 +1027,12 @@ class EnhancedExcelParser {
           .map((e) => '#${e.key}(${e.value}개)')
           .join(', ');
       warnings.add('[디버그] 건너뛴 색상: $skipSummary');
+    }
+    if (gradeLabelColors.isNotEmpty) {
+      final lcSummary = gradeLabelColors.entries
+          .map((e) => '#${e.key}→${e.value}')
+          .join(', ');
+      warnings.add('[디버그] 라벨→색상 매핑: $lcSummary');
     }
     // Resolver debug
     for (final info in colorResolver.debugInfo) {
