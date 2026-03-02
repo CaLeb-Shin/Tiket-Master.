@@ -620,26 +620,34 @@ class _NaverTicketWizardScreenState
     });
 
     try {
-      final fs = ref.read(functionsServiceProvider);
-      final result = await fs.callHttpFunction('scrapeNaverStoreHttp', {
-        'storeUrl': _myStoreUrl,
-      });
+      // Firestore naverProducts 컬렉션에서 봇이 동기화한 상품 목록 읽기
+      final snap = await FirebaseFirestore.instance
+          .collection('naverProducts')
+          .orderBy('syncedAt', descending: true)
+          .get();
 
-      if (result['success'] == true) {
-        final products = (result['products'] as List<dynamic>? ?? [])
-            .map((p) => Map<String, dynamic>.from(p as Map))
-            .toList();
-        setState(() => _storeProducts = products);
+      final products = snap.docs.map((doc) {
+        final d = doc.data();
+        return <String, dynamic>{
+          'title': d['name'] ?? '',
+          'price': d['price'] ?? 0,
+          'url': d['url'] ?? '',
+          'productNo': d['productNo'] ?? '',
+        };
+      }).toList();
 
-        if (products.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('상품을 찾을 수 없습니다')),
-          );
-        }
+      setState(() => _storeProducts = products);
+
+      if (products.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('동기화된 상품이 없습니다. 봇이 실행 중인지 확인하세요.')),
+        );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('스토어 조회 실패: $e')),
+        SnackBar(content: Text('상품 조회 실패: $e')),
       );
     } finally {
       setState(() => _isFetchingStore = false);

@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.getMobileTicketByToken = exports.issueMobileQrToken = exports.cancelNaverOrder = exports.createNaverOrder = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.getMobileTicketByToken = exports.issueMobileQrToken = exports.cancelNaverOrder = exports.createNaverOrder = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -2218,40 +2218,14 @@ exports.cancelNaverOrder = functions.https.onCall(async (data, context) => {
         cancelledAt: now,
     });
     await batch.commit();
-    // 번호 재배정 (땡김)
-    const resequenced = await resequenceEntryNumbers(order.eventId, order.seatGrade);
-    functions.logger.info(`네이버 주문 취소: ${orderId}, 티켓 ${ticketIds.length}장 취소, ${resequenced}건 재배정`);
+    // resequence 제거 — 취소된 좌석은 비워두고 다음 주문자가 그 자리에 배정됨
+    // 기존 티켓 holders의 entryNumber는 변경 없음
+    functions.logger.info(`네이버 주문 취소: ${orderId}, 티켓 ${ticketIds.length}장 취소`);
     return {
         success: true,
         cancelledTickets: ticketIds.length,
-        resequencedCount: resequenced,
     };
 });
-/**
- * entryNumber 재배정 — 취소 후 갭 없는 순번 보장
- */
-async function resequenceEntryNumbers(eventId, seatGrade) {
-    const activeSnap = await db.collection("mobileTickets")
-        .where("eventId", "==", eventId)
-        .where("seatGrade", "==", seatGrade)
-        .where("status", "==", "active")
-        .orderBy("issuedAt")
-        .get();
-    const batch = db.batch();
-    let updated = 0;
-    activeSnap.docs.forEach((doc, i) => {
-        const currentNumber = doc.data().entryNumber;
-        const newNumber = i + 1;
-        if (currentNumber !== newNumber) {
-            batch.update(doc.ref, { entryNumber: newNumber });
-            updated++;
-        }
-    });
-    if (updated > 0) {
-        await batch.commit();
-    }
-    return updated;
-}
 /**
  * 모바일 티켓 QR 토큰 발급 (비로그인 — accessToken 검증)
  */
@@ -2331,6 +2305,7 @@ exports.getMobileTicketByToken = functions.https.onCall(async (data) => {
             startAt: event.startAt,
             venueName: event.venueName || "",
             revealAt: event.revealAt,
+            naverProductUrl: event.naverProductUrl || null,
         } : null,
         isRevealed,
     };
@@ -2595,5 +2570,209 @@ exports.markSmsSentHttp = functions.https.onRequest(async (req, res) => {
     }
     await db.collection("smsTasks").doc(taskId).update(updateData);
     res.status(200).json({ success: true });
+});
+/**
+ * 봇용 — 네이버 주문번호로 취소 처리
+ * POST /cancelNaverOrderHttp
+ * Body: { naverOrderId }
+ */
+exports.cancelNaverOrderHttp = functions.https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return;
+    }
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.replace("Bearer ", "");
+    if (token !== BOT_API_KEY) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+    }
+    const { naverOrderId } = req.body;
+    if (!naverOrderId) {
+        res.status(400).json({ error: "naverOrderId 필요" });
+        return;
+    }
+    // naverOrderId로 Firestore 문서 조회
+    const snap = await db.collection("naverOrders")
+        .where("naverOrderId", "==", naverOrderId)
+        .limit(1)
+        .get();
+    if (snap.empty) {
+        res.status(404).json({ error: "해당 네이버 주문을 찾을 수 없습니다" });
+        return;
+    }
+    const orderDoc = snap.docs[0];
+    const order = orderDoc.data();
+    if (order.status !== "confirmed") {
+        res.status(200).json({ success: true, message: "이미 취소된 주문", alreadyCancelled: true });
+        return;
+    }
+    const now = admin.firestore.Timestamp.now();
+    const batch = db.batch();
+    const ticketIds = order.ticketIds || [];
+    for (const tid of ticketIds) {
+        const ticketRef = db.collection("mobileTickets").doc(tid);
+        const ticketDoc = await ticketRef.get();
+        if (!ticketDoc.exists)
+            continue;
+        const ticket = ticketDoc.data();
+        batch.update(ticketRef, { status: "cancelled", cancelledAt: now });
+        if (ticket.seatId) {
+            batch.update(db.collection("seats").doc(ticket.seatId), {
+                status: "available",
+                updatedAt: now,
+            });
+        }
+    }
+    batch.update(orderDoc.ref, { status: "cancelled", cancelledAt: now });
+    await batch.commit();
+    functions.logger.info(`봇 자동 취소: naverOrderId=${naverOrderId}, 티켓 ${ticketIds.length}장`);
+    res.status(200).json({
+        success: true,
+        cancelledTickets: ticketIds.length,
+        orderId: orderDoc.id,
+    });
+});
+/**
+ * 네이버 스토어 상품 정보 크롤링 (공개 페이지)
+ * POST /scrapeNaverProductHttp
+ * Body: { url } — e.g. "https://smartstore.naver.com/storename/products/12345"
+ */
+exports.scrapeNaverProductHttp = functions
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return;
+    }
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.replace("Bearer ", "");
+    // Admin Firebase Auth token 또는 BOT_API_KEY
+    let isAuthed = token === BOT_API_KEY;
+    if (!isAuthed) {
+        try {
+            await admin.auth().verifyIdToken(token);
+            isAuthed = true;
+        }
+        catch { /* not a valid firebase token */ }
+    }
+    if (!isAuthed) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+    }
+    const { url } = req.body;
+    if (!url) {
+        res.status(400).json({ error: "url 필요" });
+        return;
+    }
+    try {
+        // 네이버 스마트스토어 상품 페이지 HTML fetch
+        const response = await fetch(url, {
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept-Language": "ko-KR,ko;q=0.9",
+            },
+        });
+        if (!response.ok) {
+            res.status(400).json({ error: `페이지 요청 실패: ${response.status}` });
+            return;
+        }
+        const html = await response.text();
+        // 네이버 스마트스토어는 window.__PRELOADED_STATE__ 에 JSON 데이터를 넣어둠
+        const stateMatch = html.match(/window\.__PRELOADED_STATE__\s*=\s*(".*?")\s*[;<]/);
+        let product = {};
+        if (stateMatch) {
+            try {
+                // JSON-encoded string inside quotes — need double parse
+                const jsonStr = JSON.parse(stateMatch[1]);
+                const state = JSON.parse(jsonStr);
+                const productInfo = state?.product?.A || state?.product?.a || {};
+                const channel = state?.channel || {};
+                product = {
+                    title: productInfo.name || "",
+                    price: productInfo.salePrice || productInfo.price || 0,
+                    imageUrl: productInfo.representImage?.url || productInfo.productImages?.[0]?.url || "",
+                    options: (productInfo.optionCombinations || []).map((opt) => ({
+                        name: opt.optionName1 || opt.name || "",
+                        price: opt.price || productInfo.salePrice || 0,
+                        stockQuantity: opt.stockQuantity ?? null,
+                    })),
+                    storeName: channel.channelName || "",
+                };
+            }
+            catch (parseErr) {
+                functions.logger.warn("PRELOADED_STATE 파싱 실패:", parseErr.message);
+            }
+        }
+        // fallback: OG 태그에서 추출
+        if (!product.title) {
+            const ogTitle = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/);
+            product.title = ogTitle?.[1] || "";
+        }
+        if (!product.imageUrl) {
+            const ogImage = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/);
+            product.imageUrl = ogImage?.[1] || "";
+        }
+        if (!product.price) {
+            const priceMatch = html.match(/<meta\s+property="product:price:amount"\s+content="(\d+)"/);
+            product.price = priceMatch ? parseInt(priceMatch[1]) : 0;
+        }
+        res.status(200).json({ success: true, product });
+    }
+    catch (err) {
+        functions.logger.error("스크래핑 에러:", err);
+        res.status(500).json({ error: err.message || "스크래핑 실패" });
+    }
+});
+/**
+ * 봇이 스크래핑한 네이버 상품 목록을 Firestore에 동기화
+ * POST /syncNaverProductsHttp
+ * Body: { products: [{ name, price, productNo }] }
+ */
+exports.syncNaverProductsHttp = functions.https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return;
+    }
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.replace("Bearer ", "");
+    if (token !== BOT_API_KEY) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+    }
+    const { products } = req.body;
+    if (!Array.isArray(products)) {
+        res.status(400).json({ error: "products 배열 필요" });
+        return;
+    }
+    try {
+        const batch = db.batch();
+        const now = admin.firestore.Timestamp.now();
+        for (const p of products) {
+            const docId = String(p.productNo || p.name).replace(/[\/\s]/g, "_");
+            if (!docId)
+                continue;
+            const ref = db.collection("naverProducts").doc(docId);
+            batch.set(ref, {
+                productNo: p.productNo || "",
+                name: p.name || "",
+                price: p.price || 0,
+                url: `https://smartstore.naver.com/melon_symphony_orchestra/products/${p.productNo || ""}`,
+                syncedAt: now,
+            }, { merge: true });
+        }
+        await batch.commit();
+        functions.logger.info(`네이버 상품 동기화: ${products.length}개`);
+        res.status(200).json({ success: true, synced: products.length });
+    }
+    catch (err) {
+        functions.logger.error("상품 동기화 에러:", err);
+        res.status(500).json({ error: err.message });
+    }
 });
 //# sourceMappingURL=index.js.map
