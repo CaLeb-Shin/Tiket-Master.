@@ -60,6 +60,8 @@ class _NaverTicketWizardScreenState
 
   // Step 2: 좌석 등록
   ParsedSeatData? _seatData;
+  ExcelParseResult? _parseResult;
+  bool _isParsingSeat = false;
   bool _isUploadingSeats = false;
   String? _seatError;
 
@@ -848,69 +850,231 @@ class _NaverTicketWizardScreenState
               Text('좌석 등록',
                   style: AdminTheme.serif(fontSize: 22)),
               const SizedBox(height: 4),
-              Text('좌석 배치도 엑셀을 업로드하세요',
+              Text('네이버 스마트스토어의 좌석현황 엑셀을 업로드하세요',
                   style: AdminTheme.sans(
                       fontSize: 13, color: AdminTheme.textTertiary)),
               const SizedBox(height: 32),
 
               // 엑셀 업로드 영역
               GestureDetector(
-                onTap: _pickSeatExcel,
-                child: Container(
+                onTap: _isParsingSeat ? null : _pickSeatExcel,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 40),
+                  padding: const EdgeInsets.symmetric(vertical: 32),
                   decoration: BoxDecoration(
                     color: AdminTheme.card,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
                       color: _seatData != null
                           ? AdminTheme.success
-                          : AdminTheme.border,
-                      width: _seatData != null ? 1 : 0.5,
+                          : _seatError != null
+                              ? AdminTheme.error
+                              : AdminTheme.border,
+                      width: _seatData != null || _seatError != null ? 1 : 0.5,
+                    ),
+                  ),
+                  child: _isParsingSeat
+                      ? Column(
+                          children: [
+                            const SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: AdminTheme.gold,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              '좌석 배치도 분석 중...',
+                              style: AdminTheme.sans(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AdminTheme.gold,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '엑셀 파싱 및 좌석 데이터 추출 중입니다',
+                              style: AdminTheme.sans(
+                                fontSize: 12,
+                                color: AdminTheme.textTertiary,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            Icon(
+                              _seatData != null
+                                  ? Icons.check_circle_rounded
+                                  : _seatError != null
+                                      ? Icons.error_outline_rounded
+                                      : Icons.upload_file_rounded,
+                              size: 36,
+                              color: _seatData != null
+                                  ? AdminTheme.success
+                                  : _seatError != null
+                                      ? AdminTheme.error
+                                      : AdminTheme.textTertiary,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _seatData != null
+                                  ? '좌석 ${_seatData!.totalSeats}석 로드 완료'
+                                  : _seatError != null
+                                      ? '파싱 실패'
+                                      : '엑셀 파일 선택 (.xlsx)',
+                              style: AdminTheme.sans(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: _seatData != null
+                                    ? AdminTheme.success
+                                    : _seatError != null
+                                        ? AdminTheme.error
+                                        : AdminTheme.textSecondary,
+                              ),
+                            ),
+                            if (_seatData != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                _seatData!.gradeSummary,
+                                style: AdminTheme.sans(
+                                    fontSize: 12, color: AdminTheme.textTertiary),
+                              ),
+                            ],
+                            if (_seatError != null) ...[
+                              const SizedBox(height: 8),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: Text(
+                                  _seatError!,
+                                  style: AdminTheme.sans(
+                                      fontSize: 12, color: AdminTheme.error),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                ),
+              ),
+
+              // 파싱 결과 상세 (성공 시)
+              if (_seatData != null && _parseResult != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AdminTheme.surface,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: AdminTheme.success.withValues(alpha: 0.2),
+                      width: 0.5,
                     ),
                   ),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        _seatData != null
-                            ? Icons.check_circle_rounded
-                            : Icons.upload_file_rounded,
-                        size: 36,
-                        color: _seatData != null
-                            ? AdminTheme.success
-                            : AdminTheme.textTertiary,
+                      Row(
+                        children: [
+                          const Icon(Icons.analytics_outlined,
+                              size: 14, color: AdminTheme.success),
+                          const SizedBox(width: 6),
+                          Text('파싱 결과',
+                              style: AdminTheme.sans(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AdminTheme.success)),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      Text(
-                        _seatData != null
-                            ? '좌석 ${_seatData!.totalSeats}석 로드됨'
-                            : '엑셀 파일 선택',
-                        style: AdminTheme.sans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: _seatData != null
-                              ? AdminTheme.success
-                              : AdminTheme.textSecondary,
-                        ),
+                      const SizedBox(height: 8),
+                      _parseDetailRow(
+                        '감지 형식',
+                        _formatName(_parseResult!.detectedFormat),
                       ),
-                      if (_seatData != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          _seatData!.gradeSummary,
-                          style: AdminTheme.sans(
-                              fontSize: 12, color: AdminTheme.textTertiary),
-                        ),
-                      ],
-                      if (_seatError != null) ...[
-                        const SizedBox(height: 8),
-                        Text(_seatError!,
-                            style: AdminTheme.sans(
-                                fontSize: 12, color: AdminTheme.error)),
-                      ],
+                      _parseDetailRow(
+                        '총 좌석',
+                        '${_seatData!.totalSeats}석',
+                      ),
+                      _parseDetailRow(
+                        '등급별',
+                        _seatData!.gradeSummary,
+                      ),
+                      if (_parseResult!.warnings.isNotEmpty)
+                        for (final w in _parseResult!.warnings)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.warning_amber_rounded,
+                                    size: 12, color: AdminTheme.warning),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    w,
+                                    style: AdminTheme.sans(
+                                      fontSize: 11,
+                                      color: AdminTheme.warning,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                     ],
                   ),
                 ),
-              ),
+              ],
+
+              // 좌석 수 적으면 경고
+              if (_seatData != null && _seatData!.totalSeats < 10) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AdminTheme.warning.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: AdminTheme.warning.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.warning_amber_rounded,
+                              size: 14, color: AdminTheme.warning),
+                          const SizedBox(width: 6),
+                          Text('좌석 수가 너무 적습니다',
+                              style: AdminTheme.sans(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AdminTheme.warning)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '좌석배치도 이미지 파일이 아닌, 네이버 스마트스토어에서 다운받은\n'
+                        '「상품별좌석현황」 엑셀 파일을 업로드해주세요.\n\n'
+                        '헤더 형식: No | 이용(관람)일 | 회차 | 좌석등급 | 층 | 열 | 좌석수 | 좌석번호',
+                        style: AdminTheme.sans(
+                          fontSize: 11,
+                          color: AdminTheme.warning,
+                          height: 1.6,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 16),
 
               // 형식 안내
@@ -928,8 +1092,9 @@ class _NaverTicketWizardScreenState
                             fontSize: 12, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 6),
                     Text(
-                      '• 비주얼: 셀 위치 = 좌석 위치, 값 = 등급 (VIP/R/S/A)\n'
+                      '• 네이버 좌석현황: 좌석등급/층/열/좌석번호 (VIP석, R석, S석, A석)\n'
                       '• 리스트: 구역/층/열/번호/등급 컬럼\n'
+                      '• 비주얼: 셀 위치 = 좌석 위치, 값 = 등급 (VIP/R/S/A)\n'
                       '• 행열: 행 = 좌석열, 열 = 좌석번호, 값 = 등급',
                       style: AdminTheme.sans(
                           fontSize: 11,
@@ -980,6 +1145,45 @@ class _NaverTicketWizardScreenState
     );
   }
 
+  Widget _parseDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 70,
+            child: Text(
+              label,
+              style: AdminTheme.sans(fontSize: 11, color: AdminTheme.textTertiary),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: AdminTheme.sans(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AdminTheme.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatName(ExcelFormat format) {
+    switch (format) {
+      case ExcelFormat.list:
+        return '리스트 (네이버 좌석현황)';
+      case ExcelFormat.visual:
+        return '비주얼 (좌석배치도)';
+      case ExcelFormat.rowCol:
+        return '행열 매트릭스';
+    }
+  }
+
   Future<void> _pickSeatExcel() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -989,20 +1193,53 @@ class _NaverTicketWizardScreenState
     if (result == null || result.files.single.bytes == null) return;
 
     setState(() {
+      _isParsingSeat = true;
       _seatError = null;
       _seatData = null;
+      _parseResult = null;
     });
+
+    // Brief delay so user sees the loading state
+    await Future.delayed(const Duration(milliseconds: 500));
 
     try {
       final parseResult =
           EnhancedExcelParser.parse(result.files.single.bytes!.toList());
+
+      if (!mounted) return;
+
       if (parseResult.errors.isNotEmpty) {
-        setState(() => _seatError = parseResult.errors.first);
+        setState(() {
+          _isParsingSeat = false;
+          _seatError = parseResult.errors.join('\n');
+          _parseResult = parseResult;
+        });
         return;
       }
-      setState(() => _seatData = ParsedSeatData.fromParseResult(parseResult));
+
+      if (parseResult.seats.isEmpty) {
+        setState(() {
+          _isParsingSeat = false;
+          _seatError =
+              '좌석을 찾을 수 없습니다.\n'
+              '네이버 스마트스토어의 「상품별좌석현황」 엑셀을 업로드해주세요.\n'
+              '(좌석등급/층/열/좌석번호 컬럼이 필요합니다)';
+          _parseResult = parseResult;
+        });
+        return;
+      }
+
+      setState(() {
+        _isParsingSeat = false;
+        _seatData = ParsedSeatData.fromParseResult(parseResult);
+        _parseResult = parseResult;
+      });
     } catch (e) {
-      setState(() => _seatError = '파싱 오류: $e');
+      if (!mounted) return;
+      setState(() {
+        _isParsingSeat = false;
+        _seatError = '파싱 오류: $e';
+      });
     }
   }
 
