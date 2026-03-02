@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:melon_core/data/models/venue.dart';
 import 'package:melon_core/data/repositories/venue_repository.dart';
+import 'package:melon_core/infrastructure/firebase/storage_service.dart';
 import '../../app/admin_theme.dart';
 import 'excel_seat_upload_helper.dart';
 
@@ -76,6 +77,12 @@ class _SeatLayoutEditorScreenState
   String? _dragTarget; // 'stage_left' | 'stage_right' | 'stage_bottom' | 'label:x,y' | 'divider:idx' | null
   Offset? _dragStartPos; // 드래그 시작 위치
 
+  // ─── Background Image ───
+  String? _backgroundImageUrl;
+  double _backgroundOpacity = 0.3;
+  ui.Image? _backgroundImage;
+  bool _uploadingImage = false;
+
   // ─── Loading ───
   bool _loading = true;
   bool _saving = false;
@@ -140,11 +147,17 @@ class _SeatLayoutEditorScreenState
             _labels[label.key] = label;
           }
           _dividers.addAll(layout.dividers);
+          _backgroundImageUrl = layout.backgroundImageUrl;
+          _backgroundOpacity = layout.backgroundOpacity;
         }
         // 기존 데이터가 있으면 좌석 배치 스텝으로 시작
         if (_seats.isNotEmpty) _step = _EditorStep.seats;
         _loading = false;
       });
+      // 배경 이미지 비동기 로드
+      if (_backgroundImageUrl != null) {
+        _loadBackgroundImage(_backgroundImageUrl!);
+      }
     } else if (mounted) {
       setState(() => _loading = false);
     }
@@ -164,6 +177,8 @@ class _SeatLayoutEditorScreenState
         labels: _labels.values.toList(),
         dividers: List.from(_dividers),
         gradePrice: Map.from(_gradePrice),
+        backgroundImageUrl: _backgroundImageUrl,
+        backgroundOpacity: _backgroundOpacity,
       );
 
       final repo = ref.read(venueRepositoryProvider);
@@ -190,6 +205,71 @@ class _SeatLayoutEditorScreenState
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  // ─── Background Image ───
+  Future<void> _pickAndUploadBackgroundImage() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) return;
+
+    setState(() => _uploadingImage = true);
+    try {
+      final storage = ref.read(storageServiceProvider);
+      final url = await storage.uploadSeatMapImage(
+        bytes: Uint8List.fromList(bytes),
+        venueId: widget.venueId,
+        fileName: file.name,
+      );
+      setState(() {
+        _backgroundImageUrl = url;
+      });
+      _loadBackgroundImage(url);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('배치도 이미지 업로드 완료')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('이미지 업로드 실패: $e'),
+            backgroundColor: AdminTheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingImage = false);
+    }
+  }
+
+  void _loadBackgroundImage(String url) {
+    final provider = NetworkImage(url);
+    final stream = provider.resolve(const ImageConfiguration());
+    stream.addListener(ImageStreamListener(
+      (info, _) {
+        if (mounted) {
+          setState(() => _backgroundImage = info.image);
+        }
+      },
+      onError: (error, _) {
+        debugPrint('배경 이미지 로드 실패: $error');
+      },
+    ));
+  }
+
+  void _removeBackgroundImage() {
+    setState(() {
+      _backgroundImageUrl = null;
+      _backgroundImage = null;
+    });
   }
 
   // ─── Auto Numbering ───
@@ -1197,6 +1277,8 @@ class _SeatLayoutEditorScreenState
               stageWidthRatio: _stageWidthRatio,
               stageHeight: _stageHeight,
               stageShape: _stageShape,
+              backgroundImage: _backgroundImage,
+              backgroundOpacity: _backgroundOpacity,
               selectedSeatKey: _selectedSeat?.key,
               gradeColors: gradeColors,
               emptyDotColor: _emptyDotColor,
@@ -1436,6 +1518,104 @@ class _SeatLayoutEditorScreenState
                         fontSize: 10, fontWeight: FontWeight.w600)),
               ],
             ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 10),
+      _panelSection(
+        icon: Icons.image_rounded,
+        title: '배치도 배경 이미지',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_backgroundImageUrl != null) ...[
+              // 미리보기
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Stack(
+                  children: [
+                    Image.network(
+                      _backgroundImageUrl!,
+                      height: 120,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 120,
+                        color: AdminTheme.surface,
+                        child: const Center(child: Icon(Icons.broken_image, color: AdminTheme.textTertiary)),
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: InkWell(
+                        onTap: _removeBackgroundImage,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 14, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Text('투명도',
+                      style: AdminTheme.sans(
+                          fontSize: 10, color: AdminTheme.textTertiary)),
+                  Expanded(
+                    child: Slider(
+                      value: _backgroundOpacity,
+                      min: 0.05,
+                      max: 0.8,
+                      activeColor: AdminTheme.gold,
+                      onChanged: (v) =>
+                          setState(() => _backgroundOpacity = v),
+                    ),
+                  ),
+                  Text('${(_backgroundOpacity * 100).round()}%',
+                      style: AdminTheme.sans(
+                          fontSize: 10, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ] else ...[
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _uploadingImage ? null : _pickAndUploadBackgroundImage,
+                  icon: _uploadingImage
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AdminTheme.gold))
+                      : const Icon(Icons.upload_rounded, size: 16),
+                  label: Text(
+                    _uploadingImage ? '업로드 중...' : '배치도 이미지 업로드',
+                    style: AdminTheme.sans(fontSize: 12),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AdminTheme.textSecondary,
+                    side: const BorderSide(color: AdminTheme.border),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '공연장 좌석배치도 이미지를 배경으로 사용합니다',
+                style: AdminTheme.sans(
+                    fontSize: 9, color: AdminTheme.textTertiary),
+              ),
+            ],
           ],
         ),
       ),
@@ -2510,6 +2690,8 @@ class _SeatGridPainter extends CustomPainter {
   final List<LayoutDivider> dividers;
   final ({int x, int y})? dividerStart;
   final _EditorStep editorStep;
+  final ui.Image? backgroundImage;
+  final double backgroundOpacity;
 
   _SeatGridPainter({
     required this.gridCols,
@@ -2534,10 +2716,36 @@ class _SeatGridPainter extends CustomPainter {
     this.dividers = const [],
     this.dividerStart,
     this.editorStep = _EditorStep.seats,
+    this.backgroundImage,
+    this.backgroundOpacity = 0.3,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    // ─── Background Image ───
+    if (backgroundImage != null) {
+      final paint = Paint()
+        ..colorFilter = ColorFilter.mode(
+          Colors.black.withValues(alpha: 1.0 - backgroundOpacity),
+          BlendMode.dstIn,
+        );
+      final src = Rect.fromLTWH(
+        0, 0,
+        backgroundImage!.width.toDouble(),
+        backgroundImage!.height.toDouble(),
+      );
+      final dst = Rect.fromLTWH(0, 0, size.width, size.height);
+      canvas.saveLayer(dst, Paint());
+      canvas.drawImageRect(backgroundImage!, src, dst, Paint());
+      canvas.drawRect(
+        dst,
+        Paint()
+          ..color = Colors.black.withValues(alpha: 1.0 - backgroundOpacity)
+          ..blendMode = BlendMode.dstIn,
+      );
+      canvas.restore();
+    }
+
     // ─── Stage area ───
     _drawStage(canvas, size);
 

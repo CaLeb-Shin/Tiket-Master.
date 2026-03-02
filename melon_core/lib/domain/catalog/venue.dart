@@ -409,6 +409,8 @@ class VenueSeatLayout {
   final List<LayoutLabel> labels; // 텍스트 라벨
   final List<LayoutDivider> dividers; // 구분선 (팬스/통로)
   final Map<String, int> gradePrice; // 등급별 가격
+  final String? backgroundImageUrl; // 배치도 배경 이미지 URL
+  final double backgroundOpacity; // 배경 이미지 투명도 (0.0~1.0)
 
   VenueSeatLayout({
     this.gridCols = 60,
@@ -421,6 +423,8 @@ class VenueSeatLayout {
     this.labels = const [],
     this.dividers = const [],
     this.gradePrice = const {},
+    this.backgroundImageUrl,
+    this.backgroundOpacity = 0.3,
   });
 
   int get totalSeats => seats.length;
@@ -455,6 +459,8 @@ class VenueSeatLayout {
               .toList() ??
           [],
       gradePrice: Map<String, int>.from(data['gradePrice'] ?? {}),
+      backgroundImageUrl: data['backgroundImageUrl'] as String?,
+      backgroundOpacity: (data['backgroundOpacity'] ?? 0.3).toDouble(),
     );
   }
 
@@ -470,6 +476,8 @@ class VenueSeatLayout {
       'labels': labels.map((l) => l.toMap()).toList(),
       'dividers': dividers.map((d) => d.toMap()).toList(),
       'gradePrice': gradePrice,
+      if (backgroundImageUrl != null) 'backgroundImageUrl': backgroundImageUrl,
+      'backgroundOpacity': backgroundOpacity,
     };
   }
 }
