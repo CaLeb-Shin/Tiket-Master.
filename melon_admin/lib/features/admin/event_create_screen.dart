@@ -667,6 +667,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         _sectionHeader('기본 정보'),
         const SizedBox(height: 24),
         _field('공연명', isRequired: true,
+            guide: '→ 메인 화면 카드 + 상세 페이지 상단 타이틀',
             child: TextFormField(
               controller: _titleCtrl,
               style: _inputStyle(),
@@ -683,20 +684,20 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                 children: [
                   Expanded(
                     child:
-                        _field('카테고리', isRequired: true, child: _buildCategoryDropdown()),
+                        _field('카테고리', isRequired: true, guide: '→ 메인 필터 + 상세 태그', child: _buildCategoryDropdown()),
                   ),
                   const SizedBox(width: 24),
                   Expanded(
-                    child: _field('공연일시', isRequired: true, child: _buildDateTimePicker()),
+                    child: _field('공연일시', isRequired: true, guide: '→ 상세 DATE 칸 + 티켓 QR', child: _buildDateTimePicker()),
                   ),
                 ],
               );
             }
             return Column(
               children: [
-                _field('카테고리', isRequired: true, child: _buildCategoryDropdown()),
+                _field('카테고리', isRequired: true, guide: '→ 메인 필터 + 상세 태그', child: _buildCategoryDropdown()),
                 const SizedBox(height: 20),
-                _field('공연일시', isRequired: true, child: _buildDateTimePicker()),
+                _field('공연일시', isRequired: true, guide: '→ 상세 DATE 칸 + 티켓 QR', child: _buildDateTimePicker()),
               ],
             );
           },
@@ -710,7 +711,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         const SizedBox(height: 20),
 
         // ── 태그 ──
-        _field('태그', child: _buildTagsSelector()),
+        _field('태그', guide: '→ 메인 필터 + 상세 태그 배지', child: _buildTagsSelector()),
 
         const SizedBox(height: 20),
 
@@ -726,7 +727,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
         // ── Section 2: 공연장 (스탠딩이 아닌 경우에만) ──
         if (!_isStanding) ...[
-          _sectionHeader('공연장'),
+          _sectionHeader('공연장', guide: '좌석 선택 화면 + 상세 페이지 VENUE 칸에 표시'),
           const SizedBox(height: 24),
           if (_isEditMode) ...[
             // 수정 모드: 좌석 배치 변경 불가 안내
@@ -757,7 +758,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             // 수정 모드에서도 등급별 가격은 수정 가능
             if (_enabledGrades.isNotEmpty) ...[
               const SizedBox(height: 48),
-              _sectionHeader('등급별 가격'),
+              _sectionHeader('등급별 가격', guide: '좌석 선택 등급표 + 결제 금액에 적용'),
               const SizedBox(height: 24),
               _buildGradeSelector(),
             ],
@@ -766,7 +767,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             // ── Section 3: 등급별 가격 (좌석 데이터 로드 후 자동 표시) ──
             if (_seatMapData != null) ...[
               const SizedBox(height: 48),
-              _sectionHeader('등급별 가격'),
+              _sectionHeader('등급별 가격', guide: '좌석 선택 등급표 + 결제 금액에 적용'),
               const SizedBox(height: 24),
               _buildGradeSelector(),
             ],
@@ -776,14 +777,14 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         const SizedBox(height: 48),
 
         // ── Section 4: 포스터 ──
-        _sectionHeader('포스터'),
+        _sectionHeader('포스터', guide: '메인 화면 카드 배경 + 상세 페이지 헤더 이미지'),
         const SizedBox(height: 24),
         _buildPosterPicker(),
 
         const SizedBox(height: 48),
 
         // ── Section 4.5: 팜플렛 ──
-        _sectionHeader('팜플렛'),
+        _sectionHeader('팜플렛', guide: '상세 페이지 \'상세정보\' 탭에 이미지로 표시'),
         const SizedBox(height: 8),
         Text('공연 상세 팜플렛 이미지를 등록하세요 (최대 $_maxPamphlets장, 장당 3MB)',
             style: AdminTheme.sans(
@@ -796,28 +797,28 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         const SizedBox(height: 48),
 
         // ── Section 5: 상세 정보 ──
-        _sectionHeader('상세 정보'),
+        _sectionHeader('상세 정보', guide: '상세 페이지 하단 정보 영역에 표시'),
         const SizedBox(height: 24),
         _buildOptionalFields(),
 
         const SizedBox(height: 48),
 
         // ── Section 6: 제작/기획 ──
-        _sectionHeader('제작 / 기획'),
+        _sectionHeader('제작 / 기획', guide: '상세 페이지 하단 크레딧에 표시'),
         const SizedBox(height: 24),
         _buildProducerFields(),
 
         const SizedBox(height: 48),
 
         // ── Section 7: 할인 정책 ──
-        _sectionHeader('할인 정책'),
+        _sectionHeader('할인 정책', guide: '결제 화면에서 할인 자동 적용'),
         const SizedBox(height: 24),
         _buildDiscountSection(),
 
         const SizedBox(height: 48),
 
         // ── Section 8: 추가 설정 ──
-        _sectionHeader('추가 설정'),
+        _sectionHeader('추가 설정', guide: '예매 화면 + 티켓 상세에 반영'),
         const SizedBox(height: 24),
         _buildAdditionalSettings(),
 
@@ -1106,24 +1107,39 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   // SECTION HEADER — Serif italic + thin line
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _sectionHeader(String title) {
-    return Row(
+  Widget _sectionHeader(String title, {String? guide}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: AdminTheme.serif(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            fontStyle: FontStyle.italic,
-          ),
+        Row(
+          children: [
+            Text(
+              title,
+              style: AdminTheme.serif(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Container(
+                height: 0.5,
+                color: AdminTheme.sage.withValues(alpha: 0.3),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Container(
-            height: 0.5,
-            color: AdminTheme.sage.withValues(alpha: 0.3),
+        if (guide != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            guide,
+            style: AdminTheme.sans(
+              fontSize: 10,
+              color: AdminTheme.sage.withValues(alpha: 0.4),
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -2419,6 +2435,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       children: [
         // 공연 소개
         _field('공연 소개',
+            guide: '→ 상세 \'상세정보\' 탭 텍스트',
             child: TextFormField(
               controller: _descriptionCtrl,
               style: _inputStyle(),
@@ -2431,7 +2448,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         LayoutBuilder(
           builder: (context, constraints) {
             final isWide = constraints.maxWidth >= 460;
-            final ageLimitField = _field('관람등급', isRequired: true,
+            final ageLimitField = _field('관람등급', isRequired: true, guide: '→ 상세 AGE 칸',
                 child: DropdownButtonFormField<String>(
                   initialValue: _ageLimit,
                   items: _ageLimits
@@ -2447,7 +2464,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   dropdownColor: AdminTheme.surface,
                   icon: const SizedBox.shrink(),
                 ));
-            final runningTimeField = _field('공연시간 (분)', isRequired: true,
+            final runningTimeField = _field('공연시간 (분)', isRequired: true, guide: '→ 상세 TIME 칸',
                 child: TextFormField(
                   controller: _runningTimeCtrl,
                   style: _inputStyle(),
@@ -2476,7 +2493,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         const SizedBox(height: 20),
 
         // 공연장명
-        _field('공연장명', isRequired: true,
+        _field('공연장명', isRequired: true, guide: '→ 상세 VENUE 칸',
             child: TextFormField(
               controller: _venueNameCtrl,
               style: _inputStyle(),
@@ -2489,7 +2506,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         const SizedBox(height: 20),
 
         // 출연진
-        _field('출연진',
+        _field('출연진', guide: '→ 상세 \'출연진\' 섹션',
             child: TextFormField(
               controller: _castCtrl,
               style: _inputStyle(),
@@ -2727,7 +2744,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     return Column(
       children: [
         // 예매 유의사항
-        _field('예매 유의사항',
+        _field('예매 유의사항', guide: '→ 예매 완료 화면 + 티켓 상세',
             child: TextFormField(
               controller: _noticeCtrl,
               style: _inputStyle(),
@@ -2739,7 +2756,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         const SizedBox(height: 20),
 
         // 예매 관련 문의
-        _field('예매 관련 문의',
+        _field('예매 관련 문의', guide: '→ 상세 하단 문의 영역',
             child: TextFormField(
               controller: _inquiryInfoCtrl,
               style: _inputStyle(),
@@ -2751,7 +2768,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         const SizedBox(height: 20),
 
         // 최대 구매 수량
-        _field('1인 최대 구매 수량',
+        _field('1인 최대 구매 수량', guide: '→ 좌석 선택 시 제한 적용',
             child: TextFormField(
               controller: _maxTicketsCtrl,
               style: _inputStyle(),
@@ -3675,7 +3692,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   // SHARED WIDGETS — Editorial field + underline input
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _field(String label, {required Widget child, bool isRequired = false}) {
+  Widget _field(String label, {required Widget child, bool isRequired = false, String? guide}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3697,6 +3714,19 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   color: AdminTheme.error,
                 ),
               ),
+            if (guide != null) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  guide,
+                  style: AdminTheme.sans(
+                    fontSize: 9,
+                    color: AdminTheme.sage.withValues(alpha: 0.4),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 8),
