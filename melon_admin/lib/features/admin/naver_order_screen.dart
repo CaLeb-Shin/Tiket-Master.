@@ -10,12 +10,26 @@ import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/models/naver_order.dart';
 import 'package:melon_core/data/models/mobile_ticket.dart';
 import 'package:melon_core/infrastructure/firebase/functions_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // =============================================================================
 // 네이버 주문 관리 화면 (Editorial / Luxury Magazine Admin Design)
 // =============================================================================
 
 const _ticketBaseUrl = 'https://melonticket-web-20260216.vercel.app/m/';
+
+// SMS 발송 상태 스트림 (orderId 기준)
+final _smsStatusProvider =
+    StreamProvider.family<String?, String>((ref, orderId) {
+  return FirebaseFirestore.instance
+      .collection('smsTasks')
+      .where('naverOrderId', isEqualTo: orderId)
+      .limit(1)
+      .snapshots()
+      .map((snap) => snap.docs.isEmpty
+          ? null
+          : snap.docs.first.data()['status'] as String?);
+});
 const _gradeOrder = ['VIP', 'R', 'S', 'A'];
 
 class NaverOrderScreen extends ConsumerStatefulWidget {
@@ -1194,6 +1208,9 @@ class _NaverOrderRow extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Status label
+                    // SMS status badge
+                    _SmsBadge(orderId: order.id),
+                    const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
@@ -1426,6 +1443,54 @@ class _TicketRow extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+// ─── SMS 발송 상태 배지 ───
+
+class _SmsBadge extends ConsumerWidget {
+  final String orderId;
+  const _SmsBadge({required this.orderId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final smsAsync = ref.watch(_smsStatusProvider(orderId));
+
+    return smsAsync.when(
+      data: (status) {
+        if (status == null) return const SizedBox.shrink();
+
+        IconData icon;
+        Color color;
+        String tooltip;
+
+        switch (status) {
+          case 'sent':
+            icon = Icons.sms_rounded;
+            color = AdminTheme.success;
+            tooltip = 'SMS 발송 완료';
+          case 'pending':
+            icon = Icons.schedule_send_rounded;
+            color = AdminTheme.gold;
+            tooltip = 'SMS 발송 대기';
+          case 'failed':
+            icon = Icons.sms_failed_rounded;
+            color = AdminTheme.error;
+            tooltip = 'SMS 발송 실패';
+          default:
+            icon = Icons.sms_rounded;
+            color = AdminTheme.textTertiary;
+            tooltip = 'SMS $status';
+        }
+
+        return Tooltip(
+          message: tooltip,
+          child: Icon(icon, size: 14, color: color),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }

@@ -2541,6 +2541,28 @@ export const createNaverOrder = functions.https.onCall(async (data: any, context
 
   await batch.commit();
 
+  // SMS 발송 태스크 생성 (봇이 폴링해서 발송)
+  const eventData = eventDoc.data();
+  const eventTitle = eventData?.title || "";
+  try {
+    await db.collection("smsTasks").add({
+      eventId,
+      naverOrderId: orderRef.id,
+      buyerName,
+      buyerPhone,
+      productName: productName || eventTitle,
+      seatGrade,
+      quantity,
+      ticketUrls: ticketUrls.map((t: any) => t.url),
+      status: "pending",
+      createdAt: admin.firestore.Timestamp.now(),
+      sentAt: null,
+      error: null,
+    });
+  } catch (smsErr: any) {
+    functions.logger.warn("SMS 태스크 생성 실패 (주문은 정상 생성됨):", smsErr.message);
+  }
+
   functions.logger.info(
     `네이버 주문 생성: ${naverOrderId}, ${buyerName}, ${seatGrade} x${quantity}, 티켓 ${ticketIds.length}장`
   );
@@ -2912,6 +2934,27 @@ export const createNaverOrderHttp = functions.https.onRequest(async (req, res) =
 
     await batch.commit();
 
+    // SMS 태스크 생성
+    try {
+      const eventData = eventDoc.data();
+      await db.collection("smsTasks").add({
+        eventId,
+        naverOrderId: orderRef.id,
+        buyerName,
+        buyerPhone,
+        productName: productName || eventData?.title || "",
+        seatGrade,
+        quantity,
+        ticketUrls: ticketUrls.map((t: any) => t.url),
+        status: "pending",
+        createdAt: admin.firestore.Timestamp.now(),
+        sentAt: null,
+        error: null,
+      });
+    } catch (smsErr: any) {
+      functions.logger.warn("[봇] SMS 태스크 생성 실패:", smsErr.message);
+    }
+
     functions.logger.info(
       `[봇] 네이버 주문 생성: ${naverOrderId}, ${buyerName}, ${seatGrade} x${quantity}, 티켓 ${ticketIds.length}장`
     );
@@ -2950,4 +2993,75 @@ export const listEventsHttp = functions.https.onRequest(async (req, res) => {
     };
   });
   res.status(200).json({ events });
+});
+
+/**
+ * 봇 SMS 폴링 — 대기중 SMS 태스크 가져오기
+ * GET /getPendingSmsHttp
+ */
+export const getPendingSmsHttp = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.replace("Bearer ", "");
+  if (token !== BOT_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const snap = await db.collection("smsTasks")
+    .where("status", "==", "pending")
+    .orderBy("createdAt")
+    .limit(10)
+    .get();
+
+  const tasks = snap.docs.map((doc) => {
+    const d = doc.data();
+    return {
+      id: doc.id,
+      buyerName: d.buyerName || "",
+      buyerPhone: d.buyerPhone || "",
+      productName: d.productName || "",
+      seatGrade: d.seatGrade || "",
+      quantity: d.quantity || 1,
+      ticketUrls: d.ticketUrls || [],
+    };
+  });
+
+  res.status(200).json({ tasks });
+});
+
+/**
+ * 봇 SMS 발송 결과 보고
+ * POST /markSmsSentHttp
+ * Body: { taskId, status: "sent" | "failed", error?: string }
+ */
+export const markSmsSentHttp = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.replace("Bearer ", "");
+  if (token !== BOT_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const { taskId, status, error } = req.body;
+  if (!taskId || !status) {
+    res.status(400).json({ error: "taskId와 status 필요" });
+    return;
+  }
+
+  const updateData: any = { status };
+  if (status === "sent") {
+    updateData.sentAt = admin.firestore.Timestamp.now();
+  }
+  if (error) {
+    updateData.error = error;
+  }
+
+  await db.collection("smsTasks").doc(taskId).update(updateData);
+  res.status(200).json({ success: true });
 });
