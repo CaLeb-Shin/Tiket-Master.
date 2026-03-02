@@ -1400,7 +1400,13 @@ class _NaverTicketWizardScreenState
   }
 
   Future<void> _uploadSeats() async {
-    if (_createdEventId == null || _seatData == null) return;
+    if (_seatData == null) return;
+    if (_createdEventId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('먼저 Step 1에서 공연을 등록해주세요')),
+      );
+      return;
+    }
     setState(() => _isUploadingSeats = true);
 
     try {

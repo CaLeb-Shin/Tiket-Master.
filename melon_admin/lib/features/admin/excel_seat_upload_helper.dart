@@ -810,21 +810,40 @@ class EnhancedExcelParser {
     List<String> errors,
     _ThemeColorResolver colorResolver,
   ) {
-    // 1) Detect block headers (cells containing "블록")
-    // Maps column ranges to block names
+    // 1) Detect block/zone headers
+    // Patterns: "A블록(157)", "B(338)", "BL1", "1층(594석)", etc.
     final blockRanges = <_BlockRange>[];
     final rowLabelCols = <int>{}; // columns that contain row labels (열)
 
-    for (int r = 0; r < math.min(sheet.maxRows, 5); r++) {
+    // Scan more rows for headers (some files have headers below row 5)
+    final headerScanRows = math.min(sheet.maxRows, 10);
+    for (int r = 0; r < headerScanRows; r++) {
       for (int c = 0; c < sheet.maxColumns; c++) {
         final val = sheet.cell(
             CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r))
             .value?.toString().trim() ?? '';
+        if (val.isEmpty) continue;
+
+        String? blockName;
+        // "A블록(157)" → "A블록"
         if (val.contains('블록')) {
-          // Extract block name: "A블록(157)" → "A블록"
-          final name = RegExp(r'([A-Za-z가-힣]*블록)')
+          blockName = RegExp(r'([A-Za-z가-힣]*블록)')
               .firstMatch(val)?.group(1) ?? val;
-          blockRanges.add(_BlockRange(name: name, startCol: c, headerRow: r));
+        }
+        // "B(338)" or "BL1" or "A(128)" — single letter or BL+digit + optional (count)
+        else if (RegExp(r'^[A-K]\(\d+\)$').hasMatch(val)) {
+          blockName = val[0]; // "A(128)" → "A"
+        }
+        else if (RegExp(r'^BL\d$').hasMatch(val)) {
+          blockName = val; // "BL1"
+        }
+        // "1층(594석)" or "2층(212)" — floor + zone
+        else if (RegExp(r'^\d층').hasMatch(val) && val.contains('석')) {
+          // Don't add as block, but detect floor
+        }
+
+        if (blockName != null) {
+          blockRanges.add(_BlockRange(name: blockName, startCol: c, headerRow: r));
         }
         if (val == '열') {
           rowLabelCols.add(c);
@@ -842,9 +861,9 @@ class EnhancedExcelParser {
       }
     }
 
-    // 2) Detect floor from sheet content
+    // 2) Detect floor from sheet content or name
     String floor = defaultFloor;
-    for (int r = 0; r < math.min(sheet.maxRows, 5); r++) {
+    for (int r = 0; r < math.min(sheet.maxRows, 10); r++) {
       for (int c = 0; c < sheet.maxColumns; c++) {
         final val = sheet.cell(
             CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r))
