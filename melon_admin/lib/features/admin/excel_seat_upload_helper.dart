@@ -1,11 +1,14 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
+import 'package:archive/archive.dart' as archive;
 import 'package:excel/excel.dart' hide Border, TextSpan;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:melon_core/data/models/venue.dart';
+import 'package:xml/xml.dart' as xml;
 
 import 'dart:html' if (dart.library.io) 'excel_seat_upload_stub.dart' as html;
 
@@ -519,6 +522,8 @@ class EnhancedExcelParser {
   /// Auto-detect format and parse Excel bytes
   static ExcelParseResult parse(List<int> bytes, {int gridCols = 60}) {
     final excel = Excel.decodeBytes(bytes);
+    // Resolve theme colors from raw xlsx ZIP (dart excel package can't do this)
+    final colorResolver = _ThemeColorResolver(bytes);
     final allSeats = <LayoutSeat>[];
     final allWarnings = <String>[];
     final allErrors = <String>[];
@@ -532,7 +537,7 @@ class EnhancedExcelParser {
       }
 
       // Detect format from first row
-      final format = _detectFormat(sheet);
+      final format = _detectFormat(sheet, sheetName, colorResolver);
       detectedFormat ??= format;
 
       final floor =
@@ -543,7 +548,7 @@ class EnhancedExcelParser {
           _parseListFormat(sheet, sheetName, floor, allSeats, allWarnings, allErrors);
           break;
         case ExcelFormat.colorCoded:
-          _parseColorCodedFormat(sheet, sheetName, floor, allSeats, allWarnings, allErrors);
+          _parseColorCodedFormat(sheet, sheetName, floor, allSeats, allWarnings, allErrors, colorResolver);
           break;
         case ExcelFormat.visual:
           _parseVisualFormat(sheet, sheetName, floor, allSeats, allWarnings, allErrors);
@@ -583,7 +588,7 @@ class EnhancedExcelParser {
   }
 
   /// Detect format by analyzing first row headers
-  static ExcelFormat _detectFormat(Sheet sheet) {
+  static ExcelFormat _detectFormat(Sheet sheet, String sheetName, _ThemeColorResolver colorResolver) {
     final firstRow = <String>[];
     for (int c = 0; c < sheet.maxColumns; c++) {
       final cell = sheet.cell(
@@ -631,6 +636,7 @@ class EnhancedExcelParser {
 
     // Check for color-coded layout: numeric cells with colored backgrounds
     // (좌석배치도: 셀 값 = 좌석번호, 배경색 = 등급)
+    // Uses ThemeColorResolver to properly resolve Office theme colors
     int coloredNumericCells = 0;
     int totalNumericCells = 0;
     final scanRowsColor = math.min(sheet.maxRows, 15);
@@ -643,7 +649,9 @@ class EnhancedExcelParser {
         if (val.isEmpty) continue;
         if (int.tryParse(val) == null) continue;
         totalNumericCells++;
-        final bgHex = cell.cellStyle?.backgroundColor.colorHex ?? 'none';
+        // Try theme-resolved color first, then fall back to excel package
+        final resolvedHex = colorResolver.getBackgroundColor(sheetName, r, c);
+        final bgHex = resolvedHex != null ? 'FF$resolvedHex' : (cell.cellStyle?.backgroundColor.colorHex ?? 'none');
         if (bgHex != 'none' && bgHex != 'FF000000' && bgHex != 'FFFFFFFF') {
           coloredNumericCells++;
         }
@@ -800,6 +808,7 @@ class EnhancedExcelParser {
     List<LayoutSeat> seats,
     List<String> warnings,
     List<String> errors,
+    _ThemeColorResolver colorResolver,
   ) {
     // 1) Detect block headers (cells containing "블록")
     // Maps column ranges to block names
@@ -880,8 +889,9 @@ class EnhancedExcelParser {
         final seatNum = int.tryParse(val);
         if (seatNum == null) continue;
 
-        // Get background color
-        final bgHex = cell.cellStyle?.backgroundColor.colorHex ?? 'none';
+        // Get background color — use theme resolver first, then excel package fallback
+        final resolvedHex = colorResolver.getBackgroundColor(sheetName, r, c);
+        final bgHex = resolvedHex ?? cell.cellStyle?.backgroundColor.colorHex ?? 'none';
         final grade = _colorHexToGrade(bgHex);
         if (grade == null) {
           noColorSkipped++;
@@ -926,14 +936,15 @@ class EnhancedExcelParser {
     }
   }
 
-  /// Map Excel background color hex to grade
-  /// 빨강/빨강계열 → VIP, 파랑 → R, 초록 → S, 노랑 → A
-  /// 검정/흰색/없음 → null (skip)
+  /// Map Excel background color hex to grade using HSL hue.
+  /// Hue-based classification works correctly even with tinted/shaded theme colors.
+  /// 빨강/핑크/보라 → VIP, 파랑/시안 → R, 초록 → S, 노랑/오렌지 → A
+  /// 검정/흰색/회색 → null (skip)
   static String? _colorHexToGrade(String hex) {
     if (hex == 'none' || hex.isEmpty) return null;
 
     // Remove FF prefix if present (ARGB → RGB)
-    String rgb = hex;
+    String rgb = hex.toUpperCase();
     if (rgb.length == 8) rgb = rgb.substring(2);
     if (rgb.length != 6) return null;
 
@@ -941,36 +952,41 @@ class EnhancedExcelParser {
     final g = int.tryParse(rgb.substring(2, 4), radix: 16) ?? 0;
     final b = int.tryParse(rgb.substring(4, 6), radix: 16) ?? 0;
 
-    // Skip black (미판매), white (배경), and near-transparent
-    if (r < 30 && g < 30 && b < 30) return null;    // black
-    if (r > 240 && g > 240 && b > 240) return null;  // white
-    if (r == 0 && g == 0 && b == 0) return null;      // pure black
+    final maxC = math.max(r, math.max(g, b));
+    final minC = math.min(r, math.min(g, b));
+    final chroma = maxC - minC;
 
-    // Yellow: high R, high G, low B → A
-    if (r > 180 && g > 180 && b < 100) return 'A';
+    // Skip achromatic colors (black, white, gray)
+    if (maxC < 30) return null;         // black (미판매)
+    if (minC > 230) return null;        // white (배경)
+    if (chroma < 25) return null;       // gray (no distinguishable color)
 
-    // Red/burgundy/salmon: high R, low-mid G, low B → VIP
-    if (r > 140 && g < 120 && b < 120) return 'VIP';
+    // Calculate hue (0-360 degrees)
+    double hue;
+    if (chroma == 0) {
+      return null; // achromatic
+    } else if (maxC == r) {
+      hue = 60.0 * (((g - b) / chroma) % 6);
+    } else if (maxC == g) {
+      hue = 60.0 * ((b - r) / chroma + 2);
+    } else {
+      hue = 60.0 * ((r - g) / chroma + 4);
+    }
+    if (hue < 0) hue += 360;
 
-    // Purple: moderate R, low G, high-ish B → VIP (시야방해석 등)
-    if (r > 90 && g < 120 && b > 120 && r < b + 50) return 'VIP';
+    // Classify by hue range:
+    //   0-20, 340-360: Red/Pink       → VIP
+    //   20-70:         Orange/Yellow   → A
+    //   70-165:        Green           → S
+    //   165-260:       Blue/Cyan       → R
+    //   260-340:       Purple/Violet   → VIP
+    if (hue < 20 || hue >= 340) return 'VIP';
+    if (hue >= 20 && hue < 70) return 'A';
+    if (hue >= 70 && hue < 165) return 'S';
+    if (hue >= 165 && hue < 260) return 'R';
+    if (hue >= 260 && hue < 340) return 'VIP';
 
-    // Blue: low R, moderate G, high B → R
-    if (b > 140 && r < 120) return 'R';
-
-    // Green: low R, high G, low B → S
-    if (g > 140 && r < 120 && b < 120) return 'S';
-
-    // Green (brighter): like #9BBB59
-    if (g > 150 && r < g && b < g) return 'S';
-
-    // Blue (softer): like #4F81BD
-    if (b > 120 && r < b && g < b) return 'R';
-
-    // Orange/warm: high R, moderate G → could be A or VIP
-    if (r > 200 && g > 100 && g < 180 && b < 100) return 'A';
-
-    return null; // Unknown color → skip
+    return null;
   }
 
   /// Parse visual layout (cell position = seat position)
@@ -1130,6 +1146,300 @@ class _BlockRange {
     required this.headerRow,
     this.endCol = 0,
   });
+}
+
+/// Resolves Excel theme colors from raw xlsx ZIP data.
+/// The Dart `excel` package does NOT resolve theme colors — it returns 'none'
+/// for any cell colored with Office theme palette colors.
+/// This class manually parses theme1.xml + styles.xml + sheet XMLs to build
+/// a (sheetName, row, col) → RGB hex color map.
+class _ThemeColorResolver {
+  // fillId → resolved RGB hex (6 chars, uppercase, no alpha prefix)
+  final Map<int, String> _fillColors = {};
+
+  // styleIndex → fillId
+  final Map<int, int> _styleFillMap = {};
+
+  // sheetName → { rowIndex → { colIndex → styleIndex } }
+  final Map<String, Map<int, Map<int, int>>> _cellStyles = {};
+
+  _ThemeColorResolver(List<int> xlsxBytes) {
+    try {
+      final arch = archive.ZipDecoder().decodeBytes(xlsxBytes);
+      final themeColors = _parseTheme(arch);
+      _parseFills(arch, themeColors);
+      _parseStyleXfs(arch);
+      _parseSheets(arch);
+    } catch (_) {
+      // Silently fail — fall back to excel package's (broken) color data
+    }
+  }
+
+  /// Get resolved background RGB hex for a cell, or null if none/white/black.
+  String? getBackgroundColor(String sheetName, int row, int col) {
+    final sheetStyles = _cellStyles[sheetName];
+    if (sheetStyles == null) return null;
+
+    final rowStyles = sheetStyles[row];
+    if (rowStyles == null) return null;
+
+    final styleIdx = rowStyles[col];
+    if (styleIdx == null) return null;
+
+    final fillId = _styleFillMap[styleIdx];
+    if (fillId == null) return null;
+
+    return _fillColors[fillId];
+  }
+
+  /// Parse xl/theme/theme1.xml → theme index → RGB hex
+  Map<int, String> _parseTheme(archive.Archive arch) {
+    final themeColors = <int, String>{};
+    final themeFile = arch.findFile('xl/theme/theme1.xml');
+    if (themeFile == null) return themeColors;
+
+    final content = utf8.decode(themeFile.content as List<int>);
+    final doc = xml.XmlDocument.parse(content);
+
+    // Find <a:clrScheme> — may have namespace prefix or not
+    xml.XmlElement? clrScheme;
+    for (final elem in doc.descendants.whereType<xml.XmlElement>()) {
+      if (elem.localName == 'clrScheme') {
+        clrScheme = elem;
+        break;
+      }
+    }
+    if (clrScheme == null) return themeColors;
+
+    // Theme color order: dk1, lt1, dk2, lt2, accent1..accent6, hlink, folHlink
+    final colorNames = [
+      'dk1', 'lt1', 'dk2', 'lt2',
+      'accent1', 'accent2', 'accent3', 'accent4',
+      'accent5', 'accent6', 'hlink', 'folHlink',
+    ];
+
+    for (int i = 0; i < colorNames.length; i++) {
+      for (final child in clrScheme.children.whereType<xml.XmlElement>()) {
+        if (child.localName == colorNames[i]) {
+          // Look for <a:srgbClr val="4F81BD"/> or <a:sysClr lastClr="000000"/>
+          for (final sub in child.children.whereType<xml.XmlElement>()) {
+            if (sub.localName == 'srgbClr') {
+              final val = sub.getAttribute('val');
+              if (val != null && val.isNotEmpty) themeColors[i] = val.toUpperCase();
+              break;
+            } else if (sub.localName == 'sysClr') {
+              final lastClr = sub.getAttribute('lastClr');
+              if (lastClr != null && lastClr.isNotEmpty) themeColors[i] = lastClr.toUpperCase();
+              break;
+            }
+          }
+          break;
+        }
+      }
+    }
+    return themeColors;
+  }
+
+  /// Parse xl/styles.xml → fill patterns (resolve theme → RGB)
+  void _parseFills(archive.Archive arch, Map<int, String> themeColors) {
+    final stylesFile = arch.findFile('xl/styles.xml');
+    if (stylesFile == null) return;
+
+    final content = utf8.decode(stylesFile.content as List<int>);
+    final doc = xml.XmlDocument.parse(content);
+
+    // Collect all <fill> elements under <fills>
+    final fillsList = <xml.XmlElement>[];
+    for (final elem in doc.descendants.whereType<xml.XmlElement>()) {
+      if (elem.localName == 'fills') {
+        for (final fill in elem.children.whereType<xml.XmlElement>()) {
+          if (fill.localName == 'fill') fillsList.add(fill);
+        }
+        break;
+      }
+    }
+
+    for (int i = 0; i < fillsList.length; i++) {
+      xml.XmlElement? patternFill;
+      for (final child in fillsList[i].children.whereType<xml.XmlElement>()) {
+        if (child.localName == 'patternFill') {
+          patternFill = child;
+          break;
+        }
+      }
+      if (patternFill == null) continue;
+
+      xml.XmlElement? fgColor;
+      for (final child in patternFill.children.whereType<xml.XmlElement>()) {
+        if (child.localName == 'fgColor') {
+          fgColor = child;
+          break;
+        }
+      }
+      if (fgColor == null) continue;
+
+      // Direct RGB: <fgColor rgb="FFC0504D"/>
+      final rgbAttr = fgColor.getAttribute('rgb');
+      if (rgbAttr != null && rgbAttr.isNotEmpty) {
+        // Strip alpha prefix (ARGB → RGB)
+        final hex = rgbAttr.length == 8
+            ? rgbAttr.substring(2).toUpperCase()
+            : rgbAttr.toUpperCase();
+        _fillColors[i] = hex;
+        continue;
+      }
+
+      // Theme reference: <fgColor theme="5" tint="0.39997"/>
+      final themeStr = fgColor.getAttribute('theme');
+      if (themeStr != null) {
+        final themeIdx = int.tryParse(themeStr);
+        if (themeIdx != null && themeColors.containsKey(themeIdx)) {
+          String resolved = themeColors[themeIdx]!;
+
+          // Apply tint if present
+          final tintStr = fgColor.getAttribute('tint');
+          if (tintStr != null) {
+            final tint = double.tryParse(tintStr);
+            if (tint != null) resolved = _applyTint(resolved, tint);
+          }
+          _fillColors[i] = resolved;
+        }
+      }
+    }
+  }
+
+  /// Parse xl/styles.xml → cellXfs: style index → fill index
+  void _parseStyleXfs(archive.Archive arch) {
+    final stylesFile = arch.findFile('xl/styles.xml');
+    if (stylesFile == null) return;
+
+    final content = utf8.decode(stylesFile.content as List<int>);
+    final doc = xml.XmlDocument.parse(content);
+
+    // Find <cellXfs> element
+    for (final elem in doc.descendants.whereType<xml.XmlElement>()) {
+      if (elem.localName == 'cellXfs') {
+        int idx = 0;
+        for (final xf in elem.children.whereType<xml.XmlElement>()) {
+          if (xf.localName == 'xf') {
+            final fillIdStr = xf.getAttribute('fillId');
+            if (fillIdStr != null) {
+              _styleFillMap[idx] = int.tryParse(fillIdStr) ?? 0;
+            }
+            idx++;
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  /// Parse xl/worksheets/sheetN.xml → cell (row, col) → style index
+  void _parseSheets(archive.Archive arch) {
+    // Get ordered sheet names from workbook.xml
+    final sheetNames = <int, String>{};
+    final wbFile = arch.findFile('xl/workbook.xml');
+    if (wbFile != null) {
+      final content = utf8.decode(wbFile.content as List<int>);
+      final doc = xml.XmlDocument.parse(content);
+
+      int idx = 1;
+      for (final elem in doc.descendants.whereType<xml.XmlElement>()) {
+        if (elem.localName == 'sheet') {
+          sheetNames[idx] = elem.getAttribute('name') ?? 'Sheet$idx';
+          idx++;
+        }
+      }
+    }
+
+    // Parse each sheet file
+    for (final file in arch.files) {
+      if (!file.name.startsWith('xl/worksheets/sheet') ||
+          !file.name.endsWith('.xml')) continue;
+
+      final sheetNumStr = file.name
+          .replaceAll('xl/worksheets/sheet', '')
+          .replaceAll('.xml', '');
+      final sheetNum = int.tryParse(sheetNumStr) ?? 0;
+      final name = sheetNames[sheetNum] ?? 'Sheet$sheetNum';
+
+      final content = utf8.decode(file.content as List<int>);
+      final doc = xml.XmlDocument.parse(content);
+
+      final cellStyleMap = <int, Map<int, int>>{};
+
+      for (final elem in doc.descendants.whereType<xml.XmlElement>()) {
+        if (elem.localName != 'c') continue;
+
+        final ref = elem.getAttribute('r') ?? '';
+        final styleStr = elem.getAttribute('s');
+        if (styleStr == null) continue;
+
+        final styleIdx = int.tryParse(styleStr);
+        if (styleIdx == null) continue;
+
+        final pos = _parseRef(ref);
+        if (pos == null) continue;
+
+        cellStyleMap.putIfAbsent(pos.$2, () => {})[pos.$1] = styleIdx;
+      }
+
+      _cellStyles[name] = cellStyleMap;
+    }
+  }
+
+  /// Parse cell reference like "A1" → (col, row) 0-indexed, or null
+  static (int, int)? _parseRef(String ref) {
+    if (ref.isEmpty) return null;
+
+    int col = 0;
+    int i = 0;
+    // Parse column letters (A=1, B=2, ..., Z=26, AA=27, etc.)
+    while (i < ref.length) {
+      final code = ref.codeUnitAt(i);
+      if (code >= 65 && code <= 90) {
+        col = col * 26 + (code - 64);
+        i++;
+      } else {
+        break;
+      }
+    }
+    if (i == 0) return null;
+    col -= 1; // 0-indexed
+
+    final row = int.tryParse(ref.substring(i));
+    if (row == null || row < 1) return null;
+
+    return (col, row - 1); // 0-indexed
+  }
+
+  /// Apply Excel tint to a hex color
+  static String _applyTint(String hexColor, double tint) {
+    if (hexColor.length < 6) return hexColor;
+    final hex = hexColor.length == 6
+        ? hexColor
+        : hexColor.substring(hexColor.length - 6);
+
+    int r = int.tryParse(hex.substring(0, 2), radix: 16) ?? 0;
+    int g = int.tryParse(hex.substring(2, 4), radix: 16) ?? 0;
+    int b = int.tryParse(hex.substring(4, 6), radix: 16) ?? 0;
+
+    if (tint < 0) {
+      // Darken
+      r = (r * (1 + tint)).round();
+      g = (g * (1 + tint)).round();
+      b = (b * (1 + tint)).round();
+    } else {
+      // Lighten
+      r = (r + (255 - r) * tint).round();
+      g = (g + (255 - g) * tint).round();
+      b = (b + (255 - b) * tint).round();
+    }
+
+    return '${r.clamp(0, 255).toRadixString(16).padLeft(2, '0').toUpperCase()}'
+        '${g.clamp(0, 255).toRadixString(16).padLeft(2, '0').toUpperCase()}'
+        '${b.clamp(0, 255).toRadixString(16).padLeft(2, '0').toUpperCase()}';
+  }
 }
 
 // ═══════════════════════════════════════════════════
