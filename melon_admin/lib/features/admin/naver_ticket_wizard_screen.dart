@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -53,6 +54,7 @@ class _NaverTicketWizardScreenState
   Uint8List? _posterBytes;
   String? _posterUrl;
   String? _naverProductUrl; // 네이버 스토어 상품 URL (모바일 티켓에서 포스터 클릭 시 이동)
+  String? _venueAddress; // 공연장 주소
   bool _naverOnly = true; // 네이버 전용 (새 봇) vs 놀티켓 연계 (기존 봇)
   bool _isCreatingEvent = false;
   bool _isFetchingProduct = false;
@@ -328,12 +330,44 @@ class _NaverTicketWizardScreenState
                     ),
                     const SizedBox(height: 16),
 
-                    // 장소
+                    // 장소 (카카오 주소 검색)
                     TextField(
                       controller: _venueNameCtrl,
                       style: AdminTheme.sans(fontSize: 14),
-                      decoration: const InputDecoration(labelText: '공연장'),
+                      decoration: InputDecoration(
+                        labelText: '공연장',
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.search, size: 20),
+                          tooltip: '주소 검색',
+                          onPressed: () => _showVenueSearchDialog(),
+                        ),
+                      ),
                     ),
+                    if (_venueAddress != null && _venueAddress!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.location_on,
+                                size: 14, color: AdminTheme.gold),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                _venueAddress!,
+                                style: AdminTheme.sans(
+                                    fontSize: 12,
+                                    color: AdminTheme.textSecondary),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () =>
+                                  setState(() => _venueAddress = null),
+                              child: const Icon(Icons.close,
+                                  size: 14, color: AdminTheme.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
                     const SizedBox(height: 16),
 
                     // 날짜/시간
@@ -854,6 +888,158 @@ class _NaverTicketWizardScreenState
     }
   }
 
+  // ── 카카오 키워드 검색으로 공연장 주소 찾기 ──
+  Future<void> _showVenueSearchDialog() async {
+    final searchCtrl = TextEditingController(text: _venueNameCtrl.text);
+    List<Map<String, dynamic>> results = [];
+    bool isSearching = false;
+
+    Future<List<Map<String, dynamic>>> searchKakao(String query) async {
+      const kakaoApiKey = '8e3ecb0f10cd15fc7a7760a4f87e2cbb'; // REST API 키
+      final url = Uri.parse(
+        'https://dapi.kakao.com/v2/local/search/keyword.json?query=$query&category_group_code=CT1,AT4&size=10',
+      );
+      final resp = await http.get(url, headers: {
+        'Authorization': 'KakaoAK $kakaoApiKey',
+      });
+      if (resp.statusCode != 200) return [];
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final docs = data['documents'] as List? ?? [];
+      return docs.cast<Map<String, dynamic>>();
+    }
+
+    final selected = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1A1A1F),
+              title: Text('공연장 검색',
+                  style: AdminTheme.sans(
+                      fontSize: 16, fontWeight: FontWeight.bold)),
+              content: SizedBox(
+                width: 480,
+                height: 400,
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: searchCtrl,
+                            style: AdminTheme.sans(fontSize: 14),
+                            decoration: const InputDecoration(
+                              hintText: '공연장 이름 검색 (예: 부산시민대극장)',
+                            ),
+                            onSubmitted: (_) async {
+                              if (searchCtrl.text.trim().isEmpty) return;
+                              setDialogState(() => isSearching = true);
+                              results =
+                                  await searchKakao(searchCtrl.text.trim());
+                              setDialogState(() => isSearching = false);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: Size.zero,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
+                          ),
+                          onPressed: () async {
+                            if (searchCtrl.text.trim().isEmpty) return;
+                            setDialogState(() => isSearching = true);
+                            results =
+                                await searchKakao(searchCtrl.text.trim());
+                            setDialogState(() => isSearching = false);
+                          },
+                          child: const Text('검색'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (isSearching)
+                      const Expanded(
+                        child: Center(
+                            child:
+                                CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    else if (results.isEmpty)
+                      Expanded(
+                        child: Center(
+                          child: Text('공연장 이름을 검색하세요',
+                              style: AdminTheme.sans(
+                                  fontSize: 13,
+                                  color: AdminTheme.textSecondary)),
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: results.length,
+                          separatorBuilder: (_, __) => const Divider(
+                              height: 1, color: Color(0xFF2A2A2F)),
+                          itemBuilder: (_, i) {
+                            final r = results[i];
+                            final name = r['place_name'] ?? '';
+                            final addr =
+                                r['road_address_name'] ?? r['address_name'] ?? '';
+                            final phone = r['phone'] ?? '';
+                            return ListTile(
+                              dense: true,
+                              title: Text(name,
+                                  style: AdminTheme.sans(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600)),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(addr,
+                                      style: AdminTheme.sans(
+                                          fontSize: 12,
+                                          color: AdminTheme.textSecondary)),
+                                  if (phone.isNotEmpty)
+                                    Text(phone,
+                                        style: AdminTheme.sans(
+                                            fontSize: 11,
+                                            color: AdminTheme.textSecondary)),
+                                ],
+                              ),
+                              trailing: const Icon(Icons.chevron_right,
+                                  size: 18, color: AdminTheme.gold),
+                              onTap: () => Navigator.pop(ctx, r),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text('취소',
+                      style: AdminTheme.sans(
+                          fontSize: 13, color: AdminTheme.textSecondary)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (selected != null) {
+      setState(() {
+        _venueNameCtrl.text = selected['place_name'] ?? '';
+        _venueAddress =
+            selected['road_address_name'] ?? selected['address_name'] ?? '';
+      });
+    }
+  }
+
   Future<void> _createEvent() async {
     if (_titleCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -903,6 +1089,7 @@ class _NaverTicketWizardScreenState
         createdAt: DateTime.now(),
         imageUrl: imageUrl,
         venueName: _venueNameCtrl.text.trim(),
+        venueAddress: _venueAddress,
         priceByGrade: priceByGrade,
       );
 

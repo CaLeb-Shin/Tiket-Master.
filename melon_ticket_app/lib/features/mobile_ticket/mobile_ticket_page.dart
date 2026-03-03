@@ -174,6 +174,7 @@ class _TicketView extends ConsumerWidget {
     final imageUrl = event['imageUrl'] as String?;
     final naverProductUrl = event['naverProductUrl'] as String?;
     final venueName = event['venueName'] as String? ?? '';
+    final venueAddress = event['venueAddress'] as String? ?? '';
     DateTime? startAt;
     final startAtStr = event['startAt'] as String?;
     if (startAtStr != null) {
@@ -361,9 +362,43 @@ class _TicketView extends ConsumerWidget {
                                     const SizedBox(height: 6),
                                   ],
                                   if (venueName.isNotEmpty)
-                                    _InfoChip(
-                                      icon: Icons.location_on_outlined,
-                                      text: venueName,
+                                    GestureDetector(
+                                      onTap: () {
+                                        final query = venueAddress.isNotEmpty
+                                            ? venueAddress
+                                            : venueName;
+                                        final mapUrl = Uri.parse(
+                                          'https://map.kakao.com/link/search/$query',
+                                        );
+                                        launchUrl(mapUrl,
+                                            mode:
+                                                LaunchMode.externalApplication);
+                                      },
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _InfoChip(
+                                            icon: Icons.location_on_outlined,
+                                            text: venueName,
+                                          ),
+                                          if (venueAddress.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                  left: 20, top: 2),
+                                              child: Text(
+                                                venueAddress,
+                                                style: AppTheme.nanum(
+                                                  fontSize: 10,
+                                                  color: _textTertiary,
+                                                ),
+                                                maxLines: 1,
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
                                     ),
                                   const SizedBox(height: 6),
                                   _InfoChip(
