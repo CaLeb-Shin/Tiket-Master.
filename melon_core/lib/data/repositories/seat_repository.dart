@@ -91,7 +91,9 @@ class SeatRepository {
       final block = data['block'] as String;
       final floor = data['floor'] as String;
       final row = data['row'] as String?;
-      final number = data['number'] as int;
+      final number = data['number'] is int
+          ? data['number'] as int
+          : int.tryParse(data['number'].toString()) ?? 0;
       final grade = data['grade'] as String?;
       final dotX = (data['dotX'] as num?)?.toDouble();
       final dotY = (data['dotY'] as num?)?.toDouble();
@@ -219,7 +221,9 @@ class SeatRepository {
       final block = data['block'] as String;
       final floor = data['floor'] as String;
       final row = data['row'] as String?;
-      final number = data['number'] as int;
+      final number = data['number'] is int
+          ? data['number'] as int
+          : int.tryParse(data['number'].toString()) ?? 0;
       final grade = data['grade'] as String?;
 
       final seatKey = row != null && row.isNotEmpty
