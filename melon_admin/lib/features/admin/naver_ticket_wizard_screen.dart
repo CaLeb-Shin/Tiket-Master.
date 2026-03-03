@@ -421,40 +421,107 @@ class _NaverTicketWizardScreenState
                     const SizedBox(height: 20),
 
                     // 공연 유형 (네이버 전용 vs 놀티켓 연계)
+                    Text('공연 유형',
+                        style: AdminTheme.sans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 10),
                     Row(
                       children: [
-                        Text('공연 유형',
-                            style: AdminTheme.sans(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600)),
-                        const Spacer(),
-                        Text(
-                            _naverOnly ? '네이버 전용' : '놀티켓 연계',
-                            style: AdminTheme.sans(
-                                fontSize: 11,
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _naverOnly = true),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 14),
+                              decoration: BoxDecoration(
                                 color: _naverOnly
-                                    ? AdminTheme.gold
-                                    : AdminTheme.textTertiary)),
-                        const SizedBox(width: 6),
-                        SizedBox(
-                          height: 24,
-                          child: Switch(
-                            value: _naverOnly,
-                            onChanged: (v) =>
-                                setState(() => _naverOnly = v),
-                            activeColor: AdminTheme.gold,
+                                    ? AdminTheme.gold.withValues(alpha: 0.12)
+                                    : AdminTheme.surface,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: _naverOnly
+                                      ? AdminTheme.gold
+                                      : AdminTheme.border,
+                                  width: _naverOnly ? 1.5 : 0.5,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(Icons.storefront_rounded,
+                                      size: 20,
+                                      color: _naverOnly
+                                          ? AdminTheme.gold
+                                          : AdminTheme.textTertiary),
+                                  const SizedBox(height: 6),
+                                  Text('네이버 전용',
+                                      style: AdminTheme.sans(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: _naverOnly
+                                              ? AdminTheme.gold
+                                              : AdminTheme.textTertiary)),
+                                  const SizedBox(height: 2),
+                                  Text('좌석봇 자동배정',
+                                      style: AdminTheme.sans(
+                                          fontSize: 9,
+                                          color: _naverOnly
+                                              ? AdminTheme.gold
+                                                  .withValues(alpha: 0.7)
+                                              : AdminTheme.textTertiary)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _naverOnly = false),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 14),
+                              decoration: BoxDecoration(
+                                color: !_naverOnly
+                                    ? AdminTheme.gold.withValues(alpha: 0.12)
+                                    : AdminTheme.surface,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: !_naverOnly
+                                      ? AdminTheme.gold
+                                      : AdminTheme.border,
+                                  width: !_naverOnly ? 1.5 : 0.5,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(Icons.link_rounded,
+                                      size: 20,
+                                      color: !_naverOnly
+                                          ? AdminTheme.gold
+                                          : AdminTheme.textTertiary),
+                                  const SizedBox(height: 6),
+                                  Text('놀티켓 연계',
+                                      style: AdminTheme.sans(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: !_naverOnly
+                                              ? AdminTheme.gold
+                                              : AdminTheme.textTertiary)),
+                                  const SizedBox(height: 2),
+                                  Text('기존 봇 처리',
+                                      style: AdminTheme.sans(
+                                          fontSize: 9,
+                                          color: !_naverOnly
+                                              ? AdminTheme.gold
+                                                  .withValues(alpha: 0.7)
+                                              : AdminTheme.textTertiary)),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _naverOnly
-                          ? '좌석배정 봇이 승인 시 자동 좌석배정합니다'
-                          : '기존 봇이 처리합니다 (놀티켓 연계)',
-                      style: AdminTheme.sans(
-                          fontSize: 10,
-                          color: AdminTheme.textTertiary),
                     ),
                     const SizedBox(height: 20),
 
