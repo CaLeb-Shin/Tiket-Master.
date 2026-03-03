@@ -3,7 +3,6 @@ import 'dart:js_interop';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -58,13 +57,10 @@ class _NaverTicketWizardScreenState
   };
   Uint8List? _posterBytes;
   String? _posterUrl;
-  String? _naverProductUrl; // 네이버 스토어 상품 URL (모바일 티켓에서 포스터 클릭 시 이동)
+  final _naverUrlCtrl = TextEditingController(); // 네이버 판매 URL
   String? _venueAddress; // 공연장 주소
   bool _naverOnly = true; // 네이버 전용 (새 봇) vs 놀티켓 연계 (기존 봇)
   bool _isCreatingEvent = false;
-  bool _isFetchingProduct = false;
-  bool _isFetchingStore = false;
-  List<Map<String, dynamic>> _storeProducts = [];
 
   // Step 2: 좌석 등록
   ParsedSeatData? _seatData;
@@ -85,6 +81,7 @@ class _NaverTicketWizardScreenState
   void dispose() {
     _titleCtrl.dispose();
     _venueNameCtrl.dispose();
+    _naverUrlCtrl.dispose();
     for (final c in _gradePriceControllers.values) {
       c.dispose();
     }
@@ -189,124 +186,6 @@ class _NaverTicketWizardScreenState
                       fontSize: 13, color: AdminTheme.textTertiary)),
               const SizedBox(height: 32),
 
-              // 네이버 URL 자동 채우기
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AdminTheme.card,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AdminTheme.gold.withValues(alpha: 0.3), width: 0.5),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.store_rounded,
-                            size: 18, color: AdminTheme.gold),
-                        const SizedBox(width: 8),
-                        Text('내 네이버 스토어',
-                            style: AdminTheme.sans(
-                                fontSize: 14, fontWeight: FontWeight.w600)),
-                        const Spacer(),
-                        Text('melon_symphony_orchestra',
-                            style: AdminTheme.sans(
-                                fontSize: 11, color: AdminTheme.textTertiary)),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-
-                    // 불러오기 버튼
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isFetchingStore ? null : _fetchMyStore,
-                        child: _isFetchingStore
-                            ? const SizedBox(
-                                width: 18, height: 18,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AdminTheme.onAccent))
-                            : const Text('스토어에서 상품 불러오기'),
-                      ),
-                    ),
-
-                    // 스토어 상품 목록
-                    if (_storeProducts.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      Text('상품을 선택하세요 (${_storeProducts.length}개)',
-                          style: AdminTheme.sans(
-                              fontSize: 12, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 8),
-                      ...List.generate(
-                        _storeProducts.length,
-                        (i) {
-                          final p = _storeProducts[i];
-                          final title = p['title'] as String? ?? '';
-                          final price = p['price'] as int? ?? 0;
-                          final imgUrl = p['imageUrl'] as String? ?? '';
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: GestureDetector(
-                              onTap: () => _selectStoreProduct(p),
-                              child: Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: AdminTheme.surface,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(
-                                      color: AdminTheme.border, width: 0.5),
-                                ),
-                                child: Row(
-                                  children: [
-                                    if (imgUrl.isNotEmpty)
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(3),
-                                        child: Image.network(imgUrl,
-                                            width: 40, height: 40,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) =>
-                                                const SizedBox(width: 40, height: 40)),
-                                      ),
-                                    if (imgUrl.isNotEmpty)
-                                      const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(title,
-                                              style: AdminTheme.sans(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis),
-                                          if (price > 0)
-                                            Text(
-                                                '₩${NumberFormat('#,###').format(price)}',
-                                                style: AdminTheme.sans(
-                                                    fontSize: 11,
-                                                    color: AdminTheme
-                                                        .textSecondary)),
-                                        ],
-                                      ),
-                                    ),
-                                    const Icon(Icons.arrow_forward_ios,
-                                        size: 12,
-                                        color: AdminTheme.textTertiary),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
               // 기존 공연 선택
               _buildExistingEventSelector(),
               const SizedBox(height: 16),
@@ -332,6 +211,19 @@ class _NaverTicketWizardScreenState
                       controller: _titleCtrl,
                       style: AdminTheme.sans(fontSize: 14),
                       decoration: const InputDecoration(labelText: '공연명 *'),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 네이버 판매 URL
+                    TextField(
+                      controller: _naverUrlCtrl,
+                      style: AdminTheme.sans(fontSize: 14),
+                      decoration: const InputDecoration(
+                        labelText: '네이버 판매 URL',
+                        hintText: 'https://smartstore.naver.com/...',
+                        hintStyle: TextStyle(fontSize: 12, color: Color(0xFF666666)),
+                      ),
+                      keyboardType: TextInputType.url,
                     ),
                     const SizedBox(height: 16),
 
@@ -757,132 +649,6 @@ class _NaverTicketWizardScreenState
     });
   }
 
-  static const _myStoreUrl =
-      'https://smartstore.naver.com/melon_symphony_orchestra';
-
-  Future<void> _fetchMyStore() async {
-    setState(() {
-      _isFetchingStore = true;
-      _storeProducts = [];
-    });
-
-    try {
-      // Firestore naverProducts 컬렉션에서 봇이 동기화한 상품 목록 읽기
-      final snap = await FirebaseFirestore.instance
-          .collection('naverProducts')
-          .orderBy('syncedAt', descending: true)
-          .get();
-
-      final products = snap.docs.map((doc) {
-        final d = doc.data();
-        return <String, dynamic>{
-          'title': d['name'] ?? '',
-          'price': d['price'] ?? 0,
-          'url': d['url'] ?? '',
-          'productNo': d['productNo'] ?? '',
-        };
-      }).toList();
-
-      setState(() => _storeProducts = products);
-
-      if (products.isEmpty) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('동기화된 상품이 없습니다. 봇이 실행 중인지 확인하세요.')),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('상품 조회 실패: $e')),
-      );
-    } finally {
-      setState(() => _isFetchingStore = false);
-    }
-  }
-
-  Future<void> _selectStoreProduct(Map<String, dynamic> product) async {
-    final productUrl = product['url'] as String? ?? '';
-    setState(() {
-      _naverProductUrl = productUrl;
-      _titleCtrl.text = product['title'] as String? ?? '';
-      _storeProducts = []; // 목록 닫기
-    });
-
-    // 상세 정보 가져오기 (옵션/가격)
-    if (productUrl.isNotEmpty) {
-      await _fetchNaverProductByUrl(productUrl);
-    }
-  }
-
-  Future<void> _fetchNaverProductByUrl(String url) async {
-    if (url.isEmpty || !url.contains('smartstore.naver.com')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('네이버 스마트스토어 URL을 입력하세요')),
-      );
-      return;
-    }
-
-    setState(() => _isFetchingProduct = true);
-
-    try {
-      final fs = ref.read(functionsServiceProvider);
-      final result = await fs.callHttpFunction('scrapeNaverProductHttp', {
-        'url': url,
-      });
-
-      if (result['success'] == true && result['product'] != null) {
-        final p = result['product'] as Map<String, dynamic>;
-        setState(() {
-          if (p['title'] != null && (p['title'] as String).isNotEmpty) {
-            _titleCtrl.text = p['title'];
-          }
-          _naverProductUrl = url;
-
-          // 옵션에서 등급+가격 추출
-          final options = p['options'] as List<dynamic>? ?? [];
-          if (options.isNotEmpty) {
-            _enabledGrades.clear();
-            for (final opt in options) {
-              final name = (opt['name'] as String? ?? '').toUpperCase();
-              for (final grade in _gradeOrder) {
-                if (name.contains(grade)) {
-                  _enabledGrades.add(grade);
-                  final price = opt['price'] as int? ?? 0;
-                  if (price > 0) {
-                    _gradePriceControllers[grade]?.text = price.toString();
-                  }
-                  break;
-                }
-              }
-            }
-          }
-        });
-
-        // 포스터 이미지 URL → bytes
-        final imageUrl = p['imageUrl'] as String? ?? '';
-        if (imageUrl.isNotEmpty) {
-          try {
-            final response = await http.get(Uri.parse(imageUrl));
-            if (response.statusCode == 200) {
-              setState(() => _posterBytes = response.bodyBytes);
-            }
-          } catch (_) {}
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('상품 정보를 가져왔습니다')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('가져오기 실패: $e')),
-      );
-    } finally {
-      setState(() => _isFetchingProduct = false);
-    }
-  }
-
   Future<void> _pickPoster() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
@@ -981,8 +747,8 @@ class _NaverTicketWizardScreenState
       final extraFields = <String, dynamic>{
         'naverOnly': _naverOnly,
       };
-      if (_naverProductUrl != null && _naverProductUrl!.isNotEmpty) {
-        extraFields['naverProductUrl'] = _naverProductUrl;
+      if (_naverUrlCtrl.text.trim().isNotEmpty) {
+        extraFields['naverProductUrl'] = _naverUrlCtrl.text.trim();
       }
       await FirebaseFirestore.instance
           .collection('events')
