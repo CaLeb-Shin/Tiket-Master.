@@ -1122,28 +1122,36 @@ class _NaverTicketWizardScreenState
                         foregroundColor: AdminTheme.textSecondary),
                   ),
                   const Spacer(),
-                  if (_seatData == null) ...[
+                  if (_seatData == null)
                     TextButton(
                       onPressed: () => setState(() => _currentStep = 2),
                       child: const Text('건너뛰기 →'),
                       style: TextButton.styleFrom(
                           foregroundColor: AdminTheme.textTertiary),
                     ),
+                  if (_seatData != null) ...[
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: !_isUploadingSeats ? _uploadSeats : null,
+                      child: _isUploadingSeats
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: AdminTheme.onAccent),
+                            )
+                          : const Text('좌석 등록'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => setState(() => _currentStep = 2),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AdminTheme.gold,
+                        foregroundColor: AdminTheme.onAccent,
+                      ),
+                      child: const Text('다음 →'),
+                    ),
                   ],
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: _seatData != null && !_isUploadingSeats
-                        ? _uploadSeats
-                        : null,
-                    child: _isUploadingSeats
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: AdminTheme.onAccent),
-                          )
-                        : Text(_seatData != null ? '좌석 등록 →' : '좌석 등록'),
-                  ),
                 ],
               ),
             ],
@@ -1163,9 +1171,7 @@ class _NaverTicketWizardScreenState
   Widget _buildSeatDetailSection() {
     if (_seatData == null) return const SizedBox.shrink();
 
-    // Group seats by grade → zone → row → seat numbers (상품별좌석현황 format)
-    // Key: "$grade|$floor|$zone|$row"
-    final seatRows = <_SeatRow>[];
+    // Group seats by grade → zone → row → seat numbers
     final groupMap = <String, List<int>>{};
     for (final seat in _seatData!.seats) {
       final grade = seat['grade']?.toString() ?? 'S';
@@ -1178,30 +1184,36 @@ class _NaverTicketWizardScreenState
       groupMap[key]!.add(num);
     }
 
-    const gradeOrder = ['VIP', 'R', 'S', 'A'];
+    // Build _SeatRow list grouped by grade
+    final gradeRows = <String, List<_SeatRow>>{};
     for (final entry in groupMap.entries) {
       final parts = entry.key.split('|');
       entry.value.sort();
-      seatRows.add(_SeatRow(
-        grade: parts[0],
+      final grade = parts[0];
+      gradeRows.putIfAbsent(grade, () => []);
+      gradeRows[grade]!.add(_SeatRow(
+        grade: grade,
         floor: parts[1],
         zone: parts[2],
         row: parts[3],
         seats: entry.value,
       ));
     }
+    // Sort each grade's rows: zone → row (numeric)
+    for (final rows in gradeRows.values) {
+      rows.sort((a, b) {
+        final za = a.zone.compareTo(b.zone);
+        if (za != 0) return za;
+        final ra = int.tryParse(a.row) ?? 999;
+        final rb = int.tryParse(b.row) ?? 999;
+        return ra.compareTo(rb);
+      });
+    }
 
-    // Sort: grade order → zone → row (numeric)
-    seatRows.sort((a, b) {
-      final ga = gradeOrder.indexOf(a.grade);
-      final gb = gradeOrder.indexOf(b.grade);
-      if (ga != gb) return (ga == -1 ? 99 : ga).compareTo(gb == -1 ? 99 : gb);
-      final za = a.zone.compareTo(b.zone);
-      if (za != 0) return za;
-      final ra = int.tryParse(a.row) ?? 999;
-      final rb = int.tryParse(b.row) ?? 999;
-      return ra.compareTo(rb);
-    });
+    // Build 4-column grid: VIP | R | S | A
+    const gradeOrder = ['VIP', 'R', 'S', 'A'];
+    final activeGrades =
+        gradeOrder.where((g) => gradeRows.containsKey(g)).toList();
 
     return Container(
       width: double.infinity,
@@ -1224,91 +1236,150 @@ class _NaverTicketWizardScreenState
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AdminTheme.gold)),
-              const Spacer(),
-              Text('${seatRows.length}행',
-                  style: AdminTheme.sans(
-                      fontSize: 10, color: AdminTheme.textTertiary)),
             ],
           ),
           const SizedBox(height: 10),
-          // Table header
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-            decoration: BoxDecoration(
-              color: AdminTheme.gold.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: Row(
-              children: [
-                _tableHeader('등급', 50),
-                _tableHeader('층', 36),
-                _tableHeader('구역', 50),
-                _tableHeader('열', 36),
-                _tableHeader('좌석수', 40),
-                Expanded(child: Text('좌석번호',
-                    style: AdminTheme.sans(fontSize: 10, fontWeight: FontWeight.w600,
-                        color: AdminTheme.textSecondary))),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          // Table rows (scrollable, max 300px)
+          // 등급별 카드 그리드 (2×2 또는 inline)
           ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 300),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: seatRows.length,
-              itemBuilder: (ctx, i) {
-                final sr = seatRows[i];
-                final color = _gradeColors[sr.grade] ?? AdminTheme.textSecondary;
-                return Container(
-                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                          color: AdminTheme.border.withValues(alpha: 0.3),
-                          width: 0.5),
+            constraints: const BoxConstraints(maxHeight: 400),
+            child: SingleChildScrollView(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: activeGrades.map((grade) {
+                  final rows = gradeRows[grade]!;
+                  final totalSeats =
+                      rows.fold<int>(0, (sum, r) => sum + r.seats.length);
+                  final color =
+                      _gradeColors[grade] ?? AdminTheme.textSecondary;
+                  return SizedBox(
+                    width: 280,
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                            color: color.withValues(alpha: 0.2), width: 0.5),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 등급 헤더
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text('$grade석',
+                                    style: AdminTheme.sans(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white)),
+                              ),
+                              const SizedBox(width: 8),
+                              Text('$totalSeats석',
+                                  style: AdminTheme.sans(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: color)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // 테이블 헤더
+                          Padding(
+                            padding:
+                                const EdgeInsets.only(bottom: 4),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                    width: 40,
+                                    child: Text('구역',
+                                        style: AdminTheme.sans(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w600,
+                                            color: AdminTheme
+                                                .textTertiary))),
+                                SizedBox(
+                                    width: 30,
+                                    child: Text('열',
+                                        style: AdminTheme.sans(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w600,
+                                            color: AdminTheme
+                                                .textTertiary))),
+                                SizedBox(
+                                    width: 30,
+                                    child: Text('수량',
+                                        style: AdminTheme.sans(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w600,
+                                            color: AdminTheme
+                                                .textTertiary))),
+                                Expanded(
+                                    child: Text('좌석번호',
+                                        style: AdminTheme.sans(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w600,
+                                            color: AdminTheme
+                                                .textTertiary))),
+                              ],
+                            ),
+                          ),
+                          // 좌석 행 목록
+                          ...rows.map((sr) => Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                        width: 40,
+                                        child: Text(
+                                            sr.zone.isEmpty ? '-' : sr.zone,
+                                            style: AdminTheme.sans(
+                                                fontSize: 9,
+                                                color: AdminTheme
+                                                    .textTertiary))),
+                                    SizedBox(
+                                        width: 30,
+                                        child: Text('${sr.row}',
+                                            style: AdminTheme.sans(
+                                                fontSize: 9,
+                                                color: AdminTheme
+                                                    .textPrimary))),
+                                    SizedBox(
+                                        width: 30,
+                                        child: Text('${sr.seats.length}',
+                                            style: AdminTheme.sans(
+                                                fontSize: 9,
+                                                color: AdminTheme
+                                                    .textTertiary))),
+                                    Expanded(
+                                        child: Text(
+                                            _compactRange(sr.seats),
+                                            style: AdminTheme.sans(
+                                                fontSize: 9,
+                                                color: AdminTheme
+                                                    .textTertiary),
+                                            overflow:
+                                                TextOverflow.ellipsis)),
+                                  ],
+                                ),
+                              )),
+                        ],
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox(width: 50, child: Text('${sr.grade}석',
-                          style: AdminTheme.sans(fontSize: 10,
-                              fontWeight: FontWeight.w600, color: color))),
-                      SizedBox(width: 36, child: Text(sr.floor,
-                          style: AdminTheme.sans(fontSize: 10,
-                              color: AdminTheme.textTertiary))),
-                      SizedBox(width: 50, child: Text(sr.zone,
-                          style: AdminTheme.sans(fontSize: 10,
-                              color: AdminTheme.textTertiary))),
-                      SizedBox(width: 36, child: Text('${sr.row}열',
-                          style: AdminTheme.sans(fontSize: 10,
-                              color: AdminTheme.textPrimary))),
-                      SizedBox(width: 40, child: Text('${sr.seats.length}',
-                          style: AdminTheme.sans(fontSize: 10,
-                              color: AdminTheme.textTertiary))),
-                      Expanded(child: Text(
-                          _compactRange(sr.seats),
-                          style: AdminTheme.sans(fontSize: 10,
-                              color: AdminTheme.textTertiary),
-                          overflow: TextOverflow.ellipsis)),
-                    ],
-                  ),
-                );
-              },
+                  );
+                }).toList(),
+              ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _tableHeader(String label, double width) {
-    return SizedBox(
-      width: width,
-      child: Text(label,
-          style: AdminTheme.sans(fontSize: 10, fontWeight: FontWeight.w600,
-              color: AdminTheme.textSecondary)),
     );
   }
 
