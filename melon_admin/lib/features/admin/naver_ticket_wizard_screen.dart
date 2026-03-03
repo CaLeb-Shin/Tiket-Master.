@@ -1031,47 +1031,66 @@ class _NaverTicketWizardScreenState
               ],
 
               // 버튼 영역 — 파싱 결과 바로 아래
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: () => setState(() => _currentStep = 0),
-                    child: const Text('← 이전'),
-                    style: TextButton.styleFrom(
-                        foregroundColor: AdminTheme.textSecondary),
-                  ),
-                  const Spacer(),
-                  if (_seatData == null)
+              const SizedBox(height: 20),
+              if (_seatData == null)
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => setState(() => _currentStep = 0),
+                      child: const Text('← 이전'),
+                      style: TextButton.styleFrom(
+                          foregroundColor: AdminTheme.textSecondary),
+                    ),
+                    const Spacer(),
                     TextButton(
                       onPressed: () => setState(() => _currentStep = 2),
                       child: const Text('건너뛰기 →'),
                       style: TextButton.styleFrom(
                           foregroundColor: AdminTheme.textTertiary),
                     ),
-                  if (_seatData != null) ...[
-                    ElevatedButton(
+                  ],
+                ),
+              if (_seatData != null)
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => setState(() => _currentStep = 0),
+                      child: const Text('← 이전'),
+                      style: TextButton.styleFrom(
+                          foregroundColor: AdminTheme.textSecondary),
+                    ),
+                    const Spacer(),
+                    OutlinedButton(
                       onPressed: !_isUploadingSeats ? _uploadSeats : null,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AdminTheme.textPrimary,
+                        side: const BorderSide(color: AdminTheme.border),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
+                      ),
                       child: _isUploadingSeats
                           ? const SizedBox(
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: AdminTheme.onAccent),
+                                  strokeWidth: 2, color: AdminTheme.gold),
                             )
                           : const Text('좌석 등록'),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     ElevatedButton(
                       onPressed: () => setState(() => _currentStep = 2),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AdminTheme.gold,
-                        foregroundColor: AdminTheme.onAccent,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
                       ),
-                      child: const Text('다음 →'),
+                      child: const Text('다음 →',
+                          style: TextStyle(fontWeight: FontWeight.w700)),
                     ),
                   ],
-                ],
-              ),
+                ),
 
               // 등급별 좌석 상세 (로드 성공 시)
               if (_seatData != null && _seatData!.seats.isNotEmpty) ...[
