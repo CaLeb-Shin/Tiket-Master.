@@ -1033,6 +1033,7 @@ class _NaverTicketWizardScreenState
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
                           side: const BorderSide(color: AdminTheme.gold),
+                          minimumSize: Size.zero,
                           padding: const EdgeInsets.symmetric(
                               horizontal: 20, vertical: 12),
                         ),
@@ -1062,6 +1063,7 @@ class _NaverTicketWizardScreenState
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AdminTheme.gold,
                           foregroundColor: Colors.black,
+                          minimumSize: Size.zero,
                           padding: const EdgeInsets.symmetric(
                               horizontal: 24, vertical: 14),
                           shape: RoundedRectangleBorder(
