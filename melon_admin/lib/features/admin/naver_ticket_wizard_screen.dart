@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:js_interop';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -26,6 +27,10 @@ import 'excel_seat_upload_helper.dart';
 
 const _ticketBaseUrl = 'https://melonticket-web-20260216.vercel.app/m/';
 const _gradeOrder = ['VIP', 'R', 'S', 'A'];
+
+// 카카오 우편번호 서비스 JS interop
+@JS('openKakaoPostcode')
+external JSPromise<JSString> _openKakaoPostcode();
 
 class NaverTicketWizardScreen extends ConsumerStatefulWidget {
   const NaverTicketWizardScreen({super.key});
@@ -888,153 +893,31 @@ class _NaverTicketWizardScreenState
     }
   }
 
-  // ── 카카오 키워드 검색으로 공연장 주소 찾기 ──
+  // ── 카카오 우편번호 서비스로 주소 검색 (API 키 불필요) ──
   Future<void> _showVenueSearchDialog() async {
-    final searchCtrl = TextEditingController(text: _venueNameCtrl.text);
-    List<Map<String, dynamic>> results = [];
-    bool isSearching = false;
+    try {
+      final resultJs = await _openKakaoPostcode().toDart;
+      final resultStr = resultJs.toDart;
+      if (resultStr.isEmpty) return; // 사용자가 닫음
 
-    Future<List<Map<String, dynamic>>> searchKakao(String query) async {
-      // Cloud Function 프록시 경유 (CORS 우회)
-      final url = Uri.parse(
-        'https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net/searchAddressHttp'
-        '?q=${Uri.encodeComponent(query)}',
-      );
-      final resp = await http.get(url);
-      if (resp.statusCode != 200) return [];
-      final data = jsonDecode(resp.body) as Map<String, dynamic>;
-      return (data['results'] as List? ?? []).cast<Map<String, dynamic>>();
-    }
+      final data = jsonDecode(resultStr) as Map<String, dynamic>;
+      final roadAddress = data['roadAddress'] as String? ?? '';
+      final address = data['address'] as String? ?? '';
+      final buildingName = data['buildingName'] as String? ?? '';
 
-    final selected = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1A1A1F),
-              title: Text('주소 검색',
-                  style: AdminTheme.sans(
-                      fontSize: 16, fontWeight: FontWeight.bold)),
-              content: SizedBox(
-                width: 480,
-                height: 400,
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: searchCtrl,
-                            style: AdminTheme.sans(fontSize: 14),
-                            decoration: const InputDecoration(
-                              hintText: '장소명 또는 주소 검색',
-                            ),
-                            onSubmitted: (_) async {
-                              if (searchCtrl.text.trim().isEmpty) return;
-                              setDialogState(() => isSearching = true);
-                              results =
-                                  await searchKakao(searchCtrl.text.trim());
-                              setDialogState(() => isSearching = false);
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: Size.zero,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 14),
-                          ),
-                          onPressed: () async {
-                            if (searchCtrl.text.trim().isEmpty) return;
-                            setDialogState(() => isSearching = true);
-                            results =
-                                await searchKakao(searchCtrl.text.trim());
-                            setDialogState(() => isSearching = false);
-                          },
-                          child: const Text('검색'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (isSearching)
-                      const Expanded(
-                        child: Center(
-                            child:
-                                CircularProgressIndicator(strokeWidth: 2)),
-                      )
-                    else if (results.isEmpty)
-                      Expanded(
-                        child: Center(
-                          child: Text('장소명 또는 주소를 검색하세요',
-                              style: AdminTheme.sans(
-                                  fontSize: 13,
-                                  color: AdminTheme.textSecondary)),
-                        ),
-                      )
-                    else
-                      Expanded(
-                        child: ListView.separated(
-                          itemCount: results.length,
-                          separatorBuilder: (_, __) => const Divider(
-                              height: 1, color: Color(0xFF2A2A2F)),
-                          itemBuilder: (_, i) {
-                            final r = results[i];
-                            final name = r['place_name'] ?? '';
-                            final addr =
-                                r['road_address_name'] ?? r['address_name'] ?? '';
-                            final phone = r['phone'] ?? '';
-                            return ListTile(
-                              dense: true,
-                              title: Text(name,
-                                  style: AdminTheme.sans(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600)),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(addr,
-                                      style: AdminTheme.sans(
-                                          fontSize: 12,
-                                          color: AdminTheme.textSecondary)),
-                                  if (phone.isNotEmpty)
-                                    Text(phone,
-                                        style: AdminTheme.sans(
-                                            fontSize: 11,
-                                            color: AdminTheme.textSecondary)),
-                                ],
-                              ),
-                              trailing: const Icon(Icons.chevron_right,
-                                  size: 18, color: AdminTheme.gold),
-                              onTap: () => Navigator.pop(ctx, r),
-                            );
-                          },
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text('취소',
-                      style: AdminTheme.sans(
-                          fontSize: 13, color: AdminTheme.textSecondary)),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    if (selected != null) {
       setState(() {
-        _venueNameCtrl.text = selected['place_name'] ?? '';
-        _venueAddress =
-            selected['road_address_name'] ?? selected['address_name'] ?? '';
+        // 건물명이 있으면 공연장명으로, 없으면 주소를 공연장명으로
+        if (buildingName.isNotEmpty) {
+          _venueNameCtrl.text = buildingName;
+        }
+        _venueAddress = roadAddress.isNotEmpty ? roadAddress : address;
       });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('주소 검색 오류: $e')),
+        );
+      }
     }
   }
 
