@@ -1,0 +1,13 @@
+{
+  "name": "naver-seat-bot",
+  "version": "1.0.0",
+  "description": "네이버 비지정석 전용 좌석배정 텔레그램 봇",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "node --watch bot.js"
+  },
+  "keywords": [],
+  "author": "ERwin Shin",
+  "license": "ISC"
+}

@@ -2961,6 +2961,8 @@ export const listEventsHttp = functions.https.onRequest(async (req, res) => {
       title: d.title || "",
       venueName: d.venueName || "",
       date: d.date ? d.date.toDate().toISOString() : "",
+      naverOnly: d.naverOnly === true,
+      naverProductKeyword: d.naverProductKeyword || "",
     };
   });
   res.status(200).json({ events });

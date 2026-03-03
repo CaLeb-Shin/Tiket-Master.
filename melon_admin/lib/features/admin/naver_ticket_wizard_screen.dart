@@ -53,6 +53,7 @@ class _NaverTicketWizardScreenState
   Uint8List? _posterBytes;
   String? _posterUrl;
   String? _naverProductUrl; // 네이버 스토어 상품 URL (모바일 티켓에서 포스터 클릭 시 이동)
+  bool _naverOnly = true; // 네이버 전용 (새 봇) vs 놀티켓 연계 (기존 봇)
   bool _isCreatingEvent = false;
   bool _isFetchingProduct = false;
   bool _isFetchingStore = false;
@@ -416,6 +417,44 @@ class _NaverTicketWizardScreenState
                           ),
                         ],
                       ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // 공연 유형 (네이버 전용 vs 놀티켓 연계)
+                    Row(
+                      children: [
+                        Text('공연 유형',
+                            style: AdminTheme.sans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600)),
+                        const Spacer(),
+                        Text(
+                            _naverOnly ? '네이버 전용' : '놀티켓 연계',
+                            style: AdminTheme.sans(
+                                fontSize: 11,
+                                color: _naverOnly
+                                    ? AdminTheme.gold
+                                    : AdminTheme.textTertiary)),
+                        const SizedBox(width: 6),
+                        SizedBox(
+                          height: 24,
+                          child: Switch(
+                            value: _naverOnly,
+                            onChanged: (v) =>
+                                setState(() => _naverOnly = v),
+                            activeColor: AdminTheme.gold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _naverOnly
+                          ? '좌석배정 봇이 승인 시 자동 좌석배정합니다'
+                          : '기존 봇이 처리합니다 (놀티켓 연계)',
+                      style: AdminTheme.sans(
+                          fontSize: 10,
+                          color: AdminTheme.textTertiary),
                     ),
                     const SizedBox(height: 20),
 
@@ -803,13 +842,17 @@ class _NaverTicketWizardScreenState
       final eventRepo = ref.read(eventRepositoryProvider);
       final eventId = await eventRepo.createEvent(event);
 
-      // 네이버 상품 URL 저장 (모바일 티켓에서 포스터 클릭 시 이동)
+      // 네이버 전용 플래그 + 상품 URL 저장
+      final extraFields = <String, dynamic>{
+        'naverOnly': _naverOnly,
+      };
       if (_naverProductUrl != null && _naverProductUrl!.isNotEmpty) {
-        await FirebaseFirestore.instance
-            .collection('events')
-            .doc(eventId)
-            .update({'naverProductUrl': _naverProductUrl});
+        extraFields['naverProductUrl'] = _naverProductUrl;
       }
+      await FirebaseFirestore.instance
+          .collection('events')
+          .doc(eventId)
+          .update(extraFields);
 
       if (!mounted) return;
       setState(() {
