@@ -727,6 +727,39 @@ class _TicketView extends ConsumerWidget {
 
           const SizedBox(height: 16),
 
+          // ── 네이버 스토어 버튼 ──
+          if (naverProductUrl != null && naverProductUrl.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: () => launchUrl(
+                    Uri.parse(naverProductUrl),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  icon: const Icon(Icons.storefront_rounded, size: 20),
+                  label: Text(
+                    '네이버 스토어에서 확인하기',
+                    style: AppTheme.nanum(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF03C75A), // 네이버 그린
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            ),
+
           // ── Footer note ──
           Text(
             '이 티켓은 공연 당일 입장 시 QR코드를 스캔하여 확인합니다.\n'
