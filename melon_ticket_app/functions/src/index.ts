@@ -2541,34 +2541,38 @@ export const createNaverOrder = functions.https.onCall(async (data: any, context
 
   await batch.commit();
 
-  // SMS 발송 태스크 생성 (봇이 폴링해서 발송)
-  const eventData = eventDoc.data();
-  const eventTitle = eventData?.title || "";
-  try {
-    await db.collection("smsTasks").add({
-      eventId,
-      naverOrderId: orderRef.id,
-      buyerName,
-      buyerPhone,
-      productName: productName || eventTitle,
-      seatGrade,
-      quantity,
-      ticketUrls: ticketUrls.map((t: any) => t.url),
-      status: "pending",
-      createdAt: admin.firestore.Timestamp.now(),
-      sentAt: null,
-      error: null,
-    });
-  } catch (smsErr: any) {
-    functions.logger.warn("SMS 태스크 생성 실패 (주문은 정상 생성됨):", smsErr.message);
+  // SMS 발송 태스크 생성 (dryRun이면 건너뜀)
+  const dryRun = data.dryRun === true;
+  if (!dryRun) {
+    const eventData = eventDoc.data();
+    const eventTitle = eventData?.title || "";
+    try {
+      await db.collection("smsTasks").add({
+        eventId,
+        naverOrderId: orderRef.id,
+        buyerName,
+        buyerPhone,
+        productName: productName || eventTitle,
+        seatGrade,
+        quantity,
+        ticketUrls: ticketUrls.map((t: any) => t.url),
+        status: "pending",
+        createdAt: admin.firestore.Timestamp.now(),
+        sentAt: null,
+        error: null,
+      });
+    } catch (smsErr: any) {
+      functions.logger.warn("SMS 태스크 생성 실패 (주문은 정상 생성됨):", smsErr.message);
+    }
   }
 
   functions.logger.info(
-    `네이버 주문 생성: ${naverOrderId}, ${buyerName}, ${seatGrade} x${quantity}, 티켓 ${ticketIds.length}장`
+    `네이버 주문 생성${dryRun ? " (테스트)" : ""}: ${naverOrderId}, ${buyerName}, ${seatGrade} x${quantity}, 티켓 ${ticketIds.length}장`
   );
 
   return {
     success: true,
+    dryRun,
     orderId: orderRef.id,
     tickets: ticketUrls,
   };
@@ -2905,33 +2909,37 @@ export const createNaverOrderHttp = functions.https.onRequest(async (req, res) =
 
     await batch.commit();
 
-    // SMS 태스크 생성
-    try {
-      const eventData = eventDoc.data();
-      await db.collection("smsTasks").add({
-        eventId,
-        naverOrderId: orderRef.id,
-        buyerName,
-        buyerPhone,
-        productName: productName || eventData?.title || "",
-        seatGrade,
-        quantity,
-        ticketUrls: ticketUrls.map((t: any) => t.url),
-        status: "pending",
-        createdAt: admin.firestore.Timestamp.now(),
-        sentAt: null,
-        error: null,
-      });
-    } catch (smsErr: any) {
-      functions.logger.warn("[봇] SMS 태스크 생성 실패:", smsErr.message);
+    // SMS 태스크 생성 (dryRun이면 건너뜀)
+    const dryRun = req.body.dryRun === true;
+    if (!dryRun) {
+      try {
+        const eventData = eventDoc.data();
+        await db.collection("smsTasks").add({
+          eventId,
+          naverOrderId: orderRef.id,
+          buyerName,
+          buyerPhone,
+          productName: productName || eventData?.title || "",
+          seatGrade,
+          quantity,
+          ticketUrls: ticketUrls.map((t: any) => t.url),
+          status: "pending",
+          createdAt: admin.firestore.Timestamp.now(),
+          sentAt: null,
+          error: null,
+        });
+      } catch (smsErr: any) {
+        functions.logger.warn("[봇] SMS 태스크 생성 실패:", smsErr.message);
+      }
     }
 
     functions.logger.info(
-      `[봇] 네이버 주문 생성: ${naverOrderId}, ${buyerName}, ${seatGrade} x${quantity}, 티켓 ${ticketIds.length}장`
+      `[봇] 네이버 주문 생성${dryRun ? " (테스트)" : ""}: ${naverOrderId}, ${buyerName}, ${seatGrade} x${quantity}, 티켓 ${ticketIds.length}장`
     );
 
     res.status(200).json({
       success: true,
+      dryRun,
       orderId: orderRef.id,
       tickets: ticketUrls,
     });

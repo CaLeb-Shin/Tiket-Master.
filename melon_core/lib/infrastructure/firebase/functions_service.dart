@@ -160,6 +160,7 @@ class FunctionsService {
     required int quantity,
     required String orderDate,
     String? memo,
+    bool dryRun = false,
   }) async {
     final callable = _functions.httpsCallable('createNaverOrder');
     final result = await callable.call({
@@ -172,6 +173,7 @@ class FunctionsService {
       'quantity': quantity,
       'orderDate': orderDate,
       if (memo != null) 'memo': memo,
+      if (dryRun) 'dryRun': true,
     });
     return Map<String, dynamic>.from(result.data);
   }

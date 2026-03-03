@@ -1944,6 +1944,22 @@ class _NaverTicketWizardScreenState
                             : const Text('주문 등록 + 티켓 발급'),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    // 테스트 주문 버튼
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(
+                              color: AdminTheme.gold, width: 0.5),
+                        ),
+                        onPressed: _isCreatingOrder
+                            ? null
+                            : _createTestOrder,
+                        icon: const Icon(Icons.science_outlined, size: 16),
+                        label: const Text('테스트 주문 추가 (SMS 없이)'),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -2049,6 +2065,55 @@ class _NaverTicketWizardScreenState
         );
       },
     );
+  }
+
+  // 가상 테스트 주문 생성 (SMS 발송 안 함)
+  Future<void> _createTestOrder() async {
+    final testNames = ['테스트관객A', '테스트관객B', '테스트관객C', '테스트관객D', '테스트관객E'];
+    final random = DateTime.now().millisecondsSinceEpoch;
+    final name = testNames[random % testNames.length];
+    final phone = '010-0000-${(random % 9000 + 1000)}';
+    final orderId = 'TEST-${random}';
+
+    setState(() => _isCreatingOrder = true);
+
+    try {
+      final result =
+          await ref.read(functionsServiceProvider).createNaverOrder(
+                eventId: _createdEventId!,
+                naverOrderId: orderId,
+                buyerName: name,
+                buyerPhone: phone,
+                productName: '테스트 주문',
+                seatGrade: _selectedGrade,
+                quantity: _quantity,
+                orderDate: DateTime.now().toIso8601String(),
+                memo: '테스트 주문 (SMS 발송 안 함)',
+                dryRun: true,
+              );
+
+      if (!mounted) return;
+
+      final tickets = result['tickets'] as List<dynamic>? ?? [];
+      if (tickets.isNotEmpty) {
+        _showTicketUrls(name, tickets);
+      }
+
+      setState(() => _isCreatingOrder = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              '🧪 테스트: $name — $_selectedGrade ${tickets.length}장 발급 (SMS 없음)'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isCreatingOrder = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('오류: $e')),
+      );
+    }
   }
 
   Future<void> _createNaverOrder() async {
