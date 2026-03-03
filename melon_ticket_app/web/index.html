@@ -51,6 +51,16 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <!-- Deep link: /m/ → /#/m/ (Flutter hash URL) -->
+  <script>
+    (function() {
+      var p = window.location.pathname;
+      if (p.startsWith('/m/') && !window.location.hash) {
+        window.location.replace('/#' + p);
+      }
+    })();
+  </script>
+
   <script>
     (function () {
       const host = window.location.hostname;
