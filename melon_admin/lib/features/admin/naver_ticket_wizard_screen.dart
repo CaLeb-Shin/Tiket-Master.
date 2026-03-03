@@ -895,52 +895,15 @@ class _NaverTicketWizardScreenState
     bool isSearching = false;
 
     Future<List<Map<String, dynamic>>> searchKakao(String query) async {
-      const kakaoApiKey = '8e3ecb0f10cd15fc7a7760a4f87e2cbb'; // REST API 키
-      final headers = {'Authorization': 'KakaoAK $kakaoApiKey'};
-
-      // 키워드 검색 (장소명, 상호명 등)
-      final kwUrl = Uri.parse(
-        'https://dapi.kakao.com/v2/local/search/keyword.json'
-        '?query=${Uri.encodeComponent(query)}&size=10',
+      // Cloud Function 프록시 경유 (CORS 우회)
+      final url = Uri.parse(
+        'https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net/searchAddressHttp'
+        '?q=${Uri.encodeComponent(query)}',
       );
-      // 주소 검색 (도로명, 지번)
-      final addrUrl = Uri.parse(
-        'https://dapi.kakao.com/v2/local/search/address.json'
-        '?query=${Uri.encodeComponent(query)}&size=5',
-      );
-
-      final responses = await Future.wait([
-        http.get(kwUrl, headers: headers),
-        http.get(addrUrl, headers: headers),
-      ]);
-
-      final all = <Map<String, dynamic>>[];
-
-      // 주소 검색 결과 (상단)
-      if (responses[1].statusCode == 200) {
-        final data = jsonDecode(responses[1].body) as Map<String, dynamic>;
-        final docs = data['documents'] as List? ?? [];
-        for (final d in docs) {
-          final m = d as Map<String, dynamic>;
-          final road = m['road_address'] as Map<String, dynamic>?;
-          all.add({
-            'place_name': road?['building_name'] ?? m['address_name'] ?? '',
-            'road_address_name': road?['address_name'] ?? '',
-            'address_name': m['address_name'] ?? '',
-            'phone': '',
-            '_type': 'address',
-          });
-        }
-      }
-
-      // 키워드 검색 결과
-      if (responses[0].statusCode == 200) {
-        final data = jsonDecode(responses[0].body) as Map<String, dynamic>;
-        final docs = data['documents'] as List? ?? [];
-        all.addAll(docs.cast<Map<String, dynamic>>());
-      }
-
-      return all;
+      final resp = await http.get(url);
+      if (resp.statusCode != 200) return [];
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      return (data['results'] as List? ?? []).cast<Map<String, dynamic>>();
     }
 
     final selected = await showDialog<Map<String, dynamic>>(

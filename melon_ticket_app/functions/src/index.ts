@@ -3260,3 +3260,58 @@ export const syncNaverProductsHttp = functions.https.onRequest(async (req, res) 
     res.status(500).json({ error: err.message });
   }
 });
+
+// ── 카카오 주소/키워드 검색 프록시 (CORS 우회) ──
+export const searchAddressHttp = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  const query = req.query.q as string;
+  if (!query) { res.status(400).json({ error: "q parameter required" }); return; }
+
+  const kakaoKey = "8e3ecb0f10cd15fc7a7760a4f87e2cbb";
+  const encoded = encodeURIComponent(query);
+  const headers = { Authorization: `KakaoAK ${kakaoKey}` };
+
+  try {
+    const [kwRes, addrRes] = await Promise.all([
+      fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encoded}&size=10`, { headers }),
+      fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encoded}&size=5`, { headers }),
+    ]);
+
+    const kwData: any = await kwRes.json();
+    const addrData: any = await addrRes.json();
+
+    const results: any[] = [];
+
+    // 주소 검색 결과 (상단)
+    for (const d of (addrData.documents || [])) {
+      const road = d.road_address;
+      results.push({
+        place_name: road?.building_name || d.address_name || "",
+        road_address_name: road?.address_name || "",
+        address_name: d.address_name || "",
+        phone: "",
+        _type: "address",
+      });
+    }
+
+    // 키워드 검색 결과
+    for (const d of (kwData.documents || [])) {
+      results.push({
+        place_name: d.place_name || "",
+        road_address_name: d.road_address_name || "",
+        address_name: d.address_name || "",
+        phone: d.phone || "",
+        _type: "keyword",
+      });
+    }
+
+    res.status(200).json({ results });
+  } catch (err: any) {
+    functions.logger.error("카카오 검색 에러:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
