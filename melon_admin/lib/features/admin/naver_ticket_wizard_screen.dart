@@ -896,16 +896,51 @@ class _NaverTicketWizardScreenState
 
     Future<List<Map<String, dynamic>>> searchKakao(String query) async {
       const kakaoApiKey = '8e3ecb0f10cd15fc7a7760a4f87e2cbb'; // REST API 키
-      final url = Uri.parse(
-        'https://dapi.kakao.com/v2/local/search/keyword.json?query=$query&category_group_code=CT1,AT4&size=10',
+      final headers = {'Authorization': 'KakaoAK $kakaoApiKey'};
+
+      // 키워드 검색 (장소명, 상호명 등)
+      final kwUrl = Uri.parse(
+        'https://dapi.kakao.com/v2/local/search/keyword.json'
+        '?query=${Uri.encodeComponent(query)}&size=10',
       );
-      final resp = await http.get(url, headers: {
-        'Authorization': 'KakaoAK $kakaoApiKey',
-      });
-      if (resp.statusCode != 200) return [];
-      final data = jsonDecode(resp.body) as Map<String, dynamic>;
-      final docs = data['documents'] as List? ?? [];
-      return docs.cast<Map<String, dynamic>>();
+      // 주소 검색 (도로명, 지번)
+      final addrUrl = Uri.parse(
+        'https://dapi.kakao.com/v2/local/search/address.json'
+        '?query=${Uri.encodeComponent(query)}&size=5',
+      );
+
+      final responses = await Future.wait([
+        http.get(kwUrl, headers: headers),
+        http.get(addrUrl, headers: headers),
+      ]);
+
+      final all = <Map<String, dynamic>>[];
+
+      // 주소 검색 결과 (상단)
+      if (responses[1].statusCode == 200) {
+        final data = jsonDecode(responses[1].body) as Map<String, dynamic>;
+        final docs = data['documents'] as List? ?? [];
+        for (final d in docs) {
+          final m = d as Map<String, dynamic>;
+          final road = m['road_address'] as Map<String, dynamic>?;
+          all.add({
+            'place_name': road?['building_name'] ?? m['address_name'] ?? '',
+            'road_address_name': road?['address_name'] ?? '',
+            'address_name': m['address_name'] ?? '',
+            'phone': '',
+            '_type': 'address',
+          });
+        }
+      }
+
+      // 키워드 검색 결과
+      if (responses[0].statusCode == 200) {
+        final data = jsonDecode(responses[0].body) as Map<String, dynamic>;
+        final docs = data['documents'] as List? ?? [];
+        all.addAll(docs.cast<Map<String, dynamic>>());
+      }
+
+      return all;
     }
 
     final selected = await showDialog<Map<String, dynamic>>(
@@ -915,7 +950,7 @@ class _NaverTicketWizardScreenState
           builder: (ctx, setDialogState) {
             return AlertDialog(
               backgroundColor: const Color(0xFF1A1A1F),
-              title: Text('공연장 검색',
+              title: Text('주소 검색',
                   style: AdminTheme.sans(
                       fontSize: 16, fontWeight: FontWeight.bold)),
               content: SizedBox(
@@ -930,7 +965,7 @@ class _NaverTicketWizardScreenState
                             controller: searchCtrl,
                             style: AdminTheme.sans(fontSize: 14),
                             decoration: const InputDecoration(
-                              hintText: '공연장 이름 검색 (예: 부산시민대극장)',
+                              hintText: '장소명 또는 주소 검색',
                             ),
                             onSubmitted: (_) async {
                               if (searchCtrl.text.trim().isEmpty) return;
@@ -969,7 +1004,7 @@ class _NaverTicketWizardScreenState
                     else if (results.isEmpty)
                       Expanded(
                         child: Center(
-                          child: Text('공연장 이름을 검색하세요',
+                          child: Text('장소명 또는 주소를 검색하세요',
                               style: AdminTheme.sans(
                                   fontSize: 13,
                                   color: AdminTheme.textSecondary)),
