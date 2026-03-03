@@ -176,7 +176,8 @@ class _TicketView extends ConsumerWidget {
     final venueName = event['venueName'] as String? ?? '';
     final venueAddress = event['venueAddress'] as String? ?? '';
     DateTime? startAt;
-    final startAtStr = event['startAt'] as String?;
+    final startAtRaw = event['startAt'];
+    final startAtStr = startAtRaw is String ? startAtRaw : null;
     if (startAtStr != null) {
       startAt = DateTime.tryParse(startAtStr);
     }
