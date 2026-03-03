@@ -190,16 +190,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
 
-          // 네이버 모바일 티켓 (비로그인, 공개 URL)
-          GoRoute(
-            path: '/m/:accessToken',
-            name: 'mobileTicket',
-            builder: (context, state) {
-              final accessToken = state.pathParameters['accessToken']!;
-              return MobileTicketPage(accessToken: accessToken);
-            },
-          ),
-
           // 스태프 스캐너
           GoRoute(
             path: '/staff/scanner',
@@ -207,6 +197,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ScannerScreen(),
           ),
         ],
+      ),
+
+      // 네이버 모바일 티켓 (비로그인, 공개 URL — ShellRoute 밖)
+      GoRoute(
+        path: '/m/:accessToken',
+        name: 'mobileTicket',
+        builder: (context, state) {
+          final accessToken = state.pathParameters['accessToken']!;
+          return MobileTicketPage(accessToken: accessToken);
+        },
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
