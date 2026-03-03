@@ -1030,9 +1030,52 @@ class _NaverTicketWizardScreenState
                 ),
               ],
 
+              // 버튼 영역 — 파싱 결과 바로 아래
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () => setState(() => _currentStep = 0),
+                    child: const Text('← 이전'),
+                    style: TextButton.styleFrom(
+                        foregroundColor: AdminTheme.textSecondary),
+                  ),
+                  const Spacer(),
+                  if (_seatData == null)
+                    TextButton(
+                      onPressed: () => setState(() => _currentStep = 2),
+                      child: const Text('건너뛰기 →'),
+                      style: TextButton.styleFrom(
+                          foregroundColor: AdminTheme.textTertiary),
+                    ),
+                  if (_seatData != null) ...[
+                    ElevatedButton(
+                      onPressed: !_isUploadingSeats ? _uploadSeats : null,
+                      child: _isUploadingSeats
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: AdminTheme.onAccent),
+                            )
+                          : const Text('좌석 등록'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => setState(() => _currentStep = 2),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AdminTheme.gold,
+                        foregroundColor: AdminTheme.onAccent,
+                      ),
+                      child: const Text('다음 →'),
+                    ),
+                  ],
+                ],
+              ),
+
               // 등급별 좌석 상세 (로드 성공 시)
               if (_seatData != null && _seatData!.seats.isNotEmpty) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 _buildSeatDetailSection(),
               ],
 
@@ -1081,79 +1124,36 @@ class _NaverTicketWizardScreenState
                 ),
               ],
 
-              const SizedBox(height: 16),
-
-              // 형식 안내
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AdminTheme.surface,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('지원 형식',
-                        style: AdminTheme.sans(
-                            fontSize: 12, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 6),
-                    Text(
-                      '• 네이버 좌석현황: 좌석등급/층/열/좌석번호 (VIP석, R석, S석, A석)\n'
-                      '• 리스트: 구역/층/열/번호/등급 컬럼\n'
-                      '• 비주얼: 셀 위치 = 좌석 위치, 값 = 등급 (VIP/R/S/A)\n'
-                      '• 행열: 행 = 좌석열, 열 = 좌석번호, 값 = 등급',
-                      style: AdminTheme.sans(
-                          fontSize: 11,
-                          color: AdminTheme.textTertiary,
-                          height: 1.6),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // 버튼 영역
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: () => setState(() => _currentStep = 0),
-                    child: const Text('← 이전'),
-                    style: TextButton.styleFrom(
-                        foregroundColor: AdminTheme.textSecondary),
+              // 형식 안내 (좌석 파싱 전에만 표시)
+              if (_seatData == null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AdminTheme.surface,
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  const Spacer(),
-                  if (_seatData == null)
-                    TextButton(
-                      onPressed: () => setState(() => _currentStep = 2),
-                      child: const Text('건너뛰기 →'),
-                      style: TextButton.styleFrom(
-                          foregroundColor: AdminTheme.textTertiary),
-                    ),
-                  if (_seatData != null) ...[
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: !_isUploadingSeats ? _uploadSeats : null,
-                      child: _isUploadingSeats
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: AdminTheme.onAccent),
-                            )
-                          : const Text('좌석 등록'),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () => setState(() => _currentStep = 2),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AdminTheme.gold,
-                        foregroundColor: AdminTheme.onAccent,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('지원 형식',
+                          style: AdminTheme.sans(
+                              fontSize: 12, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 6),
+                      Text(
+                        '• 네이버 좌석현황: 좌석등급/층/열/좌석번호 (VIP석, R석, S석, A석)\n'
+                        '• 리스트: 구역/층/열/번호/등급 컬럼\n'
+                        '• 비주얼: 셀 위치 = 좌석 위치, 값 = 등급 (VIP/R/S/A)\n'
+                        '• 행열: 행 = 좌석열, 열 = 좌석번호, 값 = 등급',
+                        style: AdminTheme.sans(
+                            fontSize: 11,
+                            color: AdminTheme.textTertiary,
+                            height: 1.6),
                       ),
-                      child: const Text('다음 →'),
-                    ),
-                  ],
-                ],
-              ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
