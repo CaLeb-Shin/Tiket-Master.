@@ -2333,6 +2333,7 @@ exports.getMobileTicketByToken = functions.https.onCall(async (data) => {
             venueName: event.venueName || "",
             revealAt: event.revealAt,
             naverProductUrl: event.naverProductUrl || null,
+            pamphletUrls: event.pamphletUrls || [],
         } : null,
         isRevealed,
         siblings,

@@ -298,6 +298,8 @@ class _TicketViewState extends ConsumerState<_TicketView>
     final eventTitle = event['title'] as String? ?? '공연';
     final imageUrl = event['imageUrl'] as String?;
     final naverProductUrl = event['naverProductUrl'] as String?;
+    final pamphletUrls = (event['pamphletUrls'] as List?)
+        ?.cast<String>() ?? <String>[];
     final venueName = event['venueName'] as String? ?? '';
     final venueAddress = event['venueAddress'] as String? ?? '';
     DateTime? startAt;
@@ -385,6 +387,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
                             qrRevealed: qrRevealed,
                             isCancelled: isCancelled,
                             isUsed: isUsed,
+                            pamphletUrls: pamphletUrls,
                             onBack: _flipToFront,
                           ),
                         ),
@@ -886,6 +889,7 @@ class _BackCard extends StatefulWidget {
   final bool qrRevealed;
   final bool isCancelled;
   final bool isUsed;
+  final List<String> pamphletUrls;
   final VoidCallback onBack;
 
   const _BackCard({
@@ -900,6 +904,7 @@ class _BackCard extends StatefulWidget {
     required this.qrRevealed,
     required this.isCancelled,
     required this.isUsed,
+    this.pamphletUrls = const [],
     required this.onBack,
   });
 
@@ -995,6 +1000,47 @@ class _BackCardState extends State<_BackCard> {
 
             // ── 구분선 ──
             _GoldDivider(),
+
+            // ── 팜플렛 갤러리 ──
+            if (widget.pamphletUrls.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Icon(Icons.auto_stories_rounded,
+                        size: 14, color: _textLight),
+                    const SizedBox(width: 6),
+                    Text(
+                      'PROGRAMME',
+                      style: GoogleFonts.dmSans(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: _textLight,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${widget.pamphletUrls.length}p',
+                      style: GoogleFonts.dmSans(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: _textLight,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 160,
+                child: _PamphletGallery(
+                  urls: widget.pamphletUrls,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
 
             const SizedBox(height: 20),
 
@@ -2089,6 +2135,192 @@ class _PaperTexturePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ── 팜플렛 갤러리 (가로 스크롤 + 탭 → 풀스크린) ──
+class _PamphletGallery extends StatelessWidget {
+  final List<String> urls;
+  const _PamphletGallery({required this.urls});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      itemCount: urls.length,
+      separatorBuilder: (_, __) => const SizedBox(width: 10),
+      itemBuilder: (context, index) {
+        return GestureDetector(
+          onTap: () => _openFullscreen(context, index),
+          child: Container(
+            width: 120,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _divider),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(7),
+              child: Image.network(
+                urls[index],
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: _creamDark,
+                  child: const Center(
+                    child: Icon(Icons.image_not_supported_outlined,
+                        size: 24, color: _textLight),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _openFullscreen(BuildContext context, int initialIndex) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black87,
+        barrierDismissible: true,
+        pageBuilder: (_, __, ___) => _PamphletFullscreen(
+          urls: urls,
+          initialIndex: initialIndex,
+        ),
+        transitionsBuilder: (_, anim, __, child) {
+          return FadeTransition(opacity: anim, child: child);
+        },
+      ),
+    );
+  }
+}
+
+class _PamphletFullscreen extends StatefulWidget {
+  final List<String> urls;
+  final int initialIndex;
+  const _PamphletFullscreen({required this.urls, required this.initialIndex});
+
+  @override
+  State<_PamphletFullscreen> createState() => _PamphletFullscreenState();
+}
+
+class _PamphletFullscreenState extends State<_PamphletFullscreen> {
+  late PageController _ctrl;
+  late int _current;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = widget.initialIndex;
+    _ctrl = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // 페이지 뷰
+            PageView.builder(
+              controller: _ctrl,
+              itemCount: widget.urls.length,
+              onPageChanged: (i) => setState(() => _current = i),
+              itemBuilder: (context, index) {
+                return InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 4,
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Image.network(
+                        widget.urls[index],
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            // 상단 닫기 + 페이지 번호
+            Positioned(
+              top: 8,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const SizedBox(width: 48),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${_current + 1} / ${widget.urls.length}',
+                      style: GoogleFonts.dmSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+
+            // 하단 도트 인디케이터
+            if (widget.urls.length > 1)
+              Positioned(
+                bottom: 16,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    widget.urls.length,
+                    (i) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: i == _current ? 16 : 6,
+                      height: 6,
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      decoration: BoxDecoration(
+                        color: i == _current
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ── Boarding Pass Clipper ──
