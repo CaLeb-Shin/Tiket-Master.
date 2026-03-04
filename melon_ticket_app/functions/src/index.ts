@@ -2776,6 +2776,91 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
 });
 
 // ============================================================
+// 테스트/관리 함수
+// ============================================================
+
+/**
+ * 좌석 즉시 공개 (revealAt을 현재 시각으로 설정)
+ */
+export const revealSeatsNow = functions.https.onCall(async (data: any, context) => {
+  await assertAdmin(context?.auth?.uid);
+  const { eventId } = data;
+  if (!eventId) {
+    throw new functions.https.HttpsError("invalid-argument", "eventId가 필요합니다");
+  }
+
+  const now = admin.firestore.Timestamp.now();
+  await db.collection("events").doc(eventId).update({ revealAt: now });
+
+  return { success: true, revealAt: now.toDate().toISOString() };
+});
+
+/**
+ * 좌석 재배정 (티켓의 좌석을 다른 좌석으로 변경)
+ */
+export const reassignTicketSeat = functions.https.onCall(async (data: any, context) => {
+  await assertAdmin(context?.auth?.uid);
+  const { ticketId, newSeatId } = data;
+  if (!ticketId || !newSeatId) {
+    throw new functions.https.HttpsError("invalid-argument", "ticketId와 newSeatId가 필요합니다");
+  }
+
+  const ticketRef = db.collection("mobileTickets").doc(ticketId);
+  const ticketDoc = await ticketRef.get();
+  if (!ticketDoc.exists) {
+    throw new functions.https.HttpsError("not-found", "티켓을 찾을 수 없습니다");
+  }
+  const ticket = ticketDoc.data()!;
+
+  // 새 좌석 확인
+  const newSeatRef = db.collection("seats").doc(newSeatId);
+  const newSeatDoc = await newSeatRef.get();
+  if (!newSeatDoc.exists) {
+    throw new functions.https.HttpsError("not-found", "좌석을 찾을 수 없습니다");
+  }
+  const newSeat = newSeatDoc.data()!;
+
+  if (newSeat.status !== "available") {
+    throw new functions.https.HttpsError("failed-precondition", "이미 배정된 좌석입니다");
+  }
+
+  const batch = db.batch();
+
+  // 기존 좌석 해제
+  if (ticket.seatId) {
+    batch.update(db.collection("seats").doc(ticket.seatId), {
+      status: "available",
+      ticketId: null,
+    });
+  }
+
+  // 새 좌석 배정
+  batch.update(newSeatRef, {
+    status: "reserved",
+    ticketId: ticketId,
+  });
+
+  // seatInfo 생성
+  const floor = newSeat.floor || "";
+  const block = newSeat.block || "";
+  const row = newSeat.row || "";
+  const number = newSeat.number || "";
+  const seatInfo = [floor, block ? `${block}블록` : "", row ? `${row}열` : "", number ? `${number}번` : ""]
+    .filter(Boolean).join(" ");
+
+  // 티켓 업데이트
+  batch.update(ticketRef, {
+    seatId: newSeatId,
+    seatNumber: `${newSeat.number}`,
+    seatInfo: seatInfo,
+  });
+
+  await batch.commit();
+
+  return { success: true, seatInfo };
+});
+
+// ============================================================
 // 봇 연동용 HTTP 엔드포인트 (API 키 인증)
 // ============================================================
 

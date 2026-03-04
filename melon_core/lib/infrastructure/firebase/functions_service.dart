@@ -213,6 +213,28 @@ class FunctionsService {
     return Map<String, dynamic>.from(result.data);
   }
 
+  /// 좌석 즉시 공개 (revealAt → now)
+  Future<Map<String, dynamic>> revealSeatsNow({
+    required String eventId,
+  }) async {
+    final callable = _functions.httpsCallable('revealSeatsNow');
+    final result = await callable.call({'eventId': eventId});
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 좌석 재배정 (티켓의 좌석 변경)
+  Future<Map<String, dynamic>> reassignTicketSeat({
+    required String ticketId,
+    required String newSeatId,
+  }) async {
+    final callable = _functions.httpsCallable('reassignTicketSeat');
+    final result = await callable.call({
+      'ticketId': ticketId,
+      'newSeatId': newSeatId,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
   /// HTTP CF 호출 (onRequest 엔드포인트용, Firebase Auth 토큰 사용)
   Future<Map<String, dynamic>> callHttpFunction(
       String functionName, Map<String, dynamic> body) async {

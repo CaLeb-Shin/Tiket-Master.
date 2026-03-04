@@ -127,7 +127,46 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                     ),
                   ),
                 ),
-                // ── New Order Button ──
+                // ── Action Buttons ──
+                // 좌석 공개
+                SizedBox(
+                  height: 36,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _revealSeatsNow(),
+                    icon: const Icon(Icons.visibility_rounded, size: 14),
+                    label: Text('좌석 공개',
+                        style: AdminTheme.sans(
+                            fontSize: 11, fontWeight: FontWeight.w600)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AdminTheme.info,
+                      side: BorderSide(
+                          color: AdminTheme.info.withValues(alpha: 0.3)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // 테스트 주문
+                SizedBox(
+                  height: 36,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showTestOrderDialog(),
+                    icon: const Icon(Icons.science_rounded, size: 14),
+                    label: Text('테스트',
+                        style: AdminTheme.sans(
+                            fontSize: 11, fontWeight: FontWeight.w600)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AdminTheme.sage,
+                      side: BorderSide(
+                          color: AdminTheme.sage.withValues(alpha: 0.3)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // 주문 입력
                 SizedBox(
                   height: 36,
                   child: ElevatedButton.icon(
@@ -878,6 +917,331 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
     );
   }
 
+  // ─── 테스트 주문 일괄 생성 ───
+
+  void _showTestOrderDialog() {
+    String selectedGrade = 'R';
+    int quantity = 10;
+    bool isCreating = false;
+    final results = <String>[];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          backgroundColor: AdminTheme.surface,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.science_rounded,
+                          color: AdminTheme.sage, size: 24),
+                      const SizedBox(width: 8),
+                      Text('테스트 주문 생성',
+                          style: AdminTheme.serif(
+                              fontSize: 18, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text('가상 주문을 일괄 생성합니다 (좌석 자동 배정)',
+                      style: AdminTheme.sans(
+                          fontSize: 12, color: AdminTheme.textTertiary)),
+                  const SizedBox(height: 20),
+
+                  // 등급 선택
+                  Text('등급', style: AdminTheme.label(fontSize: 10)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: _gradeOrder.map((g) {
+                      final selected = g == selectedGrade;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: Text('${g}석',
+                              style: AdminTheme.sans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: selected
+                                    ? AdminTheme.onAccent
+                                    : AdminTheme.textSecondary,
+                              )),
+                          selected: selected,
+                          selectedColor: AdminTheme.gold,
+                          backgroundColor: AdminTheme.card,
+                          side: BorderSide(
+                              color: selected
+                                  ? AdminTheme.gold
+                                  : AdminTheme.border,
+                              width: 0.5),
+                          onSelected: (_) =>
+                              setDialogState(() => selectedGrade = g),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 수량
+                  Text('주문 수', style: AdminTheme.label(fontSize: 10)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [3, 5, 10].map((n) {
+                      final selected = n == quantity;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: Text('$n명',
+                              style: AdminTheme.sans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: selected
+                                    ? AdminTheme.onAccent
+                                    : AdminTheme.textSecondary,
+                              )),
+                          selected: selected,
+                          selectedColor: AdminTheme.gold,
+                          backgroundColor: AdminTheme.card,
+                          side: BorderSide(
+                              color: selected
+                                  ? AdminTheme.gold
+                                  : AdminTheme.border,
+                              width: 0.5),
+                          onSelected: (_) =>
+                              setDialogState(() => quantity = n),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // 결과 표시
+                  if (results.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AdminTheme.card,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                            color: AdminTheme.border, width: 0.5),
+                      ),
+                      constraints: const BoxConstraints(maxHeight: 120),
+                      child: SingleChildScrollView(
+                        child: Text(
+                          results.join('\n'),
+                          style: AdminTheme.sans(
+                              fontSize: 11,
+                              color: AdminTheme.textSecondary,
+                              height: 1.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 버튼
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 44,
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AdminTheme.textPrimary,
+                              side: const BorderSide(
+                                  color: AdminTheme.border, width: 0.5),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4)),
+                            ),
+                            child: Text('닫기',
+                                style: AdminTheme.sans(
+                                    fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 44,
+                          child: ElevatedButton(
+                            onPressed: isCreating
+                                ? null
+                                : () async {
+                                    setDialogState(() {
+                                      isCreating = true;
+                                      results.clear();
+                                    });
+
+                                    for (int i = 1; i <= quantity; i++) {
+                                      try {
+                                        final res = await ref
+                                            .read(functionsServiceProvider)
+                                            .createNaverOrder(
+                                              eventId: widget.eventId,
+                                              naverOrderId: 'TEST-${DateTime.now().millisecondsSinceEpoch}-$i',
+                                              buyerName: '테스트관객$i',
+                                              buyerPhone: '010-0000-${i.toString().padLeft(4, '0')}',
+                                              productName: '테스트 주문',
+                                              seatGrade: selectedGrade,
+                                              quantity: 1,
+                                              orderDate: DateTime.now().toIso8601String(),
+                                            );
+                                        final tickets = (res['tickets'] as List?) ?? [];
+                                        final url = tickets.isNotEmpty
+                                            ? tickets[0]['url'] ?? ''
+                                            : '';
+                                        setDialogState(() => results.add(
+                                            '✅ 테스트관객$i — $selectedGrade석 $url'));
+                                      } catch (e) {
+                                        setDialogState(() => results.add(
+                                            '❌ 테스트관객$i — $e'));
+                                      }
+                                    }
+
+                                    setDialogState(
+                                        () => isCreating = false);
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AdminTheme.sage,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4)),
+                            ),
+                            child: isCreating
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white))
+                                : Text('$quantity건 생성',
+                                    style: AdminTheme.sans(
+                                        fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── 좌석 즉시 공개 ───
+
+  Future<void> _revealSeatsNow() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AdminTheme.surface,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.visibility_rounded,
+                    color: AdminTheme.info, size: 32),
+                const SizedBox(height: 12),
+                Text('좌석 즉시 공개',
+                    style: AdminTheme.serif(
+                        fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                Text(
+                  '모든 티켓의 좌석 정보를 지금 바로 공개합니다.\n'
+                  '(revealAt을 현재 시각으로 설정)',
+                  textAlign: TextAlign.center,
+                  style: AdminTheme.sans(
+                    fontSize: 13,
+                    color: AdminTheme.textSecondary,
+                    height: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AdminTheme.textPrimary,
+                            side: const BorderSide(
+                                color: AdminTheme.border, width: 0.5),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4)),
+                          ),
+                          child: Text('취소',
+                              style: AdminTheme.sans(
+                                  fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AdminTheme.info,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4)),
+                          ),
+                          child: Text('공개 확정',
+                              style: AdminTheme.sans(
+                                  fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ref
+          .read(functionsServiceProvider)
+          .revealSeatsNow(eventId: widget.eventId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('좌석이 공개되었습니다')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('공개 실패: $e')),
+        );
+      }
+    }
+  }
+
   // ─── Cancel Order ───
 
   Future<void> _cancelOrder(NaverOrder order) async {
@@ -1422,7 +1786,22 @@ class _TicketRow extends StatelessWidget {
             child: Text(statusLabel,
                 style: AdminTheme.label(fontSize: 8, color: statusColor)),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
+
+          // Reassign seat
+          if (ticket.status == MobileTicketStatus.active)
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => _showReassignDialog(context, ticket),
+                child: Tooltip(
+                  message: '좌석 재배정',
+                  child: const Icon(Icons.swap_horiz_rounded,
+                      size: 14, color: AdminTheme.textTertiary),
+                ),
+              ),
+            ),
+          const SizedBox(width: 6),
 
           // Copy URL
           if (ticket.status == MobileTicketStatus.active)
@@ -1445,6 +1824,150 @@ class _TicketRow extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── 좌석 재배정 다이얼로그 ───
+
+void _showReassignDialog(BuildContext context, MobileTicket ticket) {
+  final seatIdCtrl = TextEditingController();
+
+  showDialog(
+    context: context,
+    builder: (ctx) => Dialog(
+      backgroundColor: AdminTheme.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 380),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.swap_horiz_rounded,
+                      color: AdminTheme.gold, size: 24),
+                  const SizedBox(width: 8),
+                  Text('좌석 재배정',
+                      style: AdminTheme.serif(
+                          fontSize: 18, fontWeight: FontWeight.w700)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '현재: ${ticket.seatInfo ?? '미배정'}\n'
+                '티켓 #${ticket.entryNumber} (${ticket.buyerName})',
+                style: AdminTheme.sans(
+                  fontSize: 12,
+                  color: AdminTheme.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('새 좌석 ID', style: AdminTheme.label(fontSize: 10)),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 44,
+                child: TextField(
+                  controller: seatIdCtrl,
+                  style: AdminTheme.sans(
+                      fontSize: 13, color: AdminTheme.textPrimary),
+                  decoration: InputDecoration(
+                    hintText: 'Firestore seat document ID',
+                    hintStyle: AdminTheme.sans(
+                        fontSize: 12, color: AdminTheme.textTertiary),
+                    filled: true,
+                    fillColor: AdminTheme.card,
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: const BorderSide(
+                          color: AdminTheme.border, width: 0.5),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: const BorderSide(
+                          color: AdminTheme.border, width: 0.5),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 44,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AdminTheme.textPrimary,
+                          side: const BorderSide(
+                              color: AdminTheme.border, width: 0.5),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4)),
+                        ),
+                        child: Text('취소',
+                            style:
+                                AdminTheme.sans(fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Consumer(
+                      builder: (ctx, ref, _) => SizedBox(
+                        height: 44,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final newSeatId = seatIdCtrl.text.trim();
+                            if (newSeatId.isEmpty) return;
+                            try {
+                              await ref
+                                  .read(functionsServiceProvider)
+                                  .reassignTicketSeat(
+                                    ticketId: ticket.id,
+                                    newSeatId: newSeatId,
+                                  );
+                              if (ctx.mounted) {
+                                Navigator.pop(ctx);
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('좌석이 재배정되었습니다')),
+                                );
+                              }
+                            } catch (e) {
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(content: Text('재배정 실패: $e')),
+                                );
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AdminTheme.gold,
+                            foregroundColor: AdminTheme.onAccent,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4)),
+                          ),
+                          child: Text('재배정',
+                              style: AdminTheme.sans(
+                                  fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 // ─── SMS 발송 상태 배지 ───
