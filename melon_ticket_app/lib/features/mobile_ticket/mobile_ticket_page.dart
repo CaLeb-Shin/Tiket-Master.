@@ -216,6 +216,8 @@ class _TicketViewState extends ConsumerState<_TicketView>
     final seatInfo = ticket['seatInfo'] as String?;
     final ticketId = ticket['id'] as String? ?? '';
     final qrVersion = ticket['qrVersion'] as int? ?? 1;
+    final orderIndex = ticket['orderIndex'] as int? ?? 1;
+    final totalInOrder = ticket['totalInOrder'] as int? ?? 1;
 
     final eventTitle = event['title'] as String? ?? '공연';
     final imageUrl = event['imageUrl'] as String?;
@@ -257,12 +259,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
         child: Column(
           children: [
-            // ── LIVE 인디케이터 ──
-            if (!isCancelled && !isUsed)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _LiveBadge(startAt: startAt),
-              ),
+            const SizedBox(height: 4),
 
             // ══════════════════════════════════════════
             // ── 메인 카드 (플립 애니메이션) ──
@@ -285,8 +282,6 @@ class _TicketViewState extends ConsumerState<_TicketView>
                           naverProductUrl: naverProductUrl,
                           buyerName: buyerName,
                           seatGrade: seatGrade,
-                          seatInfo: seatInfo,
-                          entryNumber: entryNumber,
                           startAt: startAt,
                           venueName: venueName,
                           venueAddress: venueAddress,
@@ -295,6 +290,8 @@ class _TicketViewState extends ConsumerState<_TicketView>
                           isCancelled: isCancelled,
                           isUsed: isUsed,
                           qrRevealed: qrRevealed,
+                          orderIndex: orderIndex,
+                          totalInOrder: totalInOrder,
                           onQrTap: _flipToQr,
                         )
                       : Transform(
@@ -444,8 +441,6 @@ class _FrontCard extends StatelessWidget {
   final String? naverProductUrl;
   final String buyerName;
   final String seatGrade;
-  final String? seatInfo;
-  final int entryNumber;
   final DateTime? startAt;
   final String venueName;
   final String venueAddress;
@@ -454,6 +449,8 @@ class _FrontCard extends StatelessWidget {
   final bool isCancelled;
   final bool isUsed;
   final bool qrRevealed;
+  final int orderIndex;
+  final int totalInOrder;
   final VoidCallback onQrTap;
 
   const _FrontCard({
@@ -462,8 +459,6 @@ class _FrontCard extends StatelessWidget {
     this.naverProductUrl,
     required this.buyerName,
     required this.seatGrade,
-    this.seatInfo,
-    required this.entryNumber,
     this.startAt,
     required this.venueName,
     required this.venueAddress,
@@ -472,6 +467,8 @@ class _FrontCard extends StatelessWidget {
     required this.isCancelled,
     required this.isUsed,
     required this.qrRevealed,
+    required this.orderIndex,
+    required this.totalInOrder,
     required this.onQrTap,
   });
 
@@ -506,7 +503,7 @@ class _FrontCard extends StatelessWidget {
               onQrTap: onQrTap,
             ),
 
-            // ── 공연 정보 섹션 ──
+            // ── 공연 정보 섹션 (v4 레이아웃) ──
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
               child: Column(
@@ -527,83 +524,17 @@ class _FrontCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // 정보 그리드
-                  Row(
-                    children: [
-                      Expanded(
-                          child:
-                              _InfoField(label: 'Passenger', value: buyerName)),
-                      Expanded(
-                        child: _InfoField(
-                          label: 'Date',
-                          value: startAt != null
-                              ? DateFormat('yyyy.MM.dd (E)', 'ko_KR')
-                                  .format(startAt!)
-                              : '-',
-                        ),
-                      ),
-                    ],
+                  // Date & Time (합침)
+                  _InfoField(
+                    label: 'Date & Time',
+                    value: startAt != null
+                        ? DateFormat('yyyy.MM.dd (E)  HH:mm', 'ko_KR')
+                            .format(startAt!)
+                        : '-',
                   ),
                   const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _InfoField(
-                          label: 'Entry No.',
-                          value: '#$entryNumber',
-                          valueStyle: GoogleFonts.inter(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            color: gradeCol,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: _InfoField(
-                          label: 'Grade',
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: gradeCol.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                  color: gradeCol.withValues(alpha: 0.3)),
-                            ),
-                            child: Text(
-                              '${seatGrade}석',
-                              style: AppTheme.nanum(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: gradeCol,
-                                noShadow: true,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _InfoField(
-                          label: 'Seat',
-                          value: seatInfo ?? '공연당일 배정',
-                        ),
-                      ),
-                      Expanded(
-                        child: _InfoField(
-                          label: 'Time',
-                          value: startAt != null
-                              ? DateFormat('HH:mm').format(startAt!)
-                              : '-',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
+
+                  // Venue
                   _InfoField(
                     label: 'Venue',
                     value: venueName,
@@ -630,6 +561,68 @@ class _FrontCard extends StatelessWidget {
                             color: _textLight,
                             noShadow: true),
                       ),
+                    ),
+                  const SizedBox(height: 16),
+
+                  // Passenger (크고 굵게, 등급 색상)
+                  _InfoField(
+                    label: 'Passenger',
+                    value: buyerName,
+                    valueStyle: GoogleFonts.inter(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: gradeCol,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Grade + Status (LIVE 카운트다운)
+                  Row(
+                    children: [
+                      // Grade — 큰 컬러 뱃지
+                      Expanded(
+                        child: _InfoField(
+                          label: 'Grade',
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: gradeCol.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: gradeCol.withValues(alpha: 0.3)),
+                            ),
+                            child: Text(
+                              '${seatGrade}석',
+                              style: GoogleFonts.inter(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: gradeCol,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Status — LIVE 카운트다운
+                      Expanded(
+                        child: _InfoField(
+                          label: 'Status',
+                          child: _LiveStatusInCard(
+                            startAt: startAt,
+                            isCancelled: isCancelled,
+                            isUsed: isUsed,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Tickets (n매 중 몇 번째)
+                  if (totalInOrder > 1)
+                    _InfoField(
+                      label: 'Tickets',
+                      value: '${totalInOrder}매 ($orderIndex/$totalInOrder)',
                     ),
                 ],
               ),
@@ -1106,16 +1099,25 @@ class _PosterWithQr extends StatelessWidget {
   }
 }
 
-// ── LIVE 배지 (실시간 카운트다운) ──
-class _LiveBadge extends StatefulWidget {
+enum _LiveStatus { upcoming, playing, ended }
+
+// ── 카드 내부 LIVE 카운트다운 (크림 배경용) ──
+class _LiveStatusInCard extends StatefulWidget {
   final DateTime? startAt;
-  const _LiveBadge({this.startAt});
+  final bool isCancelled;
+  final bool isUsed;
+
+  const _LiveStatusInCard({
+    this.startAt,
+    required this.isCancelled,
+    required this.isUsed,
+  });
 
   @override
-  State<_LiveBadge> createState() => _LiveBadgeState();
+  State<_LiveStatusInCard> createState() => _LiveStatusInCardState();
 }
 
-class _LiveBadgeState extends State<_LiveBadge>
+class _LiveStatusInCardState extends State<_LiveStatusInCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseCtrl;
   Timer? _tickTimer;
@@ -1138,23 +1140,19 @@ class _LiveBadgeState extends State<_LiveBadge>
   void _updateCountdown() {
     if (widget.startAt == null) return;
     final now = DateTime.now();
-    // 런타임 2시간 10분 기준 공연 종료
     final endAt = widget.startAt!.add(const Duration(hours: 2, minutes: 10));
 
     if (now.isBefore(widget.startAt!)) {
-      // 공연 전
       setState(() {
         _remaining = widget.startAt!.difference(now);
         _status = _LiveStatus.upcoming;
       });
     } else if (now.isBefore(endAt)) {
-      // 공연 중
       setState(() {
         _remaining = endAt.difference(now);
         _status = _LiveStatus.playing;
       });
     } else {
-      // 공연 종료
       setState(() {
         _remaining = Duration.zero;
         _status = _LiveStatus.ended;
@@ -1169,12 +1167,12 @@ class _LiveBadgeState extends State<_LiveBadge>
     super.dispose();
   }
 
-  String _formatCountdown(Duration d) {
+  String _fmt(Duration d) {
     if (d.inDays > 0) {
       final h = d.inHours % 24;
       final m = d.inMinutes % 60;
       final s = d.inSeconds % 60;
-      return 'D-${d.inDays}  ${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+      return 'D-${d.inDays} ${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
     }
     final h = d.inHours;
     final m = d.inMinutes % 60;
@@ -1184,81 +1182,78 @@ class _LiveBadgeState extends State<_LiveBadge>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isCancelled) {
+      return Text('취소됨',
+          style: GoogleFonts.inter(
+              fontSize: 15, fontWeight: FontWeight.w800, color: const Color(0xFFFF5A5F)));
+    }
+    if (widget.isUsed) {
+      return Text('이용완료',
+          style: GoogleFonts.inter(
+              fontSize: 15, fontWeight: FontWeight.w800, color: const Color(0xFF22C55E)));
+    }
+
     final isToday = widget.startAt != null &&
         widget.startAt!.difference(DateTime.now()).inDays == 0 &&
         _status == _LiveStatus.upcoming;
 
     final Color dotColor;
     final String labelText;
-    final String? countdownText;
 
     switch (_status) {
       case _LiveStatus.upcoming:
         dotColor = const Color(0xFF22C55E);
         labelText = isToday ? 'TODAY' : 'LIVE';
-        countdownText = widget.startAt != null
-            ? (isToday
-                ? _formatCountdown(_remaining)
-                : 'D-${_remaining.inDays}  ${(_remaining.inHours % 24).toString().padLeft(2, '0')}:${(_remaining.inMinutes % 60).toString().padLeft(2, '0')}:${(_remaining.inSeconds % 60).toString().padLeft(2, '0')}')
-            : null;
       case _LiveStatus.playing:
         dotColor = const Color(0xFFFF4444);
         labelText = 'NOW PLAYING';
-        countdownText = null;
       case _LiveStatus.ended:
         dotColor = _textLight;
         labelText = 'ENDED';
-        countdownText = null;
     }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AnimatedBuilder(
-          animation: _pulseCtrl,
-          builder: (_, __) => Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _status == _LiveStatus.ended
-                  ? dotColor
-                  : Color.lerp(
-                      dotColor,
-                      dotColor.withValues(alpha: 0.3),
-                      _pulseCtrl.value,
-                    ),
-              boxShadow: _status != _LiveStatus.ended
-                  ? [
-                      BoxShadow(
-                        color: dotColor
-                            .withValues(alpha: 0.4 * (1 - _pulseCtrl.value)),
-                        blurRadius: 8,
-                      ),
-                    ]
-                  : null,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedBuilder(
+              animation: _pulseCtrl,
+              builder: (_, __) => Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _status == _LiveStatus.ended
+                      ? dotColor
+                      : Color.lerp(dotColor, dotColor.withValues(alpha: 0.3), _pulseCtrl.value),
+                  boxShadow: _status != _LiveStatus.ended
+                      ? [BoxShadow(color: dotColor.withValues(alpha: 0.4 * (1 - _pulseCtrl.value)), blurRadius: 6)]
+                      : null,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 5),
+            Text(
+              labelText,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: dotColor,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 6),
-        Text(
-          labelText,
-          style: GoogleFonts.inter(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: dotColor,
-            letterSpacing: 2,
-          ),
-        ),
-        if (countdownText != null) ...[
-          const SizedBox(width: 8),
+        if (_status == _LiveStatus.upcoming && widget.startAt != null) ...[
+          const SizedBox(height: 3),
           Text(
-            countdownText,
+            _fmt(_remaining),
             style: GoogleFonts.robotoMono(
-              fontSize: 11,
+              fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: Colors.white.withValues(alpha: 0.7),
+              color: _textDark,
             ),
           ),
         ],
@@ -1266,8 +1261,6 @@ class _LiveBadgeState extends State<_LiveBadge>
     );
   }
 }
-
-enum _LiveStatus { upcoming, playing, ended }
 
 // ── 상태 배지 ──
 class _StatusBadge extends StatelessWidget {
