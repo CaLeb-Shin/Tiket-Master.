@@ -40,6 +40,8 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
   Map<String, dynamic>? _ticketData;
   bool _isLoading = true;
   String? _errorText;
+  PageController? _pageController;
+  int _currentPage = 0;
 
   @override
   void initState() {
@@ -58,9 +60,24 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
           .read(functionsServiceProvider)
           .getMobileTicketByToken(accessToken: widget.accessToken);
       if (!mounted) return;
+
+      // 그룹 티켓: 현재 티켓 위치 찾기
+      final siblings = (result['siblings'] as List?)
+          ?.cast<Map<String, dynamic>>() ?? [];
+      int initialPage = 0;
+      if (siblings.length > 1) {
+        initialPage = siblings.indexWhere(
+          (s) => s['accessToken'] == widget.accessToken,
+        );
+        if (initialPage < 0) initialPage = 0;
+      }
+
+      _pageController?.dispose();
       setState(() {
         _ticketData = result;
         _isLoading = false;
+        _currentPage = initialPage;
+        _pageController = PageController(initialPage: initialPage);
       });
     } catch (e) {
       if (!mounted) return;
@@ -69,6 +86,12 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
         _errorText = '티켓을 찾을 수 없습니다';
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _pageController?.dispose();
+    super.dispose();
   }
 
   @override
@@ -136,6 +159,54 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
       );
     }
 
+    final siblings = (_ticketData!['siblings'] as List?)
+        ?.cast<Map<String, dynamic>>() ?? [];
+
+    // 그룹 티켓 (2장 이상) → PageView 스와이프
+    if (siblings.length > 1 && _pageController != null) {
+      return Scaffold(
+        backgroundColor: _burgundyDeep,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _GroupTicketHeader(
+                current: _currentPage,
+                total: siblings.length,
+              ),
+              Expanded(
+                child: PageView.builder(
+                  controller: _pageController!,
+                  itemCount: siblings.length,
+                  onPageChanged: (i) => setState(() => _currentPage = i),
+                  itemBuilder: (context, index) {
+                    final sibling = Map<String, dynamic>.from(siblings[index]);
+                    final mainTicket =
+                        _ticketData!['ticket'] as Map<String, dynamic>? ?? {};
+                    final data = <String, dynamic>{
+                      'ticket': <String, dynamic>{
+                        ...sibling,
+                        'eventId': mainTicket['eventId'],
+                        'orderIndex': index + 1,
+                        'totalInOrder': siblings.length,
+                      },
+                      'event': _ticketData!['event'],
+                      'isRevealed': _ticketData!['isRevealed'],
+                    };
+                    return _TicketView(
+                      data: data,
+                      accessToken: sibling['accessToken'] as String,
+                      isGroupTicket: true,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 단일 티켓
     return Scaffold(
       backgroundColor: _burgundyDeep,
       body: SafeArea(
@@ -153,8 +224,13 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
 class _TicketView extends ConsumerStatefulWidget {
   final Map<String, dynamic> data;
   final String accessToken;
+  final bool isGroupTicket;
 
-  const _TicketView({required this.data, required this.accessToken});
+  const _TicketView({
+    required this.data,
+    required this.accessToken,
+    this.isGroupTicket = false,
+  });
 
   @override
   ConsumerState<_TicketView> createState() => _TicketViewState();
@@ -318,6 +394,41 @@ class _TicketViewState extends ConsumerState<_TicketView>
 
             const SizedBox(height: 20),
 
+            // ── 그룹 티켓: 이 티켓 전달하기 버튼 ──
+            if (widget.isGroupTicket)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      final url = '$_ticketBaseUrl${widget.accessToken}';
+                      Share.share(
+                        '$eventTitle 티켓\n$url',
+                        subject: '티켓 전달',
+                      );
+                    },
+                    icon: const Icon(Icons.send_rounded,
+                        size: 18, color: AppTheme.gold),
+                    label: Text(
+                      '이 티켓 전달하기',
+                      style: AppTheme.nanum(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.gold,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                          color: AppTheme.gold.withValues(alpha: 0.4)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+              ),
+
             // ── 액션 버튼 (카드 밖) ──
             Container(
               decoration: BoxDecoration(
@@ -426,6 +537,58 @@ class _TicketViewState extends ConsumerState<_TicketView>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// ── 그룹 티켓 헤더 (스와이프 인디케이터) ──
+// ══════════════════════════════════════════════════════════
+
+class _GroupTicketHeader extends StatelessWidget {
+  final int current;
+  final int total;
+  const _GroupTicketHeader({required this.current, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.confirmation_number_outlined,
+              size: 16, color: AppTheme.gold),
+          const SizedBox(width: 8),
+          Text(
+            '${current + 1} / $total',
+            style: GoogleFonts.dmSans(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: _cream,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Row(
+            children: List.generate(
+              total,
+              (i) => AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: i == current ? 18 : 6,
+                height: 6,
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                decoration: BoxDecoration(
+                  color: i == current
+                      ? AppTheme.gold
+                      : _cream.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

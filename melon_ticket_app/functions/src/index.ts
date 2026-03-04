@@ -2722,6 +2722,31 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
     isRevealed = new Date() >= revealAt;
   }
 
+  // 같은 주문의 그룹 티켓 조회 (siblings)
+  const siblings: any[] = [];
+  if (ticket.naverOrderId) {
+    const siblingSnap = await db.collection("mobileTickets")
+      .where("naverOrderId", "==", ticket.naverOrderId)
+      .orderBy("entryNumber", "asc")
+      .get();
+
+    for (const doc of siblingSnap.docs) {
+      const s = doc.data();
+      siblings.push({
+        id: doc.id,
+        accessToken: s.accessToken,
+        buyerName: s.buyerName,
+        seatGrade: s.seatGrade,
+        seatInfo: isRevealed ? s.seatInfo : null,
+        seatNumber: isRevealed ? s.seatNumber : null,
+        entryNumber: s.entryNumber,
+        status: s.status,
+        qrVersion: s.qrVersion || 1,
+        isCheckedIn: !!s.entryCheckedInAt,
+      });
+    }
+  }
+
   return {
     success: true,
     ticket: {
@@ -2745,6 +2770,7 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
       naverProductUrl: event.naverProductUrl || null,
     } : null,
     isRevealed,
+    siblings,
   };
 });
 

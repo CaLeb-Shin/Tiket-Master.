@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.getMobileTicketByToken = exports.issueMobileQrToken = exports.cancelNaverOrder = exports.createNaverOrder = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.getMobileTicketByToken = exports.issueMobileQrToken = exports.cancelNaverOrder = exports.createNaverOrder = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -2143,31 +2143,35 @@ exports.createNaverOrder = functions.https.onCall(async (data, context) => {
         });
     });
     await batch.commit();
-    // SMS 발송 태스크 생성 (봇이 폴링해서 발송)
-    const eventData = eventDoc.data();
-    const eventTitle = eventData?.title || "";
-    try {
-        await db.collection("smsTasks").add({
-            eventId,
-            naverOrderId: orderRef.id,
-            buyerName,
-            buyerPhone,
-            productName: productName || eventTitle,
-            seatGrade,
-            quantity,
-            ticketUrls: ticketUrls.map((t) => t.url),
-            status: "pending",
-            createdAt: admin.firestore.Timestamp.now(),
-            sentAt: null,
-            error: null,
-        });
+    // SMS 발송 태스크 생성 (dryRun이면 건너뜀)
+    const dryRun = data.dryRun === true;
+    if (!dryRun) {
+        const eventData = eventDoc.data();
+        const eventTitle = eventData?.title || "";
+        try {
+            await db.collection("smsTasks").add({
+                eventId,
+                naverOrderId: orderRef.id,
+                buyerName,
+                buyerPhone,
+                productName: productName || eventTitle,
+                seatGrade,
+                quantity,
+                ticketUrls: ticketUrls.map((t) => t.url),
+                status: "pending",
+                createdAt: admin.firestore.Timestamp.now(),
+                sentAt: null,
+                error: null,
+            });
+        }
+        catch (smsErr) {
+            functions.logger.warn("SMS 태스크 생성 실패 (주문은 정상 생성됨):", smsErr.message);
+        }
     }
-    catch (smsErr) {
-        functions.logger.warn("SMS 태스크 생성 실패 (주문은 정상 생성됨):", smsErr.message);
-    }
-    functions.logger.info(`네이버 주문 생성: ${naverOrderId}, ${buyerName}, ${seatGrade} x${quantity}, 티켓 ${ticketIds.length}장`);
+    functions.logger.info(`네이버 주문 생성${dryRun ? " (테스트)" : ""}: ${naverOrderId}, ${buyerName}, ${seatGrade} x${quantity}, 티켓 ${ticketIds.length}장`);
     return {
         success: true,
+        dryRun,
         orderId: orderRef.id,
         tickets: ticketUrls,
     };
@@ -2285,6 +2289,29 @@ exports.getMobileTicketByToken = functions.https.onCall(async (data) => {
         const revealAt = event.revealAt.toDate ? event.revealAt.toDate() : new Date(event.revealAt);
         isRevealed = new Date() >= revealAt;
     }
+    // 같은 주문의 그룹 티켓 조회 (siblings)
+    const siblings = [];
+    if (ticket.naverOrderId) {
+        const siblingSnap = await db.collection("mobileTickets")
+            .where("naverOrderId", "==", ticket.naverOrderId)
+            .orderBy("entryNumber", "asc")
+            .get();
+        for (const doc of siblingSnap.docs) {
+            const s = doc.data();
+            siblings.push({
+                id: doc.id,
+                accessToken: s.accessToken,
+                buyerName: s.buyerName,
+                seatGrade: s.seatGrade,
+                seatInfo: isRevealed ? s.seatInfo : null,
+                seatNumber: isRevealed ? s.seatNumber : null,
+                entryNumber: s.entryNumber,
+                status: s.status,
+                qrVersion: s.qrVersion || 1,
+                isCheckedIn: !!s.entryCheckedInAt,
+            });
+        }
+    }
     return {
         success: true,
         ticket: {
@@ -2308,6 +2335,7 @@ exports.getMobileTicketByToken = functions.https.onCall(async (data) => {
             naverProductUrl: event.naverProductUrl || null,
         } : null,
         isRevealed,
+        siblings,
     };
 });
 // ============================================================
@@ -2448,30 +2476,34 @@ exports.createNaverOrderHttp = functions.https.onRequest(async (req, res) => {
             });
         });
         await batch.commit();
-        // SMS 태스크 생성
-        try {
-            const eventData = eventDoc.data();
-            await db.collection("smsTasks").add({
-                eventId,
-                naverOrderId: orderRef.id,
-                buyerName,
-                buyerPhone,
-                productName: productName || eventData?.title || "",
-                seatGrade,
-                quantity,
-                ticketUrls: ticketUrls.map((t) => t.url),
-                status: "pending",
-                createdAt: admin.firestore.Timestamp.now(),
-                sentAt: null,
-                error: null,
-            });
+        // SMS 태스크 생성 (dryRun이면 건너뜀)
+        const dryRun = req.body.dryRun === true;
+        if (!dryRun) {
+            try {
+                const eventData = eventDoc.data();
+                await db.collection("smsTasks").add({
+                    eventId,
+                    naverOrderId: orderRef.id,
+                    buyerName,
+                    buyerPhone,
+                    productName: productName || eventData?.title || "",
+                    seatGrade,
+                    quantity,
+                    ticketUrls: ticketUrls.map((t) => t.url),
+                    status: "pending",
+                    createdAt: admin.firestore.Timestamp.now(),
+                    sentAt: null,
+                    error: null,
+                });
+            }
+            catch (smsErr) {
+                functions.logger.warn("[봇] SMS 태스크 생성 실패:", smsErr.message);
+            }
         }
-        catch (smsErr) {
-            functions.logger.warn("[봇] SMS 태스크 생성 실패:", smsErr.message);
-        }
-        functions.logger.info(`[봇] 네이버 주문 생성: ${naverOrderId}, ${buyerName}, ${seatGrade} x${quantity}, 티켓 ${ticketIds.length}장`);
+        functions.logger.info(`[봇] 네이버 주문 생성${dryRun ? " (테스트)" : ""}: ${naverOrderId}, ${buyerName}, ${seatGrade} x${quantity}, 티켓 ${ticketIds.length}장`);
         res.status(200).json({
             success: true,
+            dryRun,
             orderId: orderRef.id,
             tickets: ticketUrls,
         });
@@ -2500,6 +2532,8 @@ exports.listEventsHttp = functions.https.onRequest(async (req, res) => {
             title: d.title || "",
             venueName: d.venueName || "",
             date: d.date ? d.date.toDate().toISOString() : "",
+            naverOnly: d.naverOnly === true,
+            naverProductKeyword: d.naverProductKeyword || "",
         };
     });
     res.status(200).json({ events });
@@ -2772,6 +2806,59 @@ exports.syncNaverProductsHttp = functions.https.onRequest(async (req, res) => {
     }
     catch (err) {
         functions.logger.error("상품 동기화 에러:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+// ── 카카오 주소/키워드 검색 프록시 (CORS 우회) ──
+exports.searchAddressHttp = functions.https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return;
+    }
+    const query = req.query.q;
+    if (!query) {
+        res.status(400).json({ error: "q parameter required" });
+        return;
+    }
+    const kakaoKey = "8e3ecb0f10cd15fc7a7760a4f87e2cbb";
+    const encoded = encodeURIComponent(query);
+    const headers = { Authorization: `KakaoAK ${kakaoKey}` };
+    try {
+        const [kwRes, addrRes] = await Promise.all([
+            fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encoded}&size=10`, { headers }),
+            fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encoded}&size=5`, { headers }),
+        ]);
+        const kwData = await kwRes.json();
+        const addrData = await addrRes.json();
+        const results = [];
+        // 주소 검색 결과 (상단)
+        for (const d of (addrData.documents || [])) {
+            const road = d.road_address;
+            results.push({
+                place_name: road?.building_name || d.address_name || "",
+                road_address_name: road?.address_name || "",
+                address_name: d.address_name || "",
+                phone: "",
+                _type: "address",
+            });
+        }
+        // 키워드 검색 결과
+        for (const d of (kwData.documents || [])) {
+            results.push({
+                place_name: d.place_name || "",
+                road_address_name: d.road_address_name || "",
+                address_name: d.address_name || "",
+                phone: d.phone || "",
+                _type: "keyword",
+            });
+        }
+        res.status(200).json({ results });
+    }
+    catch (err) {
+        functions.logger.error("카카오 검색 에러:", err);
         res.status(500).json({ error: err.message });
     }
 });
