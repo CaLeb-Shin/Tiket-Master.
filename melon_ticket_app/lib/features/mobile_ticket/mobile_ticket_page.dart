@@ -261,7 +261,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
             if (!isCancelled && !isUsed)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: _LiveBadge(),
+                child: _LiveBadge(startAt: startAt),
               ),
 
             // ══════════════════════════════════════════
@@ -711,7 +711,7 @@ class _FrontCard extends StatelessWidget {
 // ── 뒷면 카드 (QR 전체화면) ──
 // ══════════════════════════════════════════════════════════
 
-class _BackCard extends StatelessWidget {
+class _BackCard extends StatefulWidget {
   final String eventTitle;
   final String venueName;
   final String buyerName;
@@ -741,9 +741,31 @@ class _BackCard extends StatelessWidget {
   });
 
   @override
+  State<_BackCard> createState() => _BackCardState();
+}
+
+class _BackCardState extends State<_BackCard> {
+  bool _localQrRevealed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _localQrRevealed = widget.qrRevealed;
+  }
+
+  void _handleRefresh() {
+    // 새로고침 시 현재 시각으로 QR 공개 여부 재확인
+    if (widget.startAt != null) {
+      final now = DateTime.now();
+      final revealed = now.isAfter(widget.startAt!.subtract(const Duration(hours: 2)));
+      setState(() => _localQrRevealed = revealed);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onBack,
+      onTap: widget.onBack,
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
@@ -789,16 +811,17 @@ class _BackCard extends StatelessWidget {
             // ── QR 코드 영역 ──
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: qrRevealed && !isCancelled && !isUsed
+              child: _localQrRevealed && !widget.isCancelled && !widget.isUsed
                   ? _QrSection(
-                      ticketId: ticketId,
-                      accessToken: accessToken,
-                      qrVersion: qrVersion,
+                      ticketId: widget.ticketId,
+                      accessToken: widget.accessToken,
+                      qrVersion: widget.qrVersion,
                     )
                   : _QrPlaceholderBack(
-                      startAt: startAt,
-                      isCancelled: isCancelled,
-                      isUsed: isUsed,
+                      startAt: widget.startAt,
+                      isCancelled: widget.isCancelled,
+                      isUsed: widget.isUsed,
+                      onRefresh: _handleRefresh,
                     ),
             ),
 
@@ -815,7 +838,7 @@ class _BackCard extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    eventTitle,
+                    widget.eventTitle,
                     style: AppTheme.nanum(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
@@ -828,7 +851,7 @@ class _BackCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    venueName,
+                    widget.venueName,
                     style: AppTheme.nanum(
                         fontSize: 13, color: _textMid, noShadow: true),
                   ),
@@ -839,13 +862,13 @@ class _BackCard extends StatelessWidget {
                       Expanded(
                         child: _InfoField(
                           label: 'Passenger',
-                          value: buyerName,
+                          value: widget.buyerName,
                         ),
                       ),
                       Expanded(
                         child: _InfoField(
                           label: 'ETKT',
-                          value: '#$entryNumber',
+                          value: '#${widget.entryNumber}',
                           valueStyle: GoogleFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
@@ -1010,14 +1033,14 @@ class _PosterWithQr extends StatelessWidget {
                 ),
         ),
 
-        // QR 원형 오버랩 (포스터 하단에 걸침)
+        // QR 원형 오버랩 (포스터 하단에 걸침) — 미니 QR 패턴 + 잠금 오버레이
         Positioned(
           bottom: -30,
           child: GestureDetector(
             onTap: onQrTap,
             child: Container(
-              width: 60,
-              height: 60,
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
@@ -1030,18 +1053,50 @@ class _PosterWithQr extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Center(
-                child: isCancelled
-                    ? Icon(Icons.cancel_rounded,
-                        size: 28, color: const Color(0xFFFF5A5F))
-                    : isUsed
-                        ? Icon(Icons.check_circle_rounded,
-                            size: 28, color: const Color(0xFF22C55E))
-                        : qrRevealed
-                            ? Icon(Icons.qr_code_2_rounded,
-                                size: 28, color: _burgundy)
-                            : Icon(Icons.lock_rounded,
-                                size: 22, color: _textLight),
+              child: ClipOval(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // 미니 QR 패턴 (배경)
+                    if (!isCancelled && !isUsed)
+                      Opacity(
+                        opacity: qrRevealed ? 1.0 : 0.3,
+                        child: QrImageView(
+                          data: 'MELON-TICKET',
+                          version: QrVersions.auto,
+                          size: 40,
+                          eyeStyle: const QrEyeStyle(
+                            eyeShape: QrEyeShape.square,
+                            color: _textDark,
+                          ),
+                          dataModuleStyle: const QrDataModuleStyle(
+                            dataModuleShape: QrDataModuleShape.square,
+                            color: _textDark,
+                          ),
+                          gapless: true,
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                    // 잠금 오버레이 (공개 전)
+                    if (!qrRevealed && !isCancelled && !isUsed)
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.lock_rounded,
+                            size: 14, color: _textMid),
+                      ),
+                    if (isCancelled)
+                      Icon(Icons.cancel_rounded,
+                          size: 28, color: const Color(0xFFFF5A5F)),
+                    if (isUsed)
+                      Icon(Icons.check_circle_rounded,
+                          size: 28, color: const Color(0xFF22C55E)),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1051,72 +1106,168 @@ class _PosterWithQr extends StatelessWidget {
   }
 }
 
-// ── LIVE 배지 ──
+// ── LIVE 배지 (실시간 카운트다운) ──
 class _LiveBadge extends StatefulWidget {
+  final DateTime? startAt;
+  const _LiveBadge({this.startAt});
+
   @override
   State<_LiveBadge> createState() => _LiveBadgeState();
 }
 
 class _LiveBadgeState extends State<_LiveBadge>
     with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
+  late AnimationController _pulseCtrl;
+  Timer? _tickTimer;
+  Duration _remaining = Duration.zero;
+  _LiveStatus _status = _LiveStatus.upcoming;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
+    _pulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
+    _updateCountdown();
+    _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) _updateCountdown();
+    });
+  }
+
+  void _updateCountdown() {
+    if (widget.startAt == null) return;
+    final now = DateTime.now();
+    // 런타임 2시간 10분 기준 공연 종료
+    final endAt = widget.startAt!.add(const Duration(hours: 2, minutes: 10));
+
+    if (now.isBefore(widget.startAt!)) {
+      // 공연 전
+      setState(() {
+        _remaining = widget.startAt!.difference(now);
+        _status = _LiveStatus.upcoming;
+      });
+    } else if (now.isBefore(endAt)) {
+      // 공연 중
+      setState(() {
+        _remaining = endAt.difference(now);
+        _status = _LiveStatus.playing;
+      });
+    } else {
+      // 공연 종료
+      setState(() {
+        _remaining = Duration.zero;
+        _status = _LiveStatus.ended;
+      });
+    }
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _pulseCtrl.dispose();
+    _tickTimer?.cancel();
     super.dispose();
+  }
+
+  String _formatCountdown(Duration d) {
+    if (d.inDays > 0) {
+      final h = d.inHours % 24;
+      final m = d.inMinutes % 60;
+      final s = d.inSeconds % 60;
+      return 'D-${d.inDays}  ${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    }
+    final h = d.inHours;
+    final m = d.inMinutes % 60;
+    final s = d.inSeconds % 60;
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
+    final isToday = widget.startAt != null &&
+        widget.startAt!.difference(DateTime.now()).inDays == 0 &&
+        _status == _LiveStatus.upcoming;
+
+    final Color dotColor;
+    final String labelText;
+    final String? countdownText;
+
+    switch (_status) {
+      case _LiveStatus.upcoming:
+        dotColor = const Color(0xFF22C55E);
+        labelText = isToday ? 'TODAY' : 'LIVE';
+        countdownText = widget.startAt != null
+            ? (isToday
+                ? _formatCountdown(_remaining)
+                : 'D-${_remaining.inDays}  ${(_remaining.inHours % 24).toString().padLeft(2, '0')}:${(_remaining.inMinutes % 60).toString().padLeft(2, '0')}:${(_remaining.inSeconds % 60).toString().padLeft(2, '0')}')
+            : null;
+      case _LiveStatus.playing:
+        dotColor = const Color(0xFFFF4444);
+        labelText = 'NOW PLAYING';
+        countdownText = null;
+      case _LiveStatus.ended:
+        dotColor = _textLight;
+        labelText = 'ENDED';
+        countdownText = null;
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         AnimatedBuilder(
-          animation: _ctrl,
+          animation: _pulseCtrl,
           builder: (_, __) => Container(
             width: 8,
             height: 8,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Color.lerp(
-                const Color(0xFF22C55E),
-                const Color(0xFF22C55E).withValues(alpha: 0.3),
-                _ctrl.value,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF22C55E)
-                      .withValues(alpha: 0.4 * (1 - _ctrl.value)),
-                  blurRadius: 8,
-                ),
-              ],
+              color: _status == _LiveStatus.ended
+                  ? dotColor
+                  : Color.lerp(
+                      dotColor,
+                      dotColor.withValues(alpha: 0.3),
+                      _pulseCtrl.value,
+                    ),
+              boxShadow: _status != _LiveStatus.ended
+                  ? [
+                      BoxShadow(
+                        color: dotColor
+                            .withValues(alpha: 0.4 * (1 - _pulseCtrl.value)),
+                        blurRadius: 8,
+                      ),
+                    ]
+                  : null,
             ),
           ),
         ),
         const SizedBox(width: 6),
         Text(
-          'LIVE',
+          labelText,
           style: GoogleFonts.inter(
             fontSize: 11,
             fontWeight: FontWeight.w800,
-            color: const Color(0xFF22C55E),
+            color: dotColor,
             letterSpacing: 2,
           ),
         ),
+        if (countdownText != null) ...[
+          const SizedBox(width: 8),
+          Text(
+            countdownText,
+            style: GoogleFonts.robotoMono(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Colors.white.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
       ],
     );
   }
 }
+
+enum _LiveStatus { upcoming, playing, ended }
 
 // ── 상태 배지 ──
 class _StatusBadge extends StatelessWidget {
@@ -1257,11 +1408,13 @@ class _QrPlaceholderBack extends StatelessWidget {
   final DateTime? startAt;
   final bool isCancelled;
   final bool isUsed;
+  final VoidCallback? onRefresh;
 
   const _QrPlaceholderBack({
     this.startAt,
     required this.isCancelled,
     required this.isUsed,
+    this.onRefresh,
   });
 
   @override
@@ -1270,7 +1423,7 @@ class _QrPlaceholderBack extends StatelessWidget {
         ? '취소된 티켓입니다'
         : isUsed
             ? '이미 사용된 티켓입니다'
-            : '공연 2시간 전에\nQR 코드가 공개됩니다';
+            : '공연시작 2시간 전에\n입장 QR과 좌석이 공개됩니다';
     final icon = isCancelled
         ? Icons.cancel_rounded
         : isUsed
@@ -1311,6 +1464,34 @@ class _QrPlaceholderBack extends StatelessWidget {
               '${DateFormat('M월 d일 HH:mm', 'ko_KR').format(startAt!.subtract(const Duration(hours: 2)))} 공개',
               style:
                   AppTheme.nanum(fontSize: 12, color: _textLight, noShadow: true),
+            ),
+            const SizedBox(height: 16),
+            // 새로고침 버튼
+            GestureDetector(
+              onTap: onRefresh,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: _divider),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.refresh_rounded, size: 16, color: _textMid),
+                    const SizedBox(width: 6),
+                    Text(
+                      '새로고침',
+                      style: AppTheme.nanum(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: _textMid,
+                          noShadow: true),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ],
