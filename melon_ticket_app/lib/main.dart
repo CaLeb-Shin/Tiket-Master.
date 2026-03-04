@@ -25,6 +25,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() {
   usePathUrlStrategy();
+  // splash MaterialApp이 URL을 '/'로 덮어쓰기 전에 원래 경로 저장
+  final path = Uri.base.path;
+  appInitialPath = path.isNotEmpty ? path : '/';
   WidgetsFlutterBinding.ensureInitialized();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 

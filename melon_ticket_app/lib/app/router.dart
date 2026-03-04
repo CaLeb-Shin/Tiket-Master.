@@ -19,9 +19,12 @@ import '../features/mileage/mileage_history_screen.dart';
 import '../features/hall/hall_screen.dart';
 import '../features/mobile_ticket/mobile_ticket_page.dart';
 
+/// main()에서 설정 — splash MaterialApp이 URL 덮어쓰기 전 원래 경로 보존
+String appInitialPath = '/';
+
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: appInitialPath,
     redirect: (context, state) {
       final isLoggedIn = FirebaseAuth.instance.currentUser != null;
       final path = state.matchedLocation;
