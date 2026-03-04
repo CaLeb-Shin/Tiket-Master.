@@ -488,7 +488,9 @@ class _FrontCard extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
+        child: Stack(
+          children: [
+            Column(
           children: [
             // ── 헤더: SMART TICKET ──
             _SmartTicketHeader(status: status, gradeCol: gradeCol),
@@ -564,57 +566,55 @@ class _FrontCard extends StatelessWidget {
                     ),
                   const SizedBox(height: 16),
 
-                  // Passenger (크고 굵게, 등급 색상)
-                  _InfoField(
-                    label: 'Passenger',
-                    value: buyerName,
-                    valueStyle: GoogleFonts.inter(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: gradeCol,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Grade + Status (LIVE 카운트다운)
+                  // Passenger + Grade (한 줄, 각각 라벨)
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      // Grade — 큰 컬러 뱃지
                       Expanded(
                         child: _InfoField(
-                          label: 'Grade',
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: gradeCol.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                  color: gradeCol.withValues(alpha: 0.3)),
-                            ),
-                            child: Text(
-                              '${seatGrade}석',
-                              style: GoogleFonts.inter(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: gradeCol,
-                              ),
-                            ),
+                          label: 'Passenger',
+                          value: buyerName,
+                          valueStyle: GoogleFonts.inter(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            color: gradeCol,
                           ),
                         ),
                       ),
-                      // Status — LIVE 카운트다운
-                      Expanded(
-                        child: _InfoField(
-                          label: 'Status',
-                          child: _LiveStatusInCard(
-                            startAt: startAt,
-                            isCancelled: isCancelled,
-                            isUsed: isUsed,
+                      const SizedBox(width: 12),
+                      _InfoField(
+                        label: 'Grade',
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: gradeCol.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: gradeCol.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            '${seatGrade}석',
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: gradeCol,
+                            ),
                           ),
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Status — LIVE 카운트다운 (풀 width)
+                  _InfoField(
+                    label: 'Status',
+                    child: _LiveStatusInCard(
+                      startAt: startAt,
+                      isCancelled: isCancelled,
+                      isUsed: isUsed,
+                    ),
                   ),
                   const SizedBox(height: 14),
 
@@ -635,33 +635,21 @@ class _FrontCard extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // ── 런타임 & 인터미션 ──
+            // ── 런타임 & 인터미션 (가운데 정렬) ──
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
                   Expanded(
-                    child: _InfoField(
+                    child: _InfoFieldCenter(
                       label: 'Runtime',
                       value: '2시간 10분',
-                      valueStyle: AppTheme.nanum(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: _textDark,
-                        noShadow: true,
-                      ),
                     ),
                   ),
                   Expanded(
-                    child: _InfoField(
+                    child: _InfoFieldCenter(
                       label: 'Intermission',
                       value: '15분',
-                      valueStyle: AppTheme.nanum(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: _textDark,
-                        noShadow: true,
-                      ),
                     ),
                   ),
                 ],
@@ -691,6 +679,14 @@ class _FrontCard extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+            ),
+          ],
+        ),
+            // ── 종이 질감 오버레이 ──
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(painter: _PaperTexturePainter()),
               ),
             ),
           ],
@@ -772,7 +768,11 @@ class _BackCardState extends State<_BackCard> {
             ),
           ],
         ),
-        child: Column(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Stack(
+            children: [
+              Column(
           children: [
             const SizedBox(height: 32),
 
@@ -920,6 +920,15 @@ class _BackCardState extends State<_BackCard> {
             ),
             const SizedBox(height: 24),
           ],
+        ),
+              // ── 종이 질감 오버레이 ──
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(painter: _PaperTexturePainter()),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1256,6 +1265,18 @@ class _LiveStatusInCardState extends State<_LiveStatusInCard>
               color: _textDark,
             ),
           ),
+          const SizedBox(height: 2),
+          Text(
+            '좌석 배정까지 남은 시간',
+            style: AppTheme.nanum(fontSize: 11, color: _textLight, noShadow: true),
+          ),
+        ],
+        if (_status == _LiveStatus.playing) ...[
+          const SizedBox(height: 2),
+          Text(
+            '공연 진행 중',
+            style: AppTheme.nanum(fontSize: 11, color: _textLight, noShadow: true),
+          ),
         ],
       ],
     );
@@ -1344,6 +1365,41 @@ class _InfoField extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+// ── 정보 필드 (가운데 정렬) ──
+class _InfoFieldCenter extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _InfoFieldCenter({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: _textLight,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          style: AppTheme.nanum(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: _textDark,
+            noShadow: true,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1753,6 +1809,51 @@ Color _gradeColor(String grade) {
     default:
       return _textMid;
   }
+}
+
+// ── 종이 질감 오버레이 ──
+class _PaperTexturePainter extends CustomPainter {
+  final math.Random _rng = math.Random(42); // 고정 시드 → 매 프레임 동일 패턴
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+
+    // 미세 노이즈 도트 (grain)
+    for (int i = 0; i < 800; i++) {
+      final x = _rng.nextDouble() * size.width;
+      final y = _rng.nextDouble() * size.height;
+      final brightness = _rng.nextDouble();
+      paint.color = (brightness > 0.5 ? Colors.black : Colors.white)
+          .withValues(alpha: 0.025 + _rng.nextDouble() * 0.02);
+      canvas.drawCircle(Offset(x, y), 0.5 + _rng.nextDouble() * 0.5, paint);
+    }
+
+    // 가장자리 비네팅 (내부 그림자)
+    final vignette = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          Colors.transparent,
+          Colors.black.withValues(alpha: 0.03),
+        ],
+        stops: const [0.7, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), vignette);
+
+    // 미세 접힌 자국 (가로선, 노치 위치 근처)
+    final foldY = size.height * 0.55;
+    final foldPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.03)
+      ..strokeWidth = 0.5;
+    canvas.drawLine(
+      Offset(20, foldY),
+      Offset(size.width - 20, foldY),
+      foldPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ── Boarding Pass Clipper ──
