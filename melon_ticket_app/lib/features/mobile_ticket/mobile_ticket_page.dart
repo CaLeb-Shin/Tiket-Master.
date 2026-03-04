@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,20 +12,21 @@ import 'package:melon_core/melon_core.dart';
 
 // =============================================================================
 // 네이버 구매자용 모바일 티켓 페이지 (비로그인, 공개 URL)
-// 디자인: 기존 마이티켓 보딩패스 스타일 통일
+// 디자인: 앱 스타일 보딩패스 — 버건디 그라데이션 + 크림 카드
 // =============================================================================
 
-// ── AppTheme aliases for convenience ──
-const _surface = AppTheme.background;
-const _card = AppTheme.card;
-const _cardBorder = AppTheme.border;
-const _textPrimary = AppTheme.textPrimary;
-const _textSecondary = AppTheme.textSecondary;
-const _textTertiary = AppTheme.textTertiary;
-const _success = AppTheme.success;
-const _error = AppTheme.error;
-
 const _ticketBaseUrl = 'https://melonticket-web-20260216.vercel.app/m/';
+
+// ── 색상 ──
+const _cream = Color(0xFFFAF8F5);
+const _creamDark = Color(0xFFF0EDE8);
+const _burgundy = Color(0xFF3B0D11);
+const _burgundyDeep = Color(0xFF1A0508);
+const _textDark = Color(0xFF1C1917);
+const _textMid = Color(0xFF78716C);
+const _textLight = Color(0xFFB8B2AA);
+const _divider = Color(0xFFE7E0D8);
+const _naverGreen = Color(0xFF03C75A);
 
 class MobileTicketPage extends ConsumerStatefulWidget {
   final String accessToken;
@@ -72,12 +74,18 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: _surface,
+      return Scaffold(
+        backgroundColor: _burgundyDeep,
         body: Center(
-          child: CircularProgressIndicator(
-            color: AppTheme.gold,
-            strokeWidth: 2,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                  color: AppTheme.gold, strokeWidth: 2),
+              const SizedBox(height: 16),
+              Text('티켓 불러오는 중...',
+                  style: AppTheme.nanum(fontSize: 13, color: _textLight)),
+            ],
           ),
         ),
       );
@@ -85,7 +93,7 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
 
     if (_errorText != null || _ticketData == null) {
       return Scaffold(
-        backgroundColor: _surface,
+        backgroundColor: _burgundyDeep,
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
@@ -93,35 +101,27 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 84,
-                  height: 84,
+                  width: 80,
+                  height: 80,
                   decoration: BoxDecoration(
-                    color: _card,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _cardBorder),
+                    color: _burgundy.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(40),
                   ),
-                  child: const Icon(
-                    Icons.error_outline_rounded,
-                    color: _error,
-                    size: 38,
-                  ),
+                  child: const Icon(Icons.error_outline_rounded,
+                      color: Color(0xFFFF6B6B), size: 36),
                 ),
                 const SizedBox(height: 18),
                 Text(
                   _errorText ?? '오류가 발생했습니다',
                   style: AppTheme.nanum(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: _textPrimary,
-                    shadows: AppTheme.textShadow,
-                  ),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: _cream),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '링크가 올바른지 확인해주세요',
-                  style: AppTheme.nanum(fontSize: 13, color: _textSecondary),
-                ),
+                Text('링크가 올바른지 확인해주세요',
+                    style: AppTheme.nanum(fontSize: 13, color: _textLight)),
                 const SizedBox(height: 24),
                 TextButton.icon(
                   onPressed: _loadTicket,
@@ -137,7 +137,7 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
     }
 
     return Scaffold(
-      backgroundColor: _surface,
+      backgroundColor: _burgundyDeep,
       body: SafeArea(
         child: _TicketView(
           data: _ticketData!,
@@ -166,7 +166,6 @@ class _TicketView extends ConsumerWidget {
     final entryNumber = ticket['entryNumber'] as int? ?? 0;
     final status = ticket['status'] as String? ?? 'active';
     final seatInfo = ticket['seatInfo'] as String?;
-    final seatNumber = ticket['seatNumber'] as String?;
     final ticketId = ticket['id'] as String? ?? '';
     final qrVersion = ticket['qrVersion'] as int? ?? 1;
 
@@ -191,548 +190,351 @@ class _TicketView extends ConsumerWidget {
 
     final isCancelled = status == 'cancelled';
     final isUsed = status == 'used';
-
-    // Grade color (same as 마이티켓)
     final gradeCol = _gradeColor(seatGrade);
-
-    // Ticket URL for sharing
     final ticketUrl = '$_ticketBaseUrl$accessToken';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
-      child: Column(
-        children: [
-          // ── Boarding Pass Card (with punch-hole cutouts) ──
-          ClipPath(
-            clipper: const _BoardingPassClipper(
-              notchRadius: 18,
-              notchPosition: 0.62,
-            ),
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: _card,
-                boxShadow: [
-                  ...AppShadows.card,
-                  BoxShadow(
-                    color: gradeCol.withValues(alpha: 0.08),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+    // QR 공개 여부: 공연 2시간 전부터
+    final now = DateTime.now();
+    final qrRevealed =
+        startAt != null && now.isAfter(startAt.subtract(const Duration(hours: 2)));
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            _burgundy,
+            _burgundyDeep,
+            const Color(0xFF0A0305),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+        child: Column(
+          children: [
+            // ── LIVE 인디케이터 ──
+            if (!isCancelled && !isUsed)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _LiveBadge(),
               ),
-              child: Column(
-                children: [
-                  // ── Header: Grade gradient + SMART TICKET label ──
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          gradeCol,
-                          gradeCol.withValues(alpha: 0.85),
-                          AppTheme.gold,
-                        ],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.confirmation_number_rounded,
-                          size: 14,
-                          color: AppTheme.onAccent,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'SMART TICKET',
-                          style: GoogleFonts.inter(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.onAccent,
-                            letterSpacing: 2.5,
-                          ),
-                        ),
-                        const Spacer(),
-                        // Status badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: _statusBackground(status),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            _statusLabel(status),
-                            style: AppTheme.nanum(
-                              color: _statusTextColor(status),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              noShadow: true,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
 
-                  // ── Event title + info ──
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          eventTitle,
-                          style: AppTheme.nanum(
-                            color: _textPrimary,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.4,
-                            shadows: AppTheme.textShadowStrong,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 12),
-                        // Poster + info chips
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (imageUrl != null && imageUrl.isNotEmpty)
-                              GestureDetector(
-                                onTap: naverProductUrl != null &&
-                                        naverProductUrl.isNotEmpty
-                                    ? () => launchUrl(
-                                        Uri.parse(naverProductUrl),
-                                        mode:
-                                            LaunchMode.externalApplication)
-                                    : null,
-                                child: Container(
-                                  width: 64,
-                                  height: 88,
-                                  margin: const EdgeInsets.only(right: 14),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                        color: _cardBorder, width: 0.5),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black
-                                            .withValues(alpha: 0.06),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  clipBehavior: Clip.antiAlias,
-                                  child: Image.network(
-                                    imageUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      color: AppTheme.cardElevated,
-                                      child: const Icon(
-                                          Icons.music_note_rounded,
-                                          color: _textTertiary,
-                                          size: 24),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  if (startAt != null) ...[
-                                    _InfoChip(
-                                      icon: Icons.calendar_today_rounded,
-                                      text: DateFormat(
-                                              'yyyy.MM.dd (E)', 'ko_KR')
-                                          .format(startAt),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    _InfoChip(
-                                      icon: Icons.access_time_rounded,
-                                      text:
-                                          DateFormat('HH:mm').format(startAt),
-                                    ),
-                                    const SizedBox(height: 6),
-                                  ],
-                                  if (venueName.isNotEmpty)
-                                    GestureDetector(
-                                      onTap: () {
-                                        final query = venueAddress.isNotEmpty
-                                            ? venueAddress
-                                            : venueName;
-                                        final mapUrl = Uri.parse(
-                                          'https://map.kakao.com/link/search/$query',
-                                        );
-                                        launchUrl(mapUrl,
-                                            mode:
-                                                LaunchMode.externalApplication);
-                                      },
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          _InfoChip(
-                                            icon: Icons.location_on_outlined,
-                                            text: venueName,
-                                          ),
-                                          if (venueAddress.isNotEmpty)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                  left: 20, top: 2),
-                                              child: Text(
-                                                venueAddress,
-                                                style: AppTheme.nanum(
-                                                  fontSize: 10,
-                                                  color: _textTertiary,
-                                                ),
-                                                maxLines: 1,
-                                                overflow:
-                                                    TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  const SizedBox(height: 6),
-                                  _InfoChip(
-                                    icon: Icons.person_outline_rounded,
-                                    text: buyerName,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+            // ══════════════════════════════════════════
+            // ── 메인 보딩패스 카드 ──
+            // ══════════════════════════════════════════
+            ClipPath(
+              clipper: const _BoardingPassClipper(
+                notchRadius: 16,
+                notchPosition: 0.52,
+              ),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: _cream,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 32,
+                      offset: const Offset(0, 12),
                     ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // ── Seat Info / Entry Number ──
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                    child: Container(
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // ── 헤더: SMART TICKET ──
+                    Container(
+                      width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 14),
+                          horizontal: 20, vertical: 14),
                       decoration: BoxDecoration(
-                        color: gradeCol.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                            color: gradeCol.withValues(alpha: 0.12)),
+                        gradient: LinearGradient(
+                          colors: [
+                            _burgundy,
+                            _burgundy.withValues(alpha: 0.9),
+                            gradeCol.withValues(alpha: 0.7),
+                          ],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
                       ),
                       child: Row(
                         children: [
-                          // Grade badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: gradeCol.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                  color: gradeCol.withValues(alpha: 0.4)),
-                            ),
-                            child: Text(
-                              seatGrade.isNotEmpty ? seatGrade : '일반',
-                              style: AppTheme.nanum(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: gradeCol,
-                              ),
+                          const Icon(Icons.confirmation_number_rounded,
+                              size: 16, color: _cream),
+                          const SizedBox(width: 8),
+                          Text(
+                            'SMART TICKET',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: _cream,
+                              letterSpacing: 3,
                             ),
                           ),
-                          // Vertical divider
-                          Container(
-                            width: 1,
-                            height: 36,
-                            margin: const EdgeInsets.symmetric(
-                                horizontal: 14),
-                            color: gradeCol.withValues(alpha: 0.12),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '입장번호',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 1.5,
-                                    color: _textTertiary,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                if (seatInfo != null)
-                                  Text(
-                                    seatInfo,
-                                    style: AppTheme.nanum(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: _textPrimary,
-                                      shadows: AppTheme.textShadow,
-                                    ),
-                                  )
-                                else if (seatNumber != null)
-                                  Text(
-                                    '$seatGrade석 $seatNumber',
-                                    style: AppTheme.nanum(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: _textPrimary,
-                                      shadows: AppTheme.textShadow,
-                                    ),
-                                  )
-                                else
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '#$entryNumber',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.w800,
-                                          color: gradeCol,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        '좌석 미공개',
-                                        style: AppTheme.nanum(
-                                          fontSize: 12,
-                                          color: _textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                              ],
-                            ),
-                          ),
+                          const Spacer(),
+                          _StatusBadge(status: status),
                         ],
                       ),
                     ),
-                  ),
 
-                  // ── Perforation line (dotted) ──
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 1,
-                      child: CustomPaint(
-                        painter: _DottedLinePainter(
-                          color: AppTheme.sage.withValues(alpha: 0.3),
-                          dashWidth: 5,
-                          dashSpace: 4,
+                    // ── 포스터 이미지 영역 ──
+                    if (imageUrl != null && imageUrl.isNotEmpty)
+                      GestureDetector(
+                        onTap: naverProductUrl != null &&
+                                naverProductUrl.isNotEmpty
+                            ? () => launchUrl(Uri.parse(naverProductUrl),
+                                mode: LaunchMode.externalApplication)
+                            : null,
+                        child: Container(
+                          width: double.infinity,
+                          height: 180,
+                          color: _creamDark,
+                          child: Image.network(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: _creamDark,
+                              child: const Icon(Icons.music_note_rounded,
+                                  color: _textLight, size: 40),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
 
-                  // ── QR Section or Status Banner ──
-                  if (isCancelled)
-                    _StatusBanner(
-                      text: '취소된 티켓입니다',
-                      color: _error,
-                      icon: Icons.cancel_outlined,
-                    )
-                  else if (isUsed)
-                    _StatusBanner(
-                      text: '입장이 완료되었습니다',
-                      color: _success,
-                      icon: Icons.check_circle_outlined,
-                    )
-                  else
+                    // ── 공연 정보 섹션 ──
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
-                      child: Row(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // QR code (left)
-                          Container(
-                            width: 120,
-                            height: 120,
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: AppTheme.surface,
-                              borderRadius: BorderRadius.circular(10),
-                              border:
-                                  Border.all(color: AppTheme.borderLight),
+                          // 공연명
+                          Text(
+                            eventTitle,
+                            style: AppTheme.nanum(
+                              color: _textDark,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.5,
+                              noShadow: true,
                             ),
-                            child: _MobileQrSection(
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 16),
+
+                          // 정보 그리드 (2열)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _InfoField(
+                                  label: 'Passenger',
+                                  value: buyerName,
+                                ),
+                              ),
+                              Expanded(
+                                child: _InfoField(
+                                  label: 'Date',
+                                  value: startAt != null
+                                      ? DateFormat('yyyy.MM.dd (E)', 'ko_KR')
+                                          .format(startAt)
+                                      : '-',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _InfoField(
+                                  label: 'Entry No.',
+                                  value: '#$entryNumber',
+                                  valueStyle: GoogleFonts.inter(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    color: gradeCol,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: _InfoField(
+                                  label: 'Grade',
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: gradeCol.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                          color:
+                                              gradeCol.withValues(alpha: 0.3)),
+                                    ),
+                                    child: Text(
+                                      '${seatGrade}석',
+                                      style: AppTheme.nanum(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                        color: gradeCol,
+                                        noShadow: true,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _InfoField(
+                                  label: 'Seat',
+                                  value: seatInfo ?? '공연당일 배정',
+                                ),
+                              ),
+                              Expanded(
+                                child: _InfoField(
+                                  label: 'Time',
+                                  value: startAt != null
+                                      ? DateFormat('HH:mm').format(startAt)
+                                      : '-',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          _InfoField(
+                            label: 'Venue',
+                            value: venueName,
+                            onTap: venueName.isNotEmpty
+                                ? () {
+                                    final query = venueAddress.isNotEmpty
+                                        ? venueAddress
+                                        : venueName;
+                                    launchUrl(
+                                      Uri.parse(
+                                          'https://map.kakao.com/link/search/$query'),
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                  }
+                                : null,
+                          ),
+                          if (venueAddress.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                venueAddress,
+                                style: AppTheme.nanum(
+                                    fontSize: 11,
+                                    color: _textLight,
+                                    noShadow: true),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // ── 구분선 (골드 다이아몬드) ──
+                    _GoldDivider(),
+
+                    const SizedBox(height: 20),
+
+                    // ── QR 코드 섹션 ──
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: qrRevealed && !isCancelled && !isUsed
+                          ? _QrSection(
                               ticketId: ticketId,
                               accessToken: accessToken,
                               qrVersion: qrVersion,
+                            )
+                          : _QrPlaceholder(
+                              startAt: startAt,
+                              isCancelled: isCancelled,
+                              isUsed: isUsed,
                             ),
-                          ),
-                          const SizedBox(width: 14),
-                          // Ticket meta (right)
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '입장번호',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 1.5,
-                                    color: _textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '#$entryNumber',
-                                  style: GoogleFonts.robotoMono(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
-                                    color: _textPrimary,
-                                    letterSpacing: 1.5,
-                                    shadows: [
-                                      Shadow(
-                                        color: _textPrimary
-                                            .withValues(alpha: 0.1),
-                                        blurRadius: 4,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  '구매자',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 1.5,
-                                    color: _textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  buyerName,
-                                  style: AppTheme.nanum(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: _textPrimary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
 
-                  if (!isCancelled && !isUsed) const SizedBox(height: 0),
-                ],
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
             ),
-          ),
 
-          const SizedBox(height: 12),
+            const SizedBox(height: 20),
 
-          // ── Share & Invite Actions ──
-          if (!isCancelled)
+            // ── 액션 버튼 (카드 밖) ──
             Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: _card,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _cardBorder),
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(16),
+                border:
+                    Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
-              child: Column(
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      // Copy link
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.link_rounded,
-                          label: '링크 복사',
-                          onTap: () {
-                            Clipboard.setData(
-                                ClipboardData(text: ticketUrl));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '티켓 링크가 복사되었습니다',
-                                  style: AppTheme.nanum(
-                                      color: Colors.white),
-                                ),
-                                backgroundColor: _success,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Icons.link_rounded,
+                      label: '링크 복사',
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: ticketUrl));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('링크가 복사되었습니다',
+                                style: AppTheme.nanum(
+                                    fontSize: 13, color: _cream)),
+                            backgroundColor: _burgundy,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  Container(
+                      width: 1,
+                      height: 36,
+                      color: Colors.white.withValues(alpha: 0.08)),
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Icons.share_rounded,
+                      label: '공유하기',
+                      onTap: () => Share.share(
+                        '$eventTitle\n$ticketUrl',
+                        subject: eventTitle,
                       ),
-                      Container(
-                        width: 1,
-                        height: 44,
-                        color: _cardBorder,
-                      ),
-                      // Share
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.share_rounded,
-                          label: '공유하기',
-                          onTap: () {
-                            Share.share(
-                              '[$eventTitle] 모바일 티켓\n$ticketUrl',
-                              subject: eventTitle,
-                            );
-                          },
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 44,
-                        color: _cardBorder,
-                      ),
-                      // Invite friend
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.group_add_rounded,
-                          label: '친구 초대',
-                          color: AppTheme.gold,
-                          onTap: () {
-                            final inviteText =
-                                '같이 가요! $eventTitle\n'
-                                '${startAt != null ? DateFormat('M월 d일 (E) HH:mm', 'ko_KR').format(startAt!) : ''}'
-                                '${venueName.isNotEmpty ? ' @ $venueName' : ''}\n'
-                                '${naverProductUrl ?? ticketUrl}';
-                            Share.share(
-                              inviteText,
-                              subject: '공연 초대',
-                            );
-                          },
-                        ),
-                      ),
-                    ],
+                    ),
+                  ),
+                  Container(
+                      width: 1,
+                      height: 36,
+                      color: Colors.white.withValues(alpha: 0.08)),
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Icons.group_add_rounded,
+                      label: '친구 초대',
+                      onTap: () {
+                        final inviteText = '같이 가요! $eventTitle\n'
+                            '${startAt != null ? DateFormat('M월 d일 (E) HH:mm', 'ko_KR').format(startAt!) : ''}'
+                            '${venueName.isNotEmpty ? ' @ $venueName' : ''}\n'
+                            '${naverProductUrl ?? ticketUrl}';
+                        Share.share(inviteText, subject: '공연 초대');
+                      },
+                    ),
                   ),
                 ],
               ),
             ),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-          // ── 네이버 스토어 버튼 ──
-          if (naverProductUrl != null && naverProductUrl.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: SizedBox(
+            // ── 네이버 스토어 버튼 ──
+            if (naverProductUrl != null && naverProductUrl.isNotEmpty)
+              SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton.icon(
@@ -744,288 +546,31 @@ class _TicketView extends ConsumerWidget {
                   label: Text(
                     '네이버 스토어에서 확인하기',
                     style: AppTheme.nanum(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF03C75A), // 네이버 그린
+                    backgroundColor: _naverGreen,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                        borderRadius: BorderRadius.circular(14)),
                     elevation: 0,
                   ),
                 ),
               ),
-            ),
 
-          // ── Footer note ──
-          Text(
-            '이 티켓은 공연 당일 입장 시 QR코드를 스캔하여 확인합니다.\n'
-            'QR코드는 보안을 위해 2분마다 자동 갱신됩니다.',
-            textAlign: TextAlign.center,
-            style: AppTheme.nanum(
-              fontSize: 11,
-              color: _textTertiary,
-              height: 1.6,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+            const SizedBox(height: 16),
 
-// ─── Grade color helper (matches 마이티켓) ───
-
-Color _gradeColor(String grade) {
-  switch (grade) {
-    case 'VIP':
-      return const Color(0xFFC9A84C);
-    case 'R':
-      return const Color(0xFF6B4FA0);
-    case 'S':
-      return const Color(0xFF2D6A4F);
-    case 'A':
-      return const Color(0xFF3B7DD8);
-    default:
-      return _textSecondary;
-  }
-}
-
-// ─── Status helpers ───
-
-Color _statusBackground(String status) {
-  switch (status) {
-    case 'active':
-      return AppTheme.gold;
-    case 'used':
-      return const Color(0x1A30D158);
-    case 'cancelled':
-      return const Color(0x1AFF5A5F);
-    default:
-      return AppTheme.gold;
-  }
-}
-
-String _statusLabel(String status) {
-  switch (status) {
-    case 'active':
-      return '스마트티켓';
-    case 'used':
-      return '이용완료';
-    case 'cancelled':
-      return '취소됨';
-    default:
-      return '스마트티켓';
-  }
-}
-
-Color _statusTextColor(String status) {
-  switch (status) {
-    case 'active':
-      return AppTheme.onAccent;
-    case 'used':
-      return _success;
-    case 'cancelled':
-      return _error;
-    default:
-      return AppTheme.onAccent;
-  }
-}
-
-// ─── Boarding Pass Clipper (matches 마이티켓) ───
-
-class _BoardingPassClipper extends CustomClipper<Path> {
-  final double notchRadius;
-  final double notchPosition;
-
-  const _BoardingPassClipper({
-    this.notchRadius = 18,
-    this.notchPosition = 0.55,
-  });
-
-  @override
-  Path getClip(Size size) {
-    final path = Path();
-    final notchY = size.height * notchPosition;
-
-    path.moveTo(14, 0);
-    path.lineTo(size.width - 14, 0);
-    path.arcToPoint(
-      Offset(size.width, 14),
-      radius: const Radius.circular(14),
-    );
-
-    path.lineTo(size.width, notchY - notchRadius);
-    path.arcToPoint(
-      Offset(size.width, notchY + notchRadius),
-      radius: Radius.circular(notchRadius),
-      clockwise: false,
-    );
-
-    path.lineTo(size.width, size.height - 14);
-    path.arcToPoint(
-      Offset(size.width - 14, size.height),
-      radius: const Radius.circular(14),
-    );
-
-    path.lineTo(14, size.height);
-    path.arcToPoint(
-      Offset(0, size.height - 14),
-      radius: const Radius.circular(14),
-    );
-
-    path.lineTo(0, notchY + notchRadius);
-    path.arcToPoint(
-      Offset(0, notchY - notchRadius),
-      radius: Radius.circular(notchRadius),
-      clockwise: false,
-    );
-
-    path.lineTo(0, 14);
-    path.arcToPoint(
-      const Offset(14, 0),
-      radius: const Radius.circular(14),
-    );
-
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant _BoardingPassClipper oldClipper) =>
-      notchRadius != oldClipper.notchRadius ||
-      notchPosition != oldClipper.notchPosition;
-}
-
-// ─── Dotted Line Painter (matches 마이티켓) ───
-
-class _DottedLinePainter extends CustomPainter {
-  final Color color;
-  final double dashWidth;
-  final double dashSpace;
-
-  _DottedLinePainter({
-    required this.color,
-    this.dashWidth = 5,
-    this.dashSpace = 4,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1;
-
-    double x = 0;
-    while (x < size.width) {
-      canvas.drawLine(Offset(x, 0), Offset(x + dashWidth, 0), paint);
-      x += dashWidth + dashSpace;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DottedLinePainter old) =>
-      color != old.color ||
-      dashWidth != old.dashWidth ||
-      dashSpace != old.dashSpace;
-}
-
-// ─── Info Chip (icon + text) ───
-
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  const _InfoChip({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: _textTertiary),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            style: AppTheme.nanum(fontSize: 12, color: _textSecondary),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Status Banner (cancelled / used) ───
-
-class _StatusBanner extends StatelessWidget {
-  final String text;
-  final Color color;
-  final IconData icon;
-  const _StatusBanner(
-      {required this.text, required this.color, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(width: 8),
-          Text(
-            text,
-            style: AppTheme.nanum(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Action Button (share bar) ───
-
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final Color? color;
-
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = color ?? _textPrimary;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 20, color: c),
-            const SizedBox(height: 4),
+            // ── 안내 텍스트 ──
             Text(
-              label,
+              '이 티켓은 공연 당일 입장 시 QR코드를 스캔하여 확인합니다.\n'
+              'QR코드는 보안을 위해 2분마다 자동 갱신됩니다.',
+              textAlign: TextAlign.center,
               style: AppTheme.nanum(
                 fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: c,
+                color: Colors.white.withValues(alpha: 0.3),
+                height: 1.6,
               ),
             ),
           ],
@@ -1035,66 +580,301 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-// ─── Mobile QR Section (auto-refresh, 2min JWT) ───
+// ══════════════════════════════════════════════════════════
+// ── 위젯 조각들 ──
+// ══════════════════════════════════════════════════════════
 
-class _MobileQrSection extends ConsumerStatefulWidget {
+// ── LIVE 배지 (깜빡이는 녹색 점) ──
+class _LiveBadge extends StatefulWidget {
+  @override
+  State<_LiveBadge> createState() => _LiveBadgeState();
+}
+
+class _LiveBadgeState extends State<_LiveBadge>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        AnimatedBuilder(
+          animation: _ctrl,
+          builder: (_, __) => Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color.lerp(
+                const Color(0xFF22C55E),
+                const Color(0xFF22C55E).withValues(alpha: 0.3),
+                _ctrl.value,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF22C55E)
+                      .withValues(alpha: 0.4 * (1 - _ctrl.value)),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          'LIVE',
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF22C55E),
+            letterSpacing: 2,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── 상태 배지 ──
+class _StatusBadge extends StatelessWidget {
+  final String status;
+  const _StatusBadge({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, bgColor, fgColor) = switch (status) {
+      'active' => ('스마트티켓', const Color(0x33FFFFFF), _cream),
+      'used' => ('이용완료', const Color(0x3322C55E), const Color(0xFF22C55E)),
+      'cancelled' => ('취소됨', const Color(0x33FF5A5F), const Color(0xFFFF5A5F)),
+      _ => ('스마트티켓', const Color(0x33FFFFFF), _cream),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: AppTheme.nanum(
+            color: fgColor, fontSize: 10, fontWeight: FontWeight.w700,
+            noShadow: true),
+      ),
+    );
+  }
+}
+
+// ── 정보 필드 (영문 라벨 + 한글 값) ──
+class _InfoField extends StatelessWidget {
+  final String label;
+  final String? value;
+  final Widget? child;
+  final TextStyle? valueStyle;
+  final VoidCallback? onTap;
+
+  const _InfoField({
+    required this.label,
+    this.value,
+    this.child,
+    this.valueStyle,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: _textLight,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 3),
+          if (child != null)
+            child!
+          else
+            Text(
+              value ?? '-',
+              style: valueStyle ??
+                  AppTheme.nanum(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: _textDark,
+                    noShadow: true,
+                  ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 골드 구분선 ──
+class _GoldDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        children: [
+          Expanded(child: Container(height: 1, color: _divider)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              '✦',
+              style: TextStyle(
+                  fontSize: 12, color: AppTheme.gold.withValues(alpha: 0.6)),
+            ),
+          ),
+          Expanded(child: Container(height: 1, color: _divider)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── QR 플레이스홀더 (공개 전) ──
+class _QrPlaceholder extends StatelessWidget {
+  final DateTime? startAt;
+  final bool isCancelled;
+  final bool isUsed;
+
+  const _QrPlaceholder({
+    this.startAt,
+    required this.isCancelled,
+    required this.isUsed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final message = isCancelled
+        ? '취소된 티켓입니다'
+        : isUsed
+            ? '이미 사용된 티켓입니다'
+            : '공연 2시간 전에\n공개됩니다';
+    final icon = isCancelled
+        ? Icons.cancel_rounded
+        : isUsed
+            ? Icons.check_circle_rounded
+            : Icons.lock_clock_rounded;
+    final iconColor = isCancelled
+        ? const Color(0xFFFF5A5F)
+        : isUsed
+            ? const Color(0xFF22C55E)
+            : AppTheme.gold;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      decoration: BoxDecoration(
+        color: _creamDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _divider),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 40, color: iconColor),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: AppTheme.nanum(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: _textMid,
+              height: 1.5,
+              noShadow: true,
+            ),
+          ),
+          if (!isCancelled && !isUsed && startAt != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              '${DateFormat('M월 d일 HH:mm', 'ko_KR').format(startAt!.subtract(const Duration(hours: 2)))} 공개',
+              style: AppTheme.nanum(
+                  fontSize: 12, color: _textLight, noShadow: true),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── QR 코드 섹션 (공개 후) ──
+class _QrSection extends ConsumerStatefulWidget {
   final String ticketId;
   final String accessToken;
   final int qrVersion;
 
-  const _MobileQrSection({
+  const _QrSection({
     required this.ticketId,
     required this.accessToken,
     required this.qrVersion,
   });
 
   @override
-  ConsumerState<_MobileQrSection> createState() => _MobileQrSectionState();
+  ConsumerState<_QrSection> createState() => _QrSectionState();
 }
 
-class _MobileQrSectionState extends ConsumerState<_MobileQrSection> {
-  static const int _refreshIntervalSeconds = 120;
+class _QrSectionState extends ConsumerState<_QrSection> {
+  static const _refreshIntervalSeconds = 120;
 
-  int _remainingSeconds = _refreshIntervalSeconds;
-  String? _qrData;
-  bool _isLoading = true;
-  String? _errorText;
-  bool _isRefreshingToken = false;
   Timer? _countdownTimer;
+  String? _qrData;
+  int _remainingSeconds = _refreshIntervalSeconds;
+  bool _isLoading = true;
+  bool _isRefreshingToken = false;
+  String? _errorText;
 
   @override
   void initState() {
     super.initState();
-    _startCountdown();
     _refreshQrToken();
   }
 
-  @override
-  void didUpdateWidget(covariant _MobileQrSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.ticketId != oldWidget.ticketId ||
-        widget.qrVersion != oldWidget.qrVersion) {
-      _refreshQrToken();
-    }
-  }
-
   void _startCountdown() {
+    _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      if (_remainingSeconds > 0) {
-        setState(() => _remainingSeconds--);
-      }
-      if (_remainingSeconds <= 0) {
-        _refreshQrToken();
-      }
+      setState(() {
+        _remainingSeconds--;
+        if (_remainingSeconds <= 0) {
+          _refreshQrToken();
+        }
+      });
     });
   }
 
   Future<void> _refreshQrToken() async {
     if (_isRefreshingToken) return;
-    if (!mounted) return;
-
     _isRefreshingToken = true;
+
+    _countdownTimer?.cancel();
     setState(() {
       _isLoading = _qrData == null;
       _errorText = null;
@@ -1124,6 +904,7 @@ class _MobileQrSectionState extends ConsumerState<_MobileQrSection> {
         _remainingSeconds = secondsLeft;
         _isLoading = false;
       });
+      _startCountdown();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -1141,20 +922,22 @@ class _MobileQrSectionState extends ConsumerState<_MobileQrSection> {
     super.dispose();
   }
 
-  String _formatRemaining(int seconds) {
-    final min = seconds ~/ 60;
-    final sec = seconds % 60;
-    return '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
-      mainAxisSize: MainAxisSize.min,
       children: [
-        // QR Code
-        Expanded(child: Center(child: _buildQrContent())),
-        // Timer badge
+        // QR 코드
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _divider),
+          ),
+          child: _buildQrContent(),
+        ),
+        const SizedBox(height: 8),
+        // 타이머
         _buildTimerBadge(),
       ],
     );
@@ -1163,28 +946,35 @@ class _MobileQrSectionState extends ConsumerState<_MobileQrSection> {
   Widget _buildQrContent() {
     if (_isLoading) {
       return const SizedBox(
-        width: 24,
-        height: 24,
-        child:
-            CircularProgressIndicator(color: AppTheme.gold, strokeWidth: 2),
+        width: 160,
+        height: 160,
+        child: Center(
+          child: CircularProgressIndicator(
+              color: AppTheme.gold, strokeWidth: 2),
+        ),
       );
     }
 
     if (_qrData == null) {
       return GestureDetector(
         onTap: _refreshQrToken,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.refresh_rounded,
-                size: 24, color: _textSecondary),
-            const SizedBox(height: 4),
-            Text(
-              _errorText ?? 'QR 실패',
-              style: AppTheme.nanum(fontSize: 10, color: _textSecondary),
-              textAlign: TextAlign.center,
-            ),
-          ],
+        child: SizedBox(
+          width: 160,
+          height: 160,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.refresh_rounded,
+                  size: 28, color: _textLight),
+              const SizedBox(height: 8),
+              Text(
+                _errorText ?? 'QR 생성 실패',
+                style: AppTheme.nanum(
+                    fontSize: 12, color: _textMid, noShadow: true),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -1194,14 +984,14 @@ class _MobileQrSectionState extends ConsumerState<_MobileQrSection> {
       child: QrImageView(
         data: _qrData!,
         version: QrVersions.auto,
-        size: 96,
+        size: 160,
         eyeStyle: const QrEyeStyle(
           eyeShape: QrEyeShape.square,
-          color: Color(0xFF111827),
+          color: _textDark,
         ),
         dataModuleStyle: const QrDataModuleStyle(
           dataModuleShape: QrDataModuleShape.square,
-          color: Color(0xFF111827),
+          color: _textDark,
         ),
         gapless: true,
       ),
@@ -1210,31 +1000,32 @@ class _MobileQrSectionState extends ConsumerState<_MobileQrSection> {
 
   Widget _buildTimerBadge() {
     final isLow = _remainingSeconds <= 30;
+    final min = _remainingSeconds ~/ 60;
+    final sec = _remainingSeconds % 60;
+    final timeStr =
+        '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: isLow
-            ? AppTheme.warning.withValues(alpha: 0.1)
-            : AppTheme.cardElevated,
+        color: isLow ? const Color(0x1AFF9500) : _creamDark,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: isLow ? AppTheme.warning : _cardBorder,
+          color: isLow ? const Color(0x4DFF9500) : _divider,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.timer_outlined,
-            size: 10,
-            color: isLow ? AppTheme.warning : _textSecondary,
-          ),
-          const SizedBox(width: 2),
+          Icon(Icons.timer_outlined,
+              size: 12,
+              color: isLow ? const Color(0xFFFF9500) : _textMid),
+          const SizedBox(width: 4),
           Text(
-            _formatRemaining(_remainingSeconds),
+            timeStr,
             style: GoogleFonts.robotoMono(
-              fontSize: 10,
-              color: isLow ? AppTheme.warning : _textSecondary,
+              fontSize: 12,
+              color: isLow ? const Color(0xFFFF9500) : _textMid,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1242,4 +1033,109 @@ class _MobileQrSectionState extends ConsumerState<_MobileQrSection> {
       ),
     );
   }
+}
+
+// ── 액션 버튼 ──
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 20, color: Colors.white.withValues(alpha: 0.7)),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: AppTheme.nanum(
+                fontSize: 11,
+                color: Colors.white.withValues(alpha: 0.6),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Grade color helper ──
+Color _gradeColor(String grade) {
+  switch (grade) {
+    case 'VIP':
+      return const Color(0xFFC9A84C);
+    case 'R':
+      return const Color(0xFF6B4FA0);
+    case 'S':
+      return const Color(0xFF2D6A4F);
+    case 'A':
+      return const Color(0xFF3B7DD8);
+    default:
+      return _textMid;
+  }
+}
+
+// ── Boarding Pass Clipper ──
+class _BoardingPassClipper extends CustomClipper<Path> {
+  final double notchRadius;
+  final double notchPosition;
+
+  const _BoardingPassClipper({
+    this.notchRadius = 16,
+    this.notchPosition = 0.52,
+  });
+
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    const r = 20.0; // corner radius
+    final notchY = size.height * notchPosition;
+
+    path.moveTo(r, 0);
+    path.lineTo(size.width - r, 0);
+    path.arcToPoint(Offset(size.width, r),
+        radius: const Radius.circular(r));
+
+    path.lineTo(size.width, notchY - notchRadius);
+    path.arcToPoint(Offset(size.width, notchY + notchRadius),
+        radius: Radius.circular(notchRadius), clockwise: false);
+
+    path.lineTo(size.width, size.height - r);
+    path.arcToPoint(Offset(size.width - r, size.height),
+        radius: const Radius.circular(r));
+
+    path.lineTo(r, size.height);
+    path.arcToPoint(Offset(0, size.height - r),
+        radius: const Radius.circular(r));
+
+    path.lineTo(0, notchY + notchRadius);
+    path.arcToPoint(Offset(0, notchY - notchRadius),
+        radius: Radius.circular(notchRadius), clockwise: false);
+
+    path.lineTo(0, r);
+    path.arcToPoint(Offset(r, 0), radius: const Radius.circular(r));
+
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant _BoardingPassClipper oldClipper) =>
+      notchRadius != oldClipper.notchRadius ||
+      notchPosition != oldClipper.notchPosition;
 }
