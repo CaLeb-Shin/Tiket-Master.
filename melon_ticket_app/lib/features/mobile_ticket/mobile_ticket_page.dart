@@ -679,9 +679,9 @@ class _FrontCard extends StatelessWidget {
                     eventTitle,
                     style: AppTheme.nanum(
                       color: _textDark,
-                      fontSize: 22,
+                      fontSize: 20,
                       fontWeight: FontWeight.w900,
-                      letterSpacing: -0.5,
+                      letterSpacing: -0.3,
                       noShadow: true,
                     ),
                     maxLines: 2,
@@ -737,31 +737,42 @@ class _FrontCard extends StatelessWidget {
                         child: _InfoField(
                           label: 'Passenger',
                           value: buyerName,
-                          valueStyle: GoogleFonts.inter(
+                          valueStyle: GoogleFonts.dmSerifDisplay(
                             fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            color: gradeCol,
+                            fontWeight: FontWeight.w400,
+                            color: _textDark,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 4),
                       _InfoField(
                         label: 'Grade',
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 6),
+                              horizontal: 12, vertical: 5),
                           decoration: BoxDecoration(
-                            color: gradeCol.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                                color: gradeCol.withValues(alpha: 0.3)),
+                            gradient: LinearGradient(
+                              colors: [
+                                gradeCol,
+                                gradeCol.withValues(alpha: 0.85),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                            boxShadow: [
+                              BoxShadow(
+                                color: gradeCol.withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: Text(
                             '${seatGrade}석',
                             style: GoogleFonts.inter(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: gradeCol,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: 1,
                             ),
                           ),
                         ),
@@ -918,21 +929,20 @@ class _BackCardState extends State<_BackCard> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: widget.onBack,
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: _cream,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 32,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
+      child: ClipPath(
+        clipper: const _BoardingPassClipper(notchRadius: 16, notchPosition: 0.55),
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: _cream,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 32,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
           child: Stack(
             children: [
               Column(
@@ -1118,8 +1128,8 @@ class _SmartTicketHeader extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             _burgundy,
-            _burgundy.withValues(alpha: 0.9),
-            gradeCol.withValues(alpha: 0.7),
+            const Color(0xFF2A0A0E),
+            gradeCol.withValues(alpha: 0.5),
           ],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
@@ -1127,16 +1137,16 @@ class _SmartTicketHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.confirmation_number_rounded,
-              size: 16, color: _cream),
+          Icon(Icons.confirmation_number_rounded,
+              size: 14, color: AppTheme.gold.withValues(alpha: 0.8)),
           const SizedBox(width: 8),
           Text(
             'SMART TICKET',
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: _cream,
-              letterSpacing: 3,
+            style: GoogleFonts.dmSans(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: _cream.withValues(alpha: 0.9),
+              letterSpacing: 4,
             ),
           ),
           const Spacer(),
@@ -1575,16 +1585,40 @@ class _GoldDivider extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
         children: [
-          Expanded(child: Container(height: 1, color: _divider)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              '✦',
-              style: TextStyle(
-                  fontSize: 12, color: AppTheme.gold.withValues(alpha: 0.6)),
+          Expanded(
+            child: Container(
+              height: 0.5,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    _divider.withValues(alpha: 0),
+                    AppTheme.gold.withValues(alpha: 0.4),
+                  ],
+                ),
+              ),
             ),
           ),
-          Expanded(child: Container(height: 1, color: _divider)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(
+              '◆',
+              style: TextStyle(
+                  fontSize: 8, color: AppTheme.gold.withValues(alpha: 0.5)),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              height: 0.5,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.gold.withValues(alpha: 0.4),
+                    _divider.withValues(alpha: 0),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1976,42 +2010,80 @@ Color _gradeColor(String grade) {
 
 // ── 종이 질감 오버레이 ──
 class _PaperTexturePainter extends CustomPainter {
-  final math.Random _rng = math.Random(42); // 고정 시드 → 매 프레임 동일 패턴
+  final math.Random _rng = math.Random(42);
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint();
 
-    // 미세 노이즈 도트 (grain)
-    for (int i = 0; i < 800; i++) {
+    // Layer 1: 굵은 섬유질 (fiber strokes) — 종이의 결
+    for (int i = 0; i < 60; i++) {
       final x = _rng.nextDouble() * size.width;
       final y = _rng.nextDouble() * size.height;
-      final brightness = _rng.nextDouble();
-      paint.color = (brightness > 0.5 ? Colors.black : Colors.white)
-          .withValues(alpha: 0.025 + _rng.nextDouble() * 0.02);
-      canvas.drawCircle(Offset(x, y), 0.5 + _rng.nextDouble() * 0.5, paint);
+      final len = 8 + _rng.nextDouble() * 20;
+      final angle = -0.3 + _rng.nextDouble() * 0.6; // 거의 수평
+      paint
+        ..color = Colors.black.withValues(alpha: 0.015 + _rng.nextDouble() * 0.02)
+        ..strokeWidth = 0.3 + _rng.nextDouble() * 0.4
+        ..style = PaintingStyle.stroke;
+      canvas.drawLine(
+        Offset(x, y),
+        Offset(x + len * math.cos(angle), y + len * math.sin(angle)),
+        paint,
+      );
     }
 
-    // 가장자리 비네팅 (내부 그림자)
+    // Layer 2: 고밀도 노이즈 도트 (grain) — 종이 질감 핵심
+    paint.style = PaintingStyle.fill;
+    for (int i = 0; i < 2500; i++) {
+      final x = _rng.nextDouble() * size.width;
+      final y = _rng.nextDouble() * size.height;
+      final isDark = _rng.nextDouble() > 0.4;
+      paint.color = (isDark ? Colors.black : Colors.white)
+          .withValues(alpha: 0.04 + _rng.nextDouble() * 0.04);
+      canvas.drawCircle(Offset(x, y), 0.4 + _rng.nextDouble() * 0.6, paint);
+    }
+
+    // Layer 3: 따뜻한 반점 (warm spots) — 오래된 종이 느낌
+    for (int i = 0; i < 15; i++) {
+      final x = _rng.nextDouble() * size.width;
+      final y = _rng.nextDouble() * size.height;
+      final r = 10 + _rng.nextDouble() * 30;
+      final spot = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFFD4C5A9).withValues(alpha: 0.06),
+            Colors.transparent,
+          ],
+        ).createShader(Rect.fromCircle(center: Offset(x, y), radius: r));
+      canvas.drawCircle(Offset(x, y), r, spot);
+    }
+
+    // Layer 4: 가장자리 비네팅 (강화)
     final vignette = Paint()
       ..shader = RadialGradient(
         colors: [
           Colors.transparent,
-          Colors.black.withValues(alpha: 0.03),
+          Colors.black.withValues(alpha: 0.06),
         ],
-        stops: const [0.7, 1.0],
+        stops: const [0.6, 1.0],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), vignette);
 
-    // 미세 접힌 자국 (가로선, 노치 위치 근처)
+    // Layer 5: 접힌 자국 (노치 위치 근처, 더 뚜렷하게)
     final foldY = size.height * 0.55;
     final foldPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.03)
+      ..color = Colors.black.withValues(alpha: 0.05)
+      ..strokeWidth = 0.8;
+    canvas.drawLine(Offset(12, foldY), Offset(size.width - 12, foldY), foldPaint);
+    // 접힌 자국 하이라이트 (바로 아래 밝은 선)
+    final foldHighlight = Paint()
+      ..color = Colors.white.withValues(alpha: 0.15)
       ..strokeWidth = 0.5;
     canvas.drawLine(
-      Offset(20, foldY),
-      Offset(size.width - 20, foldY),
-      foldPaint,
+      Offset(12, foldY + 1),
+      Offset(size.width - 12, foldY + 1),
+      foldHighlight,
     );
   }
 
