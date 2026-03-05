@@ -246,6 +246,7 @@ class _Sidebar extends ConsumerStatefulWidget {
 
 class _SidebarState extends ConsumerState<_Sidebar> {
   int _hoveredIndex = -1;
+  bool _roleSwitcherExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -333,7 +334,8 @@ class _SidebarState extends ConsumerState<_Sidebar> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Column(
+              child: SingleChildScrollView(
+                child: Column(
                 children: [
                   _buildMenuItem(
                     -1,
@@ -420,11 +422,12 @@ class _SidebarState extends ConsumerState<_Sidebar> {
                   ),
                 ],
               ),
+              ),
             ),
           ),
 
-          // Role Switcher (superAdmin only)
-          if (widget.isSuperAdmin) _buildRoleSwitcher(),
+          // Role Switcher (superAdmin only) — collapsible
+          if (widget.isSuperAdmin) _buildCollapsibleRoleSwitcher(),
 
           // Logout
           Padding(
@@ -547,7 +550,7 @@ class _SidebarState extends ConsumerState<_Sidebar> {
     );
   }
 
-  Widget _buildRoleSwitcher() {
+  Widget _buildCollapsibleRoleSwitcher() {
     final override = ref.watch(roleOverrideProvider);
     final isTestMode = override != null;
     final activeRole = override ?? UserRole.superAdmin;
@@ -558,8 +561,42 @@ class _SidebarState extends ConsumerState<_Sidebar> {
       (role: UserRole.superAdmin, label: 'Master', color: AdminTheme.gold),
     ];
 
+    // 접힌 상태: 작은 토글 버튼만 표시
+    if (!_roleSwitcherExpanded && !isTestMode) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => setState(() => _roleSwitcherExpanded = true),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              decoration: BoxDecoration(
+                color: AdminTheme.background,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AdminTheme.border, width: 0.5),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.swap_horiz_rounded, size: 14, color: AdminTheme.textTertiary),
+                  const SizedBox(width: 6),
+                  Text(
+                    '역할 전환',
+                    style: AdminTheme.label(fontSize: 9, color: AdminTheme.textTertiary),
+                  ),
+                  const Spacer(),
+                  Icon(Icons.expand_more_rounded, size: 14, color: AdminTheme.textTertiary),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 펼친 상태 또는 테스트 모드
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
@@ -575,42 +612,50 @@ class _SidebarState extends ConsumerState<_Sidebar> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 6),
-              child: Row(
-                children: [
-                  if (isTestMode) ...[
-                    Container(
-                      width: 5,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: AdminTheme.warning,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AdminTheme.warning.withValues(alpha: 0.5),
-                            blurRadius: 4,
+            GestureDetector(
+              onTap: () => setState(() => _roleSwitcherExpanded = false),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 6),
+                  child: Row(
+                    children: [
+                      if (isTestMode) ...[
+                        Container(
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: AdminTheme.warning,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AdminTheme.warning.withValues(alpha: 0.5),
+                                blurRadius: 4,
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      '테스트 모드',
-                      style: AdminTheme.label(
-                        fontSize: 8,
-                        color: AdminTheme.warning,
-                      ),
-                    ),
-                  ] else
-                    Text(
-                      '역할 전환',
-                      style: AdminTheme.label(
-                        fontSize: 8,
-                        color: AdminTheme.textTertiary,
-                      ),
-                    ),
-                ],
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          '테스트 모드',
+                          style: AdminTheme.label(
+                            fontSize: 8,
+                            color: AdminTheme.warning,
+                          ),
+                        ),
+                      ] else
+                        Text(
+                          '역할 전환',
+                          style: AdminTheme.label(
+                            fontSize: 8,
+                            color: AdminTheme.textTertiary,
+                          ),
+                        ),
+                      const Spacer(),
+                      Icon(Icons.expand_less_rounded, size: 14, color: AdminTheme.textTertiary),
+                    ],
+                  ),
+                ),
               ),
             ),
             Row(
