@@ -732,11 +732,11 @@ class _FrontCard extends StatelessWidget {
                     ),
                   const SizedBox(height: 16),
 
-                  // Passenger + Grade (한 줄, 각각 라벨)
+                  // Passenger + Grade (한 줄, 이름 바로 옆에 뱃지)
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Expanded(
+                      Flexible(
                         child: _InfoField(
                           label: 'Passenger',
                           value: buyerName,
@@ -747,7 +747,7 @@ class _FrontCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 8),
                       _InfoField(
                         label: 'Grade',
                         child: Container(
@@ -1071,13 +1071,13 @@ class _BackCardState extends State<_BackCard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Expanded(
+                      Flexible(
                         child: _InfoField(
                           label: 'Passenger',
                           value: widget.buyerName,
                         ),
                       ),
-                      Expanded(
+                      Flexible(
                         child: _InfoField(
                           label: 'ETKT',
                           value: '#${widget.entryNumber}',
