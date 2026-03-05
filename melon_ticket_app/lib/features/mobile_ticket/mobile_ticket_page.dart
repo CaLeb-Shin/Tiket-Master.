@@ -732,7 +732,7 @@ class _FrontCard extends StatelessWidget {
                     ),
                   const SizedBox(height: 16),
 
-                  // Passenger + Grade (한 줄, 이름 바로 옆에 뱃지)
+                  // Passenger + Grade (이름 왼쪽, 뱃지 오른쪽 끝)
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -747,7 +747,7 @@ class _FrontCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const Spacer(),
                       _InfoField(
                         label: 'Grade',
                         child: Container(
@@ -1444,7 +1444,6 @@ class _LiveStatusInCardState extends State<_LiveStatusInCard>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             AnimatedBuilder(
               animation: _pulseCtrl,
@@ -1472,19 +1471,21 @@ class _LiveStatusInCardState extends State<_LiveStatusInCard>
                 letterSpacing: 1.5,
               ),
             ),
+            if (_status == _LiveStatus.upcoming && widget.startAt != null) ...[
+              const SizedBox(width: 10),
+              Text(
+                _fmt(_remaining),
+                style: GoogleFonts.robotoMono(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _textDark,
+                ),
+              ),
+            ],
           ],
         ),
         if (_status == _LiveStatus.upcoming && widget.startAt != null) ...[
           const SizedBox(height: 3),
-          Text(
-            _fmt(_remaining),
-            style: GoogleFonts.robotoMono(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: _textDark,
-            ),
-          ),
-          const SizedBox(height: 2),
           Text(
             '좌석 배정까지 남은 시간',
             style: AppTheme.nanum(fontSize: 11, color: _textLight, noShadow: true),
