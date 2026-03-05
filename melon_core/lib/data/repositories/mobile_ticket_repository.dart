@@ -13,10 +13,12 @@ final mobileTicketsStreamProvider =
   final fs = ref.watch(firestoreServiceProvider);
   return fs.mobileTickets
       .where('eventId', isEqualTo: eventId)
-      .orderBy('entryNumber')
       .snapshots()
-      .map((snap) =>
-          snap.docs.map((d) => MobileTicket.fromFirestore(d)).toList());
+      .map((snap) {
+        final list = snap.docs.map((d) => MobileTicket.fromFirestore(d)).toList();
+        list.sort((a, b) => a.entryNumber.compareTo(b.entryNumber));
+        return list;
+      });
 });
 
 /// 네이버 주문별 모바일 티켓 스트림
@@ -39,9 +41,10 @@ class MobileTicketRepository {
   Future<List<MobileTicket>> getTicketsByEvent(String eventId) async {
     final snap = await _fs.mobileTickets
         .where('eventId', isEqualTo: eventId)
-        .orderBy('entryNumber')
         .get();
-    return snap.docs.map((d) => MobileTicket.fromFirestore(d)).toList();
+    final list = snap.docs.map((d) => MobileTicket.fromFirestore(d)).toList();
+    list.sort((a, b) => a.entryNumber.compareTo(b.entryNumber));
+    return list;
   }
 
   /// 네이버 주문별 티켓 목록

@@ -70,118 +70,128 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                 bottom: BorderSide(color: AdminTheme.border, width: 0.5),
               ),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconButton(
-                  onPressed: () {
-                    if (Navigator.of(context).canPop()) {
-                      Navigator.of(context).pop();
-                    } else {
-                      context.go('/');
-                    }
-                  },
-                  icon: const Icon(Icons.west,
-                      color: AdminTheme.textPrimary, size: 20),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: eventAsync.when(
-                    data: (event) => Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
+                // Title row
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        if (Navigator.of(context).canPop()) {
+                          Navigator.of(context).pop();
+                        } else {
+                          context.go('/');
+                        }
+                      },
+                      icon: const Icon(Icons.west,
+                          color: AdminTheme.textPrimary, size: 20),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: eventAsync.when(
+                        data: (event) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Naver Orders',
+                              style: AdminTheme.serif(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            if (event != null)
+                              Text(
+                                event.title,
+                                style: AdminTheme.sans(
+                                  fontSize: 11,
+                                  color: AdminTheme.textTertiary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
+                        ),
+                        loading: () => Text(
                           'Naver Orders',
                           style: AdminTheme.serif(
                             fontSize: 17,
                             fontWeight: FontWeight.w500,
-                            fontStyle: FontStyle.italic,
                           ),
                         ),
-                        if (event != null)
-                          Text(
-                            event.title,
-                            style: AdminTheme.sans(
-                              fontSize: 11,
-                              color: AdminTheme.textTertiary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        error: (_, __) => Text(
+                          'Naver Orders',
+                          style: AdminTheme.serif(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w500,
                           ),
-                      ],
-                    ),
-                    loading: () => Text(
-                      'Naver Orders',
-                      style: AdminTheme.serif(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w500,
-                        fontStyle: FontStyle.italic,
+                        ),
                       ),
                     ),
-                    error: (_, __) => Text(
-                      'Naver Orders',
-                      style: AdminTheme.serif(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w500,
-                        fontStyle: FontStyle.italic,
+                  ],
+                ),
+                // Action buttons row
+                Padding(
+                  padding: const EdgeInsets.only(left: 48, top: 8),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      // 좌석 공개
+                      SizedBox(
+                        height: 32,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _revealSeatsNow(),
+                          icon: const Icon(Icons.visibility_rounded, size: 14),
+                          label: Text('좌석 공개',
+                              style: AdminTheme.sans(
+                                  fontSize: 11, fontWeight: FontWeight.w600)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AdminTheme.info,
+                            side: BorderSide(
+                                color: AdminTheme.info.withValues(alpha: 0.3)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4)),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-                // ── Action Buttons ──
-                // 좌석 공개
-                SizedBox(
-                  height: 36,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _revealSeatsNow(),
-                    icon: const Icon(Icons.visibility_rounded, size: 14),
-                    label: Text('좌석 공개',
-                        style: AdminTheme.sans(
-                            fontSize: 11, fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AdminTheme.info,
-                      side: BorderSide(
-                          color: AdminTheme.info.withValues(alpha: 0.3)),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // 테스트 주문
-                SizedBox(
-                  height: 36,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showTestOrderDialog(),
-                    icon: const Icon(Icons.science_rounded, size: 14),
-                    label: Text('테스트',
-                        style: AdminTheme.sans(
-                            fontSize: 11, fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AdminTheme.sage,
-                      side: BorderSide(
-                          color: AdminTheme.sage.withValues(alpha: 0.3)),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // 주문 입력
-                SizedBox(
-                  height: 36,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showCreateOrderDialog(),
-                    icon: const Icon(Icons.add_rounded, size: 16),
-                    label: Text('주문 입력',
-                        style: AdminTheme.sans(
-                            fontSize: 12, fontWeight: FontWeight.w600)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AdminTheme.gold,
-                      foregroundColor: AdminTheme.onAccent,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4)),
-                    ),
+                      // 테스트 주문
+                      SizedBox(
+                        height: 32,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showTestOrderDialog(),
+                          icon: const Icon(Icons.science_rounded, size: 14),
+                          label: Text('테스트',
+                              style: AdminTheme.sans(
+                                  fontSize: 11, fontWeight: FontWeight.w600)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AdminTheme.sage,
+                            side: BorderSide(
+                                color: AdminTheme.sage.withValues(alpha: 0.3)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4)),
+                          ),
+                        ),
+                      ),
+                      // 주문 입력
+                      SizedBox(
+                        height: 32,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showCreateOrderDialog(),
+                          icon: const Icon(Icons.add_rounded, size: 16),
+                          label: Text('주문 입력',
+                              style: AdminTheme.sans(
+                                  fontSize: 12, fontWeight: FontWeight.w600)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AdminTheme.gold,
+                            foregroundColor: AdminTheme.onAccent,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

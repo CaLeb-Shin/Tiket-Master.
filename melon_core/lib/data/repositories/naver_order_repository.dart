@@ -12,10 +12,12 @@ final naverOrdersStreamProvider =
   final fs = ref.watch(firestoreServiceProvider);
   return fs.naverOrders
       .where('eventId', isEqualTo: eventId)
-      .orderBy('createdAt', descending: true)
       .snapshots()
-      .map((snap) =>
-          snap.docs.map((d) => NaverOrder.fromFirestore(d)).toList());
+      .map((snap) {
+        final list = snap.docs.map((d) => NaverOrder.fromFirestore(d)).toList();
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return list;
+      });
 });
 
 class NaverOrderRepository {
@@ -27,9 +29,10 @@ class NaverOrderRepository {
   Future<List<NaverOrder>> getOrdersByEvent(String eventId) async {
     final snap = await _fs.naverOrders
         .where('eventId', isEqualTo: eventId)
-        .orderBy('createdAt', descending: true)
         .get();
-    return snap.docs.map((d) => NaverOrder.fromFirestore(d)).toList();
+    final list = snap.docs.map((d) => NaverOrder.fromFirestore(d)).toList();
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
   }
 
   /// 네이버 주문번호로 조회
