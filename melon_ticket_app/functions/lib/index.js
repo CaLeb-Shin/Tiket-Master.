@@ -2294,7 +2294,6 @@ exports.getMobileTicketByToken = functions.https.onCall(async (data) => {
     if (ticket.naverOrderId) {
         const siblingSnap = await db.collection("mobileTickets")
             .where("naverOrderId", "==", ticket.naverOrderId)
-            .orderBy("entryNumber", "asc")
             .get();
         for (const doc of siblingSnap.docs) {
             const s = doc.data();
@@ -2311,6 +2310,7 @@ exports.getMobileTicketByToken = functions.https.onCall(async (data) => {
                 isCheckedIn: !!s.entryCheckedInAt,
             });
         }
+        siblings.sort((a, b) => (a.entryNumber || 0) - (b.entryNumber || 0));
     }
     return {
         success: true,
