@@ -922,6 +922,7 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
   void _showTestOrderDialog() {
     String selectedGrade = 'R';
     int quantity = 10;
+    int ticketsPerOrder = 1;
     bool isCreating = false;
     final results = <String>[];
 
@@ -1020,6 +1021,50 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                       );
                     }).toList(),
                   ),
+                  const SizedBox(height: 16),
+
+                  // 주문당 매수 (그룹티켓 테스트용)
+                  Text('주문당 매수', style: AdminTheme.label(fontSize: 10)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [1, 2, 3, 5].map((n) {
+                      final selected = n == ticketsPerOrder;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: Text('$n매',
+                              style: AdminTheme.sans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: selected
+                                    ? AdminTheme.onAccent
+                                    : AdminTheme.textSecondary,
+                              )),
+                          selected: selected,
+                          selectedColor: AdminTheme.gold,
+                          backgroundColor: AdminTheme.card,
+                          side: BorderSide(
+                              color: selected
+                                  ? AdminTheme.gold
+                                  : AdminTheme.border,
+                              width: 0.5),
+                          onSelected: (_) =>
+                              setDialogState(() => ticketsPerOrder = n),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  if (ticketsPerOrder > 1)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        '→ 그룹티켓 테스트 (주문당 ${ticketsPerOrder}매 → 스와이프)',
+                        style: AdminTheme.sans(
+                          fontSize: 11,
+                          color: AdminTheme.sage,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 24),
 
                   // 결과 표시
@@ -1091,7 +1136,7 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                                               buyerPhone: '010-0000-${i.toString().padLeft(4, '0')}',
                                               productName: '테스트 주문',
                                               seatGrade: selectedGrade,
-                                              quantity: 1,
+                                              quantity: ticketsPerOrder,
                                               orderDate: DateTime.now().toIso8601String(),
                                             );
                                         final tickets = (res['tickets'] as List?) ?? [];
