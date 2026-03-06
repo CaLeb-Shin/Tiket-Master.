@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -241,6 +243,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
   bool _showFront = true;
   late AnimationController _flipCtrl;
   late Animation<double> _flipAnim;
+  final _cardKey = GlobalKey();
 
   @override
   void initState() {
@@ -279,6 +282,122 @@ class _TicketViewState extends ConsumerState<_TicketView>
     }
   }
 
+  Future<void> _showTransferDialog(
+    BuildContext context, {
+    required String eventTitle,
+    required String accessToken,
+  }) async {
+    final nameController = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C1917),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          '티켓 전달',
+          style: AppTheme.nanum(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: _cream,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '받는 분의 이름을 입력하면\n티켓에 이름이 표시됩니다.',
+              style: AppTheme.nanum(fontSize: 13, color: _textLight, height: 1.5),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              maxLength: 20,
+              style: AppTheme.nanum(fontSize: 16, color: _cream),
+              decoration: InputDecoration(
+                hintText: '받는 분 이름',
+                hintStyle: AppTheme.nanum(fontSize: 14, color: _textMid),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.08),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+                counterStyle: AppTheme.nanum(fontSize: 10, color: _textMid),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('취소',
+                style: AppTheme.nanum(fontSize: 14, color: _textMid)),
+          ),
+          TextButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              Navigator.pop(ctx, name.isEmpty ? null : name);
+            },
+            child: Text('전달하기',
+                style: AppTheme.nanum(
+                    fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.gold)),
+          ),
+        ],
+      ),
+    );
+    nameController.dispose();
+
+    if (result == null || !mounted) return;
+
+    // Save recipientName to Firestore via CF
+    try {
+      await ref.read(functionsServiceProvider).setRecipientName(
+            accessToken: accessToken,
+            recipientName: result,
+          );
+    } catch (_) {
+      // Silent fail — name will still appear when shared
+    }
+
+    final url = '$_ticketBaseUrl$accessToken';
+    if (!mounted) return;
+    Share.share(
+      '$eventTitle 티켓\n받는 분: $result\n$url',
+      subject: '티켓 전달',
+    );
+  }
+
+  Future<void> _captureAndShare() async {
+    try {
+      final boundary = _cardKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) return;
+
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return;
+
+      final bytes = byteData.buffer.asUint8List();
+      await Share.shareXFiles(
+        [XFile.fromData(bytes, mimeType: 'image/png', name: 'smart_ticket.png')],
+        subject: '스마트 티켓',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('이미지 저장에 실패했습니다',
+                style: AppTheme.nanum(fontSize: 13, color: _cream)),
+            backgroundColor: _burgundy,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
@@ -286,6 +405,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
     final event = data['event'] as Map<String, dynamic>? ?? {};
 
     final buyerName = ticket['buyerName'] as String? ?? '';
+    final recipientName = ticket['recipientName'] as String?;
     final seatGrade = ticket['seatGrade'] as String? ?? '';
     final entryNumber = ticket['entryNumber'] as int? ?? 0;
     final status = ticket['status'] as String? ?? 'active';
@@ -342,7 +462,9 @@ class _TicketViewState extends ConsumerState<_TicketView>
             // ══════════════════════════════════════════
             // ── 메인 카드 (플립 애니메이션) ──
             // ══════════════════════════════════════════
-            AnimatedBuilder(
+            RepaintBoundary(
+            key: _cardKey,
+            child: AnimatedBuilder(
               animation: _flipAnim,
               builder: (context, _) {
                 final angle = _flipAnim.value * math.pi;
@@ -359,6 +481,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
                           imageUrl: imageUrl,
                           naverProductUrl: naverProductUrl,
                           buyerName: buyerName,
+                          recipientName: recipientName,
                           seatGrade: seatGrade,
                           startAt: startAt,
                           venueName: venueName,
@@ -394,6 +517,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
                 );
               },
             ),
+            ),
 
             const SizedBox(height: 20),
 
@@ -405,13 +529,11 @@ class _TicketViewState extends ConsumerState<_TicketView>
                   width: double.infinity,
                   height: 48,
                   child: OutlinedButton.icon(
-                    onPressed: () {
-                      final url = '$_ticketBaseUrl${widget.accessToken}';
-                      Share.share(
-                        '$eventTitle 티켓\n$url',
-                        subject: '티켓 전달',
-                      );
-                    },
+                    onPressed: () => _showTransferDialog(
+                      context,
+                      eventTitle: eventTitle,
+                      accessToken: widget.accessToken,
+                    ),
                     icon: const Icon(Icons.send_rounded,
                         size: 18, color: AppTheme.gold),
                     label: Text(
@@ -491,6 +613,17 @@ class _TicketViewState extends ConsumerState<_TicketView>
                       },
                     ),
                   ),
+                  Container(
+                      width: 1,
+                      height: 36,
+                      color: Colors.white.withValues(alpha: 0.08)),
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Icons.camera_alt_rounded,
+                      label: '이미지 저장',
+                      onTap: _captureAndShare,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -558,37 +691,50 @@ class _GroupTicketHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Column(
         children: [
-          const Icon(Icons.confirmation_number_outlined,
-              size: 16, color: AppTheme.gold),
-          const SizedBox(width: 8),
-          Text(
-            '${current + 1} / $total',
-            style: GoogleFonts.dmSans(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: _cream,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(width: 12),
           Row(
-            children: List.generate(
-              total,
-              (i) => AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                width: i == current ? 18 : 6,
-                height: 6,
-                margin: const EdgeInsets.symmetric(horizontal: 2),
-                decoration: BoxDecoration(
-                  color: i == current
-                      ? AppTheme.gold
-                      : _cream.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(3),
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.confirmation_number_outlined,
+                  size: 16, color: AppTheme.gold),
+              const SizedBox(width: 8),
+              Text(
+                '${current + 1} / $total',
+                style: GoogleFonts.dmSans(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: _cream,
+                  letterSpacing: 2,
                 ),
               ),
+              const SizedBox(width: 12),
+              Row(
+                children: List.generate(
+                  total,
+                  (i) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    width: i == current ? 18 : 6,
+                    height: 6,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    decoration: BoxDecoration(
+                      color: i == current
+                          ? AppTheme.gold
+                          : _cream.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '← 옆으로 넘겨서 다른 티켓 확인 →',
+            style: AppTheme.nanum(
+              fontSize: 11,
+              color: _cream.withValues(alpha: 0.4),
+              noShadow: true,
             ),
           ),
         ],
@@ -606,6 +752,7 @@ class _FrontCard extends StatelessWidget {
   final String? imageUrl;
   final String? naverProductUrl;
   final String buyerName;
+  final String? recipientName;
   final String seatGrade;
   final DateTime? startAt;
   final String venueName;
@@ -624,6 +771,7 @@ class _FrontCard extends StatelessWidget {
     this.imageUrl,
     this.naverProductUrl,
     required this.buyerName,
+    this.recipientName,
     required this.seatGrade,
     this.startAt,
     required this.venueName,
@@ -737,14 +885,46 @@ class _FrontCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Flexible(
-                        child: _InfoField(
-                          label: 'Passenger',
-                          value: buyerName,
-                          valueStyle: GoogleFonts.dmSerifDisplay(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w400,
-                            color: _textDark,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              recipientName != null && recipientName!.isNotEmpty
+                                  ? 'Guest'
+                                  : 'Passenger',
+                              style: GoogleFonts.dmSans(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: _textLight,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              recipientName != null && recipientName!.isNotEmpty
+                                  ? recipientName!
+                                  : buyerName,
+                              style: GoogleFonts.dmSerifDisplay(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w400,
+                                color: _burgundy,
+                                letterSpacing: 1,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (recipientName != null && recipientName!.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                '예매자: $buyerName',
+                                style: AppTheme.nanum(
+                                  fontSize: 11,
+                                  color: _textLight,
+                                  noShadow: true,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                       const Spacer(),
@@ -860,12 +1040,6 @@ class _FrontCard extends StatelessWidget {
             ),
           ],
         ),
-            // ── 종이 질감 오버레이 ──
-            Positioned.fill(
-              child: IgnorePointer(
-                child: CustomPaint(painter: _PaperTexturePainter()),
-              ),
-            ),
           ],
         ),
       ),
@@ -1140,12 +1314,6 @@ class _BackCardState extends State<_BackCard> {
             const SizedBox(height: 24),
           ],
         ),
-              // ── 종이 질감 오버레이 ──
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: CustomPaint(painter: _PaperTexturePainter()),
-                ),
-              ),
             ],
           ),
         ),
@@ -1175,7 +1343,7 @@ class _SmartTicketHeader extends StatelessWidget {
           colors: [
             _burgundy,
             const Color(0xFF2A0A0E),
-            gradeCol.withValues(alpha: 0.5),
+            const Color(0xFF1A0508),
           ],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
@@ -1301,14 +1469,22 @@ class _PosterWithQr extends StatelessWidget {
                     // 잠금 오버레이 (공개 전)
                     if (!qrRevealed && !isCancelled && !isUsed)
                       Container(
-                        width: 26,
-                        height: 26,
+                        width: 32,
+                        height: 32,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.85),
+                          color: Colors.white.withValues(alpha: 0.9),
                           shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.15),
+                              blurRadius: 4,
+                            ),
+                          ],
                         ),
-                        child: Icon(Icons.lock_rounded,
-                            size: 14, color: _textMid),
+                        child: const Center(
+                          child: Icon(Icons.lock_rounded,
+                              size: 16, color: _textMid),
+                        ),
                       ),
                     if (isCancelled)
                       Icon(Icons.cancel_rounded,
@@ -1487,7 +1663,7 @@ class _LiveStatusInCardState extends State<_LiveStatusInCard>
         if (_status == _LiveStatus.upcoming && widget.startAt != null) ...[
           const SizedBox(height: 3),
           Text(
-            '좌석 배정까지 남은 시간',
+            '좌석 공개까지 남은 시간',
             style: AppTheme.nanum(fontSize: 11, color: _textLight, noShadow: true),
           ),
         ],
@@ -2053,89 +2229,6 @@ Color _gradeColor(String grade) {
     default:
       return _textMid;
   }
-}
-
-// ── 종이 질감 오버레이 ──
-class _PaperTexturePainter extends CustomPainter {
-  final math.Random _rng = math.Random(42);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint();
-
-    // Layer 1: 굵은 섬유질 (fiber strokes) — 종이의 결
-    for (int i = 0; i < 60; i++) {
-      final x = _rng.nextDouble() * size.width;
-      final y = _rng.nextDouble() * size.height;
-      final len = 8 + _rng.nextDouble() * 20;
-      final angle = -0.3 + _rng.nextDouble() * 0.6; // 거의 수평
-      paint
-        ..color = Colors.black.withValues(alpha: 0.015 + _rng.nextDouble() * 0.02)
-        ..strokeWidth = 0.3 + _rng.nextDouble() * 0.4
-        ..style = PaintingStyle.stroke;
-      canvas.drawLine(
-        Offset(x, y),
-        Offset(x + len * math.cos(angle), y + len * math.sin(angle)),
-        paint,
-      );
-    }
-
-    // Layer 2: 고밀도 노이즈 도트 (grain) — 종이 질감 핵심
-    paint.style = PaintingStyle.fill;
-    for (int i = 0; i < 2500; i++) {
-      final x = _rng.nextDouble() * size.width;
-      final y = _rng.nextDouble() * size.height;
-      final isDark = _rng.nextDouble() > 0.4;
-      paint.color = (isDark ? Colors.black : Colors.white)
-          .withValues(alpha: 0.04 + _rng.nextDouble() * 0.04);
-      canvas.drawCircle(Offset(x, y), 0.4 + _rng.nextDouble() * 0.6, paint);
-    }
-
-    // Layer 3: 따뜻한 반점 (warm spots) — 오래된 종이 느낌
-    for (int i = 0; i < 15; i++) {
-      final x = _rng.nextDouble() * size.width;
-      final y = _rng.nextDouble() * size.height;
-      final r = 10 + _rng.nextDouble() * 30;
-      final spot = Paint()
-        ..shader = RadialGradient(
-          colors: [
-            const Color(0xFFD4C5A9).withValues(alpha: 0.06),
-            Colors.transparent,
-          ],
-        ).createShader(Rect.fromCircle(center: Offset(x, y), radius: r));
-      canvas.drawCircle(Offset(x, y), r, spot);
-    }
-
-    // Layer 4: 가장자리 비네팅 (강화)
-    final vignette = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          Colors.transparent,
-          Colors.black.withValues(alpha: 0.06),
-        ],
-        stops: const [0.6, 1.0],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), vignette);
-
-    // Layer 5: 접힌 자국 (노치 위치 근처, 더 뚜렷하게)
-    final foldY = size.height * 0.55;
-    final foldPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.05)
-      ..strokeWidth = 0.8;
-    canvas.drawLine(Offset(12, foldY), Offset(size.width - 12, foldY), foldPaint);
-    // 접힌 자국 하이라이트 (바로 아래 밝은 선)
-    final foldHighlight = Paint()
-      ..color = Colors.white.withValues(alpha: 0.15)
-      ..strokeWidth = 0.5;
-    canvas.drawLine(
-      Offset(12, foldY + 1),
-      Offset(size.width - 12, foldY + 1),
-      foldHighlight,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ── 팜플렛 갤러리 (가로 스크롤 + 탭 → 풀스크린) ──

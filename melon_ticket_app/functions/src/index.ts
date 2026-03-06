@@ -2779,6 +2779,7 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
         id: doc.id,
         accessToken: s.accessToken,
         buyerName: s.buyerName,
+        recipientName: s.recipientName || null,
         seatGrade: s.seatGrade,
         seatInfo: isRevealed ? s.seatInfo : null,
         seatNumber: isRevealed ? s.seatNumber : null,
@@ -2800,6 +2801,7 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
       seatInfo: isRevealed ? ticket.seatInfo : null,
       seatNumber: isRevealed ? ticket.seatNumber : null,
       buyerName: ticket.buyerName,
+      recipientName: ticket.recipientName || null,
       status: ticket.status,
       entryNumber: ticket.entryNumber,
       qrVersion: ticket.qrVersion || 1,
@@ -2810,6 +2812,7 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
       imageUrl: event.imageUrl || null,
       startAt: event.startAt,
       venueName: event.venueName || "",
+      venueAddress: event.venueAddress || "",
       revealAt: event.revealAt,
       naverProductUrl: event.naverProductUrl || null,
       pamphletUrls: event.pamphletUrls || [],
@@ -2817,6 +2820,35 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
     isRevealed,
     siblings,
   };
+});
+
+// ============================================================
+// 티켓 수신자 이름 설정 (비로그인 — accessToken으로 인증)
+// ============================================================
+
+export const setRecipientName = functions.https.onCall(async (data: any) => {
+  const { accessToken, recipientName } = data;
+  if (!accessToken || !recipientName) {
+    throw new functions.https.HttpsError("invalid-argument", "accessToken과 recipientName이 필요합니다");
+  }
+
+  if (recipientName.length > 20) {
+    throw new functions.https.HttpsError("invalid-argument", "이름은 20자 이하로 입력해주세요");
+  }
+
+  const ticketSnap = await db.collection("mobileTickets")
+    .where("accessToken", "==", accessToken)
+    .limit(1)
+    .get();
+
+  if (ticketSnap.empty) {
+    throw new functions.https.HttpsError("not-found", "티켓을 찾을 수 없습니다");
+  }
+
+  const ticketDoc = ticketSnap.docs[0];
+  await ticketDoc.ref.update({ recipientName: recipientName.trim() });
+
+  return { success: true, recipientName: recipientName.trim() };
 });
 
 // ============================================================

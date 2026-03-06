@@ -20,6 +20,7 @@ class MobileTicket {
   final int entryNumber; // 등급 내 선착순 번호
   final DateTime? entryCheckedInAt;
   final String? lastCheckInStage;
+  final String? recipientName; // 전달받은 사람 이름
 
   MobileTicket({
     required this.id,
@@ -40,6 +41,7 @@ class MobileTicket {
     required this.entryNumber,
     this.entryCheckedInAt,
     this.lastCheckInStage,
+    this.recipientName,
   });
 
   factory MobileTicket.fromFirestore(DocumentSnapshot doc) {
@@ -65,6 +67,7 @@ class MobileTicket {
       entryCheckedInAt:
           (data['entryCheckedInAt'] as Timestamp?)?.toDate(),
       lastCheckInStage: data['lastCheckInStage'],
+      recipientName: data['recipientName'],
     );
   }
 
@@ -90,6 +93,7 @@ class MobileTicket {
           ? Timestamp.fromDate(entryCheckedInAt!)
           : null,
       'lastCheckInStage': lastCheckInStage,
+      if (recipientName != null) 'recipientName': recipientName,
     };
   }
 

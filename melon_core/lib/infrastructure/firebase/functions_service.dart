@@ -213,6 +213,19 @@ class FunctionsService {
     return Map<String, dynamic>.from(result.data);
   }
 
+  /// 티켓 수신자 이름 설정 (비로그인)
+  Future<Map<String, dynamic>> setRecipientName({
+    required String accessToken,
+    required String recipientName,
+  }) async {
+    final callable = _functions.httpsCallable('setRecipientName');
+    final result = await callable.call({
+      'accessToken': accessToken,
+      'recipientName': recipientName,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
   /// 좌석 즉시 공개 (revealAt → now)
   Future<Map<String, dynamic>> revealSeatsNow({
     required String eventId,
