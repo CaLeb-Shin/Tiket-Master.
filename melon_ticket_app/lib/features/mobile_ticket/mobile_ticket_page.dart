@@ -405,8 +405,19 @@ class _TicketViewState extends ConsumerState<_TicketView>
     final event = data['event'] as Map<String, dynamic>? ?? {};
 
     final buyerName = ticket['buyerName'] as String? ?? '';
+    final buyerPhone = ticket['buyerPhone'] as String?;
     final buyerPhoneLast4 = ticket['buyerPhoneLast4'] as String?;
     final naverOrderId = ticket['naverOrderId'] as String?;
+    // 앞면용 마스킹: 010-6**5-1234 → (6**5)
+    String? buyerPhoneMasked;
+    if (buyerPhone != null && buyerPhone.length >= 4) {
+      final digits = buyerPhone.replaceAll(RegExp(r'[^0-9]'), '');
+      if (digits.length >= 7) {
+        final mid = digits.substring(3, digits.length - 4);
+        final masked = mid[0] + '*' * (mid.length - 2) + mid[mid.length - 1];
+        buyerPhoneMasked = masked;
+      }
+    }
     final recipientName = ticket['recipientName'] as String?;
     final seatGrade = ticket['seatGrade'] as String? ?? '';
     final entryNumber = ticket['entryNumber'] as int? ?? 0;
@@ -483,7 +494,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
                           imageUrl: imageUrl,
                           naverProductUrl: naverProductUrl,
                           buyerName: buyerName,
-                          buyerPhoneLast4: buyerPhoneLast4,
+                          buyerPhoneMasked: buyerPhoneMasked,
                           recipientName: recipientName,
                           seatGrade: seatGrade,
                           startAt: startAt,
@@ -506,7 +517,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
                             eventTitle: eventTitle,
                             venueName: venueName,
                             buyerName: buyerName,
-                            buyerPhoneLast4: buyerPhoneLast4,
+                            buyerPhone: buyerPhone,
                             naverOrderId: naverOrderId,
                             entryNumber: entryNumber,
                             startAt: startAt,
@@ -758,7 +769,7 @@ class _FrontCard extends StatelessWidget {
   final String? imageUrl;
   final String? naverProductUrl;
   final String buyerName;
-  final String? buyerPhoneLast4;
+  final String? buyerPhoneMasked;
   final String? recipientName;
   final String seatGrade;
   final DateTime? startAt;
@@ -779,7 +790,7 @@ class _FrontCard extends StatelessWidget {
     this.imageUrl,
     this.naverProductUrl,
     required this.buyerName,
-    this.buyerPhoneLast4,
+    this.buyerPhoneMasked,
     this.recipientName,
     required this.seatGrade,
     this.startAt,
@@ -915,23 +926,33 @@ class _FrontCard extends StatelessWidget {
                             Text(
                               recipientName != null && recipientName!.isNotEmpty
                                   ? recipientName!
-                                  : buyerPhoneLast4 != null
-                                      ? '$buyerName ($buyerPhoneLast4)'
-                                      : buyerName,
+                                  : buyerName,
                               style: GoogleFonts.dmSerifDisplay(
-                                fontSize: 26,
+                                fontSize: 28,
                                 fontWeight: FontWeight.w400,
                                 color: _burgundy,
-                                letterSpacing: 1,
+                                letterSpacing: 0.5,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
+                            if (buyerPhoneMasked != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                '($buyerPhoneMasked)',
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: _textMid,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ],
                             if (recipientName != null && recipientName!.isNotEmpty) ...[
                               const SizedBox(height: 2),
                               Text(
-                                buyerPhoneLast4 != null
-                                    ? '예매자: $buyerName ($buyerPhoneLast4)'
+                                buyerPhoneMasked != null
+                                    ? '예매자: $buyerName ($buyerPhoneMasked)'
                                     : '예매자: $buyerName',
                                 style: AppTheme.nanum(
                                   fontSize: 11,
@@ -1072,7 +1093,7 @@ class _BackCard extends StatefulWidget {
   final String eventTitle;
   final String venueName;
   final String buyerName;
-  final String? buyerPhoneLast4;
+  final String? buyerPhone;
   final String? naverOrderId;
   final int entryNumber;
   final DateTime? startAt;
@@ -1089,7 +1110,7 @@ class _BackCard extends StatefulWidget {
     required this.eventTitle,
     required this.venueName,
     required this.buyerName,
-    this.buyerPhoneLast4,
+    this.buyerPhone,
     this.naverOrderId,
     required this.entryNumber,
     this.startAt,
@@ -1284,16 +1305,31 @@ class _BackCardState extends State<_BackCard>
                       Flexible(
                         child: _InfoField(
                           label: '예매자',
-                          child: Text(
-                            widget.buyerPhoneLast4 != null
-                                ? '${widget.buyerName} (${widget.buyerPhoneLast4})'
-                                : widget.buyerName,
-                            style: GoogleFonts.dmSerifDisplay(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              fontStyle: FontStyle.italic,
-                              color: _textDark,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.buyerName,
+                                style: GoogleFonts.dmSerifDisplay(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  fontStyle: FontStyle.italic,
+                                  color: _textDark,
+                                ),
+                              ),
+                              if (widget.buyerPhone != null && widget.buyerPhone!.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  widget.buyerPhone!,
+                                  style: GoogleFonts.dmSans(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textMid,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ),
