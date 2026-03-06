@@ -2735,6 +2735,38 @@ export const issueMobileQrToken = functions.https.onCall(async (data: any) => {
 });
 
 /**
+ * OG 메타데이터 조회 (카카오톡/SNS 미리보기용)
+ * GET /getTicketOgMeta?token=ACCESS_TOKEN
+ */
+export const getTicketOgMeta = functions.https.onRequest(async (req, res) => {
+  // CORS 허용
+  res.set("Access-Control-Allow-Origin", "*");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  const token = req.query.token as string;
+  if (!token) { res.status(400).json({ error: "token 필요" }); return; }
+
+  const ticketSnap = await db.collection("mobileTickets")
+    .where("accessToken", "==", token)
+    .limit(1)
+    .get();
+
+  if (ticketSnap.empty) { res.status(404).json({ error: "not found" }); return; }
+
+  const ticket = ticketSnap.docs[0].data();
+  const eventDoc = await db.collection("events").doc(ticket.eventId).get();
+  const event = eventDoc.exists ? eventDoc.data() : null;
+
+  res.json({
+    title: event?.title || "공연",
+    imageUrl: event?.imageUrl || null,
+    venueName: event?.venueName || "",
+    startAt: event?.startAt || null,
+    seatGrade: ticket.seatGrade || "",
+  });
+});
+
+/**
  * 모바일 티켓 공개 조회 (비로그인 — accessToken으로 조회)
  */
 export const getMobileTicketByToken = functions.https.onCall(async (data: any) => {
