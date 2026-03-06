@@ -497,6 +497,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
                           orderIndex: orderIndex,
                           totalInOrder: totalInOrder,
                           onQrTap: _flipToQr,
+                          onDoubleTap: _flipToQr,
                         )
                       : Transform(
                           alignment: Alignment.center,
@@ -735,7 +736,7 @@ class _GroupTicketHeader extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '← 옆으로 넘겨서 다른 티켓 확인 →',
+            '← 옆으로 넘겨서 다른 티켓 확인  ${total}매(${current + 1}/$total) →',
             style: AppTheme.nanum(
               fontSize: 11,
               color: _cream.withValues(alpha: 0.4),
@@ -771,6 +772,7 @@ class _FrontCard extends StatelessWidget {
   final int orderIndex;
   final int totalInOrder;
   final VoidCallback onQrTap;
+  final VoidCallback? onDoubleTap;
 
   const _FrontCard({
     required this.eventTitle,
@@ -791,11 +793,14 @@ class _FrontCard extends StatelessWidget {
     required this.orderIndex,
     required this.totalInOrder,
     required this.onQrTap,
+    this.onDoubleTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ClipPath(
+    return GestureDetector(
+      onDoubleTap: onDoubleTap,
+      child: ClipPath(
       clipper: const _BoardingPassClipper(notchRadius: 16, notchPosition: 0.55),
       child: Container(
         width: double.infinity,
@@ -1026,11 +1031,11 @@ class _FrontCard extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // ── QR 탭 안내 ──
+            // ── 더블클릭 안내 ──
             Padding(
               padding: const EdgeInsets.only(bottom: 20),
               child: GestureDetector(
-                onTap: onQrTap,
+                onDoubleTap: onDoubleTap,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -1038,7 +1043,7 @@ class _FrontCard extends StatelessWidget {
                         size: 14, color: _textLight),
                     const SizedBox(width: 4),
                     Text(
-                      'QR코드를 탭하여 확인',
+                      '더블클릭하여 뒷면 확인',
                       style: AppTheme.nanum(
                         fontSize: 11,
                         color: _textLight,
@@ -1053,6 +1058,7 @@ class _FrontCard extends StatelessWidget {
         ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -1277,10 +1283,18 @@ class _BackCardState extends State<_BackCard>
                     children: [
                       Flexible(
                         child: _InfoField(
-                          label: 'Passenger',
-                          value: widget.buyerPhoneLast4 != null
-                              ? '${widget.buyerName} (${widget.buyerPhoneLast4})'
-                              : widget.buyerName,
+                          label: '예매자',
+                          child: Text(
+                            widget.buyerPhoneLast4 != null
+                                ? '${widget.buyerName} (${widget.buyerPhoneLast4})'
+                                : widget.buyerName,
+                            style: GoogleFonts.dmSerifDisplay(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              fontStyle: FontStyle.italic,
+                              color: _textDark,
+                            ),
+                          ),
                         ),
                       ),
                       Flexible(

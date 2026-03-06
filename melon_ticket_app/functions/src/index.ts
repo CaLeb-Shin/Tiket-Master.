@@ -2778,7 +2778,9 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
       siblings.push({
         id: doc.id,
         accessToken: s.accessToken,
+        naverOrderId: s.naverOrderId || null,
         buyerName: s.buyerName,
+        buyerPhoneLast4: s.buyerPhone && s.buyerPhone.length >= 4 ? s.buyerPhone.slice(-4) : null,
         recipientName: s.recipientName || null,
         seatGrade: s.seatGrade,
         seatInfo: isRevealed ? s.seatInfo : null,
