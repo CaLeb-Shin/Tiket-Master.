@@ -405,6 +405,8 @@ class _TicketViewState extends ConsumerState<_TicketView>
     final event = data['event'] as Map<String, dynamic>? ?? {};
 
     final buyerName = ticket['buyerName'] as String? ?? '';
+    final buyerPhoneLast4 = ticket['buyerPhoneLast4'] as String?;
+    final naverOrderId = ticket['naverOrderId'] as String?;
     final recipientName = ticket['recipientName'] as String?;
     final seatGrade = ticket['seatGrade'] as String? ?? '';
     final entryNumber = ticket['entryNumber'] as int? ?? 0;
@@ -481,6 +483,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
                           imageUrl: imageUrl,
                           naverProductUrl: naverProductUrl,
                           buyerName: buyerName,
+                          buyerPhoneLast4: buyerPhoneLast4,
                           recipientName: recipientName,
                           seatGrade: seatGrade,
                           startAt: startAt,
@@ -502,6 +505,8 @@ class _TicketViewState extends ConsumerState<_TicketView>
                             eventTitle: eventTitle,
                             venueName: venueName,
                             buyerName: buyerName,
+                            buyerPhoneLast4: buyerPhoneLast4,
+                            naverOrderId: naverOrderId,
                             entryNumber: entryNumber,
                             startAt: startAt,
                             ticketId: ticketId,
@@ -752,6 +757,7 @@ class _FrontCard extends StatelessWidget {
   final String? imageUrl;
   final String? naverProductUrl;
   final String buyerName;
+  final String? buyerPhoneLast4;
   final String? recipientName;
   final String seatGrade;
   final DateTime? startAt;
@@ -771,6 +777,7 @@ class _FrontCard extends StatelessWidget {
     this.imageUrl,
     this.naverProductUrl,
     required this.buyerName,
+    this.buyerPhoneLast4,
     this.recipientName,
     required this.seatGrade,
     this.startAt,
@@ -903,7 +910,9 @@ class _FrontCard extends StatelessWidget {
                             Text(
                               recipientName != null && recipientName!.isNotEmpty
                                   ? recipientName!
-                                  : buyerName,
+                                  : buyerPhoneLast4 != null
+                                      ? '$buyerName ($buyerPhoneLast4)'
+                                      : buyerName,
                               style: GoogleFonts.dmSerifDisplay(
                                 fontSize: 26,
                                 fontWeight: FontWeight.w400,
@@ -916,7 +925,9 @@ class _FrontCard extends StatelessWidget {
                             if (recipientName != null && recipientName!.isNotEmpty) ...[
                               const SizedBox(height: 2),
                               Text(
-                                '예매자: $buyerName',
+                                buyerPhoneLast4 != null
+                                    ? '예매자: $buyerName ($buyerPhoneLast4)'
+                                    : '예매자: $buyerName',
                                 style: AppTheme.nanum(
                                   fontSize: 11,
                                   color: _textLight,
@@ -1055,6 +1066,8 @@ class _BackCard extends StatefulWidget {
   final String eventTitle;
   final String venueName;
   final String buyerName;
+  final String? buyerPhoneLast4;
+  final String? naverOrderId;
   final int entryNumber;
   final DateTime? startAt;
   final String ticketId;
@@ -1070,6 +1083,8 @@ class _BackCard extends StatefulWidget {
     required this.eventTitle,
     required this.venueName,
     required this.buyerName,
+    this.buyerPhoneLast4,
+    this.naverOrderId,
     required this.entryNumber,
     this.startAt,
     required this.ticketId,
@@ -1086,17 +1101,31 @@ class _BackCard extends StatefulWidget {
   State<_BackCard> createState() => _BackCardState();
 }
 
-class _BackCardState extends State<_BackCard> {
+class _BackCardState extends State<_BackCard>
+    with SingleTickerProviderStateMixin {
   bool _localQrRevealed = false;
+  late final AnimationController _refreshCtrl;
 
   @override
   void initState() {
     super.initState();
     _localQrRevealed = widget.qrRevealed;
+    _refreshCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+  }
+
+  @override
+  void dispose() {
+    _refreshCtrl.dispose();
+    super.dispose();
   }
 
   void _handleRefresh() {
-    // 새로고침 시 현재 시각으로 QR 공개 여부 재확인
+    // 회전 애니메이션
+    _refreshCtrl.forward(from: 0);
+    // QR 공개 여부 재확인
     if (widget.startAt != null) {
       final now = DateTime.now();
       final revealed = now.isAfter(widget.startAt!.subtract(const Duration(hours: 2)));
@@ -1167,6 +1196,7 @@ class _BackCardState extends State<_BackCard> {
                       isCancelled: widget.isCancelled,
                       isUsed: widget.isUsed,
                       onRefresh: _handleRefresh,
+                      refreshAnimation: _refreshCtrl,
                     ),
             ),
 
@@ -1248,7 +1278,9 @@ class _BackCardState extends State<_BackCard> {
                       Flexible(
                         child: _InfoField(
                           label: 'Passenger',
-                          value: widget.buyerName,
+                          value: widget.buyerPhoneLast4 != null
+                              ? '${widget.buyerName} (${widget.buyerPhoneLast4})'
+                              : widget.buyerName,
                         ),
                       ),
                       Flexible(
@@ -1264,6 +1296,18 @@ class _BackCardState extends State<_BackCard> {
                       ),
                     ],
                   ),
+                  if (widget.naverOrderId != null && widget.naverOrderId!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _InfoField(
+                      label: 'Order No.',
+                      value: widget.naverOrderId!,
+                      valueStyle: GoogleFonts.dmSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: _textLight,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1878,12 +1922,14 @@ class _QrPlaceholderBack extends StatelessWidget {
   final bool isCancelled;
   final bool isUsed;
   final VoidCallback? onRefresh;
+  final Animation<double>? refreshAnimation;
 
   const _QrPlaceholderBack({
     this.startAt,
     required this.isCancelled,
     required this.isUsed,
     this.onRefresh,
+    this.refreshAnimation,
   });
 
   @override
@@ -1948,7 +1994,13 @@ class _QrPlaceholderBack extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.refresh_rounded, size: 16, color: _textMid),
+                    if (refreshAnimation != null)
+                      RotationTransition(
+                        turns: refreshAnimation!,
+                        child: Icon(Icons.refresh_rounded, size: 16, color: _textMid),
+                      )
+                    else
+                      Icon(Icons.refresh_rounded, size: 16, color: _textMid),
                     const SizedBox(width: 6),
                     Text(
                       '새로고침',

@@ -2797,10 +2797,12 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
     ticket: {
       id: ticketDoc.id,
       eventId: ticket.eventId,
+      naverOrderId: ticket.naverOrderId || null,
       seatGrade: ticket.seatGrade,
       seatInfo: isRevealed ? ticket.seatInfo : null,
       seatNumber: isRevealed ? ticket.seatNumber : null,
       buyerName: ticket.buyerName,
+      buyerPhoneLast4: ticket.buyerPhone ? ticket.buyerPhone.slice(-4) : null,
       recipientName: ticket.recipientName || null,
       status: ticket.status,
       entryNumber: ticket.entryNumber,
