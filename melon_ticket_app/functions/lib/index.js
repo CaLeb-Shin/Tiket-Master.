@@ -659,6 +659,37 @@ function findConsecutiveSeats(seats, quantity, preferredSeatIds = []) {
     });
     return candidates[0];
 }
+/**
+ * Firestore QueryDocumentSnapshot[] → 연석 탐색 래퍼
+ * findConsecutiveSeats를 재사용하여 인접 좌석을 찾고 원본 doc 참조를 반환
+ */
+function findAdjacentSeats(docs, quantity) {
+    if (quantity <= 1 && docs.length >= 1) {
+        // 1매는 number 순 첫 번째
+        const sorted = [...docs].sort((a, b) => (a.data().number || 0) - (b.data().number || 0));
+        return [sorted[0]];
+    }
+    // QueryDocumentSnapshot → SeatDoc 변환
+    const seatDocs = docs.map((d) => {
+        const data = d.data();
+        return {
+            id: d.id,
+            block: data.block || "",
+            floor: data.floor || "",
+            row: data.row || undefined,
+            number: data.number || 0,
+        };
+    });
+    const result = findConsecutiveSeats(seatDocs, quantity);
+    if (!result)
+        return null;
+    // SeatDoc → 원본 QueryDocumentSnapshot 매핑
+    const resultIds = new Set(result.map((s) => s.id));
+    const matched = docs.filter((d) => resultIds.has(d.id));
+    // findConsecutiveSeats 결과 순서(number 순) 유지
+    matched.sort((a, b) => (a.data().number || 0) - (b.data().number || 0));
+    return matched.length === quantity ? matched : null;
+}
 // ============================================================
 // 3. revealSeatsForEvent - 좌석 공개 (공연 1시간 전)
 // ============================================================
@@ -2057,16 +2088,19 @@ exports.createNaverOrder = functions.https.onCall(async (data, context) => {
     if (!eventDoc.exists) {
         throw new functions.https.HttpsError("not-found", "이벤트를 찾을 수 없습니다");
     }
-    // 해당 등급의 available 좌석 조회 (선착순: number 순)
-    const seatsSnap = await db.collection("seats")
+    // 해당 등급의 available 좌석 전체 조회 → 연석(인접 좌석) 탐색
+    const allSeatsSnap = await db.collection("seats")
         .where("eventId", "==", eventId)
         .where("grade", "==", seatGrade)
         .where("status", "==", "available")
-        .orderBy("number")
-        .limit(quantity)
         .get();
-    if (seatsSnap.size < quantity) {
-        throw new functions.https.HttpsError("resource-exhausted", `${seatGrade} 등급 잔여 좌석이 부족합니다 (잔여: ${seatsSnap.size}, 요청: ${quantity})`);
+    if (allSeatsSnap.size < quantity) {
+        throw new functions.https.HttpsError("resource-exhausted", `${seatGrade} 등급 잔여 좌석이 부족합니다 (잔여: ${allSeatsSnap.size}, 요청: ${quantity})`);
+    }
+    // 연석 탐색: 같은 (floor, block, row) 그룹 내 연속 좌석번호 찾기
+    const selectedSeatDocs = findAdjacentSeats(allSeatsSnap.docs, quantity);
+    if (!selectedSeatDocs) {
+        throw new functions.https.HttpsError("resource-exhausted", `${seatGrade} 등급에 연석 ${quantity}매를 찾을 수 없습니다 (잔여 ${allSeatsSnap.size}석이지만 인접 좌석 부족)`);
     }
     // 현재 해당 등급의 active 티켓 수 (entryNumber 계산용)
     const activeTicketsSnap = await db.collection("mobileTickets")
@@ -2079,7 +2113,7 @@ exports.createNaverOrder = functions.https.onCall(async (data, context) => {
     const ticketIds = [];
     const ticketUrls = [];
     const batch = db.batch();
-    seatsSnap.docs.forEach((seatDoc, i) => {
+    selectedSeatDocs.forEach((seatDoc, i) => {
         const seat = seatDoc.data();
         const ticketRef = db.collection("mobileTickets").doc();
         const accessToken = (0, uuid_1.v4)();
@@ -2460,17 +2494,23 @@ exports.createNaverOrderHttp = functions.https.onRequest(async (req, res) => {
             res.status(404).json({ error: "이벤트를 찾을 수 없습니다" });
             return;
         }
-        // 해당 등급의 available 좌석 조회 (선착순: number 순)
-        const seatsSnap = await db.collection("seats")
+        // 해당 등급의 available 좌석 전체 조회 → 연석(인접 좌석) 탐색
+        const allSeatsSnap = await db.collection("seats")
             .where("eventId", "==", eventId)
             .where("grade", "==", seatGrade)
             .where("status", "==", "available")
-            .orderBy("number")
-            .limit(quantity)
             .get();
-        if (seatsSnap.size < quantity) {
+        if (allSeatsSnap.size < quantity) {
             res.status(422).json({
-                error: `${seatGrade} 등급 잔여 좌석이 부족합니다 (잔여: ${seatsSnap.size}, 요청: ${quantity})`,
+                error: `${seatGrade} 등급 잔여 좌석이 부족합니다 (잔여: ${allSeatsSnap.size}, 요청: ${quantity})`,
+            });
+            return;
+        }
+        // 연석 탐색: 같은 (floor, block, row) 그룹 내 연속 좌석번호 찾기
+        const selectedSeatDocs = findAdjacentSeats(allSeatsSnap.docs, quantity);
+        if (!selectedSeatDocs) {
+            res.status(422).json({
+                error: `${seatGrade} 등급에 연석 ${quantity}매를 찾을 수 없습니다 (잔여 ${allSeatsSnap.size}석이지만 인접 좌석 부족)`,
             });
             return;
         }
@@ -2485,7 +2525,7 @@ exports.createNaverOrderHttp = functions.https.onRequest(async (req, res) => {
         const ticketIds = [];
         const ticketUrls = [];
         const batch = db.batch();
-        seatsSnap.docs.forEach((seatDoc, i) => {
+        selectedSeatDocs.forEach((seatDoc, i) => {
             const seat = seatDoc.data();
             const ticketRef = db.collection("mobileTickets").doc();
             const accessToken = (0, uuid_1.v4)();
