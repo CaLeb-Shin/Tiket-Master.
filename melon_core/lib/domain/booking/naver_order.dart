@@ -17,6 +17,9 @@ class NaverOrder {
   final DateTime? cancelledAt;
   final String? cancelReason;
   final String? memo;
+  final String? userId;
+  final DateTime? linkedAt;
+  final String? linkSource;
 
   NaverOrder({
     required this.id,
@@ -34,6 +37,9 @@ class NaverOrder {
     this.cancelledAt,
     this.cancelReason,
     this.memo,
+    this.userId,
+    this.linkedAt,
+    this.linkSource,
   });
 
   factory NaverOrder.fromFirestore(DocumentSnapshot doc) {
@@ -45,17 +51,18 @@ class NaverOrder {
       buyerPhone: data['buyerPhone'] ?? '',
       productName: data['productName'] ?? '',
       quantity: data['quantity'] ?? 0,
-      orderDate:
-          (data['orderDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      orderDate: (data['orderDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
       status: NaverOrderStatus.fromString(data['status']),
       ticketIds: List<String>.from(data['ticketIds'] ?? []),
       eventId: data['eventId'] ?? '',
       seatGrade: data['seatGrade'] ?? '',
-      createdAt:
-          (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       cancelledAt: (data['cancelledAt'] as Timestamp?)?.toDate(),
       cancelReason: data['cancelReason'],
       memo: data['memo'],
+      userId: data['userId'],
+      linkedAt: (data['linkedAt'] as Timestamp?)?.toDate(),
+      linkSource: data['linkSource'],
     );
   }
 
@@ -72,10 +79,14 @@ class NaverOrder {
       'eventId': eventId,
       'seatGrade': seatGrade,
       'createdAt': Timestamp.fromDate(createdAt),
-      'cancelledAt':
-          cancelledAt != null ? Timestamp.fromDate(cancelledAt!) : null,
+      'cancelledAt': cancelledAt != null
+          ? Timestamp.fromDate(cancelledAt!)
+          : null,
       'cancelReason': cancelReason,
       'memo': memo,
+      if (userId != null) 'userId': userId,
+      if (linkedAt != null) 'linkedAt': Timestamp.fromDate(linkedAt!),
+      if (linkSource != null) 'linkSource': linkSource,
     };
   }
 }

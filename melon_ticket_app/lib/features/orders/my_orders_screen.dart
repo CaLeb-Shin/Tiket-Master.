@@ -45,9 +45,7 @@ class MyOrdersScreen extends ConsumerWidget {
       ),
       decoration: const BoxDecoration(
         color: AppTheme.surface,
-        border: Border(
-          bottom: BorderSide(color: AppTheme.border, width: 0.5),
-        ),
+        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -59,8 +57,11 @@ class MyOrdersScreen extends ConsumerWidget {
                 context.go('/');
               }
             },
-            icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                color: AppTheme.textPrimary, size: 20),
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: AppTheme.textPrimary,
+              size: 20,
+            ),
           ),
           Text(
             '주문 내역',
@@ -69,6 +70,12 @@ class MyOrdersScreen extends ConsumerWidget {
               fontWeight: FontWeight.w600,
               color: AppTheme.textPrimary,
             ),
+          ),
+          const Spacer(),
+          TextButton.icon(
+            onPressed: () => context.push('/orders/naver'),
+            icon: const Icon(Icons.link_rounded, size: 16),
+            label: const Text('네이버'),
           ),
         ],
       ),
@@ -96,16 +103,18 @@ class _OrderList extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           itemCount: orders.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (_, i) => PressableScale(
-            child: _OrderCard(order: orders[i]),
-          ),
+          itemBuilder: (_, i) =>
+              PressableScale(child: _OrderCard(order: orders[i])),
         );
       },
       loading: () => Column(
-        children: List.generate(5, (_) => const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: ShimmerLoading(height: 80, borderRadius: 14),
-        )),
+        children: List.generate(
+          5,
+          (_) => const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: ShimmerLoading(height: 80, borderRadius: 14),
+          ),
+        ),
       ),
       error: (e, _) => const _CenteredMessage(
         icon: Icons.error_outline_rounded,
@@ -197,7 +206,9 @@ class _OrderCard extends ConsumerWidget {
                   error: (_, __) => Text(
                     '공연 정보 조회 실패',
                     style: AppTheme.nanum(
-                        fontSize: 14, color: AppTheme.textTertiary),
+                      fontSize: 14,
+                      color: AppTheme.textTertiary,
+                    ),
                   ),
                 ),
 
@@ -206,10 +217,7 @@ class _OrderCard extends ConsumerWidget {
                 // 주문 정보 행
                 Row(
                   children: [
-                    _InfoChip(
-                      label: '수량',
-                      value: '${order.quantity}매',
-                    ),
+                    _InfoChip(label: '수량', value: '${order.quantity}매'),
                     const SizedBox(width: 8),
                     _InfoChip(
                       label: '금액',
@@ -228,13 +236,17 @@ class _OrderCard extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: AppTheme.error.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
-                      border:
-                          Border.all(color: AppTheme.error.withValues(alpha: 0.15)),
+                      border: Border.all(
+                        color: AppTheme.error.withValues(alpha: 0.15),
+                      ),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.replay_rounded,
-                            size: 14, color: AppTheme.error.withValues(alpha: 0.8)),
+                        Icon(
+                          Icons.replay_rounded,
+                          size: 14,
+                          color: AppTheme.error.withValues(alpha: 0.8),
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           '환불완료 ${dateFormat.format(order.refundedAt!)}',
@@ -368,10 +380,7 @@ class _InfoChip extends StatelessWidget {
         children: [
           Text(
             '$label ',
-            style: AppTheme.nanum(
-              fontSize: 11,
-              color: AppTheme.textTertiary,
-            ),
+            style: AppTheme.nanum(fontSize: 11, color: AppTheme.textTertiary),
           ),
           Text(
             value,
@@ -398,14 +407,15 @@ class _CenteredMessage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 40, color: AppTheme.textTertiary.withValues(alpha: 0.4)),
+          Icon(
+            icon,
+            size: 40,
+            color: AppTheme.textTertiary.withValues(alpha: 0.4),
+          ),
           const SizedBox(height: 12),
           Text(
             text,
-            style: AppTheme.nanum(
-              fontSize: 14,
-              color: AppTheme.textTertiary,
-            ),
+            style: AppTheme.nanum(fontSize: 14, color: AppTheme.textTertiary),
           ),
         ],
       ),

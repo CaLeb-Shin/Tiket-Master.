@@ -21,11 +21,7 @@ class MobileMainScreen extends ConsumerStatefulWidget {
   final String? focusEventId;
   final int initialIndex;
 
-  const MobileMainScreen({
-    super.key,
-    this.focusEventId,
-    this.initialIndex = 0,
-  });
+  const MobileMainScreen({super.key, this.focusEventId, this.initialIndex = 0});
 
   @override
   ConsumerState<MobileMainScreen> createState() => _MobileMainScreenState();
@@ -44,6 +40,8 @@ class _MobileMainScreenState extends ConsumerState<MobileMainScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
     final isLoggedIn = authState.value != null;
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    final navBottomPadding = (safeBottom > 0 ? safeBottom : 12.0) + 6;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -71,46 +69,42 @@ class _MobileMainScreenState extends ConsumerState<MobileMainScreen> {
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: AppTheme.surface,
-          border: Border(
-            top: BorderSide(color: AppTheme.border, width: 0.5),
-          ),
+          border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
         ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _NavItem(
-                  icon: Icons.bolt_outlined,
-                  activeIcon: Icons.bolt_rounded,
-                  label: 'BOOKING',
-                  isSelected: _currentIndex == 0,
-                  onTap: () => setState(() => _currentIndex = 0),
-                ),
-                _NavItem(
-                  icon: Icons.grid_view_outlined,
-                  activeIcon: Icons.grid_view_rounded,
-                  label: 'DISCOVER',
-                  isSelected: _currentIndex == 1,
-                  onTap: () => setState(() => _currentIndex = 1),
-                ),
-                _NavItem(
-                  icon: Icons.confirmation_number_outlined,
-                  activeIcon: Icons.confirmation_number_rounded,
-                  label: 'TICKETS',
-                  isSelected: _currentIndex == 2,
-                  onTap: () => setState(() => _currentIndex = 2),
-                ),
-                _NavItem(
-                  icon: Icons.person_outline_rounded,
-                  activeIcon: Icons.person_rounded,
-                  label: 'PROFILE',
-                  isSelected: _currentIndex == 3,
-                  onTap: () => setState(() => _currentIndex = 3),
-                ),
-              ],
-            ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(12, 10, 12, navBottomPadding),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavItem(
+                icon: Icons.bolt_outlined,
+                activeIcon: Icons.bolt_rounded,
+                label: 'BOOKING',
+                isSelected: _currentIndex == 0,
+                onTap: () => setState(() => _currentIndex = 0),
+              ),
+              _NavItem(
+                icon: Icons.grid_view_outlined,
+                activeIcon: Icons.grid_view_rounded,
+                label: 'DISCOVER',
+                isSelected: _currentIndex == 1,
+                onTap: () => setState(() => _currentIndex = 1),
+              ),
+              _NavItem(
+                icon: Icons.confirmation_number_outlined,
+                activeIcon: Icons.confirmation_number_rounded,
+                label: 'TICKETS',
+                isSelected: _currentIndex == 2,
+                onTap: () => setState(() => _currentIndex = 2),
+              ),
+              _NavItem(
+                icon: Icons.person_outline_rounded,
+                activeIcon: Icons.person_rounded,
+                label: 'PROFILE',
+                isSelected: _currentIndex == 3,
+                onTap: () => setState(() => _currentIndex = 3),
+              ),
+            ],
           ),
         ),
       ),
@@ -245,9 +239,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
   Widget _buildLoading() {
     return const Scaffold(
       backgroundColor: AppTheme.background,
-      body: Center(
-        child: CircularProgressIndicator(color: AppTheme.gold),
-      ),
+      body: Center(child: CircularProgressIndicator(color: AppTheme.gold)),
     );
   }
 
@@ -257,8 +249,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
 
     final safeTop = MediaQuery.of(context).padding.top;
     final safeBottom = MediaQuery.of(context).padding.bottom;
-    final dateText =
-        DateFormat('M/d (E) HH:mm', 'ko_KR').format(event.startAt);
+    final dateText = DateFormat('M/d (E) HH:mm', 'ko_KR').format(event.startAt);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -276,8 +267,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                   child: Stack(
                     children: [
                       // Poster image (전체 표시)
-                      if (event.imageUrl != null &&
-                          event.imageUrl!.isNotEmpty)
+                      if (event.imageUrl != null && event.imageUrl!.isNotEmpty)
                         Center(
                           child: CachedNetworkImage(
                             imageUrl: event.imageUrl!,
@@ -366,7 +356,9 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                         left: 20,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
                           decoration: BoxDecoration(
                             color: AppTheme.gold,
                             borderRadius: BorderRadius.circular(2),
@@ -404,7 +396,9 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             // Category tag + 360° + custom tags
-                            if (event.category?.isNotEmpty == true || event.has360View || event.tags.isNotEmpty)
+                            if (event.category?.isNotEmpty == true ||
+                                event.has360View ||
+                                event.tags.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: Wrap(
@@ -414,8 +408,13 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                                     if (event.category?.isNotEmpty == true)
                                       _HeroTag(label: event.category!),
                                     if (event.has360View)
-                                      const _HeroTag(label: '360° 좌석뷰', isGold: true),
-                                    ...event.tags.map((t) => _HeroTag(label: t)),
+                                      const _HeroTag(
+                                        label: '360° 좌석뷰',
+                                        isGold: true,
+                                      ),
+                                    ...event.tags.map(
+                                      (t) => _HeroTag(label: t),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -456,19 +455,20 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                             child: Center(
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 20, vertical: 8),
+                                  horizontal: 20,
+                                  vertical: 8,
+                                ),
                                 decoration: BoxDecoration(
                                   border: Border.all(
-                                      color: Colors.white
-                                          .withValues(alpha: 0.6)),
+                                    color: Colors.white.withValues(alpha: 0.6),
+                                  ),
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                                 child: Text(
                                   'SOLD OUT',
                                   style: AppTheme.label(
                                     fontSize: 16,
-                                    color:
-                                        Colors.white.withValues(alpha: 0.9),
+                                    color: Colors.white.withValues(alpha: 0.9),
                                   ),
                                 ),
                               ),
@@ -497,19 +497,15 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                                 Expanded(
                                   child: _InfoColumn(
                                     label: 'DATE',
-                                    value: DateFormat('M/d (E) HH:mm', 'ko_KR')
-                                        .format(event.startAt),
+                                    value: DateFormat(
+                                      'M/d (E) HH:mm',
+                                      'ko_KR',
+                                    ).format(event.startAt),
                                   ),
                                 ),
-                                Container(
-                                    width: 0.5,
-                                    color: AppTheme.border),
-                                Expanded(
-                                  child: _buildPriceColumn(event),
-                                ),
-                                Container(
-                                    width: 0.5,
-                                    color: AppTheme.border),
+                                Container(width: 0.5, color: AppTheme.border),
+                                Expanded(child: _buildPriceColumn(event)),
+                                Container(width: 0.5, color: AppTheme.border),
                                 Expanded(
                                   child: _InfoColumn(
                                     label: 'VENUE',
@@ -521,9 +517,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                           ),
                         ),
 
-                        Container(
-                            height: 0.5,
-                            color: AppTheme.border),
+                        Container(height: 0.5, color: AppTheme.border),
 
                         // ── 할인 정보 ──
                         _buildDiscountInfo(event),
@@ -533,11 +527,12 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
 
                         // ── 공연 상세 보기 full-width button ──
                         PressableScale(
-                          onTap: () =>
-                              context.push('/event/${event.id}'),
+                          onTap: () => context.push('/event/${event.id}'),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 16),
+                              horizontal: 24,
+                              vertical: 16,
+                            ),
                             decoration: const BoxDecoration(
                               color: AppTheme.cardElevated,
                             ),
@@ -575,18 +570,17 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                   child: const Icon(
-                                      Icons.arrow_forward_ios_rounded,
-                                      size: 12,
-                                      color: AppTheme.gold),
+                                    Icons.arrow_forward_ios_rounded,
+                                    size: 12,
+                                    color: AppTheme.gold,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                         ),
 
-                        Container(
-                            height: 0.5,
-                            color: AppTheme.border),
+                        Container(height: 0.5, color: AppTheme.border),
 
                         // ── Discover link ──
                         Padding(
@@ -606,7 +600,8 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                         ),
 
                         // ── 문의 배너 (optional) ──
-                        if (event.inquiryInfo != null && event.inquiryInfo!.isNotEmpty)
+                        if (event.inquiryInfo != null &&
+                            event.inquiryInfo!.isNotEmpty)
                           _buildContactBanner(event.inquiryInfo!),
 
                         // Bottom padding for CTA
@@ -631,8 +626,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                   top: BorderSide(color: AppTheme.border, width: 0.5),
                 ),
               ),
-              padding:
-                  EdgeInsets.fromLTRB(20, 10, 20, safeBottom + 10),
+              padding: EdgeInsets.fromLTRB(20, 10, 20, safeBottom + 10),
               child: _buildCTA(event, fromLink: fromLink),
             ),
           ),
@@ -652,8 +646,8 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
 
     if (event.isOnSale && !isSoldOut) {
       label = '실제로 보면서 예매!';
-      onPressed =
-          () => _openAIQuickConditions(context, event, fromLink: fromLink);
+      onPressed = () =>
+          _openAIQuickConditions(context, event, fromLink: fromLink);
     } else if (isSoldOut) {
       label = '매진된 공연입니다';
     } else if (saleEnded) {
@@ -672,8 +666,10 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
   }
 
   Widget _buildExpandableDetails(Event event) {
-    final dateText =
-        DateFormat('yyyy.MM.dd (E) HH:mm', 'ko_KR').format(event.startAt);
+    final dateText = DateFormat(
+      'yyyy.MM.dd (E) HH:mm',
+      'ko_KR',
+    ).format(event.startAt);
 
     return Column(
       children: [
@@ -736,8 +732,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                           height: 200,
                           child: ListView.separated(
                             scrollDirection: Axis.horizontal,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 24),
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
                             itemCount: event.pamphletUrls!.length,
                             separatorBuilder: (_, __) =>
                                 const SizedBox(width: 10),
@@ -745,7 +740,10 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                               final url = event.pamphletUrls![index];
                               return PressableScale(
                                 onTap: () => _showFullImage(
-                                    context, event.pamphletUrls!, index),
+                                  context,
+                                  event.pamphletUrls!,
+                                  index,
+                                ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
                                   child: CachedNetworkImage(
@@ -761,8 +759,9 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                                       width: 140,
                                       color: AppTheme.cardElevated,
                                       child: const Icon(
-                                          Icons.broken_image_rounded,
-                                          color: AppTheme.sage),
+                                        Icons.broken_image_rounded,
+                                        color: AppTheme.sage,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -781,8 +780,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                           if (event.venueName?.isNotEmpty == true)
                             _detailRow('장소', event.venueName!),
                           if (event.runningTime != null)
-                            _detailRow(
-                                '러닝타임', '${event.runningTime}분'),
+                            _detailRow('러닝타임', '${event.runningTime}분'),
                           if (event.ageLimit?.isNotEmpty == true)
                             _detailRow('관람등급', event.ageLimit!),
                         ],
@@ -808,10 +806,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
             width: 64,
             child: Text(
               label,
-              style: AppTheme.sans(
-                fontSize: 12,
-                color: AppTheme.sage,
-              ),
+              style: AppTheme.sans(fontSize: 12, color: AppTheme.sage),
             ),
           ),
           Expanded(
@@ -834,8 +829,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
     final legacyDiscount = event.discount;
 
     final hasPolicies = policies != null && policies.isNotEmpty;
-    final hasLegacy =
-        legacyDiscount != null && legacyDiscount.isNotEmpty;
+    final hasLegacy = legacyDiscount != null && legacyDiscount.isNotEmpty;
 
     if (!hasPolicies && !hasLegacy) return const SizedBox.shrink();
 
@@ -858,15 +852,15 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
             // 헤더
             Row(
               children: [
-                Icon(Icons.local_offer_rounded,
-                    size: 11, color: AppTheme.gold.withValues(alpha: 0.7)),
+                Icon(
+                  Icons.local_offer_rounded,
+                  size: 11,
+                  color: AppTheme.gold.withValues(alpha: 0.7),
+                ),
                 const SizedBox(width: 5),
                 Text(
                   'DISCOUNT',
-                  style: AppTheme.label(
-                    fontSize: 9,
-                    color: AppTheme.gold,
-                  ),
+                  style: AppTheme.label(fontSize: 9, color: AppTheme.gold),
                 ),
               ],
             ),
@@ -880,7 +874,9 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 1),
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.gold.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(2),
@@ -927,14 +923,13 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
   static const _gradeOrder = ['VIP', 'R', 'S', 'A'];
 
   List<MapEntry<String, int>> _sortedGrades(Map<String, int> grades) {
-    return grades.entries.toList()
-      ..sort((a, b) {
-        final ai = _gradeOrder.indexOf(a.key);
-        final bi = _gradeOrder.indexOf(b.key);
-        final aIdx = ai == -1 ? _gradeOrder.length : ai;
-        final bIdx = bi == -1 ? _gradeOrder.length : bi;
-        return aIdx.compareTo(bIdx);
-      });
+    return grades.entries.toList()..sort((a, b) {
+      final ai = _gradeOrder.indexOf(a.key);
+      final bi = _gradeOrder.indexOf(b.key);
+      final aIdx = ai == -1 ? _gradeOrder.length : ai;
+      final bIdx = bi == -1 ? _gradeOrder.length : bi;
+      return aIdx.compareTo(bIdx);
+    });
   }
 
   Widget _buildPriceColumn(Event event) {
@@ -949,10 +944,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
         children: [
           Text(
             'PRICE',
-            style: AppTheme.label(
-              fontSize: 9,
-              color: AppTheme.sage,
-            ),
+            style: AppTheme.label(fontSize: 9, color: AppTheme.sage),
           ),
           const SizedBox(height: 6),
           if (hasGrades)
@@ -1049,14 +1041,16 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
     );
   }
 
-  void _showFullImage(BuildContext context, List<String> urls, int initialIndex) {
+  void _showFullImage(
+    BuildContext context,
+    List<String> urls,
+    int initialIndex,
+  ) {
     showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.95),
-      builder: (ctx) => _FullScreenGallery(
-        urls: urls,
-        initialIndex: initialIndex,
-      ),
+      builder: (ctx) =>
+          _FullScreenGallery(urls: urls, initialIndex: initialIndex),
     );
   }
 
@@ -1069,8 +1063,11 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.event_busy_outlined,
-                  color: AppTheme.sage, size: 44),
+              const Icon(
+                Icons.event_busy_outlined,
+                color: AppTheme.sage,
+                size: 44,
+              ),
               const SizedBox(height: 16),
               Text(
                 fromLink ? '링크 공연을 찾을 수 없습니다' : '현재 예매 가능한 공연이 없습니다',
@@ -1151,10 +1148,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                 children: [
                   Text(
                     'CONDITIONS',
-                    style: AppTheme.label(
-                      fontSize: 10,
-                      color: AppTheme.sage,
-                    ),
+                    style: AppTheme.label(fontSize: 10, color: AppTheme.sage),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -1197,8 +1191,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                         label: Text(label),
                         selected: selected,
                         showCheckmark: false,
-                        onSelected: (_) =>
-                            setSheetState(() => quantity = n),
+                        onSelected: (_) => setSheetState(() => quantity = n),
                         labelStyle: AppTheme.sans(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -1209,8 +1202,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                         selectedColor: AppTheme.gold,
                         backgroundColor: AppTheme.surface,
                         side: BorderSide(
-                          color:
-                              selected ? AppTheme.gold : AppTheme.border,
+                          color: selected ? AppTheme.gold : AppTheme.border,
                           width: 0.5,
                         ),
                         shape: RoundedRectangleBorder(
@@ -1249,8 +1241,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                               style: AppTheme.sans(
                                 fontSize: 9,
                                 color: selected
-                                    ? AppTheme.onAccent
-                                        .withValues(alpha: 0.7)
+                                    ? AppTheme.onAccent.withValues(alpha: 0.7)
                                     : AppTheme.textTertiary,
                               ),
                             ),
@@ -1270,8 +1261,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                         selectedColor: AppTheme.gold,
                         backgroundColor: AppTheme.surface,
                         side: BorderSide(
-                          color:
-                              selected ? AppTheme.gold : AppTheme.border,
+                          color: selected ? AppTheme.gold : AppTheme.border,
                           width: 0.5,
                         ),
                         shape: RoundedRectangleBorder(
@@ -1296,19 +1286,13 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: const [
-                      '가운데',
-                      '앞쪽',
-                      '통로',
-                      '상관없음',
-                    ].map((pos) {
+                    children: const ['가운데', '앞쪽', '통로', '상관없음'].map((pos) {
                       final selected = pos == position;
                       return ChoiceChip(
                         label: Text(pos),
                         selected: selected,
                         showCheckmark: false,
-                        onSelected: (_) =>
-                            setSheetState(() => position = pos),
+                        onSelected: (_) => setSheetState(() => position = pos),
                         labelStyle: AppTheme.sans(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -1319,8 +1303,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                         selectedColor: AppTheme.gold,
                         backgroundColor: AppTheme.surface,
                         side: BorderSide(
-                          color:
-                              selected ? AppTheme.gold : AppTheme.border,
+                          color: selected ? AppTheme.gold : AppTheme.border,
                           width: 0.5,
                         ),
                         shape: RoundedRectangleBorder(
@@ -1345,42 +1328,42 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: const [
-                      '상관없음',
-                      '현악',
-                      '목관',
-                      '금관',
-                      '관악',
-                      '하프',
-                      '그랜드피아노',
-                      '밴드'
-                    ].map((inst) {
-                      final selected = inst == instrument;
-                      return ChoiceChip(
-                        label: Text(inst),
-                        selected: selected,
-                        showCheckmark: false,
-                        onSelected: (_) =>
-                            setSheetState(() => instrument = inst),
-                        labelStyle: AppTheme.sans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: selected
-                              ? AppTheme.onAccent
-                              : AppTheme.textSecondary,
-                        ),
-                        selectedColor: AppTheme.gold,
-                        backgroundColor: AppTheme.surface,
-                        side: BorderSide(
-                          color:
-                              selected ? AppTheme.gold : AppTheme.border,
-                          width: 0.5,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      );
-                    }).toList(),
+                    children:
+                        const [
+                          '상관없음',
+                          '현악',
+                          '목관',
+                          '금관',
+                          '관악',
+                          '하프',
+                          '그랜드피아노',
+                          '밴드',
+                        ].map((inst) {
+                          final selected = inst == instrument;
+                          return ChoiceChip(
+                            label: Text(inst),
+                            selected: selected,
+                            showCheckmark: false,
+                            onSelected: (_) =>
+                                setSheetState(() => instrument = inst),
+                            labelStyle: AppTheme.sans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: selected
+                                  ? AppTheme.onAccent
+                                  : AppTheme.textSecondary,
+                            ),
+                            selectedColor: AppTheme.gold,
+                            backgroundColor: AppTheme.surface,
+                            side: BorderSide(
+                              color: selected ? AppTheme.gold : AppTheme.border,
+                              width: 0.5,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          );
+                        }).toList(),
                   ),
                   const SizedBox(height: 24),
 
@@ -1457,7 +1440,8 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
     }
 
     context.push(
-        Uri(path: '/seats/${event.id}', queryParameters: query).toString());
+      Uri(path: '/seats/${event.id}', queryParameters: query).toString(),
+    );
   }
 }
 
@@ -1466,10 +1450,7 @@ class _InfoColumn extends StatelessWidget {
   final String label;
   final String value;
 
-  const _InfoColumn({
-    required this.label,
-    required this.value,
-  });
+  const _InfoColumn({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -1478,13 +1459,7 @@ class _InfoColumn extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            label,
-            style: AppTheme.label(
-              fontSize: 9,
-              color: AppTheme.sage,
-            ),
-          ),
+          Text(label, style: AppTheme.label(fontSize: 9, color: AppTheme.sage)),
           const SizedBox(height: 6),
           Text(
             value,
@@ -1509,10 +1484,7 @@ class _FullScreenGallery extends StatefulWidget {
   final List<String> urls;
   final int initialIndex;
 
-  const _FullScreenGallery({
-    required this.urls,
-    required this.initialIndex,
-  });
+  const _FullScreenGallery({required this.urls, required this.initialIndex});
 
   @override
   State<_FullScreenGallery> createState() => _FullScreenGalleryState();
@@ -1583,8 +1555,10 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
             right: 0,
             child: Center(
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(12),
@@ -1614,8 +1588,11 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
                   color: Colors.black.withValues(alpha: 0.4),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.close_rounded,
-                    color: Colors.white, size: 20),
+                child: const Icon(
+                  Icons.close_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           ),
@@ -1834,10 +1811,7 @@ class _HomeTab extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
             child: Text(
               'ALL EVENTS',
-              style: AppTheme.label(
-                fontSize: 10,
-                color: AppTheme.sage,
-              ),
+              style: AppTheme.label(fontSize: 10, color: AppTheme.sage),
             ),
           ),
         ),
@@ -1849,13 +1823,10 @@ class _HomeTab extends ConsumerWidget {
               return SliverToBoxAdapter(child: _EmptyState());
             }
             return SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final event = events[index];
-                  return _EventCard(event: event);
-                },
-                childCount: events.length,
-              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final event = events[index];
+                return _EventCard(event: event);
+              }, childCount: events.length),
             );
           },
           loading: () => const SliverToBoxAdapter(
@@ -1874,7 +1845,9 @@ class _HomeTab extends ConsumerWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.error.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(2),
@@ -1960,7 +1933,9 @@ class _HeroTag extends StatelessWidget {
             style: AppTheme.sans(
               fontSize: 10,
               fontWeight: FontWeight.w700,
-              color: isGold ? const Color(0xFFEAD9A0) : Colors.white.withValues(alpha: 0.92),
+              color: isGold
+                  ? const Color(0xFFEAD9A0)
+                  : Colors.white.withValues(alpha: 0.92),
               letterSpacing: 0.8,
             ),
           ),
@@ -2074,7 +2049,9 @@ class _EventCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Category + 360° + Session
-                    if (event.category != null || event.has360View || event.isMultiSession)
+                    if (event.category != null ||
+                        event.has360View ||
+                        event.isMultiSession)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Row(
@@ -2183,10 +2160,7 @@ class _PosterPlaceholder extends StatelessWidget {
       child: Center(
         child: Text(
           'POSTER',
-          style: AppTheme.label(
-            fontSize: 10,
-            color: AppTheme.sage,
-          ),
+          style: AppTheme.label(fontSize: 10, color: AppTheme.sage),
         ),
       ),
     );
@@ -2225,13 +2199,7 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       color: bgColor,
-      child: Text(
-        label,
-        style: AppTheme.label(
-          fontSize: 8,
-          color: fgColor,
-        ),
-      ),
+      child: Text(label, style: AppTheme.label(fontSize: 8, color: fgColor)),
     );
   }
 }
@@ -2251,10 +2219,7 @@ class _EmptyState extends StatelessWidget {
             ),
             child: Text(
               'EMPTY',
-              style: AppTheme.label(
-                fontSize: 10,
-                color: AppTheme.sage,
-              ),
+              style: AppTheme.label(fontSize: 10, color: AppTheme.sage),
             ),
           ),
           const SizedBox(height: 16),
@@ -2299,10 +2264,7 @@ class _LoginRequiredTab extends StatelessWidget {
                   child: Center(
                     child: Text(
                       'LOGIN',
-                      style: AppTheme.label(
-                        fontSize: 11,
-                        color: AppTheme.gold,
-                      ),
+                      style: AppTheme.label(fontSize: 11, color: AppTheme.gold),
                     ),
                   ),
                 ),
@@ -2364,10 +2326,7 @@ class _ProfileTab extends ConsumerWidget {
             const SizedBox(height: 8),
             Text(
               'PROFILE',
-              style: AppTheme.label(
-                fontSize: 10,
-                color: AppTheme.sage,
-              ),
+              style: AppTheme.label(fontSize: 10, color: AppTheme.sage),
             ),
             const SizedBox(height: 4),
             Text(
@@ -2427,7 +2386,9 @@ class _ProfileTab extends ConsumerWidget {
                             Container(
                               margin: const EdgeInsets.only(top: 4),
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppTheme.info.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(2),
@@ -2444,7 +2405,9 @@ class _ProfileTab extends ConsumerWidget {
                             Container(
                               margin: const EdgeInsets.only(top: 4),
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppTheme.goldSubtle,
                                 borderRadius: BorderRadius.circular(2),
@@ -2712,8 +2675,11 @@ class _MileageCard extends ConsumerWidget {
                       gradient: AppTheme.goldGradient,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.star_rounded,
-                        size: 18, color: Color(0xFFFDF3F6)),
+                    child: const Icon(
+                      Icons.star_rounded,
+                      size: 18,
+                      color: Color(0xFFFDF3F6),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -2739,7 +2705,8 @@ class _MileageCard extends ConsumerWidget {
                   // 좌석 업그레이드
                   _guideItem(
                     title: '좌석 업그레이드',
-                    desc: '마일리지를 적립하면 등급이 올라가고, 높은 등급일수록 좌석 업그레이드 혜택을 받을 수 있습니다.',
+                    desc:
+                        '마일리지를 적립하면 등급이 올라가고, 높은 등급일수록 좌석 업그레이드 혜택을 받을 수 있습니다.',
                   ),
                   const SizedBox(height: 20),
 
@@ -2751,9 +2718,7 @@ class _MileageCard extends ConsumerWidget {
                   const SizedBox(height: 20),
 
                   // 등급 안내
-                  _guideItem(
-                    title: '등급 안내',
-                  ),
+                  _guideItem(title: '등급 안내'),
                   const SizedBox(height: 10),
 
                   // Tier table
@@ -2763,7 +2728,9 @@ class _MileageCard extends ConsumerWidget {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 6),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: isCurrent
                             ? color.withValues(alpha: 0.1)
@@ -2771,7 +2738,9 @@ class _MileageCard extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(8),
                         border: isCurrent
                             ? Border.all(
-                                color: color.withValues(alpha: 0.4), width: 1)
+                                color: color.withValues(alpha: 0.4),
+                                width: 1,
+                              )
                             : null,
                       ),
                       child: Row(
@@ -2782,8 +2751,9 @@ class _MileageCard extends ConsumerWidget {
                             tier.displayName,
                             style: AppTheme.sans(
                               fontSize: 13,
-                              fontWeight:
-                                  isCurrent ? FontWeight.w700 : FontWeight.w500,
+                              fontWeight: isCurrent
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                               color: isCurrent ? color : AppTheme.textSecondary,
                             ),
                           ),
@@ -2801,7 +2771,9 @@ class _MileageCard extends ConsumerWidget {
                             const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: color.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(4),
@@ -2827,7 +2799,11 @@ class _MileageCard extends ConsumerWidget {
             // Close button
             Padding(
               padding: EdgeInsets.fromLTRB(
-                  24, 12, 24, MediaQuery.of(context).padding.bottom + 16),
+                24,
+                12,
+                24,
+                MediaQuery.of(context).padding.bottom + 16,
+              ),
               child: SizedBox(
                 width: double.infinity,
                 child: TextButton(
@@ -2856,10 +2832,7 @@ class _MileageCard extends ConsumerWidget {
     );
   }
 
-  Widget _guideItem({
-    required String title,
-    String? desc,
-  }) {
+  Widget _guideItem({required String title, String? desc}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2892,10 +2865,11 @@ class _MileageCard extends ConsumerWidget {
     final nextTier = mileage.tier.next;
     final progress = nextTier != null
         ? (mileage.totalEarned - mileage.tier.minPoints) /
-            (nextTier.minPoints - mileage.tier.minPoints)
+              (nextTier.minPoints - mileage.tier.minPoints)
         : 1.0;
-    final remaining =
-        nextTier != null ? nextTier.minPoints - mileage.totalEarned : 0;
+    final remaining = nextTier != null
+        ? nextTier.minPoints - mileage.totalEarned
+        : 0;
     final formatter = NumberFormat('#,###');
 
     final historyAsync = ref.watch(
@@ -2905,172 +2879,182 @@ class _MileageCard extends ConsumerWidget {
     return GestureDetector(
       onTap: () => _showMileageGuide(context),
       child: Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: AppTheme.border, width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header: balance + tier
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () => _showMileageGuide(context),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: tierColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(_tierIcon(mileage.tier),
-                            size: 12, color: tierColor),
-                        const SizedBox(width: 3),
-                        Text(
-                          mileage.tier.displayName,
-                          style: AppTheme.label(
-                            fontSize: 9,
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(color: AppTheme.border, width: 0.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header: balance + tier
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => _showMileageGuide(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: tierColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _tierIcon(mileage.tier),
+                            size: 12,
                             color: tierColor,
                           ),
+                          const SizedBox(width: 3),
+                          Text(
+                            mileage.tier.displayName,
+                            style: AppTheme.label(
+                              fontSize: 9,
+                              color: tierColor,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.help_outline_rounded,
+                            size: 12,
+                            color: tierColor.withValues(alpha: 0.6),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${formatter.format(mileage.balance)}P',
+                    style: AppTheme.serif(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                      shadows: AppTheme.textShadowStrong,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Progress bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Column(
+                children: [
+                  if (nextTier != null) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: progress.clamp(0.0, 1.0),
+                        minHeight: 4,
+                        backgroundColor: AppTheme.cardElevated,
+                        valueColor: AlwaysStoppedAnimation<Color>(tierColor),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '다음 등급까지 ${formatter.format(remaining)}P',
+                          style: AppTheme.sans(
+                            fontSize: 11,
+                            color: AppTheme.textSecondary,
+                          ),
                         ),
-                        const SizedBox(width: 4),
-                        Icon(Icons.help_outline_rounded,
-                            size: 12, color: tierColor.withValues(alpha: 0.6)),
+                        Text(
+                          nextTier.displayName,
+                          style: AppTheme.sans(
+                            fontSize: 11,
+                            color: _tierColor(nextTier),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  '${formatter.format(mileage.balance)}P',
-                  style: AppTheme.serif(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
-                    shadows: AppTheme.textShadowStrong,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Progress bar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-            child: Column(
-              children: [
-                if (nextTier != null) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: progress.clamp(0.0, 1.0),
-                      minHeight: 4,
-                      backgroundColor: AppTheme.cardElevated,
-                      valueColor: AlwaysStoppedAnimation<Color>(tierColor),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '다음 등급까지 ${formatter.format(remaining)}P',
-                        style: AppTheme.sans(
-                          fontSize: 11,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                      Text(
-                        nextTier.displayName,
-                        style: AppTheme.sans(
-                          fontSize: 11,
-                          color: _tierColor(nextTier),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ] else
-                  Text(
-                    '최고 등급 달성',
-                    style: AppTheme.sans(
-                      fontSize: 11,
-                      color: tierColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 14),
-          const Divider(color: AppTheme.border, height: 0.5),
-
-          // Recent history (max 3)
-          historyAsync.when(
-            data: (history) {
-              if (history.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Center(
-                    child: Text(
-                      '적립 내역이 없습니다',
+                  ] else
+                    Text(
+                      '최고 등급 달성',
                       style: AppTheme.sans(
-                        fontSize: 12,
-                        color: AppTheme.textTertiary,
+                        fontSize: 11,
+                        color: tierColor,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                );
-              }
-              final displayItems = history.take(3).toList();
-              return Column(
-                children: [
-                  ...displayItems.map((item) => _MileageHistoryRow(item: item)),
-                  if (history.length > 3) ...[
-                    const Divider(color: AppTheme.border, height: 0.5),
-                    InkWell(
-                      onTap: onTapMore,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Center(
-                          child: Text(
-                            '전체 내역 보기',
-                            style: AppTheme.sans(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.gold,
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 14),
+            const Divider(color: AppTheme.border, height: 0.5),
+
+            // Recent history (max 3)
+            historyAsync.when(
+              data: (history) {
+                if (history.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Center(
+                      child: Text(
+                        '적립 내역이 없습니다',
+                        style: AppTheme.sans(
+                          fontSize: 12,
+                          color: AppTheme.textTertiary,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                final displayItems = history.take(3).toList();
+                return Column(
+                  children: [
+                    ...displayItems.map(
+                      (item) => _MileageHistoryRow(item: item),
+                    ),
+                    if (history.length > 3) ...[
+                      const Divider(color: AppTheme.border, height: 0.5),
+                      InkWell(
+                        onTap: onTapMore,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Center(
+                            child: Text(
+                              '전체 내역 보기',
+                              style: AppTheme.sans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.gold,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
-              );
-            },
-            loading: () => const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(
-                child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                );
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 ),
               ),
+              error: (_, __) => const SizedBox.shrink(),
             ),
-            error: (_, __) => const SizedBox.shrink(),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 }
@@ -3127,10 +3111,7 @@ class _MileageHistoryRow extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             dateFormat.format(item.createdAt),
-            style: AppTheme.sans(
-              fontSize: 11,
-              color: AppTheme.textTertiary,
-            ),
+            style: AppTheme.sans(fontSize: 11, color: AppTheme.textTertiary),
           ),
         ],
       ),

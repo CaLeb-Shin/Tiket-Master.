@@ -7,6 +7,7 @@ import '../../app/admin_theme.dart';
 import 'package:melon_core/data/repositories/naver_order_repository.dart';
 import 'package:melon_core/data/repositories/mobile_ticket_repository.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/data/models/event.dart';
 import 'package:melon_core/data/models/naver_order.dart';
 import 'package:melon_core/data/models/mobile_ticket.dart';
 import 'package:melon_core/infrastructure/firebase/functions_service.dart';
@@ -19,17 +20,37 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 const _ticketBaseUrl = 'https://melonticket-web-20260216.vercel.app/m/';
 
 // SMS 발송 상태 스트림 (orderId 기준)
-final _smsStatusProvider =
-    StreamProvider.family<String?, String>((ref, orderId) {
+final _smsStatusProvider = StreamProvider.family<String?, String>((
+  ref,
+  orderId,
+) {
   return FirebaseFirestore.instance
       .collection('smsTasks')
       .where('naverOrderId', isEqualTo: orderId)
       .limit(1)
       .snapshots()
-      .map((snap) => snap.docs.isEmpty
-          ? null
-          : snap.docs.first.data()['status'] as String?);
+      .map(
+        (snap) => snap.docs.isEmpty
+            ? null
+            : snap.docs.first.data()['status'] as String?,
+      );
 });
+
+final _smsTasksByEventProvider =
+    StreamProvider.family<List<Map<String, dynamic>>, String>((ref, eventId) {
+      return FirebaseFirestore.instance
+          .collection('smsTasks')
+          .where('eventId', isEqualTo: eventId)
+          .snapshots()
+          .map((snap) {
+            return snap.docs.map((doc) {
+              final data = Map<String, dynamic>.from(doc.data());
+              data['id'] = doc.id;
+              return data;
+            }).toList();
+          });
+    });
+
 const _gradeOrder = ['VIP', 'R', 'S', 'A'];
 
 class NaverOrderScreen extends ConsumerStatefulWidget {
@@ -84,8 +105,11 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                           context.go('/');
                         }
                       },
-                      icon: const Icon(Icons.west,
-                          color: AdminTheme.textPrimary, size: 20),
+                      icon: const Icon(
+                        Icons.west,
+                        color: AdminTheme.textPrimary,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 4),
                     Expanded(
@@ -143,15 +167,21 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                         child: OutlinedButton.icon(
                           onPressed: () => _revealSeatsNow(),
                           icon: const Icon(Icons.visibility_rounded, size: 14),
-                          label: Text('좌석 공개',
-                              style: AdminTheme.sans(
-                                  fontSize: 11, fontWeight: FontWeight.w600)),
+                          label: Text(
+                            '좌석 공개',
+                            style: AdminTheme.sans(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AdminTheme.info,
                             side: BorderSide(
-                                color: AdminTheme.info.withValues(alpha: 0.3)),
+                              color: AdminTheme.info.withValues(alpha: 0.3),
+                            ),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
                         ),
                       ),
@@ -161,15 +191,21 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                         child: OutlinedButton.icon(
                           onPressed: () => _showTestOrderDialog(),
                           icon: const Icon(Icons.science_rounded, size: 14),
-                          label: Text('테스트',
-                              style: AdminTheme.sans(
-                                  fontSize: 11, fontWeight: FontWeight.w600)),
+                          label: Text(
+                            '테스트',
+                            style: AdminTheme.sans(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AdminTheme.sage,
                             side: BorderSide(
-                                color: AdminTheme.sage.withValues(alpha: 0.3)),
+                              color: AdminTheme.sage.withValues(alpha: 0.3),
+                            ),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
                         ),
                       ),
@@ -179,15 +215,20 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                         child: ElevatedButton.icon(
                           onPressed: () => _showCreateOrderDialog(),
                           icon: const Icon(Icons.add_rounded, size: 16),
-                          label: Text('주문 입력',
-                              style: AdminTheme.sans(
-                                  fontSize: 12, fontWeight: FontWeight.w600)),
+                          label: Text(
+                            '주문 입력',
+                            style: AdminTheme.sans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AdminTheme.gold,
                             foregroundColor: AdminTheme.onAccent,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
                         ),
                       ),
@@ -206,8 +247,10 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                 child: CircularProgressIndicator(color: AdminTheme.gold),
               ),
               error: (e, _) => Center(
-                child: Text('오류: $e',
-                    style: AdminTheme.sans(color: AdminTheme.error)),
+                child: Text(
+                  '오류: $e',
+                  style: AdminTheme.sans(color: AdminTheme.error),
+                ),
               ),
             ),
           ),
@@ -222,31 +265,42 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.storefront_rounded,
-                size: 36, color: AdminTheme.sage.withValues(alpha: 0.3)),
+            Icon(
+              Icons.storefront_rounded,
+              size: 36,
+              color: AdminTheme.sage.withValues(alpha: 0.3),
+            ),
             const SizedBox(height: 16),
             Text(
               '네이버 주문이 없습니다',
               style: AdminTheme.sans(
-                  fontSize: 14, color: AdminTheme.textTertiary),
+                fontSize: 14,
+                color: AdminTheme.textTertiary,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               '\'주문 입력\' 버튼으로 첫 주문을 추가하세요',
               style: AdminTheme.sans(
-                  fontSize: 12, color: AdminTheme.textTertiary),
+                fontSize: 12,
+                color: AdminTheme.textTertiary,
+              ),
             ),
           ],
         ),
       );
     }
 
-    final confirmed =
-        orders.where((o) => o.status == NaverOrderStatus.confirmed);
-    final cancelled =
-        orders.where((o) => o.status == NaverOrderStatus.cancelled);
-    final totalTickets =
-        confirmed.fold<int>(0, (sum, o) => sum + o.ticketIds.length);
+    final confirmed = orders.where(
+      (o) => o.status == NaverOrderStatus.confirmed,
+    );
+    final cancelled = orders.where(
+      (o) => o.status == NaverOrderStatus.cancelled,
+    );
+    final totalTickets = confirmed.fold<int>(
+      0,
+      (sum, o) => sum + o.ticketIds.length,
+    );
 
     // Filter
     List<NaverOrder> filtered;
@@ -263,10 +317,12 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       filtered = filtered
-          .where((o) =>
-              o.buyerName.toLowerCase().contains(q) ||
-              o.buyerPhone.contains(q) ||
-              o.naverOrderId.toLowerCase().contains(q))
+          .where(
+            (o) =>
+                o.buyerName.toLowerCase().contains(q) ||
+                o.buyerPhone.contains(q) ||
+                o.naverOrderId.toLowerCase().contains(q),
+          )
           .toList();
     }
 
@@ -284,27 +340,34 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
           child: Row(
             children: [
               _SummaryCard(
-                  label: 'CONFIRMED',
-                  value: '${confirmed.length}',
-                  color: AdminTheme.success),
+                label: 'CONFIRMED',
+                value: '${confirmed.length}',
+                color: AdminTheme.success,
+              ),
               const SizedBox(width: 10),
               _SummaryCard(
-                  label: 'CANCELLED',
-                  value: '${cancelled.length}',
-                  color: AdminTheme.error),
+                label: 'CANCELLED',
+                value: '${cancelled.length}',
+                color: AdminTheme.error,
+              ),
               const SizedBox(width: 10),
               _SummaryCard(
-                  label: 'TICKETS',
-                  value: '$totalTickets',
-                  color: AdminTheme.gold),
+                label: 'TICKETS',
+                value: '$totalTickets',
+                color: AdminTheme.gold,
+              ),
               const SizedBox(width: 10),
               _SummaryCard(
-                  label: 'TOTAL',
-                  value: '${orders.length}',
-                  color: AdminTheme.textPrimary),
+                label: 'TOTAL',
+                value: '${orders.length}',
+                color: AdminTheme.textPrimary,
+              ),
             ],
           ),
         ),
+
+        const SizedBox(height: 16),
+        _OperationsOverview(eventId: widget.eventId),
 
         const SizedBox(height: 28),
 
@@ -327,11 +390,11 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                     onTap: () => setState(() => _filter = f),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: selected
-                            ? AdminTheme.gold
-                            : Colors.transparent,
+                        color: selected ? AdminTheme.gold : Colors.transparent,
                         borderRadius: BorderRadius.circular(2),
                         border: Border.all(
                           color: selected
@@ -361,32 +424,43 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                 child: TextField(
                   onChanged: (v) => setState(() => _searchQuery = v),
                   style: AdminTheme.sans(
-                      fontSize: 13, color: AdminTheme.textPrimary),
+                    fontSize: 13,
+                    color: AdminTheme.textPrimary,
+                  ),
                   decoration: InputDecoration(
                     hintText: '이름 / 전화번호 / 주문번호',
                     hintStyle: AdminTheme.sans(
-                        fontSize: 12, color: AdminTheme.textTertiary),
-                    prefixIcon: const Icon(Icons.search,
-                        size: 16, color: AdminTheme.textTertiary),
+                      fontSize: 12,
+                      color: AdminTheme.textTertiary,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      size: 16,
+                      color: AdminTheme.textTertiary,
+                    ),
                     filled: true,
                     fillColor: AdminTheme.surface,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(4),
                       borderSide: const BorderSide(
-                          color: AdminTheme.border, width: 0.5),
+                        color: AdminTheme.border,
+                        width: 0.5,
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(4),
                       borderSide: const BorderSide(
-                          color: AdminTheme.border, width: 0.5),
+                        color: AdminTheme.border,
+                        width: 0.5,
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(4),
                       borderSide: BorderSide(
-                          color: AdminTheme.gold.withValues(alpha: 0.5),
-                          width: 0.5),
+                        color: AdminTheme.gold.withValues(alpha: 0.5),
+                        width: 0.5,
+                      ),
                     ),
                   ),
                 ),
@@ -482,8 +556,9 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
 
           return Dialog(
             backgroundColor: AdminTheme.surface,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
               child: Padding(
@@ -492,9 +567,13 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('네이버 주문 입력',
-                        style: AdminTheme.serif(
-                            fontSize: 18, fontWeight: FontWeight.w700)),
+                    Text(
+                      '네이버 주문 입력',
+                      style: AdminTheme.serif(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 24),
 
                     // 네이버 주문번호
@@ -517,8 +596,10 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                         Expanded(
                           child: _DialogField(
                             label: '연락처',
-                            child:
-                                _buildTextField(buyerPhoneCtrl, '010-0000-0000'),
+                            child: _buildTextField(
+                              buyerPhoneCtrl,
+                              '010-0000-0000',
+                            ),
                           ),
                         ),
                       ],
@@ -540,13 +621,16 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                             label: '좌석 등급',
                             child: Container(
                               height: 44,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
                               decoration: BoxDecoration(
                                 color: AdminTheme.card,
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(
-                                    color: AdminTheme.border, width: 0.5),
+                                  color: AdminTheme.border,
+                                  width: 0.5,
+                                ),
                               ),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
@@ -554,18 +638,20 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                                   isExpanded: true,
                                   dropdownColor: AdminTheme.card,
                                   style: AdminTheme.sans(
-                                      fontSize: 13,
-                                      color: AdminTheme.textPrimary),
+                                    fontSize: 13,
+                                    color: AdminTheme.textPrimary,
+                                  ),
                                   items: _gradeOrder
-                                      .map((g) => DropdownMenuItem(
-                                            value: g,
-                                            child: Text(g),
-                                          ))
+                                      .map(
+                                        (g) => DropdownMenuItem(
+                                          value: g,
+                                          child: Text(g),
+                                        ),
+                                      )
                                       .toList(),
                                   onChanged: (v) {
                                     if (v != null) {
-                                      setDialogState(
-                                          () => selectedGrade = v);
+                                      setDialogState(() => selectedGrade = v);
                                     }
                                   },
                                 ),
@@ -583,14 +669,15 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                                 color: AdminTheme.card,
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(
-                                    color: AdminTheme.border, width: 0.5),
+                                  color: AdminTheme.border,
+                                  width: 0.5,
+                                ),
                               ),
                               child: Row(
                                 children: [
                                   IconButton(
                                     onPressed: quantity > 1
-                                        ? () => setDialogState(
-                                            () => quantity--)
+                                        ? () => setDialogState(() => quantity--)
                                         : null,
                                     icon: const Icon(Icons.remove, size: 16),
                                     color: AdminTheme.textSecondary,
@@ -642,18 +729,23 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                               child: Container(
                                 height: 44,
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 12),
+                                  horizontal: 12,
+                                ),
                                 decoration: BoxDecoration(
                                   color: AdminTheme.card,
                                   borderRadius: BorderRadius.circular(4),
                                   border: Border.all(
-                                      color: AdminTheme.border, width: 0.5),
+                                    color: AdminTheme.border,
+                                    width: 0.5,
+                                  ),
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.calendar_today_rounded,
-                                        size: 14,
-                                        color: AdminTheme.textTertiary),
+                                    const Icon(
+                                      Icons.calendar_today_rounded,
+                                      size: 14,
+                                      color: AdminTheme.textTertiary,
+                                    ),
                                     const SizedBox(width: 8),
                                     Text(
                                       dateFormat.format(orderDate),
@@ -686,18 +778,25 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                           child: SizedBox(
                             height: 44,
                             child: OutlinedButton(
-                              onPressed:
-                                  isLoading ? null : () => Navigator.pop(ctx),
+                              onPressed: isLoading
+                                  ? null
+                                  : () => Navigator.pop(ctx),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AdminTheme.textPrimary,
                                 side: const BorderSide(
-                                    color: AdminTheme.border, width: 0.5),
+                                  color: AdminTheme.border,
+                                  width: 0.5,
+                                ),
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(4)),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
                               ),
-                              child: Text('취소',
-                                  style: AdminTheme.sans(
-                                      fontWeight: FontWeight.w700)),
+                              child: Text(
+                                '취소',
+                                style: AdminTheme.sans(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -709,13 +808,15 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                               onPressed: isLoading
                                   ? null
                                   : () async {
-                                      if (naverOrderIdCtrl.text.trim().isEmpty ||
+                                      if (naverOrderIdCtrl.text
+                                              .trim()
+                                              .isEmpty ||
                                           buyerNameCtrl.text.trim().isEmpty ||
                                           buyerPhoneCtrl.text.trim().isEmpty) {
                                         ScaffoldMessenger.of(ctx).showSnackBar(
                                           const SnackBar(
-                                              content:
-                                                  Text('필수 필드를 입력해주세요')),
+                                            content: Text('필수 필드를 입력해주세요'),
+                                          ),
                                         );
                                         return;
                                       }
@@ -728,38 +829,36 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                                               naverOrderId: naverOrderIdCtrl
                                                   .text
                                                   .trim(),
-                                              buyerName:
-                                                  buyerNameCtrl.text.trim(),
-                                              buyerPhone:
-                                                  buyerPhoneCtrl.text.trim(),
-                                              productName: productNameCtrl
-                                                      .text
+                                              buyerName: buyerNameCtrl.text
+                                                  .trim(),
+                                              buyerPhone: buyerPhoneCtrl.text
+                                                  .trim(),
+                                              productName:
+                                                  productNameCtrl.text
                                                       .trim()
                                                       .isEmpty
                                                   ? '$selectedGrade석'
-                                                  : productNameCtrl.text
-                                                      .trim(),
+                                                  : productNameCtrl.text.trim(),
                                               seatGrade: selectedGrade,
                                               quantity: quantity,
-                                              orderDate: dateFormat
-                                                  .format(orderDate),
-                                              memo:
-                                                  memoCtrl.text.trim().isEmpty
-                                                      ? null
-                                                      : memoCtrl.text.trim(),
+                                              orderDate: dateFormat.format(
+                                                orderDate,
+                                              ),
+                                              memo: memoCtrl.text.trim().isEmpty
+                                                  ? null
+                                                  : memoCtrl.text.trim(),
                                             );
                                         if (ctx.mounted) {
                                           Navigator.pop(ctx);
                                           _showTicketUrlsDialog(result);
                                         }
                                       } catch (e) {
-                                        setDialogState(
-                                            () => isLoading = false);
+                                        setDialogState(() => isLoading = false);
                                         if (ctx.mounted) {
-                                          ScaffoldMessenger.of(ctx)
-                                              .showSnackBar(
-                                            SnackBar(
-                                                content: Text('오류: $e')),
+                                          ScaffoldMessenger.of(
+                                            ctx,
+                                          ).showSnackBar(
+                                            SnackBar(content: Text('오류: $e')),
                                           );
                                         }
                                       }
@@ -769,19 +868,24 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                                 foregroundColor: AdminTheme.onAccent,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(4)),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
                               ),
                               child: isLoading
                                   ? const SizedBox(
                                       width: 18,
                                       height: 18,
                                       child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: AdminTheme.onAccent),
+                                        strokeWidth: 2,
+                                        color: AdminTheme.onAccent,
+                                      ),
                                     )
-                                  : Text('주문 생성',
+                                  : Text(
+                                      '주문 생성',
                                       style: AdminTheme.sans(
-                                          fontWeight: FontWeight.w700)),
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
                             ),
                           ),
                         ),
@@ -815,16 +919,27 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.check_circle_rounded,
-                    color: AdminTheme.success, size: 36),
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: AdminTheme.success,
+                  size: 36,
+                ),
                 const SizedBox(height: 12),
-                Text('주문 생성 완료',
-                    style: AdminTheme.serif(
-                        fontSize: 18, fontWeight: FontWeight.w700)),
+                Text(
+                  '주문 생성 완료',
+                  style: AdminTheme.serif(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 8),
-                Text('${ticketUrls.length}장의 티켓이 발급되었습니다',
-                    style: AdminTheme.sans(
-                        fontSize: 13, color: AdminTheme.textSecondary)),
+                Text(
+                  '${ticketUrls.length}장의 티켓이 발급되었습니다',
+                  style: AdminTheme.sans(
+                    fontSize: 13,
+                    color: AdminTheme.textSecondary,
+                  ),
+                ),
                 const SizedBox(height: 20),
                 ...ticketUrls.asMap().entries.map((entry) {
                   final url = entry.value;
@@ -835,18 +950,22 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                         Clipboard.setData(ClipboardData(text: url));
                         ScaffoldMessenger.of(ctx).showSnackBar(
                           SnackBar(
-                              content: Text(
-                                  '티켓 ${entry.key + 1} URL 복사됨')),
+                            content: Text('티켓 ${entry.key + 1} URL 복사됨'),
+                          ),
                         );
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: AdminTheme.card,
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(
-                              color: AdminTheme.border, width: 0.5),
+                            color: AdminTheme.border,
+                            width: 0.5,
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -881,8 +1000,11 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            const Icon(Icons.copy_rounded,
-                                size: 14, color: AdminTheme.textTertiary),
+                            const Icon(
+                              Icons.copy_rounded,
+                              size: 14,
+                              color: AdminTheme.textTertiary,
+                            ),
                           ],
                         ),
                       ),
@@ -906,18 +1028,25 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                       foregroundColor: AdminTheme.onAccent,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                    child: Text('전체 URL 복사',
-                        style: AdminTheme.sans(fontWeight: FontWeight.w700)),
+                    child: Text(
+                      '전체 URL 복사',
+                      style: AdminTheme.sans(fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: Text('닫기',
-                      style: AdminTheme.sans(
-                          color: AdminTheme.textSecondary, fontSize: 13)),
+                  child: Text(
+                    '닫기',
+                    style: AdminTheme.sans(
+                      color: AdminTheme.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -941,8 +1070,7 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => Dialog(
           backgroundColor: AdminTheme.surface,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Padding(
@@ -953,18 +1081,29 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.science_rounded,
-                          color: AdminTheme.sage, size: 24),
+                      const Icon(
+                        Icons.science_rounded,
+                        color: AdminTheme.sage,
+                        size: 24,
+                      ),
                       const SizedBox(width: 8),
-                      Text('테스트 주문 생성',
-                          style: AdminTheme.serif(
-                              fontSize: 18, fontWeight: FontWeight.w700)),
+                      Text(
+                        '테스트 주문 생성',
+                        style: AdminTheme.serif(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text('가상 주문을 일괄 생성합니다 (좌석 자동 배정)',
-                      style: AdminTheme.sans(
-                          fontSize: 12, color: AdminTheme.textTertiary)),
+                  Text(
+                    '가상 주문을 일괄 생성합니다 (좌석 자동 배정)',
+                    style: AdminTheme.sans(
+                      fontSize: 12,
+                      color: AdminTheme.textTertiary,
+                    ),
+                  ),
                   const SizedBox(height: 20),
 
                   // 등급 선택
@@ -976,22 +1115,25 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                       return Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: ChoiceChip(
-                          label: Text('${g}석',
-                              style: AdminTheme.sans(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: selected
-                                    ? AdminTheme.onAccent
-                                    : AdminTheme.textSecondary,
-                              )),
+                          label: Text(
+                            '${g}석',
+                            style: AdminTheme.sans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: selected
+                                  ? AdminTheme.onAccent
+                                  : AdminTheme.textSecondary,
+                            ),
+                          ),
                           selected: selected,
                           selectedColor: AdminTheme.gold,
                           backgroundColor: AdminTheme.card,
                           side: BorderSide(
-                              color: selected
-                                  ? AdminTheme.gold
-                                  : AdminTheme.border,
-                              width: 0.5),
+                            color: selected
+                                ? AdminTheme.gold
+                                : AdminTheme.border,
+                            width: 0.5,
+                          ),
                           onSelected: (_) =>
                               setDialogState(() => selectedGrade = g),
                         ),
@@ -1009,24 +1151,26 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                       return Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: ChoiceChip(
-                          label: Text('$n명',
-                              style: AdminTheme.sans(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: selected
-                                    ? AdminTheme.onAccent
-                                    : AdminTheme.textSecondary,
-                              )),
+                          label: Text(
+                            '$n명',
+                            style: AdminTheme.sans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: selected
+                                  ? AdminTheme.onAccent
+                                  : AdminTheme.textSecondary,
+                            ),
+                          ),
                           selected: selected,
                           selectedColor: AdminTheme.gold,
                           backgroundColor: AdminTheme.card,
                           side: BorderSide(
-                              color: selected
-                                  ? AdminTheme.gold
-                                  : AdminTheme.border,
-                              width: 0.5),
-                          onSelected: (_) =>
-                              setDialogState(() => quantity = n),
+                            color: selected
+                                ? AdminTheme.gold
+                                : AdminTheme.border,
+                            width: 0.5,
+                          ),
+                          onSelected: (_) => setDialogState(() => quantity = n),
                         ),
                       );
                     }).toList(),
@@ -1042,22 +1186,25 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                       return Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: ChoiceChip(
-                          label: Text('$n매',
-                              style: AdminTheme.sans(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: selected
-                                    ? AdminTheme.onAccent
-                                    : AdminTheme.textSecondary,
-                              )),
+                          label: Text(
+                            '$n매',
+                            style: AdminTheme.sans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: selected
+                                  ? AdminTheme.onAccent
+                                  : AdminTheme.textSecondary,
+                            ),
+                          ),
                           selected: selected,
                           selectedColor: AdminTheme.gold,
                           backgroundColor: AdminTheme.card,
                           side: BorderSide(
-                              color: selected
-                                  ? AdminTheme.gold
-                                  : AdminTheme.border,
-                              width: 0.5),
+                            color: selected
+                                ? AdminTheme.gold
+                                : AdminTheme.border,
+                            width: 0.5,
+                          ),
                           onSelected: (_) =>
                               setDialogState(() => ticketsPerOrder = n),
                         ),
@@ -1085,16 +1232,19 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                         color: AdminTheme.card,
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
-                            color: AdminTheme.border, width: 0.5),
+                          color: AdminTheme.border,
+                          width: 0.5,
+                        ),
                       ),
                       constraints: const BoxConstraints(maxHeight: 120),
                       child: SingleChildScrollView(
                         child: Text(
                           results.join('\n'),
                           style: AdminTheme.sans(
-                              fontSize: 11,
-                              color: AdminTheme.textSecondary,
-                              height: 1.5),
+                            fontSize: 11,
+                            color: AdminTheme.textSecondary,
+                            height: 1.5,
+                          ),
                         ),
                       ),
                     ),
@@ -1112,13 +1262,19 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AdminTheme.textPrimary,
                               side: const BorderSide(
-                                  color: AdminTheme.border, width: 0.5),
+                                color: AdminTheme.border,
+                                width: 0.5,
+                              ),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4)),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
                             ),
-                            child: Text('닫기',
-                                style: AdminTheme.sans(
-                                    fontWeight: FontWeight.w700)),
+                            child: Text(
+                              '닫기',
+                              style: AdminTheme.sans(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -1141,46 +1297,59 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                                             .read(functionsServiceProvider)
                                             .createNaverOrder(
                                               eventId: widget.eventId,
-                                              naverOrderId: 'TEST-${DateTime.now().millisecondsSinceEpoch}-$i',
+                                              naverOrderId:
+                                                  'TEST-${DateTime.now().millisecondsSinceEpoch}-$i',
                                               buyerName: '테스트관객$i',
-                                              buyerPhone: '010-0000-${i.toString().padLeft(4, '0')}',
+                                              buyerPhone:
+                                                  '010-0000-${i.toString().padLeft(4, '0')}',
                                               productName: '테스트 주문',
                                               seatGrade: selectedGrade,
                                               quantity: ticketsPerOrder,
-                                              orderDate: DateTime.now().toIso8601String(),
+                                              orderDate: DateTime.now()
+                                                  .toIso8601String(),
                                             );
-                                        final tickets = (res['tickets'] as List?) ?? [];
+                                        final tickets =
+                                            (res['tickets'] as List?) ?? [];
                                         final url = tickets.isNotEmpty
                                             ? tickets[0]['url'] ?? ''
                                             : '';
-                                        setDialogState(() => results.add(
-                                            '✅ 테스트관객$i — $selectedGrade석 $url'));
+                                        setDialogState(
+                                          () => results.add(
+                                            '✅ 테스트관객$i — $selectedGrade석 $url',
+                                          ),
+                                        );
                                       } catch (e) {
-                                        setDialogState(() => results.add(
-                                            '❌ 테스트관객$i — $e'));
+                                        setDialogState(
+                                          () => results.add('❌ 테스트관객$i — $e'),
+                                        );
                                       }
                                     }
 
-                                    setDialogState(
-                                        () => isCreating = false);
+                                    setDialogState(() => isCreating = false);
                                   },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AdminTheme.sage,
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4)),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
                             ),
                             child: isCreating
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white))
-                                : Text('$quantity건 생성',
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    '$quantity건 생성',
                                     style: AdminTheme.sans(
-                                        fontWeight: FontWeight.w700)),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
                           ),
                         ),
                       ),
@@ -1202,8 +1371,7 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
       context: context,
       builder: (ctx) => Dialog(
         backgroundColor: AdminTheme.surface,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 380),
           child: Padding(
@@ -1211,15 +1379,22 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.visibility_rounded,
-                    color: AdminTheme.info, size: 32),
+                const Icon(
+                  Icons.visibility_rounded,
+                  color: AdminTheme.info,
+                  size: 32,
+                ),
                 const SizedBox(height: 12),
-                Text('좌석 즉시 공개',
-                    style: AdminTheme.serif(
-                        fontSize: 18, fontWeight: FontWeight.w700)),
+                Text(
+                  '좌석 즉시 공개',
+                  style: AdminTheme.serif(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Text(
-                  '모든 티켓의 좌석 정보를 지금 바로 공개합니다.\n'
+                  '모든 티켓의 좌석과 QR 공개 시점을 지금으로 앞당깁니다.\n'
                   '(revealAt을 현재 시각으로 설정)',
                   textAlign: TextAlign.center,
                   style: AdminTheme.sans(
@@ -1239,13 +1414,17 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AdminTheme.textPrimary,
                             side: const BorderSide(
-                                color: AdminTheme.border, width: 0.5),
+                              color: AdminTheme.border,
+                              width: 0.5,
+                            ),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
-                          child: Text('취소',
-                              style: AdminTheme.sans(
-                                  fontWeight: FontWeight.w700)),
+                          child: Text(
+                            '취소',
+                            style: AdminTheme.sans(fontWeight: FontWeight.w700),
+                          ),
                         ),
                       ),
                     ),
@@ -1260,11 +1439,13 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
-                          child: Text('공개 확정',
-                              style: AdminTheme.sans(
-                                  fontWeight: FontWeight.w700)),
+                          child: Text(
+                            '공개 확정',
+                            style: AdminTheme.sans(fontWeight: FontWeight.w700),
+                          ),
                         ),
                       ),
                     ),
@@ -1284,15 +1465,15 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
           .read(functionsServiceProvider)
           .revealSeatsNow(eventId: widget.eventId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('좌석이 공개되었습니다')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('좌석이 공개되었습니다')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('공개 실패: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('공개 실패: $e')));
       }
     }
   }
@@ -1312,12 +1493,19 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.warning_amber_rounded,
-                    color: AdminTheme.error, size: 32),
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: AdminTheme.error,
+                  size: 32,
+                ),
                 const SizedBox(height: 12),
-                Text('주문 취소',
-                    style: AdminTheme.serif(
-                        fontSize: 18, fontWeight: FontWeight.w700)),
+                Text(
+                  '주문 취소',
+                  style: AdminTheme.serif(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   '${order.buyerName} (${order.naverOrderId})\n'
@@ -1341,13 +1529,17 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AdminTheme.textPrimary,
                             side: const BorderSide(
-                                color: AdminTheme.border, width: 0.5),
+                              color: AdminTheme.border,
+                              width: 0.5,
+                            ),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
-                          child: Text('아니오',
-                              style:
-                                  AdminTheme.sans(fontWeight: FontWeight.w700)),
+                          child: Text(
+                            '아니오',
+                            style: AdminTheme.sans(fontWeight: FontWeight.w700),
+                          ),
                         ),
                       ),
                     ),
@@ -1358,16 +1550,19 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                         child: ElevatedButton(
                           onPressed: () => Navigator.pop(ctx, true),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                AdminTheme.error.withValues(alpha: 0.15),
+                            backgroundColor: AdminTheme.error.withValues(
+                              alpha: 0.15,
+                            ),
                             foregroundColor: AdminTheme.error,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
-                          child: Text('취소 확정',
-                              style:
-                                  AdminTheme.sans(fontWeight: FontWeight.w700)),
+                          child: Text(
+                            '취소 확정',
+                            style: AdminTheme.sans(fontWeight: FontWeight.w700),
+                          ),
                         ),
                       ),
                     ),
@@ -1387,15 +1582,15 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
           .read(functionsServiceProvider)
           .cancelNaverOrder(orderId: order.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('주문이 취소되었습니다')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('주문이 취소되었습니다')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('취소 실패: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('취소 실패: $e')));
       }
     }
   }
@@ -1408,8 +1603,10 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
         style: AdminTheme.sans(fontSize: 13, color: AdminTheme.textPrimary),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle:
-              AdminTheme.sans(fontSize: 12, color: AdminTheme.textTertiary),
+          hintStyle: AdminTheme.sans(
+            fontSize: 12,
+            color: AdminTheme.textTertiary,
+          ),
           filled: true,
           fillColor: AdminTheme.card,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1424,7 +1621,9 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
             borderSide: BorderSide(
-                color: AdminTheme.gold.withValues(alpha: 0.5), width: 0.5),
+              color: AdminTheme.gold.withValues(alpha: 0.5),
+              width: 0.5,
+            ),
           ),
         ),
       ),
@@ -1444,7 +1643,10 @@ class _DialogField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AdminTheme.label(fontSize: 9, color: AdminTheme.sage)),
+        Text(
+          label,
+          style: AdminTheme.label(fontSize: 9, color: AdminTheme.sage),
+        ),
         const SizedBox(height: 6),
         child,
       ],
@@ -1481,8 +1683,10 @@ class _SummaryCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(label,
-                style: AdminTheme.label(fontSize: 9, color: AdminTheme.sage)),
+            Text(
+              label,
+              style: AdminTheme.label(fontSize: 9, color: AdminTheme.sage),
+            ),
             const SizedBox(height: 8),
             Text(
               value,
@@ -1497,6 +1701,426 @@ class _SummaryCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── 운영 개요 ───
+
+class _OperationsOverview extends ConsumerWidget {
+  final String eventId;
+
+  const _OperationsOverview({required this.eventId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final eventAsync = ref.watch(eventStreamProvider(eventId));
+    final ticketsAsync = ref.watch(mobileTicketsStreamProvider(eventId));
+    final smsTasksAsync = ref.watch(_smsTasksByEventProvider(eventId));
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: eventAsync.when(
+        loading: () => const _OperationsOverviewLoading(),
+        error: (error, _) => _OperationsOverviewError(message: '$error'),
+        data: (event) => ticketsAsync.when(
+          loading: () => const _OperationsOverviewLoading(),
+          error: (error, _) => _OperationsOverviewError(message: '$error'),
+          data: (tickets) => smsTasksAsync.when(
+            loading: () => const _OperationsOverviewLoading(),
+            error: (error, _) => _OperationsOverviewError(message: '$error'),
+            data: (smsTasks) => _OperationsOverviewContent(
+              event: event,
+              tickets: tickets,
+              smsTasks: smsTasks,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OperationsOverviewLoading extends StatelessWidget {
+  const _OperationsOverviewLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: AdminTheme.sage.withValues(alpha: 0.12),
+          width: 0.5,
+        ),
+      ),
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AdminTheme.gold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OperationsOverviewError extends StatelessWidget {
+  final String message;
+
+  const _OperationsOverviewError({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: AdminTheme.error.withValues(alpha: 0.16),
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        '운영 개요를 불러오지 못했습니다: $message',
+        style: AdminTheme.sans(fontSize: 12, color: AdminTheme.error),
+      ),
+    );
+  }
+}
+
+class _OperationsOverviewContent extends StatelessWidget {
+  final Event? event;
+  final List<MobileTicket> tickets;
+  final List<Map<String, dynamic>> smsTasks;
+
+  const _OperationsOverviewContent({
+    required this.event,
+    required this.tickets,
+    required this.smsTasks,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final revealAt = event?.revealAt;
+    final isRevealed = revealAt != null && !now.isBefore(revealAt);
+    final revealedText = revealAt == null
+        ? '공개 시각 없음'
+        : DateFormat('MM.dd (E) HH:mm', 'ko_KR').format(revealAt);
+    final revealDetail = revealAt == null
+        ? '공연 정보에서 revealAt 설정을 확인하세요'
+        : isRevealed
+        ? '현재 즉시 QR과 좌석이 노출됩니다'
+        : '${_formatDuration(revealAt.difference(now))} 뒤 자동 공개';
+
+    final availableCount = tickets
+        .where(
+          (ticket) =>
+              ticket.status == MobileTicketStatus.active && !ticket.isCheckedIn,
+        )
+        .length;
+    final checkedInCount = tickets
+        .where(
+          (ticket) =>
+              ticket.status == MobileTicketStatus.active && ticket.isCheckedIn,
+        )
+        .length;
+    final usedCount = tickets
+        .where((ticket) => ticket.status == MobileTicketStatus.used)
+        .length;
+    final cancelledCount = tickets
+        .where((ticket) => ticket.status == MobileTicketStatus.cancelled)
+        .length;
+    final deliveredCount = tickets
+        .where((ticket) => (ticket.recipientName ?? '').trim().isNotEmpty)
+        .length;
+    final deliveryDetail = tickets.isEmpty
+        ? '발급된 티켓 없음'
+        : '미전달 ${tickets.length - deliveredCount}매';
+
+    final pendingSms = smsTasks
+        .where((task) => (task['status'] as String?) == 'pending')
+        .length;
+    final sentSms = smsTasks
+        .where((task) => (task['status'] as String?) == 'sent')
+        .length;
+    final failedSms = smsTasks
+        .where((task) => (task['status'] as String?) == 'failed')
+        .length;
+    final smsDetail = smsTasks.isEmpty
+        ? '문자 작업 없음'
+        : '실패 $failedSms건, 대기 $pendingSms건';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: AdminTheme.sage.withValues(alpha: 0.12),
+          width: 0.5,
+        ),
+        boxShadow: AdminShadows.small,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('OPERATIONS', style: AdminTheme.label(fontSize: 10)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  height: 0.5,
+                  color: AdminTheme.sage.withValues(alpha: 0.18),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _OpsMetricCard(
+                label: '공개 상태',
+                value: isRevealed ? '공개됨' : '공개 전',
+                detail: '$revealedText · $revealDetail',
+                color: isRevealed ? AdminTheme.success : AdminTheme.gold,
+              ),
+              _OpsMetricCard(
+                label: '티켓 상태',
+                value:
+                    '사용 가능 $availableCount · 입장 $checkedInCount · 완료 $usedCount · 취소 $cancelledCount',
+                detail: tickets.isEmpty
+                    ? '아직 티켓이 없습니다'
+                    : '총 ${tickets.length}매 발급',
+                color: AdminTheme.info,
+              ),
+              _OpsMetricCard(
+                label: '전달 현황',
+                value: '전달 $deliveredCount / ${tickets.length}',
+                detail: deliveryDetail,
+                color: deliveredCount == tickets.length && tickets.isNotEmpty
+                    ? AdminTheme.success
+                    : AdminTheme.sage,
+              ),
+              _OpsMetricCard(
+                label: '문자 현황',
+                value: '발송 $sentSms · 대기 $pendingSms · 실패 $failedSms',
+                detail: smsDetail,
+                color: failedSms > 0
+                    ? AdminTheme.error
+                    : pendingSms > 0
+                    ? AdminTheme.gold
+                    : AdminTheme.success,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AdminTheme.card,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: AdminTheme.sage.withValues(alpha: 0.14),
+                width: 0.5,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '운영 메모',
+                  style: AdminTheme.sans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AdminTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '상단 좌석 공개 버튼은 revealAt을 즉시 앞당깁니다. 주문 확장에서 좌석 재배정을 할 수 있고, 전달 상태는 받는 사람 이름 입력 여부로 추적합니다. SMS 실패 건은 주문 상세와 progress 기록에서 함께 확인하세요.',
+                  style: AdminTheme.sans(
+                    fontSize: 11,
+                    color: AdminTheme.textSecondary,
+                    height: 1.6,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OpsMetricCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final String detail;
+  final Color color;
+
+  const _OpsMetricCard({
+    required this.label,
+    required this.value,
+    required this.detail,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 240,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AdminTheme.card,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color.withValues(alpha: 0.16), width: 0.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: AdminTheme.label(fontSize: 9, color: color)),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: AdminTheme.sans(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AdminTheme.textPrimary,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              detail,
+              style: AdminTheme.sans(
+                fontSize: 10,
+                color: AdminTheme.textSecondary,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _formatDuration(Duration duration) {
+  if (duration.isNegative) {
+    return '0분';
+  }
+
+  final totalMinutes = duration.inMinutes;
+  final hours = totalMinutes ~/ 60;
+  final minutes = totalMinutes % 60;
+
+  if (hours <= 0) {
+    return '$minutes분';
+  }
+  if (minutes == 0) {
+    return '$hours시간';
+  }
+  return '$hours시간 ${minutes}분';
+}
+
+class _ExpandedTicketSummary extends ConsumerWidget {
+  final List<MobileTicket> tickets;
+  final String orderId;
+
+  const _ExpandedTicketSummary({required this.tickets, required this.orderId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final smsAsync = ref.watch(_smsStatusProvider(orderId));
+    final deliveredCount = tickets
+        .where((ticket) => (ticket.recipientName ?? '').trim().isNotEmpty)
+        .length;
+    final checkedInCount = tickets
+        .where(
+          (ticket) =>
+              ticket.status == MobileTicketStatus.active && ticket.isCheckedIn,
+        )
+        .length;
+    final completedCount = tickets
+        .where((ticket) => ticket.status == MobileTicketStatus.used)
+        .length;
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _SummaryChip(
+          label: '전달 $deliveredCount/${tickets.length}',
+          color: deliveredCount == tickets.length && tickets.isNotEmpty
+              ? AdminTheme.success
+              : AdminTheme.sage,
+        ),
+        if (checkedInCount > 0)
+          _SummaryChip(label: '입장 $checkedInCount', color: AdminTheme.info),
+        if (completedCount > 0)
+          _SummaryChip(label: '완료 $completedCount', color: AdminTheme.gold),
+        smsAsync.when(
+          data: (status) {
+            if (status == null) {
+              return const SizedBox.shrink();
+            }
+            return _SummaryChip(
+              label: switch (status) {
+                'sent' => '문자 발송',
+                'pending' => '문자 대기',
+                'failed' => '문자 실패',
+                _ => '문자 $status',
+              },
+              color: switch (status) {
+                'sent' => AdminTheme.success,
+                'pending' => AdminTheme.gold,
+                'failed' => AdminTheme.error,
+                _ => AdminTheme.textTertiary,
+              },
+            );
+          },
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+class _SummaryChip extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _SummaryChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18), width: 0.5),
+      ),
+      child: Text(label, style: AdminTheme.label(fontSize: 8, color: color)),
     );
   }
 }
@@ -1519,6 +2143,7 @@ class _NaverOrderRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dateFormat = DateFormat('MM.dd HH:mm');
+    final ticketsAsync = ref.watch(mobileTicketsByOrderProvider(order.id));
 
     Color statusColor;
     String statusLabel;
@@ -1586,18 +2211,23 @@ class _NaverOrderRow extends ConsumerWidget {
                           // Grade badge
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: gradeColor.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(2),
                               border: Border.all(
-                                  color: gradeColor.withValues(alpha: 0.2),
-                                  width: 0.5),
+                                color: gradeColor.withValues(alpha: 0.2),
+                                width: 0.5,
+                              ),
                             ),
                             child: Text(
                               order.seatGrade,
                               style: AdminTheme.label(
-                                  fontSize: 8, color: gradeColor),
+                                fontSize: 8,
+                                color: gradeColor,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -1611,12 +2241,92 @@ class _NaverOrderRow extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 3),
-                      Text(
-                        '${order.naverOrderId}  ·  ${dateFormat.format(order.createdAt)}',
-                        style: AdminTheme.sans(
-                          fontSize: 11,
-                          color: AdminTheme.textTertiary,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            '${order.naverOrderId}  ·  ${dateFormat.format(order.createdAt)}',
+                            style: AdminTheme.sans(
+                              fontSize: 11,
+                              color: AdminTheme.textTertiary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ticketsAsync.when(
+                            data: (tickets) {
+                              final deliveredCount = tickets
+                                  .where(
+                                    (ticket) => (ticket.recipientName ?? '')
+                                        .trim()
+                                        .isNotEmpty,
+                                  )
+                                  .length;
+                              if (tickets.isEmpty) {
+                                return const SizedBox.shrink();
+                              }
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AdminTheme.sage.withValues(
+                                    alpha: 0.08,
+                                  ),
+                                  borderRadius: BorderRadius.circular(2),
+                                  border: Border.all(
+                                    color: AdminTheme.sage.withValues(
+                                      alpha: 0.18,
+                                    ),
+                                    width: 0.5,
+                                  ),
+                                ),
+                                child: Text(
+                                  '전달 $deliveredCount/${tickets.length}',
+                                  style: AdminTheme.label(
+                                    fontSize: 8,
+                                    color: AdminTheme.sage,
+                                  ),
+                                ),
+                              );
+                            },
+                            loading: () => const SizedBox.shrink(),
+                            error: (_, __) => const SizedBox.shrink(),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  (order.userId?.isNotEmpty == true
+                                          ? AdminTheme.info
+                                          : AdminTheme.textTertiary)
+                                      .withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(2),
+                              border: Border.all(
+                                color:
+                                    (order.userId?.isNotEmpty == true
+                                            ? AdminTheme.info
+                                            : AdminTheme.textTertiary)
+                                        .withValues(alpha: 0.18),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              order.userId?.isNotEmpty == true
+                                  ? '앱 연결됨'
+                                  : '앱 미연결',
+                              style: AdminTheme.label(
+                                fontSize: 8,
+                                color: order.userId?.isNotEmpty == true
+                                    ? AdminTheme.info
+                                    : AdminTheme.textTertiary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -1632,17 +2342,24 @@ class _NaverOrderRow extends ConsumerWidget {
                     const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: statusColor.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(2),
                         border: Border.all(
-                            color: statusColor.withValues(alpha: 0.2),
-                            width: 0.5),
+                          color: statusColor.withValues(alpha: 0.2),
+                          width: 0.5,
+                        ),
                       ),
-                      child: Text(statusLabel,
-                          style: AdminTheme.label(
-                              fontSize: 9, color: statusColor)),
+                      child: Text(
+                        statusLabel,
+                        style: AdminTheme.label(
+                          fontSize: 9,
+                          color: statusColor,
+                        ),
+                      ),
                     ),
                     if (order.status == NaverOrderStatus.confirmed) ...[
                       const SizedBox(width: 8),
@@ -1652,18 +2369,24 @@ class _NaverOrderRow extends ConsumerWidget {
                           onTap: onCancel,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: AdminTheme.error.withValues(alpha: 0.06),
                               borderRadius: BorderRadius.circular(2),
                               border: Border.all(
-                                  color:
-                                      AdminTheme.error.withValues(alpha: 0.15),
-                                  width: 0.5),
+                                color: AdminTheme.error.withValues(alpha: 0.15),
+                                width: 0.5,
+                              ),
                             ),
-                            child: Text('취소',
-                                style: AdminTheme.label(
-                                    fontSize: 9, color: AdminTheme.error)),
+                            child: Text(
+                              '취소',
+                              style: AdminTheme.label(
+                                fontSize: 9,
+                                color: AdminTheme.error,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -1707,9 +2430,13 @@ class _ExpandedTickets extends ConsumerWidget {
         if (tickets.isEmpty) {
           return Padding(
             padding: const EdgeInsets.only(left: 16, bottom: 12),
-            child: Text('티켓 없음',
-                style:
-                    AdminTheme.sans(fontSize: 12, color: AdminTheme.textTertiary)),
+            child: Text(
+              '티켓 없음',
+              style: AdminTheme.sans(
+                fontSize: 12,
+                color: AdminTheme.textTertiary,
+              ),
+            ),
           );
         }
 
@@ -1727,9 +2454,19 @@ class _ExpandedTickets extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('TICKETS',
-                  style:
-                      AdminTheme.label(fontSize: 9, color: AdminTheme.sage)),
+              Row(
+                children: [
+                  Text(
+                    'TICKETS',
+                    style: AdminTheme.label(
+                      fontSize: 9,
+                      color: AdminTheme.sage,
+                    ),
+                  ),
+                  const Spacer(),
+                  _ExpandedTicketSummary(tickets: tickets, orderId: orderId),
+                ],
+              ),
               const SizedBox(height: 8),
               ...tickets.map((ticket) => _TicketRow(ticket: ticket)),
             ],
@@ -1742,15 +2479,19 @@ class _ExpandedTickets extends ConsumerWidget {
           child: SizedBox(
             width: 16,
             height: 16,
-            child:
-                CircularProgressIndicator(strokeWidth: 2, color: AdminTheme.gold),
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AdminTheme.gold,
+            ),
           ),
         ),
       ),
       error: (e, _) => Padding(
         padding: const EdgeInsets.all(12),
-        child: Text('오류: $e',
-            style: AdminTheme.sans(fontSize: 11, color: AdminTheme.error)),
+        child: Text(
+          '오류: $e',
+          style: AdminTheme.sans(fontSize: 11, color: AdminTheme.error),
+        ),
       ),
     );
   }
@@ -1764,21 +2505,22 @@ class _TicketRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color statusColor;
-    String statusLabel;
-    switch (ticket.status) {
-      case MobileTicketStatus.active:
-        statusColor = AdminTheme.success;
-        statusLabel = 'ACTIVE';
-      case MobileTicketStatus.cancelled:
-        statusColor = AdminTheme.error;
-        statusLabel = 'CANCELLED';
-      case MobileTicketStatus.used:
-        statusColor = AdminTheme.info;
-        statusLabel = 'USED';
-    }
+    final statusLabel = switch ((ticket.status, ticket.isCheckedIn)) {
+      (MobileTicketStatus.cancelled, _) => '취소됨',
+      (MobileTicketStatus.used, _) => '사용 완료',
+      (_, true) => '입장 완료',
+      _ => '사용 가능',
+    };
+    final statusColor = switch ((ticket.status, ticket.isCheckedIn)) {
+      (MobileTicketStatus.cancelled, _) => AdminTheme.error,
+      (MobileTicketStatus.used, _) => AdminTheme.info,
+      (_, true) => AdminTheme.success,
+      _ => AdminTheme.success,
+    };
 
     final url = '$_ticketBaseUrl${ticket.accessToken}';
+    final recipientName = ticket.recipientName?.trim();
+    final hasRecipient = recipientName != null && recipientName.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -1811,10 +2553,21 @@ class _TicketRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  ticket.seatInfo ?? '${ticket.seatGrade}석 #${ticket.entryNumber}',
+                  ticket.seatInfo ??
+                      '${ticket.seatGrade}석 #${ticket.entryNumber}',
                   style: AdminTheme.sans(
                     fontSize: 12,
                     color: AdminTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  hasRecipient ? '받는 사람 $recipientName' : '받는 사람 미지정',
+                  style: AdminTheme.sans(
+                    fontSize: 10,
+                    color: hasRecipient
+                        ? AdminTheme.sage
+                        : AdminTheme.textTertiary,
                   ),
                 ),
                 if (ticket.isCheckedIn)
@@ -1836,11 +2589,33 @@ class _TicketRow extends StatelessWidget {
               color: statusColor.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(2),
               border: Border.all(
-                  color: statusColor.withValues(alpha: 0.2), width: 0.5),
+                color: statusColor.withValues(alpha: 0.2),
+                width: 0.5,
+              ),
             ),
-            child: Text(statusLabel,
-                style: AdminTheme.label(fontSize: 8, color: statusColor)),
+            child: Text(
+              statusLabel,
+              style: AdminTheme.label(fontSize: 8, color: statusColor),
+            ),
           ),
+          if (hasRecipient) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AdminTheme.sage.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(2),
+                border: Border.all(
+                  color: AdminTheme.sage.withValues(alpha: 0.2),
+                  width: 0.5,
+                ),
+              ),
+              child: Text(
+                '전달됨',
+                style: AdminTheme.label(fontSize: 8, color: AdminTheme.sage),
+              ),
+            ),
+          ],
           const SizedBox(width: 6),
 
           // Reassign seat
@@ -1851,8 +2626,11 @@ class _TicketRow extends StatelessWidget {
                 onTap: () => _showReassignDialog(context, ticket),
                 child: Tooltip(
                   message: '좌석 재배정',
-                  child: const Icon(Icons.swap_horiz_rounded,
-                      size: 14, color: AdminTheme.textTertiary),
+                  child: const Icon(
+                    Icons.swap_horiz_rounded,
+                    size: 14,
+                    color: AdminTheme.textTertiary,
+                  ),
                 ),
               ),
             ),
@@ -1867,12 +2645,15 @@ class _TicketRow extends StatelessWidget {
                   Clipboard.setData(ClipboardData(text: url));
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                        content: Text(
-                            '티켓 #${ticket.entryNumber} URL 복사됨')),
+                      content: Text('티켓 #${ticket.entryNumber} URL 복사됨'),
+                    ),
                   );
                 },
-                child: const Icon(Icons.copy_rounded,
-                    size: 14, color: AdminTheme.textTertiary),
+                child: const Icon(
+                  Icons.copy_rounded,
+                  size: 14,
+                  color: AdminTheme.textTertiary,
+                ),
               ),
             ),
         ],
@@ -1901,12 +2682,19 @@ void _showReassignDialog(BuildContext context, MobileTicket ticket) {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.swap_horiz_rounded,
-                      color: AdminTheme.gold, size: 24),
+                  const Icon(
+                    Icons.swap_horiz_rounded,
+                    color: AdminTheme.gold,
+                    size: 24,
+                  ),
                   const SizedBox(width: 8),
-                  Text('좌석 재배정',
-                      style: AdminTheme.serif(
-                          fontSize: 18, fontWeight: FontWeight.w700)),
+                  Text(
+                    '좌석 재배정',
+                    style: AdminTheme.serif(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -1927,24 +2715,31 @@ void _showReassignDialog(BuildContext context, MobileTicket ticket) {
                 child: TextField(
                   controller: seatIdCtrl,
                   style: AdminTheme.sans(
-                      fontSize: 13, color: AdminTheme.textPrimary),
+                    fontSize: 13,
+                    color: AdminTheme.textPrimary,
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Firestore seat document ID',
                     hintStyle: AdminTheme.sans(
-                        fontSize: 12, color: AdminTheme.textTertiary),
+                      fontSize: 12,
+                      color: AdminTheme.textTertiary,
+                    ),
                     filled: true,
                     fillColor: AdminTheme.card,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(4),
                       borderSide: const BorderSide(
-                          color: AdminTheme.border, width: 0.5),
+                        color: AdminTheme.border,
+                        width: 0.5,
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(4),
                       borderSide: const BorderSide(
-                          color: AdminTheme.border, width: 0.5),
+                        color: AdminTheme.border,
+                        width: 0.5,
+                      ),
                     ),
                   ),
                 ),
@@ -1960,13 +2755,17 @@ void _showReassignDialog(BuildContext context, MobileTicket ticket) {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AdminTheme.textPrimary,
                           side: const BorderSide(
-                              color: AdminTheme.border, width: 0.5),
+                            color: AdminTheme.border,
+                            width: 0.5,
+                          ),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4)),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                         ),
-                        child: Text('취소',
-                            style:
-                                AdminTheme.sans(fontWeight: FontWeight.w700)),
+                        child: Text(
+                          '취소',
+                          style: AdminTheme.sans(fontWeight: FontWeight.w700),
+                        ),
                       ),
                     ),
                   ),
@@ -1989,8 +2788,7 @@ void _showReassignDialog(BuildContext context, MobileTicket ticket) {
                               if (ctx.mounted) {
                                 Navigator.pop(ctx);
                                 ScaffoldMessenger.of(ctx).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('좌석이 재배정되었습니다')),
+                                  const SnackBar(content: Text('좌석이 재배정되었습니다')),
                                 );
                               }
                             } catch (e) {
@@ -2006,11 +2804,13 @@ void _showReassignDialog(BuildContext context, MobileTicket ticket) {
                             foregroundColor: AdminTheme.onAccent,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
-                          child: Text('재배정',
-                              style: AdminTheme.sans(
-                                  fontWeight: FontWeight.w700)),
+                          child: Text(
+                            '재배정',
+                            style: AdminTheme.sans(fontWeight: FontWeight.w700),
+                          ),
                         ),
                       ),
                     ),

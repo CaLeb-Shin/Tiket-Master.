@@ -57,25 +57,34 @@ export default async function middleware(request: Request): Promise<Response> {
     }
 
     const title = meta.title || "공연";
-    const description = [dateStr, meta.venueName].filter(Boolean).join(" | ");
+    const description =
+      meta.description || [dateStr, meta.venueName].filter(Boolean).join(" | ");
     const imageUrl = meta.imageUrl || "";
+    const imageAlt = meta.imageAlt || `${title} 포스터`;
     const pageUrl = request.url;
+    const siteName = meta.siteName || "멜론티켓";
 
     const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="description" content="${esc(description)}">
+  <meta name="robots" content="noindex, nofollow, noarchive">
   <meta property="og:type" content="website">
+  <meta property="og:locale" content="ko_KR">
   <meta property="og:title" content="${esc(title)}">
   <meta property="og:description" content="${esc(description)}">
   <meta property="og:image" content="${esc(imageUrl)}">
+  <meta property="og:image:alt" content="${esc(imageAlt)}">
   <meta property="og:url" content="${esc(pageUrl)}">
-  <meta property="og:site_name" content="멜론티켓">
+  <meta property="og:site_name" content="${esc(siteName)}">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="${esc(title)}">
   <meta name="twitter:description" content="${esc(description)}">
   <meta name="twitter:image" content="${esc(imageUrl)}">
-  <title>${esc(title)} - 멜론티켓</title>
+  <meta name="twitter:image:alt" content="${esc(imageAlt)}">
+  <link rel="canonical" href="${esc(pageUrl)}">
+  <title>${esc(title)} - ${esc(siteName)}</title>
   <meta http-equiv="refresh" content="0;url=${esc(pageUrl)}">
 </head>
 <body>
@@ -88,7 +97,8 @@ export default async function middleware(request: Request): Promise<Response> {
       status: 200,
       headers: {
         "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "public, max-age=3600, s-maxage=3600",
+        "Cache-Control": "public, max-age=300, s-maxage=300",
+        "X-Robots-Tag": "noindex, nofollow, noarchive",
       },
     });
   } catch {

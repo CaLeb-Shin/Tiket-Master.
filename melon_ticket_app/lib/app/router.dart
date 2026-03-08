@@ -15,6 +15,7 @@ import '../features/staff_scanner/scanner_screen.dart';
 import '../features/mobile/mobile_main_screen.dart';
 import '../features/demo/demo_flow_screen.dart';
 import '../features/orders/my_orders_screen.dart';
+import '../features/orders/naver_linked_orders_screen.dart';
 import '../features/mileage/mileage_history_screen.dart';
 import '../features/hall/hall_screen.dart';
 import '../features/mobile_ticket/mobile_ticket_page.dart';
@@ -29,7 +30,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoggedIn = FirebaseAuth.instance.currentUser != null;
       final path = state.matchedLocation;
 
-      final requiresAuth = path.startsWith('/tickets') ||
+      final requiresAuth =
+          path.startsWith('/tickets') ||
           path.startsWith('/orders') ||
           path.startsWith('/checkout') ||
           path.startsWith('/staff') ||
@@ -52,7 +54,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/',
             name: 'home',
             builder: (context, state) {
-              final focusEventId = state.uri.queryParameters['focusEventId'] ??
+              final focusEventId =
+                  state.uri.queryParameters['focusEventId'] ??
                   state.uri.queryParameters['eventId'] ??
                   state.uri.queryParameters['event'];
               return (PlatformUtils.isWeb || PlatformUtils.isMobile)
@@ -91,8 +94,9 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final eventId = state.pathParameters['eventId']!;
               final qty = int.tryParse(state.uri.queryParameters['qty'] ?? '');
-              final budget =
-                  int.tryParse(state.uri.queryParameters['budget'] ?? '');
+              final budget = int.tryParse(
+                state.uri.queryParameters['budget'] ?? '',
+              );
               final instrument = state.uri.queryParameters['inst'];
               final position = state.uri.queryParameters['pos'];
               final aiFromQuick = state.uri.queryParameters['ai'] == '1';
@@ -129,8 +133,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               return CheckoutScreen(
                 eventId: eventId,
                 selectedSeatIds: (extra?['seatIds'] as List<String>?) ?? [],
-                selectedSeatLabels: (extra?['seatLabels'] as List<String>?) ?? [],
-                selectedSeatGrades: (extra?['seatGrades'] as List<String>?) ?? [],
+                selectedSeatLabels:
+                    (extra?['seatLabels'] as List<String>?) ?? [],
+                selectedSeatGrades:
+                    (extra?['seatGrades'] as List<String>?) ?? [],
                 quantity: (extra?['quantity'] as int?) ?? 1,
               );
             },
@@ -151,6 +157,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/orders',
             name: 'orders',
             builder: (context, state) => const MyOrdersScreen(),
+            routes: [
+              GoRoute(
+                path: 'naver',
+                name: 'naverOrders',
+                builder: (context, state) => const NaverLinkedOrdersScreen(),
+              ),
+            ],
           ),
 
           // 마일리지 내역
@@ -171,7 +184,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                 name: 'ticketDetail',
                 builder: (context, state) {
                   final ticketId = state.pathParameters['ticketId']!;
-                  final groupQr = state.uri.queryParameters['groupQr'] == 'true';
+                  final groupQr =
+                      state.uri.queryParameters['groupQr'] == 'true';
                   final orderId = state.uri.queryParameters['orderId'];
                   return TicketDetailScreen(
                     ticketId: ticketId,
@@ -218,8 +232,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline_rounded,
-                color: Color(0xFFC42A4D), size: 48),
+            const Icon(
+              Icons.error_outline_rounded,
+              color: Color(0xFFC42A4D),
+              size: 48,
+            ),
             const SizedBox(height: 16),
             Text(
               '페이지를 찾을 수 없습니다',
@@ -262,16 +279,20 @@ class _MobileBookingFrame extends StatelessWidget {
           child: SafeArea(
             child: Center(
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 18,
+                ),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 430),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: const Color(0xFF0B1220),
                       borderRadius: BorderRadius.circular(34),
-                      border:
-                          Border.all(color: const Color(0xFF2E3A50), width: 1),
+                      border: Border.all(
+                        color: const Color(0xFF2E3A50),
+                        width: 1,
+                      ),
                       boxShadow: const [
                         BoxShadow(
                           color: Color(0xA6000000),
@@ -342,11 +363,14 @@ class _BookingCompleteScreen extends StatelessWidget {
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: const BoxDecoration(
                         color: lineBlue,
-                        borderRadius:
-                            BorderRadius.vertical(top: Radius.circular(13)),
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(13),
+                        ),
                       ),
                       child: const Text(
                         '모바일티켓 발권 완료',
@@ -367,8 +391,9 @@ class _BookingCompleteScreen extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: softBlue,
                               borderRadius: BorderRadius.circular(41),
-                              border:
-                                  Border.all(color: const Color(0xFFB8CFE5)),
+                              border: Border.all(
+                                color: const Color(0xFFB8CFE5),
+                              ),
                             ),
                             child: const Icon(
                               Icons.check_rounded,
@@ -403,8 +428,9 @@ class _BookingCompleteScreen extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: const Color(0xFFF8FAFC),
                               borderRadius: BorderRadius.circular(10),
-                              border:
-                                  Border.all(color: const Color(0xFFDDE3EA)),
+                              border: Border.all(
+                                color: const Color(0xFFDDE3EA),
+                              ),
                             ),
                             child: Column(
                               children: [

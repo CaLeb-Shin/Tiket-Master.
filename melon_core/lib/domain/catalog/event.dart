@@ -9,7 +9,7 @@ class Event {
   final String description;
   final String? imageUrl;
   final DateTime startAt; // 공연 시작 시간
-  final DateTime revealAt; // 좌석 공개 시간 (시작 1시간 전)
+  final DateTime revealAt; // 좌석 공개 시간 (시작 2시간 전)
   final DateTime saleStartAt; // 판매 시작
   final DateTime saleEndAt; // 판매 종료
   final int price; // 기본 가격 (원)
@@ -18,7 +18,7 @@ class Event {
   final int availableSeats; // 남은 좌석 수
   final EventStatus status;
   final DateTime createdAt;
-  
+
   // 추가 상세 정보
   final String? category; // 카테고리 (콘서트, 뮤지컬, 연극 등)
   final String? venueName; // 공연장 이름
@@ -91,7 +91,9 @@ class Event {
   /// 판매 중 여부
   bool get isOnSale {
     final now = DateTime.now();
-    return now.isAfter(saleStartAt) && now.isBefore(saleEndAt) && status == EventStatus.active;
+    return now.isAfter(saleStartAt) &&
+        now.isBefore(saleEndAt) &&
+        status == EventStatus.active;
   }
 
   factory Event.fromFirestore(DocumentSnapshot doc) {
@@ -127,8 +129,10 @@ class Event {
           : null,
       discountPolicies: data['discountPolicies'] != null
           ? (data['discountPolicies'] as List)
-              .map((e) => DiscountPolicy.fromMap(Map<String, dynamic>.from(e)))
-              .toList()
+                .map(
+                  (e) => DiscountPolicy.fromMap(Map<String, dynamic>.from(e)),
+                )
+                .toList()
           : null,
       showRemainingSeats: data['showRemainingSeats'] ?? true,
       pamphletUrls: data['pamphletUrls'] != null

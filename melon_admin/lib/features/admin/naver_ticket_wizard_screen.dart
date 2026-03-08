@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:js_interop';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,10 +12,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../app/admin_theme.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
-import 'package:melon_core/data/repositories/naver_order_repository.dart';
-import 'package:melon_core/data/repositories/mobile_ticket_repository.dart';
 import 'package:melon_core/data/models/event.dart';
-import 'package:melon_core/data/models/naver_order.dart';
 import 'package:melon_core/infrastructure/firebase/functions_service.dart';
 import 'excel_seat_upload_helper.dart';
 
@@ -24,7 +20,6 @@ import 'excel_seat_upload_helper.dart';
 // 네이버 티켓 전용 위자드 — 스텝 바이 스텝 흐름
 // =============================================================================
 
-const _ticketBaseUrl = 'https://melonticket-web-20260216.vercel.app/m/';
 const _gradeOrder = ['VIP', 'R', 'S', 'A'];
 
 // 카카오 우편번호 서비스 JS interop
@@ -56,7 +51,6 @@ class _NaverTicketWizardScreenState
     'A': TextEditingController(text: '44000'),
   };
   Uint8List? _posterBytes;
-  String? _posterUrl;
   final _naverUrlCtrl = TextEditingController(); // 네이버 판매 URL
   String? _venueAddress; // 공연장 주소
   bool _naverOnly = true; // 네이버 전용 (새 봇) vs 놀티켓 연계 (기존 봇)
@@ -115,8 +109,11 @@ class _NaverTicketWizardScreenState
               children: [
                 IconButton(
                   onPressed: () => context.go('/'),
-                  icon: const Icon(Icons.west,
-                      color: AdminTheme.textPrimary, size: 20),
+                  icon: const Icon(
+                    Icons.west,
+                    color: AdminTheme.textPrimary,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -138,9 +135,7 @@ class _NaverTicketWizardScreenState
           ),
 
           // ── Content ──
-          Expanded(
-            child: _buildStep(),
-          ),
+          Expanded(child: _buildStep()),
         ],
       ),
     );
@@ -175,15 +170,20 @@ class _NaverTicketWizardScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Step 1',
-                  style: AdminTheme.label(fontSize: 10, color: AdminTheme.gold)),
+              Text(
+                'Step 1',
+                style: AdminTheme.label(fontSize: 10, color: AdminTheme.gold),
+              ),
               const SizedBox(height: 4),
-              Text('공연 등록',
-                  style: AdminTheme.serif(fontSize: 22)),
+              Text('공연 등록', style: AdminTheme.serif(fontSize: 22)),
               const SizedBox(height: 4),
-              Text('공연 기본 정보를 입력하세요',
-                  style: AdminTheme.sans(
-                      fontSize: 13, color: AdminTheme.textTertiary)),
+              Text(
+                '공연 기본 정보를 입력하세요',
+                style: AdminTheme.sans(
+                  fontSize: 13,
+                  color: AdminTheme.textTertiary,
+                ),
+              ),
               const SizedBox(height: 32),
 
               // 기존 공연 선택
@@ -201,9 +201,13 @@ class _NaverTicketWizardScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('새 공연 등록',
-                        style: AdminTheme.sans(
-                            fontSize: 14, fontWeight: FontWeight.w600)),
+                    Text(
+                      '새 공연 등록',
+                      style: AdminTheme.sans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 20),
 
                     // 공연명
@@ -221,7 +225,10 @@ class _NaverTicketWizardScreenState
                       decoration: const InputDecoration(
                         labelText: '네이버 판매 URL',
                         hintText: 'https://smartstore.naver.com/...',
-                        hintStyle: TextStyle(fontSize: 12, color: Color(0xFF666666)),
+                        hintStyle: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF666666),
+                        ),
                       ),
                       keyboardType: TextInputType.url,
                     ),
@@ -245,22 +252,28 @@ class _NaverTicketWizardScreenState
                         padding: const EdgeInsets.only(top: 6),
                         child: Row(
                           children: [
-                            const Icon(Icons.location_on,
-                                size: 14, color: AdminTheme.gold),
+                            const Icon(
+                              Icons.location_on,
+                              size: 14,
+                              color: AdminTheme.gold,
+                            ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 _venueAddress!,
                                 style: AdminTheme.sans(
-                                    fontSize: 12,
-                                    color: AdminTheme.textSecondary),
+                                  fontSize: 12,
+                                  color: AdminTheme.textSecondary,
+                                ),
                               ),
                             ),
                             GestureDetector(
-                              onTap: () =>
-                                  setState(() => _venueAddress = null),
-                              child: const Icon(Icons.close,
-                                  size: 14, color: AdminTheme.textSecondary),
+                              onTap: () => setState(() => _venueAddress = null),
+                              child: const Icon(
+                                Icons.close,
+                                size: 14,
+                                color: AdminTheme.textSecondary,
+                              ),
                             ),
                           ],
                         ),
@@ -270,10 +283,13 @@ class _NaverTicketWizardScreenState
                     // 날짜/시간
                     Row(
                       children: [
-                        Text('공연 일시:',
-                            style: AdminTheme.sans(
-                                fontSize: 13,
-                                color: AdminTheme.textSecondary)),
+                        Text(
+                          '공연 일시:',
+                          style: AdminTheme.sans(
+                            fontSize: 13,
+                            color: AdminTheme.textSecondary,
+                          ),
+                        ),
                         const SizedBox(width: 12),
                         GestureDetector(
                           onTap: () async {
@@ -281,8 +297,9 @@ class _NaverTicketWizardScreenState
                               context: context,
                               initialDate: _startAt,
                               firstDate: DateTime.now(),
-                              lastDate:
-                                  DateTime.now().add(const Duration(days: 365)),
+                              lastDate: DateTime.now().add(
+                                const Duration(days: 365),
+                              ),
                             );
                             if (date == null) return;
                             final time = await showTimePicker(
@@ -291,44 +308,88 @@ class _NaverTicketWizardScreenState
                             );
                             if (time == null) return;
                             setState(() {
-                              _startAt = DateTime(date.year, date.month,
-                                  date.day, time.hour, time.minute);
+                              _startAt = DateTime(
+                                date.year,
+                                date.month,
+                                date.day,
+                                time.hour,
+                                time.minute,
+                              );
                             });
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: AdminTheme.surface,
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                  color: AdminTheme.border, width: 0.5),
+                                color: AdminTheme.border,
+                                width: 0.5,
+                              ),
                             ),
                             child: Text(
-                              DateFormat('yyyy.MM.dd (E) HH:mm', 'ko_KR')
-                                  .format(_startAt),
+                              DateFormat(
+                                'yyyy.MM.dd (E) HH:mm',
+                                'ko_KR',
+                              ).format(_startAt),
                               style: AdminTheme.sans(
-                                  fontSize: 13, color: AdminTheme.gold),
+                                fontSize: 13,
+                                color: AdminTheme.gold,
+                              ),
                             ),
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AdminTheme.surface,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: AdminTheme.gold.withValues(alpha: 0.2),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Text(
+                        '운영 정책: 좌석과 QR은 공연 시작 2시간 전에 자동 공개됩니다. 긴급 공개가 필요하면 주문 화면 상단의 좌석 공개 버튼으로 즉시 앞당길 수 있습니다.',
+                        style: AdminTheme.sans(
+                          fontSize: 11,
+                          color: AdminTheme.textSecondary,
+                          height: 1.5,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 20),
 
                     // 포스터
                     Row(
                       children: [
-                        Text('포스터:',
-                            style: AdminTheme.sans(
-                                fontSize: 13,
-                                color: AdminTheme.textSecondary)),
+                        Text(
+                          '포스터:',
+                          style: AdminTheme.sans(
+                            fontSize: 13,
+                            color: AdminTheme.textSecondary,
+                          ),
+                        ),
                         const SizedBox(width: 12),
                         if (_posterBytes != null)
                           ClipRRect(
                             borderRadius: BorderRadius.circular(4),
-                            child: Image.memory(_posterBytes!,
-                                width: 48, height: 64, fit: BoxFit.cover),
+                            child: Image.memory(
+                              _posterBytes!,
+                              width: 48,
+                              height: 64,
+                              fit: BoxFit.cover,
+                            ),
                           )
                         else
                           TextButton.icon(
@@ -336,15 +397,19 @@ class _NaverTicketWizardScreenState
                             icon: const Icon(Icons.image_outlined, size: 16),
                             label: const Text('업로드'),
                             style: TextButton.styleFrom(
-                                foregroundColor: AdminTheme.gold),
+                              foregroundColor: AdminTheme.gold,
+                            ),
                           ),
                         if (_posterBytes != null) ...[
                           const SizedBox(width: 8),
                           IconButton(
                             onPressed: () =>
                                 setState(() => _posterBytes = null),
-                            icon: const Icon(Icons.close,
-                                size: 16, color: AdminTheme.textTertiary),
+                            icon: const Icon(
+                              Icons.close,
+                              size: 16,
+                              color: AdminTheme.textTertiary,
+                            ),
                           ),
                         ],
                       ],
@@ -352,10 +417,13 @@ class _NaverTicketWizardScreenState
                     const SizedBox(height: 20),
 
                     // 공연 유형 (네이버 전용 vs 놀티켓 연계)
-                    Text('공연 유형',
-                        style: AdminTheme.sans(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600)),
+                    Text(
+                      '공연 유형',
+                      style: AdminTheme.sans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 10),
                     Row(
                       children: [
@@ -363,8 +431,7 @@ class _NaverTicketWizardScreenState
                           child: GestureDetector(
                             onTap: () => setState(() => _naverOnly = true),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 14),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                               decoration: BoxDecoration(
                                 color: _naverOnly
                                     ? AdminTheme.gold.withValues(alpha: 0.12)
@@ -379,27 +446,36 @@ class _NaverTicketWizardScreenState
                               ),
                               child: Column(
                                 children: [
-                                  Icon(Icons.storefront_rounded,
-                                      size: 20,
+                                  Icon(
+                                    Icons.storefront_rounded,
+                                    size: 20,
+                                    color: _naverOnly
+                                        ? AdminTheme.gold
+                                        : AdminTheme.textTertiary,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    '네이버 전용',
+                                    style: AdminTheme.sans(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
                                       color: _naverOnly
                                           ? AdminTheme.gold
-                                          : AdminTheme.textTertiary),
-                                  const SizedBox(height: 6),
-                                  Text('네이버 전용',
-                                      style: AdminTheme.sans(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          color: _naverOnly
-                                              ? AdminTheme.gold
-                                              : AdminTheme.textTertiary)),
+                                          : AdminTheme.textTertiary,
+                                    ),
+                                  ),
                                   const SizedBox(height: 2),
-                                  Text('좌석봇 자동배정',
-                                      style: AdminTheme.sans(
-                                          fontSize: 9,
-                                          color: _naverOnly
-                                              ? AdminTheme.gold
-                                                  .withValues(alpha: 0.7)
-                                              : AdminTheme.textTertiary)),
+                                  Text(
+                                    '좌석봇 자동배정',
+                                    style: AdminTheme.sans(
+                                      fontSize: 9,
+                                      color: _naverOnly
+                                          ? AdminTheme.gold.withValues(
+                                              alpha: 0.7,
+                                            )
+                                          : AdminTheme.textTertiary,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -410,8 +486,7 @@ class _NaverTicketWizardScreenState
                           child: GestureDetector(
                             onTap: () => setState(() => _naverOnly = false),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 14),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                               decoration: BoxDecoration(
                                 color: !_naverOnly
                                     ? AdminTheme.gold.withValues(alpha: 0.12)
@@ -426,27 +501,36 @@ class _NaverTicketWizardScreenState
                               ),
                               child: Column(
                                 children: [
-                                  Icon(Icons.link_rounded,
-                                      size: 20,
+                                  Icon(
+                                    Icons.link_rounded,
+                                    size: 20,
+                                    color: !_naverOnly
+                                        ? AdminTheme.gold
+                                        : AdminTheme.textTertiary,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    '놀티켓 연계',
+                                    style: AdminTheme.sans(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
                                       color: !_naverOnly
                                           ? AdminTheme.gold
-                                          : AdminTheme.textTertiary),
-                                  const SizedBox(height: 6),
-                                  Text('놀티켓 연계',
-                                      style: AdminTheme.sans(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          color: !_naverOnly
-                                              ? AdminTheme.gold
-                                              : AdminTheme.textTertiary)),
+                                          : AdminTheme.textTertiary,
+                                    ),
+                                  ),
                                   const SizedBox(height: 2),
-                                  Text('기존 봇 처리',
-                                      style: AdminTheme.sans(
-                                          fontSize: 9,
-                                          color: !_naverOnly
-                                              ? AdminTheme.gold
-                                                  .withValues(alpha: 0.7)
-                                              : AdminTheme.textTertiary)),
+                                  Text(
+                                    '기존 봇 처리',
+                                    style: AdminTheme.sans(
+                                      fontSize: 9,
+                                      color: !_naverOnly
+                                          ? AdminTheme.gold.withValues(
+                                              alpha: 0.7,
+                                            )
+                                          : AdminTheme.textTertiary,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -457,10 +541,13 @@ class _NaverTicketWizardScreenState
                     const SizedBox(height: 20),
 
                     // 등급별 가격
-                    Text('등급별 가격',
-                        style: AdminTheme.sans(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600)),
+                    Text(
+                      '등급별 가격',
+                      style: AdminTheme.sans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 12,
@@ -485,17 +572,21 @@ class _NaverTicketWizardScreenState
                                   }),
                                   activeColor: AdminTheme.gold,
                                   side: const BorderSide(
-                                      color: AdminTheme.textTertiary),
+                                    color: AdminTheme.textTertiary,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              Text(grade,
-                                  style: AdminTheme.sans(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: enabled
-                                          ? AdminTheme.textPrimary
-                                          : AdminTheme.textTertiary)),
+                              Text(
+                                grade,
+                                style: AdminTheme.sans(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: enabled
+                                      ? AdminTheme.textPrimary
+                                      : AdminTheme.textTertiary,
+                                ),
+                              ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: TextField(
@@ -506,7 +597,8 @@ class _NaverTicketWizardScreenState
                                   decoration: const InputDecoration(
                                     isDense: true,
                                     contentPadding: EdgeInsets.symmetric(
-                                        vertical: 4),
+                                      vertical: 4,
+                                    ),
                                     prefixText: '₩',
                                   ),
                                 ),
@@ -528,8 +620,9 @@ class _NaverTicketWizardScreenState
                                 width: 18,
                                 height: 18,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AdminTheme.onAccent),
+                                  strokeWidth: 2,
+                                  color: AdminTheme.onAccent,
+                                ),
                               )
                             : const Text('공연 등록'),
                       ),
@@ -559,9 +652,10 @@ class _NaverTicketWizardScreenState
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('기존 공연 선택',
-                style: AdminTheme.sans(
-                    fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(
+              '기존 공연 선택',
+              style: AdminTheme.sans(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 8),
             ...events.map((doc) {
               final d = doc.data() as Map<String, dynamic>;
@@ -585,12 +679,13 @@ class _NaverTicketWizardScreenState
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: AdminTheme.card,
                       borderRadius: BorderRadius.circular(4),
-                      border:
-                          Border.all(color: AdminTheme.border, width: 0.5),
+                      border: Border.all(color: AdminTheme.border, width: 0.5),
                     ),
                     child: Row(
                       children: [
@@ -598,19 +693,28 @@ class _NaverTicketWizardScreenState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(title,
-                                  style: AdminTheme.sans(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600)),
-                              Text('$venue  ·  $dateStr',
-                                  style: AdminTheme.sans(
-                                      fontSize: 11,
-                                      color: AdminTheme.textTertiary)),
+                              Text(
+                                title,
+                                style: AdminTheme.sans(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                '$venue  ·  $dateStr',
+                                style: AdminTheme.sans(
+                                  fontSize: 11,
+                                  color: AdminTheme.textTertiary,
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right,
-                            size: 18, color: AdminTheme.textTertiary),
+                        const Icon(
+                          Icons.chevron_right,
+                          size: 18,
+                          color: AdminTheme.textTertiary,
+                        ),
                       ],
                     ),
                   ),
@@ -623,9 +727,13 @@ class _NaverTicketWizardScreenState
                 const Expanded(child: Divider(color: AdminTheme.border)),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text('또는',
-                      style: AdminTheme.sans(
-                          fontSize: 11, color: AdminTheme.textTertiary)),
+                  child: Text(
+                    '또는',
+                    style: AdminTheme.sans(
+                      fontSize: 11,
+                      color: AdminTheme.textTertiary,
+                    ),
+                  ),
                 ),
                 const Expanded(child: Divider(color: AdminTheme.border)),
               ],
@@ -680,18 +788,18 @@ class _NaverTicketWizardScreenState
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('주소 검색 오류: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('주소 검색 오류: $e')));
       }
     }
   }
 
   Future<void> _createEvent() async {
     if (_titleCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('공연명을 입력하세요')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('공연명을 입력하세요')));
       return;
     }
 
@@ -713,9 +821,12 @@ class _NaverTicketWizardScreenState
       String? imageUrl;
       if (_posterBytes != null) {
         final storageRef = FirebaseStorage.instance.ref().child(
-            'events/posters/${DateTime.now().millisecondsSinceEpoch}.jpg');
+          'events/posters/${DateTime.now().millisecondsSinceEpoch}.jpg',
+        );
         await storageRef.putData(
-            _posterBytes!, SettableMetadata(contentType: 'image/jpeg'));
+          _posterBytes!,
+          SettableMetadata(contentType: 'image/jpeg'),
+        );
         imageUrl = await storageRef.getDownloadURL();
       }
 
@@ -725,7 +836,7 @@ class _NaverTicketWizardScreenState
         title: _titleCtrl.text.trim(),
         description: '',
         startAt: _startAt,
-        revealAt: _startAt.subtract(const Duration(hours: 1)),
+        revealAt: _startAt.subtract(const Duration(hours: 2)),
         saleStartAt: DateTime.now(),
         saleEndAt: _startAt.subtract(const Duration(hours: 1)),
         price: basePrice,
@@ -744,9 +855,7 @@ class _NaverTicketWizardScreenState
       final eventId = await eventRepo.createEvent(event);
 
       // 네이버 전용 플래그 + 상품 URL 저장
-      final extraFields = <String, dynamic>{
-        'naverOnly': _naverOnly,
-      };
+      final extraFields = <String, dynamic>{'naverOnly': _naverOnly};
       if (_naverUrlCtrl.text.trim().isNotEmpty) {
         extraFields['naverProductUrl'] = _naverUrlCtrl.text.trim();
       }
@@ -762,15 +871,15 @@ class _NaverTicketWizardScreenState
         _currentStep = 1;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('공연이 등록되었습니다')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('공연이 등록되었습니다')));
     } catch (e) {
       if (!mounted) return;
       setState(() => _isCreatingEvent = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('오류: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('오류: $e')));
     }
   }
 
@@ -788,15 +897,20 @@ class _NaverTicketWizardScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Step 2',
-                  style: AdminTheme.label(fontSize: 10, color: AdminTheme.gold)),
+              Text(
+                'Step 2',
+                style: AdminTheme.label(fontSize: 10, color: AdminTheme.gold),
+              ),
               const SizedBox(height: 4),
-              Text('좌석 등록',
-                  style: AdminTheme.serif(fontSize: 22)),
+              Text('좌석 등록', style: AdminTheme.serif(fontSize: 22)),
               const SizedBox(height: 4),
-              Text('네이버 스마트스토어의 좌석현황 엑셀을 업로드하세요',
-                  style: AdminTheme.sans(
-                      fontSize: 13, color: AdminTheme.textTertiary)),
+              Text(
+                '네이버 스마트스토어의 좌석현황 엑셀을 업로드하세요',
+                style: AdminTheme.sans(
+                  fontSize: 13,
+                  color: AdminTheme.textTertiary,
+                ),
+              ),
               const SizedBox(height: 32),
 
               // 엑셀 업로드 영역
@@ -813,8 +927,8 @@ class _NaverTicketWizardScreenState
                       color: _seatData != null
                           ? AdminTheme.success
                           : _seatError != null
-                              ? AdminTheme.error
-                              : AdminTheme.border,
+                          ? AdminTheme.error
+                          : AdminTheme.border,
                       width: _seatData != null || _seatError != null ? 1 : 0.5,
                     ),
                   ),
@@ -854,30 +968,30 @@ class _NaverTicketWizardScreenState
                               _seatData != null
                                   ? Icons.check_circle_rounded
                                   : _seatError != null
-                                      ? Icons.error_outline_rounded
-                                      : Icons.upload_file_rounded,
+                                  ? Icons.error_outline_rounded
+                                  : Icons.upload_file_rounded,
                               size: 36,
                               color: _seatData != null
                                   ? AdminTheme.success
                                   : _seatError != null
-                                      ? AdminTheme.error
-                                      : AdminTheme.textTertiary,
+                                  ? AdminTheme.error
+                                  : AdminTheme.textTertiary,
                             ),
                             const SizedBox(height: 12),
                             Text(
                               _seatData != null
                                   ? '좌석 ${_seatData!.totalSeats}석 로드 완료'
                                   : _seatError != null
-                                      ? '파싱 실패'
-                                      : '엑셀 파일 선택 (.xlsx)',
+                                  ? '파싱 실패'
+                                  : '엑셀 파일 선택 (.xlsx)',
                               style: AdminTheme.sans(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: _seatData != null
                                     ? AdminTheme.success
                                     : _seatError != null
-                                        ? AdminTheme.error
-                                        : AdminTheme.textSecondary,
+                                    ? AdminTheme.error
+                                    : AdminTheme.textSecondary,
                               ),
                             ),
                             if (_seatData != null) ...[
@@ -885,17 +999,23 @@ class _NaverTicketWizardScreenState
                               Text(
                                 _seatData!.gradeSummary,
                                 style: AdminTheme.sans(
-                                    fontSize: 12, color: AdminTheme.textTertiary),
+                                  fontSize: 12,
+                                  color: AdminTheme.textTertiary,
+                                ),
                               ),
                             ],
                             if (_seatError != null) ...[
                               const SizedBox(height: 8),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                ),
                                 child: Text(
                                   _seatError!,
                                   style: AdminTheme.sans(
-                                      fontSize: 12, color: AdminTheme.error),
+                                    fontSize: 12,
+                                    color: AdminTheme.error,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -924,14 +1044,20 @@ class _NaverTicketWizardScreenState
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.analytics_outlined,
-                              size: 14, color: AdminTheme.success),
+                          const Icon(
+                            Icons.analytics_outlined,
+                            size: 14,
+                            color: AdminTheme.success,
+                          ),
                           const SizedBox(width: 6),
-                          Text('파싱 결과',
-                              style: AdminTheme.sans(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AdminTheme.success)),
+                          Text(
+                            '파싱 결과',
+                            style: AdminTheme.sans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AdminTheme.success,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -939,14 +1065,8 @@ class _NaverTicketWizardScreenState
                         '감지 형식',
                         _formatName(_parseResult!.detectedFormat),
                       ),
-                      _parseDetailRow(
-                        '총 좌석',
-                        '${_seatData!.totalSeats}석',
-                      ),
-                      _parseDetailRow(
-                        '등급별',
-                        _seatData!.gradeSummary,
-                      ),
+                      _parseDetailRow('총 좌석', '${_seatData!.totalSeats}석'),
+                      _parseDetailRow('등급별', _seatData!.gradeSummary),
                     ],
                   ),
                 ),
@@ -956,12 +1076,15 @@ class _NaverTicketWizardScreenState
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
-                      vertical: 12, horizontal: 16),
+                    vertical: 12,
+                    horizontal: 16,
+                  ),
                   decoration: BoxDecoration(
                     color: AdminTheme.gold.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                        color: AdminTheme.gold.withValues(alpha: 0.3)),
+                      color: AdminTheme.gold.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -969,7 +1092,8 @@ class _NaverTicketWizardScreenState
                         onPressed: () => setState(() => _currentStep = 0),
                         child: const Text('← 이전'),
                         style: TextButton.styleFrom(
-                            foregroundColor: AdminTheme.textSecondary),
+                          foregroundColor: AdminTheme.textSecondary,
+                        ),
                       ),
                       const Spacer(),
                       OutlinedButton(
@@ -979,39 +1103,51 @@ class _NaverTicketWizardScreenState
                           side: const BorderSide(color: AdminTheme.gold),
                           minimumSize: Size.zero,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 12),
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
                         ),
                         child: _isUploadingSeats
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: AdminTheme.gold),
+                                  strokeWidth: 2,
+                                  color: AdminTheme.gold,
+                                ),
                               )
-                            : Text('좌석 등록',
+                            : Text(
+                                '좌석 등록',
                                 style: AdminTheme.sans(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white)),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
                       ),
                       const SizedBox(width: 10),
                       ElevatedButton.icon(
                         onPressed: () => setState(() => _currentStep = 2),
-                        icon: const Icon(Icons.arrow_forward_rounded,
-                            size: 18),
-                        label: Text('다음 단계',
-                            style: AdminTheme.sans(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.black)),
+                        icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                        label: Text(
+                          '다음 단계',
+                          style: AdminTheme.sans(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                          ),
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AdminTheme.gold,
                           foregroundColor: Colors.black,
                           minimumSize: Size.zero,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 14),
+                            horizontal: 24,
+                            vertical: 14,
+                          ),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6)),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
                         ),
                       ),
                     ],
@@ -1023,15 +1159,16 @@ class _NaverTicketWizardScreenState
                   const SizedBox(height: 8),
                   ExpansionTile(
                     tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-                    childrenPadding:
-                        const EdgeInsets.symmetric(horizontal: 12),
+                    childrenPadding: const EdgeInsets.symmetric(horizontal: 12),
                     initiallyExpanded: false,
                     dense: true,
                     title: Text(
-                        '디버그 정보 (${_parseResult!.warnings.length}건)',
-                        style: AdminTheme.sans(
-                            fontSize: 10,
-                            color: AdminTheme.textTertiary)),
+                      '디버그 정보 (${_parseResult!.warnings.length}건)',
+                      style: AdminTheme.sans(
+                        fontSize: 10,
+                        color: AdminTheme.textTertiary,
+                      ),
+                    ),
                     children: [
                       for (final w in _parseResult!.warnings)
                         Padding(
@@ -1039,15 +1176,20 @@ class _NaverTicketWizardScreenState
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.info_outline,
-                                  size: 10,
-                                  color: AdminTheme.textTertiary),
+                              const Icon(
+                                Icons.info_outline,
+                                size: 10,
+                                color: AdminTheme.textTertiary,
+                              ),
                               const SizedBox(width: 4),
                               Expanded(
-                                child: Text(w,
-                                    style: AdminTheme.sans(
-                                        fontSize: 10,
-                                        color: AdminTheme.textTertiary)),
+                                child: Text(
+                                  w,
+                                  style: AdminTheme.sans(
+                                    fontSize: 10,
+                                    color: AdminTheme.textTertiary,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -1066,14 +1208,16 @@ class _NaverTicketWizardScreenState
                       onPressed: () => setState(() => _currentStep = 0),
                       child: const Text('← 이전'),
                       style: TextButton.styleFrom(
-                          foregroundColor: AdminTheme.textSecondary),
+                        foregroundColor: AdminTheme.textSecondary,
+                      ),
                     ),
                     const Spacer(),
                     TextButton(
                       onPressed: () => setState(() => _currentStep = 2),
                       child: const Text('건너뛰기 →'),
                       style: TextButton.styleFrom(
-                          foregroundColor: AdminTheme.textTertiary),
+                        foregroundColor: AdminTheme.textTertiary,
+                      ),
                     ),
                   ],
                 ),
@@ -1104,14 +1248,20 @@ class _NaverTicketWizardScreenState
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.warning_amber_rounded,
-                              size: 14, color: AdminTheme.warning),
+                          const Icon(
+                            Icons.warning_amber_rounded,
+                            size: 14,
+                            color: AdminTheme.warning,
+                          ),
                           const SizedBox(width: 6),
-                          Text('좌석 수가 너무 적습니다',
-                              style: AdminTheme.sans(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AdminTheme.warning)),
+                          Text(
+                            '좌석 수가 너무 적습니다',
+                            style: AdminTheme.sans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AdminTheme.warning,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -1142,9 +1292,13 @@ class _NaverTicketWizardScreenState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('지원 형식',
-                          style: AdminTheme.sans(
-                              fontSize: 12, fontWeight: FontWeight.w600)),
+                      Text(
+                        '지원 형식',
+                        style: AdminTheme.sans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       Text(
                         '• 네이버 좌석현황: 좌석등급/층/열/좌석번호 (VIP석, R석, S석, A석)\n'
@@ -1152,9 +1306,10 @@ class _NaverTicketWizardScreenState
                         '• 비주얼: 셀 위치 = 좌석 위치, 값 = 등급 (VIP/R/S/A)\n'
                         '• 행열: 행 = 좌석열, 열 = 좌석번호, 값 = 등급',
                         style: AdminTheme.sans(
-                            fontSize: 11,
-                            color: AdminTheme.textTertiary,
-                            height: 1.6),
+                          fontSize: 11,
+                          color: AdminTheme.textTertiary,
+                          height: 1.6,
+                        ),
                       ),
                     ],
                   ),
@@ -1197,13 +1352,15 @@ class _NaverTicketWizardScreenState
       entry.value.sort();
       final grade = parts[0];
       gradeRows.putIfAbsent(grade, () => []);
-      gradeRows[grade]!.add(_SeatRow(
-        grade: grade,
-        floor: parts[1],
-        zone: parts[2],
-        row: parts[3],
-        seats: entry.value,
-      ));
+      gradeRows[grade]!.add(
+        _SeatRow(
+          grade: grade,
+          floor: parts[1],
+          zone: parts[2],
+          row: parts[3],
+          seats: entry.value,
+        ),
+      );
     }
     // Sort each grade's rows: zone → row (numeric)
     for (final rows in gradeRows.values) {
@@ -1218,8 +1375,9 @@ class _NaverTicketWizardScreenState
 
     // Build 4-column grid: VIP | R | S | A
     const gradeOrder = ['VIP', 'R', 'S', 'A'];
-    final activeGrades =
-        gradeOrder.where((g) => gradeRows.containsKey(g)).toList();
+    final activeGrades = gradeOrder
+        .where((g) => gradeRows.containsKey(g))
+        .toList();
 
     return Container(
       width: double.infinity,
@@ -1234,14 +1392,20 @@ class _NaverTicketWizardScreenState
         children: [
           Row(
             children: [
-              const Icon(Icons.event_seat_outlined,
-                  size: 14, color: AdminTheme.gold),
+              const Icon(
+                Icons.event_seat_outlined,
+                size: 14,
+                color: AdminTheme.gold,
+              ),
               const SizedBox(width: 6),
-              Text('상품별 좌석현황',
-                  style: AdminTheme.sans(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AdminTheme.gold)),
+              Text(
+                '상품별 좌석현황',
+                style: AdminTheme.sans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AdminTheme.gold,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -1254,10 +1418,11 @@ class _NaverTicketWizardScreenState
                 runSpacing: 8,
                 children: activeGrades.map((grade) {
                   final rows = gradeRows[grade]!;
-                  final totalSeats =
-                      rows.fold<int>(0, (sum, r) => sum + r.seats.length);
-                  final color =
-                      _gradeColors[grade] ?? AdminTheme.textSecondary;
+                  final totalSeats = rows.fold<int>(
+                    0,
+                    (sum, r) => sum + r.seats.length,
+                  );
+                  final color = _gradeColors[grade] ?? AdminTheme.textSecondary;
                   return SizedBox(
                     width: 280,
                     child: Container(
@@ -1266,7 +1431,9 @@ class _NaverTicketWizardScreenState
                         color: color.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
-                            color: color.withValues(alpha: 0.2), width: 0.5),
+                          color: color.withValues(alpha: 0.2),
+                          width: 0.5,
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1277,105 +1444,135 @@ class _NaverTicketWizardScreenState
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: color,
                                   borderRadius: BorderRadius.circular(3),
                                 ),
-                                child: Text('$grade석',
-                                    style: AdminTheme.sans(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white)),
+                                child: Text(
+                                  '$grade석',
+                                  style: AdminTheme.sans(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ),
                               const SizedBox(width: 8),
-                              Text('$totalSeats석',
-                                  style: AdminTheme.sans(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: color)),
+                              Text(
+                                '$totalSeats석',
+                                style: AdminTheme.sans(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: color,
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 8),
                           // 테이블 헤더
                           Padding(
-                            padding:
-                                const EdgeInsets.only(bottom: 4),
+                            padding: const EdgeInsets.only(bottom: 4),
                             child: Row(
                               children: [
                                 SizedBox(
-                                    width: 40,
-                                    child: Text('구역',
-                                        style: AdminTheme.sans(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w600,
-                                            color: AdminTheme
-                                                .textTertiary))),
+                                  width: 40,
+                                  child: Text(
+                                    '구역',
+                                    style: AdminTheme.sans(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                      color: AdminTheme.textTertiary,
+                                    ),
+                                  ),
+                                ),
                                 SizedBox(
-                                    width: 30,
-                                    child: Text('열',
-                                        style: AdminTheme.sans(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w600,
-                                            color: AdminTheme
-                                                .textTertiary))),
+                                  width: 30,
+                                  child: Text(
+                                    '열',
+                                    style: AdminTheme.sans(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                      color: AdminTheme.textTertiary,
+                                    ),
+                                  ),
+                                ),
                                 SizedBox(
-                                    width: 30,
-                                    child: Text('수량',
-                                        style: AdminTheme.sans(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w600,
-                                            color: AdminTheme
-                                                .textTertiary))),
+                                  width: 30,
+                                  child: Text(
+                                    '수량',
+                                    style: AdminTheme.sans(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                      color: AdminTheme.textTertiary,
+                                    ),
+                                  ),
+                                ),
                                 Expanded(
-                                    child: Text('좌석번호',
-                                        style: AdminTheme.sans(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w600,
-                                            color: AdminTheme
-                                                .textTertiary))),
+                                  child: Text(
+                                    '좌석번호',
+                                    style: AdminTheme.sans(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                      color: AdminTheme.textTertiary,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                           // 좌석 행 목록
-                          ...rows.map((sr) => Padding(
-                                padding: const EdgeInsets.only(bottom: 2),
-                                child: Row(
-                                  children: [
-                                    SizedBox(
-                                        width: 40,
-                                        child: Text(
-                                            sr.zone.isEmpty ? '-' : sr.zone,
-                                            style: AdminTheme.sans(
-                                                fontSize: 9,
-                                                color: AdminTheme
-                                                    .textTertiary))),
-                                    SizedBox(
-                                        width: 30,
-                                        child: Text('${sr.row}',
-                                            style: AdminTheme.sans(
-                                                fontSize: 9,
-                                                color: AdminTheme
-                                                    .textPrimary))),
-                                    SizedBox(
-                                        width: 30,
-                                        child: Text('${sr.seats.length}',
-                                            style: AdminTheme.sans(
-                                                fontSize: 9,
-                                                color: AdminTheme
-                                                    .textTertiary))),
-                                    Expanded(
-                                        child: Text(
-                                            _compactRange(sr.seats),
-                                            style: AdminTheme.sans(
-                                                fontSize: 9,
-                                                color: AdminTheme
-                                                    .textTertiary),
-                                            overflow:
-                                                TextOverflow.ellipsis)),
-                                  ],
-                                ),
-                              )),
+                          ...rows.map(
+                            (sr) => Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 40,
+                                    child: Text(
+                                      sr.zone.isEmpty ? '-' : sr.zone,
+                                      style: AdminTheme.sans(
+                                        fontSize: 9,
+                                        color: AdminTheme.textTertiary,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 30,
+                                    child: Text(
+                                      '${sr.row}',
+                                      style: AdminTheme.sans(
+                                        fontSize: 9,
+                                        color: AdminTheme.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 30,
+                                    child: Text(
+                                      '${sr.seats.length}',
+                                      style: AdminTheme.sans(
+                                        fontSize: 9,
+                                        color: AdminTheme.textTertiary,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      _compactRange(sr.seats),
+                                      style: AdminTheme.sans(
+                                        fontSize: 9,
+                                        color: AdminTheme.textTertiary,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -1418,7 +1615,10 @@ class _NaverTicketWizardScreenState
             width: 70,
             child: Text(
               label,
-              style: AdminTheme.sans(fontSize: 11, color: AdminTheme.textTertiary),
+              style: AdminTheme.sans(
+                fontSize: 11,
+                color: AdminTheme.textTertiary,
+              ),
             ),
           ),
           Expanded(
@@ -1468,8 +1668,9 @@ class _NaverTicketWizardScreenState
     await Future.delayed(const Duration(milliseconds: 500));
 
     try {
-      final parseResult =
-          EnhancedExcelParser.parse(result.files.single.bytes!.toList());
+      final parseResult = EnhancedExcelParser.parse(
+        result.files.single.bytes!.toList(),
+      );
 
       if (!mounted) return;
 
@@ -1511,9 +1712,9 @@ class _NaverTicketWizardScreenState
   Future<void> _uploadSeats() async {
     if (_seatData == null) return;
     if (_createdEventId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('먼저 Step 1에서 공연을 등록해주세요')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('먼저 Step 1에서 공연을 등록해주세요')));
       return;
     }
     setState(() => _isUploadingSeats = true);
@@ -1535,9 +1736,9 @@ class _NaverTicketWizardScreenState
         _isUploadingSeats = false;
         _currentStep = 2;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${seatList.length}석 등록 완료')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${seatList.length}석 등록 완료')));
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -1557,8 +1758,10 @@ class _NaverTicketWizardScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('먼저 공연을 등록하세요',
-                style: AdminTheme.sans(color: AdminTheme.textSecondary)),
+            Text(
+              '먼저 공연을 등록하세요',
+              style: AdminTheme.sans(color: AdminTheme.textSecondary),
+            ),
             const SizedBox(height: 16),
             TextButton(
               onPressed: () => setState(() => _currentStep = 0),
@@ -1578,15 +1781,20 @@ class _NaverTicketWizardScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Step 3',
-                  style: AdminTheme.label(fontSize: 10, color: AdminTheme.gold)),
+              Text(
+                'Step 3',
+                style: AdminTheme.label(fontSize: 10, color: AdminTheme.gold),
+              ),
               const SizedBox(height: 4),
-              Text('주문 입력',
-                  style: AdminTheme.serif(fontSize: 22)),
+              Text('주문 입력', style: AdminTheme.serif(fontSize: 22)),
               const SizedBox(height: 4),
-              Text('네이버 스토어 주문 정보를 입력하세요',
-                  style: AdminTheme.sans(
-                      fontSize: 13, color: AdminTheme.textTertiary)),
+              Text(
+                '네이버 스토어 주문 정보를 입력하세요',
+                style: AdminTheme.sans(
+                  fontSize: 13,
+                  color: AdminTheme.textTertiary,
+                ),
+              ),
               const SizedBox(height: 32),
 
               // 입력 폼
@@ -1603,8 +1811,9 @@ class _NaverTicketWizardScreenState
                     TextField(
                       controller: _orderIdCtrl,
                       style: AdminTheme.sans(fontSize: 14),
-                      decoration:
-                          const InputDecoration(labelText: '네이버 주문번호 *'),
+                      decoration: const InputDecoration(
+                        labelText: '네이버 주문번호 *',
+                      ),
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 16),
@@ -1614,8 +1823,9 @@ class _NaverTicketWizardScreenState
                           child: TextField(
                             controller: _buyerNameCtrl,
                             style: AdminTheme.sans(fontSize: 14),
-                            decoration:
-                                const InputDecoration(labelText: '구매자명 *'),
+                            decoration: const InputDecoration(
+                              labelText: '구매자명 *',
+                            ),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -1623,8 +1833,9 @@ class _NaverTicketWizardScreenState
                           child: TextField(
                             controller: _buyerPhoneCtrl,
                             style: AdminTheme.sans(fontSize: 14),
-                            decoration:
-                                const InputDecoration(labelText: '연락처 *'),
+                            decoration: const InputDecoration(
+                              labelText: '연락처 *',
+                            ),
                             keyboardType: TextInputType.phone,
                           ),
                         ),
@@ -1634,59 +1845,76 @@ class _NaverTicketWizardScreenState
                     Row(
                       children: [
                         // 등급 선택
-                        Text('등급:',
-                            style: AdminTheme.sans(
-                                fontSize: 13,
-                                color: AdminTheme.textSecondary)),
+                        Text(
+                          '등급:',
+                          style: AdminTheme.sans(
+                            fontSize: 13,
+                            color: AdminTheme.textSecondary,
+                          ),
+                        ),
                         const SizedBox(width: 12),
-                        ...(_enabledGrades.toList()
-                              ..sort((a, b) => _gradeOrder
+                        ...(_enabledGrades.toList()..sort(
+                              (a, b) => _gradeOrder
                                   .indexOf(a)
-                                  .compareTo(_gradeOrder.indexOf(b))))
-                            .map((grade) => Padding(
-                                  padding: const EdgeInsets.only(right: 6),
-                                  child: ChoiceChip(
-                                    label: Text(grade,
-                                        style: AdminTheme.sans(fontSize: 12)),
-                                    selected: _selectedGrade == grade,
-                                    onSelected: (v) {
-                                      if (v) {
-                                        setState(
-                                            () => _selectedGrade = grade);
-                                      }
-                                    },
-                                    selectedColor: AdminTheme.gold,
-                                    labelStyle: TextStyle(
-                                      color: _selectedGrade == grade
-                                          ? AdminTheme.onAccent
-                                          : AdminTheme.textPrimary,
-                                    ),
-                                    side: BorderSide(
-                                        color: AdminTheme.border, width: 0.5),
+                                  .compareTo(_gradeOrder.indexOf(b)),
+                            ))
+                            .map(
+                              (grade) => Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: ChoiceChip(
+                                  label: Text(
+                                    grade,
+                                    style: AdminTheme.sans(fontSize: 12),
                                   ),
-                                )),
+                                  selected: _selectedGrade == grade,
+                                  onSelected: (v) {
+                                    if (v) {
+                                      setState(() => _selectedGrade = grade);
+                                    }
+                                  },
+                                  selectedColor: AdminTheme.gold,
+                                  labelStyle: TextStyle(
+                                    color: _selectedGrade == grade
+                                        ? AdminTheme.onAccent
+                                        : AdminTheme.textPrimary,
+                                  ),
+                                  side: BorderSide(
+                                    color: AdminTheme.border,
+                                    width: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ),
                         const Spacer(),
                         // 수량
-                        Text('수량:',
-                            style: AdminTheme.sans(
-                                fontSize: 13,
-                                color: AdminTheme.textSecondary)),
+                        Text(
+                          '수량:',
+                          style: AdminTheme.sans(
+                            fontSize: 13,
+                            color: AdminTheme.textSecondary,
+                          ),
+                        ),
                         const SizedBox(width: 8),
                         IconButton(
                           onPressed: _quantity > 1
                               ? () => setState(() => _quantity--)
                               : null,
-                          icon: const Icon(Icons.remove_circle_outline,
-                              size: 20),
+                          icon: const Icon(
+                            Icons.remove_circle_outline,
+                            size: 20,
+                          ),
                           color: AdminTheme.textSecondary,
                         ),
-                        Text('$_quantity',
-                            style: AdminTheme.sans(
-                                fontSize: 16, fontWeight: FontWeight.w700)),
+                        Text(
+                          '$_quantity',
+                          style: AdminTheme.sans(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                         IconButton(
                           onPressed: () => setState(() => _quantity++),
-                          icon:
-                              const Icon(Icons.add_circle_outline, size: 20),
+                          icon: const Icon(Icons.add_circle_outline, size: 20),
                           color: AdminTheme.gold,
                         ),
                       ],
@@ -1697,15 +1925,15 @@ class _NaverTicketWizardScreenState
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed:
-                            _isCreatingOrder ? null : _createNaverOrder,
+                        onPressed: _isCreatingOrder ? null : _createNaverOrder,
                         child: _isCreatingOrder
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AdminTheme.onAccent),
+                                  strokeWidth: 2,
+                                  color: AdminTheme.onAccent,
+                                ),
                               )
                             : const Text('주문 등록 + 티켓 발급'),
                       ),
@@ -1717,11 +1945,11 @@ class _NaverTicketWizardScreenState
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(
-                              color: AdminTheme.gold, width: 0.5),
+                            color: AdminTheme.gold,
+                            width: 0.5,
+                          ),
                         ),
-                        onPressed: _isCreatingOrder
-                            ? null
-                            : _createTestOrder,
+                        onPressed: _isCreatingOrder ? null : _createTestOrder,
                         icon: const Icon(Icons.science_outlined, size: 16),
                         label: const Text('테스트 주문 추가 (SMS 없이)'),
                       ),
@@ -1741,14 +1969,16 @@ class _NaverTicketWizardScreenState
                     onPressed: () => setState(() => _currentStep = 1),
                     child: const Text('← 좌석 등록'),
                     style: TextButton.styleFrom(
-                        foregroundColor: AdminTheme.textSecondary),
+                      foregroundColor: AdminTheme.textSecondary,
+                    ),
                   ),
                   const Spacer(),
                   TextButton(
                     onPressed: () => setState(() => _currentStep = 3),
                     child: const Text('현황 보기 →'),
-                    style:
-                        TextButton.styleFrom(foregroundColor: AdminTheme.gold),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AdminTheme.gold,
+                    ),
                   ),
                 ],
               ),
@@ -1778,9 +2008,10 @@ class _NaverTicketWizardScreenState
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('최근 주문',
-                style: AdminTheme.sans(
-                    fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(
+              '최근 주문',
+              style: AdminTheme.sans(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 8),
             ...orders.map((doc) {
               final d = doc.data() as Map<String, dynamic>;
@@ -1792,8 +2023,10 @@ class _NaverTicketWizardScreenState
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 4),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: AdminTheme.card,
                   borderRadius: BorderRadius.circular(4),
@@ -1810,8 +2043,10 @@ class _NaverTicketWizardScreenState
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text('$name  ·  $grade $qty매',
-                          style: AdminTheme.sans(fontSize: 12)),
+                      child: Text(
+                        '$name  ·  $grade $qty매',
+                        style: AdminTheme.sans(fontSize: 12),
+                      ),
                     ),
                     // SMS status
                     _SmsBadgeInline(orderId: doc.id),
@@ -1821,7 +2056,9 @@ class _NaverTicketWizardScreenState
                           ? DateFormat('HH:mm').format(createdAt)
                           : '',
                       style: AdminTheme.sans(
-                          fontSize: 11, color: AdminTheme.textTertiary),
+                        fontSize: 11,
+                        color: AdminTheme.textTertiary,
+                      ),
                     ),
                   ],
                 ),
@@ -1844,19 +2081,20 @@ class _NaverTicketWizardScreenState
     setState(() => _isCreatingOrder = true);
 
     try {
-      final result =
-          await ref.read(functionsServiceProvider).createNaverOrder(
-                eventId: _createdEventId!,
-                naverOrderId: orderId,
-                buyerName: name,
-                buyerPhone: phone,
-                productName: '테스트 주문',
-                seatGrade: _selectedGrade,
-                quantity: _quantity,
-                orderDate: DateTime.now().toIso8601String(),
-                memo: '테스트 주문 (SMS 발송 안 함)',
-                dryRun: true,
-              );
+      final result = await ref
+          .read(functionsServiceProvider)
+          .createNaverOrder(
+            eventId: _createdEventId!,
+            naverOrderId: orderId,
+            buyerName: name,
+            buyerPhone: phone,
+            productName: '테스트 주문',
+            seatGrade: _selectedGrade,
+            quantity: _quantity,
+            orderDate: DateTime.now().toIso8601String(),
+            memo: '테스트 주문 (SMS 발송 안 함)',
+            dryRun: true,
+          );
 
       if (!mounted) return;
 
@@ -1870,15 +2108,16 @@ class _NaverTicketWizardScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              '🧪 테스트: $name — $_selectedGrade ${tickets.length}장 발급 (SMS 없음)'),
+            '🧪 테스트: $name — $_selectedGrade ${tickets.length}장 발급 (SMS 없음)',
+          ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isCreatingOrder = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('오류: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('오류: $e')));
     }
   }
 
@@ -1888,26 +2127,27 @@ class _NaverTicketWizardScreenState
     final phone = _buyerPhoneCtrl.text.trim();
 
     if (orderId.isEmpty || name.isEmpty || phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('주문번호, 이름, 연락처를 모두 입력하세요')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('주문번호, 이름, 연락처를 모두 입력하세요')));
       return;
     }
 
     setState(() => _isCreatingOrder = true);
 
     try {
-      final result =
-          await ref.read(functionsServiceProvider).createNaverOrder(
-                eventId: _createdEventId!,
-                naverOrderId: orderId,
-                buyerName: name,
-                buyerPhone: phone,
-                productName: _titleCtrl.text.trim(),
-                seatGrade: _selectedGrade,
-                quantity: _quantity,
-                orderDate: DateTime.now().toIso8601String(),
-              );
+      final result = await ref
+          .read(functionsServiceProvider)
+          .createNaverOrder(
+            eventId: _createdEventId!,
+            naverOrderId: orderId,
+            buyerName: name,
+            buyerPhone: phone,
+            productName: _titleCtrl.text.trim(),
+            seatGrade: _selectedGrade,
+            quantity: _quantity,
+            orderDate: DateTime.now().toIso8601String(),
+          );
 
       if (!mounted) return;
 
@@ -1928,14 +2168,15 @@ class _NaverTicketWizardScreenState
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('$name — $_selectedGrade ${tickets.length}장 발급 완료')),
+          content: Text('$name — $_selectedGrade ${tickets.length}장 발급 완료'),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isCreatingOrder = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('오류: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('오류: $e')));
     }
   }
 
@@ -1943,8 +2184,7 @@ class _NaverTicketWizardScreenState
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('$buyerName 티켓 URL',
-            style: AdminTheme.serif(fontSize: 16)),
+        title: Text('$buyerName 티켓 URL', style: AdminTheme.serif(fontSize: 16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: tickets.map((t) {
@@ -1952,19 +2192,28 @@ class _NaverTicketWizardScreenState
             final entry = t['entryNumber'] as int? ?? 0;
             return ListTile(
               dense: true,
-              title: Text('#$entry  $_selectedGrade석',
-                  style: AdminTheme.sans(fontSize: 13)),
-              subtitle: Text(url,
-                  style: AdminTheme.sans(
-                      fontSize: 10, color: AdminTheme.textTertiary)),
+              title: Text(
+                '#$entry  $_selectedGrade석',
+                style: AdminTheme.sans(fontSize: 13),
+              ),
+              subtitle: Text(
+                url,
+                style: AdminTheme.sans(
+                  fontSize: 10,
+                  color: AdminTheme.textTertiary,
+                ),
+              ),
               trailing: IconButton(
-                icon: const Icon(Icons.copy_rounded,
-                    size: 16, color: AdminTheme.gold),
+                icon: const Icon(
+                  Icons.copy_rounded,
+                  size: 16,
+                  color: AdminTheme.gold,
+                ),
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: url));
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(content: Text('URL 복사됨')),
-                  );
+                  ScaffoldMessenger.of(
+                    ctx,
+                  ).showSnackBar(const SnackBar(content: Text('URL 복사됨')));
                 },
               ),
             );
@@ -1977,22 +2226,23 @@ class _NaverTicketWizardScreenState
                 final url = tickets.first['url'] as String? ?? '';
                 Clipboard.setData(ClipboardData(text: url));
                 Navigator.of(ctx).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('URL 복사됨')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('URL 복사됨')));
               },
               child: const Text('URL 복사'),
             ),
           if (tickets.length > 1)
             TextButton(
               onPressed: () {
-                final urls =
-                    tickets.map((t) => t['url'] as String? ?? '').join('\n');
+                final urls = tickets
+                    .map((t) => t['url'] as String? ?? '')
+                    .join('\n');
                 Clipboard.setData(ClipboardData(text: urls));
                 Navigator.of(ctx).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('전체 URL 복사됨')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('전체 URL 복사됨')));
               },
               child: const Text('전체 URL 복사'),
             ),
@@ -2015,8 +2265,10 @@ class _NaverTicketWizardScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('먼저 공연을 등록하세요',
-                style: AdminTheme.sans(color: AdminTheme.textSecondary)),
+            Text(
+              '먼저 공연을 등록하세요',
+              style: AdminTheme.sans(color: AdminTheme.textSecondary),
+            ),
             const SizedBox(height: 16),
             TextButton(
               onPressed: () => setState(() => _currentStep = 0),
@@ -2036,11 +2288,12 @@ class _NaverTicketWizardScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Step 4',
-                  style: AdminTheme.label(fontSize: 10, color: AdminTheme.gold)),
+              Text(
+                'Step 4',
+                style: AdminTheme.label(fontSize: 10, color: AdminTheme.gold),
+              ),
               const SizedBox(height: 4),
-              Text('현황',
-                  style: AdminTheme.serif(fontSize: 22)),
+              Text('현황', style: AdminTheme.serif(fontSize: 22)),
               const SizedBox(height: 32),
 
               // 등급별 좌석 현황
@@ -2057,12 +2310,13 @@ class _NaverTicketWizardScreenState
                     onPressed: () => setState(() => _currentStep = 2),
                     child: const Text('← 주문 입력'),
                     style: TextButton.styleFrom(
-                        foregroundColor: AdminTheme.textSecondary),
+                      foregroundColor: AdminTheme.textSecondary,
+                    ),
                   ),
                   const Spacer(),
                   ElevatedButton(
-                    onPressed: () => context
-                        .go('/events/$_createdEventId/naver-orders'),
+                    onPressed: () =>
+                        context.go('/events/$_createdEventId/naver-orders'),
                     child: const Text('상세 관리 →'),
                   ),
                 ],
@@ -2095,8 +2349,10 @@ class _NaverTicketWizardScreenState
               border: Border.all(color: AdminTheme.border, width: 0.5),
             ),
             child: Center(
-              child: Text('좌석 미등록',
-                  style: AdminTheme.sans(color: AdminTheme.textTertiary)),
+              child: Text(
+                '좌석 미등록',
+                style: AdminTheme.sans(color: AdminTheme.textTertiary),
+              ),
             ),
           );
         }
@@ -2107,24 +2363,32 @@ class _NaverTicketWizardScreenState
           final d = doc.data() as Map<String, dynamic>;
           final grade = d['grade'] as String? ?? '기타';
           final status = d['status'] as String? ?? 'available';
-          gradeStats.putIfAbsent(grade, () => {'total': 0, 'available': 0, 'reserved': 0});
+          gradeStats.putIfAbsent(
+            grade,
+            () => {'total': 0, 'available': 0, 'reserved': 0},
+          );
           gradeStats[grade]!['total'] = (gradeStats[grade]!['total'] ?? 0) + 1;
           if (status == 'available') {
-            gradeStats[grade]!['available'] = (gradeStats[grade]!['available'] ?? 0) + 1;
+            gradeStats[grade]!['available'] =
+                (gradeStats[grade]!['available'] ?? 0) + 1;
           } else {
-            gradeStats[grade]!['reserved'] = (gradeStats[grade]!['reserved'] ?? 0) + 1;
+            gradeStats[grade]!['reserved'] =
+                (gradeStats[grade]!['reserved'] ?? 0) + 1;
           }
         }
 
         final sortedGrades = gradeStats.keys.toList()
-          ..sort((a, b) => _gradeOrder.indexOf(a).compareTo(_gradeOrder.indexOf(b)));
+          ..sort(
+            (a, b) => _gradeOrder.indexOf(a).compareTo(_gradeOrder.indexOf(b)),
+          );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('등급별 좌석 현황',
-                style: AdminTheme.sans(
-                    fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(
+              '등급별 좌석 현황',
+              style: AdminTheme.sans(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 12),
             ...sortedGrades.map((grade) {
               final stats = gradeStats[grade]!;
@@ -2135,8 +2399,10 @@ class _NaverTicketWizardScreenState
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: AdminTheme.card,
                   borderRadius: BorderRadius.circular(4),
@@ -2147,17 +2413,28 @@ class _NaverTicketWizardScreenState
                   children: [
                     Row(
                       children: [
-                        Text(grade,
-                            style: AdminTheme.sans(
-                                fontSize: 14, fontWeight: FontWeight.w700)),
+                        Text(
+                          grade,
+                          style: AdminTheme.sans(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                         const Spacer(),
-                        Text('$reserved / $total',
-                            style: AdminTheme.sans(
-                                fontSize: 13, color: AdminTheme.gold)),
-                        Text('  ($available 잔여)',
-                            style: AdminTheme.sans(
-                                fontSize: 11,
-                                color: AdminTheme.textTertiary)),
+                        Text(
+                          '$reserved / $total',
+                          style: AdminTheme.sans(
+                            fontSize: 13,
+                            color: AdminTheme.gold,
+                          ),
+                        ),
+                        Text(
+                          '  ($available 잔여)',
+                          style: AdminTheme.sans(
+                            fontSize: 11,
+                            color: AdminTheme.textTertiary,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -2166,8 +2443,9 @@ class _NaverTicketWizardScreenState
                       child: LinearProgressIndicator(
                         value: ratio,
                         backgroundColor: AdminTheme.surface,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(AdminTheme.gold),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AdminTheme.gold,
+                        ),
                         minHeight: 4,
                       ),
                     ),
@@ -2197,20 +2475,27 @@ class _NaverTicketWizardScreenState
             .where((d) => (d.data() as Map)['status'] == 'confirmed')
             .length;
         final totalTickets = orders.fold<int>(
-            0, (sum, d) => sum + ((d.data() as Map)['quantity'] as int? ?? 0));
+          0,
+          (sum, d) => sum + ((d.data() as Map)['quantity'] as int? ?? 0),
+        );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Text('주문 목록',
-                    style: AdminTheme.sans(
-                        fontSize: 13, fontWeight: FontWeight.w600)),
+                Text(
+                  '주문 목록',
+                  style: AdminTheme.sans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const Spacer(),
-                Text('$confirmed건  ·  $totalTickets매',
-                    style: AdminTheme.sans(
-                        fontSize: 12, color: AdminTheme.gold)),
+                Text(
+                  '$confirmed건  ·  $totalTickets매',
+                  style: AdminTheme.sans(fontSize: 12, color: AdminTheme.gold),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -2218,9 +2503,10 @@ class _NaverTicketWizardScreenState
               Center(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
-                  child: Text('주문 없음',
-                      style:
-                          AdminTheme.sans(color: AdminTheme.textTertiary)),
+                  child: Text(
+                    '주문 없음',
+                    style: AdminTheme.sans(color: AdminTheme.textTertiary),
+                  ),
                 ),
               )
             else
@@ -2235,12 +2521,13 @@ class _NaverTicketWizardScreenState
                 return Container(
                   margin: const EdgeInsets.only(bottom: 4),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: AdminTheme.card,
                     borderRadius: BorderRadius.circular(4),
-                    border:
-                        Border.all(color: AdminTheme.border, width: 0.5),
+                    border: Border.all(color: AdminTheme.border, width: 0.5),
                   ),
                   child: Row(
                     children: [
@@ -2253,8 +2540,10 @@ class _NaverTicketWizardScreenState
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Text('$name  ·  $grade $qty매',
-                            style: AdminTheme.sans(fontSize: 12)),
+                        child: Text(
+                          '$name  ·  $grade $qty매',
+                          style: AdminTheme.sans(fontSize: 12),
+                        ),
                       ),
                       _SmsBadgeInline(orderId: doc.id),
                       const SizedBox(width: 8),
@@ -2263,7 +2552,9 @@ class _NaverTicketWizardScreenState
                             ? DateFormat('MM.dd HH:mm').format(createdAt)
                             : '',
                         style: AdminTheme.sans(
-                            fontSize: 11, color: AdminTheme.textTertiary),
+                          fontSize: 11,
+                          color: AdminTheme.textTertiary,
+                        ),
                       ),
                     ],
                   ),
@@ -2306,8 +2597,8 @@ class _StepIndicator extends StatelessWidget {
                 color: isActive
                     ? AdminTheme.gold
                     : isDone
-                        ? AdminTheme.gold.withValues(alpha: 0.3)
-                        : AdminTheme.surface,
+                    ? AdminTheme.gold.withValues(alpha: 0.3)
+                    : AdminTheme.surface,
                 border: Border.all(
                   color: isActive || isDone
                       ? AdminTheme.gold
@@ -2422,13 +2713,15 @@ class ParsedSeatData {
 
     return ParsedSeatData(
       seats: result.seats
-          .map((s) => {
-                'block': s.zone,
-                'floor': s.floor,
-                'row': s.row,
-                'number': s.number,
-                'grade': s.grade,
-              })
+          .map(
+            (s) => {
+              'block': s.zone,
+              'floor': s.floor,
+              'row': s.row,
+              'number': s.number,
+              'grade': s.grade,
+            },
+          )
           .toList(),
       totalSeats: result.seats.length,
       gradeSummary: summary,
@@ -2437,13 +2730,15 @@ class ParsedSeatData {
 
   List<Map<String, String>> toSeatDataList() {
     return seats
-        .map((s) => {
-              'block': s['block']?.toString() ?? '',
-              'floor': s['floor']?.toString() ?? '1층',
-              'row': s['row']?.toString() ?? '',
-              'number': s['number']?.toString() ?? '',
-              'grade': s['grade']?.toString() ?? 'S',
-            })
+        .map(
+          (s) => {
+            'block': s['block']?.toString() ?? '',
+            'floor': s['floor']?.toString() ?? '1층',
+            'row': s['row']?.toString() ?? '',
+            'number': s['number']?.toString() ?? '',
+            'grade': s['grade']?.toString() ?? 'S',
+          },
+        )
         .toList();
   }
 }

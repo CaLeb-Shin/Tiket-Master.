@@ -9,16 +9,30 @@ final naverOrderRepositoryProvider = Provider<NaverOrderRepository>((ref) {
 /// 이벤트별 네이버 주문 스트림
 final naverOrdersStreamProvider =
     StreamProvider.family<List<NaverOrder>, String>((ref, eventId) {
-  final fs = ref.watch(firestoreServiceProvider);
-  return fs.naverOrders
-      .where('eventId', isEqualTo: eventId)
-      .snapshots()
-      .map((snap) {
+      final fs = ref.watch(firestoreServiceProvider);
+      return fs.naverOrders
+          .where('eventId', isEqualTo: eventId)
+          .snapshots()
+          .map((snap) {
+            final list = snap.docs
+                .map((d) => NaverOrder.fromFirestore(d))
+                .toList();
+            list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+            return list;
+          });
+    });
+
+final myLinkedNaverOrdersStreamProvider =
+    StreamProvider.family<List<NaverOrder>, String>((ref, userId) {
+      final fs = ref.watch(firestoreServiceProvider);
+      return fs.naverOrders.where('userId', isEqualTo: userId).snapshots().map((
+        snap,
+      ) {
         final list = snap.docs.map((d) => NaverOrder.fromFirestore(d)).toList();
         list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         return list;
       });
-});
+    });
 
 class NaverOrderRepository {
   final FirestoreService _fs;
@@ -50,6 +64,13 @@ class NaverOrderRepository {
     final doc = await _fs.naverOrders.doc(orderId).get();
     if (!doc.exists) return null;
     return NaverOrder.fromFirestore(doc);
+  }
+
+  Future<List<NaverOrder>> getOrdersByUser(String userId) async {
+    final snap = await _fs.naverOrders.where('userId', isEqualTo: userId).get();
+    final list = snap.docs.map((d) => NaverOrder.fromFirestore(d)).toList();
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
   }
 
   /// 주문 스트림

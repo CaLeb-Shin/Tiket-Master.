@@ -4,8 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
-final functionsServiceProvider =
-    Provider<FunctionsService>((ref) => FunctionsService());
+final functionsServiceProvider = Provider<FunctionsService>(
+  (ref) => FunctionsService(),
+);
 
 class FunctionsService {
   final FirebaseFunctions _functions = FirebaseFunctions.instance;
@@ -24,8 +25,7 @@ class FunctionsService {
       'quantity': quantity,
       if (preferredSeatIds != null && preferredSeatIds.isNotEmpty)
         'preferredSeatIds': preferredSeatIds,
-      if (discountPolicyName != null)
-        'discountPolicyName': discountPolicyName,
+      if (discountPolicyName != null) 'discountPolicyName': discountPolicyName,
       if (referralCode != null && referralCode.isNotEmpty)
         'referralCode': referralCode,
     });
@@ -37,9 +37,7 @@ class FunctionsService {
     required String orderId,
   }) async {
     final callable = _functions.httpsCallable('confirmPaymentAndAssignSeats');
-    final result = await callable.call({
-      'orderId': orderId,
-    });
+    final result = await callable.call({'orderId': orderId});
     return Map<String, dynamic>.from(result.data);
   }
 
@@ -48,20 +46,14 @@ class FunctionsService {
     required String eventId,
   }) async {
     final callable = _functions.httpsCallable('revealSeatsForEvent');
-    final result = await callable.call({
-      'eventId': eventId,
-    });
+    final result = await callable.call({'eventId': eventId});
     return Map<String, dynamic>.from(result.data);
   }
 
   /// QR 토큰 발급
-  Future<Map<String, dynamic>> issueQrToken({
-    required String ticketId,
-  }) async {
+  Future<Map<String, dynamic>> issueQrToken({required String ticketId}) async {
     final callable = _functions.httpsCallable('issueQrToken');
-    final result = await callable.call({
-      'ticketId': ticketId,
-    });
+    final result = await callable.call({'ticketId': ticketId});
     return Map<String, dynamic>.from(result.data);
   }
 
@@ -119,9 +111,7 @@ class FunctionsService {
     required String ticketId,
   }) async {
     final callable = _functions.httpsCallable('requestTicketCancellation');
-    final result = await callable.call({
-      'ticketId': ticketId,
-    });
+    final result = await callable.call({'ticketId': ticketId});
     return Map<String, dynamic>.from(result.data);
   }
 
@@ -130,9 +120,7 @@ class FunctionsService {
     required String ticketId,
   }) async {
     final callable = _functions.httpsCallable('upgradeTicketSeat');
-    final result = await callable.call({
-      'ticketId': ticketId,
-    });
+    final result = await callable.call({'ticketId': ticketId});
     return Map<String, dynamic>.from(result.data);
   }
 
@@ -141,9 +129,7 @@ class FunctionsService {
     required String orderId,
   }) async {
     final callable = _functions.httpsCallable('issueGroupQrToken');
-    final result = await callable.call({
-      'orderId': orderId,
-    });
+    final result = await callable.call({'orderId': orderId});
     return Map<String, dynamic>.from(result.data);
   }
 
@@ -183,8 +169,19 @@ class FunctionsService {
     required String orderId,
   }) async {
     final callable = _functions.httpsCallable('cancelNaverOrder');
+    final result = await callable.call({'orderId': orderId});
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 로그인한 사용자 계정에 네이버 주문 연결
+  Future<Map<String, dynamic>> claimNaverOrder({
+    required String naverOrderId,
+    required String buyerPhone,
+  }) async {
+    final callable = _functions.httpsCallable('claimNaverOrder');
     final result = await callable.call({
-      'orderId': orderId,
+      'naverOrderId': naverOrderId,
+      'buyerPhone': buyerPhone,
     });
     return Map<String, dynamic>.from(result.data);
   }
@@ -207,9 +204,7 @@ class FunctionsService {
     required String accessToken,
   }) async {
     final callable = _functions.httpsCallable('getMobileTicketByToken');
-    final result = await callable.call({
-      'accessToken': accessToken,
-    });
+    final result = await callable.call({'accessToken': accessToken});
     return Map<String, dynamic>.from(result.data);
   }
 
@@ -226,10 +221,8 @@ class FunctionsService {
     return Map<String, dynamic>.from(result.data);
   }
 
-  /// 좌석 즉시 공개 (revealAt → now)
-  Future<Map<String, dynamic>> revealSeatsNow({
-    required String eventId,
-  }) async {
+  /// 좌석/QR 즉시 공개 (revealAt → now)
+  Future<Map<String, dynamic>> revealSeatsNow({required String eventId}) async {
     final callable = _functions.httpsCallable('revealSeatsNow');
     final result = await callable.call({'eventId': eventId});
     return Map<String, dynamic>.from(result.data);
@@ -250,10 +243,13 @@ class FunctionsService {
 
   /// HTTP CF 호출 (onRequest 엔드포인트용, Firebase Auth 토큰 사용)
   Future<Map<String, dynamic>> callHttpFunction(
-      String functionName, Map<String, dynamic> body) async {
+    String functionName,
+    Map<String, dynamic> body,
+  ) async {
     final token = await FirebaseAuth.instance.currentUser?.getIdToken();
     final uri = Uri.parse(
-        'https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net/$functionName');
+      'https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net/$functionName',
+    );
     final response = await http.post(
       uri,
       headers: {

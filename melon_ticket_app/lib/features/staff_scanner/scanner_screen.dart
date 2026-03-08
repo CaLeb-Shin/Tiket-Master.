@@ -29,6 +29,38 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   String _scannerDeviceLabel = '';
   String? _deviceStatusMessage;
 
+  bool get _isIntermissionStage => _checkinStage == 'intermission';
+
+  String get _stageHeadline => _isIntermissionStage ? '인터미션 확인' : '1차 입장';
+
+  String get _stageInstruction =>
+      _isIntermissionStage ? '재입장 처리 시에만 QR을 스캔하세요' : '입장용 QR을 영역 안에 맞춰주세요';
+
+  String get _stageModeDescription => _isIntermissionStage
+      ? '기본은 티켓 화면 확인, 필요 시만 재입장 QR 스캔'
+      : 'QR 스캔으로 1차 입장을 처리합니다';
+
+  String _resultTitleForResponse(bool success, Map<String, dynamic> result) {
+    final providedTitle = (result['title'] as String?)?.trim();
+    if (providedTitle != null && providedTitle.isNotEmpty) {
+      return providedTitle;
+    }
+    if (success) {
+      return '입장 확인';
+    }
+
+    return switch (result['result'] as String?) {
+      'beforeReveal' => '공개 전',
+      'cancelled' || 'canceled' => '취소됨',
+      'alreadyUsed' => _isIntermissionStage ? '사용 완료' : '입장 완료',
+      'missingEntryCheckin' => '1차 입장 필요',
+      'notAllowedDevice' => '승인되지 않은 기기',
+      'expired' => 'QR 만료',
+      'invalidSignature' || 'invalidTicket' => '잘못된 QR',
+      _ => '입장 불가',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -61,7 +93,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       final label = scannerDeviceService.defaultLabel();
       final platform = scannerDeviceService.platformName();
 
-      final result = await ref.read(functionsServiceProvider).registerScannerDevice(
+      final result = await ref
+          .read(functionsServiceProvider)
+          .registerScannerDevice(
             deviceId: deviceId,
             label: label,
             platform: platform,
@@ -80,8 +114,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         _deviceStatusMessage = blocked
             ? '차단된 기기입니다. 관리자에게 해제를 요청하세요.'
             : approved
-                ? '승인된 기기'
-                : (message ?? '승인 대기 중입니다.');
+            ? '승인된 기기'
+            : (message ?? '승인 대기 중입니다.');
       });
 
       if (!approved || blocked) {
@@ -101,9 +135,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         setState(() => _isDeviceLoading = false);
       }
       if (!silent && mounted && _deviceStatusMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_deviceStatusMessage!)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_deviceStatusMessage!)));
       }
     }
   }
@@ -180,7 +214,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       setState(() {
         _lastResult = _ScanResultData(
           isSuccess: success,
-          title: success ? (result['title'] as String? ?? '입장 확인') : '입장 불가',
+          title: _resultTitleForResponse(success, result),
           message: message,
           seatInfo: seatInfo,
         );
@@ -245,7 +279,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
           style: AppTheme.nanum(color: AppTheme.textPrimary, fontSize: 13),
           decoration: InputDecoration(
             hintText: '티켓 QR 데이터를 붙여넣으세요',
-            hintStyle: AppTheme.nanum(color: AppTheme.textTertiary, fontSize: 13),
+            hintStyle: AppTheme.nanum(
+              color: AppTheme.textTertiary,
+              fontSize: 13,
+            ),
             filled: true,
             fillColor: AppTheme.background,
             border: OutlineInputBorder(
@@ -265,11 +302,20 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('취소', style: AppTheme.nanum(color: AppTheme.textSecondary)),
+            child: Text(
+              '취소',
+              style: AppTheme.nanum(color: AppTheme.textSecondary),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, textController.text),
-            child: Text('확인', style: AppTheme.nanum(color: AppTheme.gold, fontWeight: FontWeight.w700)),
+            child: Text(
+              '확인',
+              style: AppTheme.nanum(
+                color: AppTheme.gold,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
@@ -335,9 +381,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       ),
       decoration: const BoxDecoration(
         color: AppTheme.surface,
-        border: Border(
-          bottom: BorderSide(color: AppTheme.border, width: 0.5),
-        ),
+        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -536,8 +580,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                 ),
               ),
             ],
@@ -573,7 +619,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   // ──────────────────────────────────────────────
 
   Widget _buildInstructionBadge() {
-    final stageLabel = _checkinStage == 'intermission' ? '2차(인터미션)' : '1차(초기입장)';
     return Positioned(
       top: 24,
       left: 0,
@@ -584,26 +629,23 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
           decoration: BoxDecoration(
             color: const Color(0xCC0B0B0F),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: AppTheme.goldSubtle,
-              width: 0.5,
-            ),
+            border: Border.all(color: AppTheme.goldSubtle, width: 0.5),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.qr_code_rounded,
-                color: AppTheme.gold,
-                size: 16,
-              ),
+              const Icon(Icons.qr_code_rounded, color: AppTheme.gold, size: 16),
               const SizedBox(width: 8),
-              Text(
-                '$stageLabel QR을 영역 안에 맞춰주세요',
-                style: AppTheme.nanum(
-                  color: AppTheme.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+              Flexible(
+                child: Text(
+                  '$_stageHeadline · $_stageInstruction',
+                  style: AppTheme.nanum(
+                    color: AppTheme.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -659,12 +701,11 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     final title = _isDeviceLoading
         ? '스캐너 기기 확인 중'
         : _isDeviceBlocked
-            ? '기기 사용이 차단되었습니다'
-            : '승인 대기 중인 스캐너';
+        ? '기기 사용이 차단되었습니다'
+        : '승인 대기 중인 스캐너';
     final description = _isDeviceLoading
         ? '잠시만 기다려주세요.'
-        : (_deviceStatusMessage ??
-            '관리자 승인 후 스캔이 활성화됩니다. 승인 요청은 자동으로 접수됩니다.');
+        : (_deviceStatusMessage ?? '관리자 승인 후 스캔이 활성화됩니다. 승인 요청은 자동으로 접수됩니다.');
 
     return Container(
       color: const Color(0xCC0B0B0F),
@@ -684,8 +725,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                 _isDeviceLoading
                     ? Icons.hourglass_top_rounded
                     : (_isDeviceBlocked
-                        ? Icons.block_rounded
-                        : Icons.admin_panel_settings_rounded),
+                          ? Icons.block_rounded
+                          : Icons.admin_panel_settings_rounded),
                 color: _isDeviceBlocked ? AppTheme.error : AppTheme.gold,
                 size: 34,
               ),
@@ -820,7 +861,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 12),
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.cardElevated,
                       borderRadius: BorderRadius.circular(12),
@@ -905,8 +948,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     final statusColor = _isProcessing
         ? AppTheme.gold
         : (_lastResult != null
-            ? (_lastResult!.isSuccess ? AppTheme.success : AppTheme.error)
-            : (_isDeviceApproved ? AppTheme.success : AppTheme.warning));
+              ? (_lastResult!.isSuccess ? AppTheme.success : AppTheme.error)
+              : (_isDeviceApproved ? AppTheme.success : AppTheme.warning));
 
     return Container(
       padding: EdgeInsets.only(
@@ -917,9 +960,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       ),
       decoration: const BoxDecoration(
         color: AppTheme.surface,
-        border: Border(
-          top: BorderSide(color: AppTheme.border, width: 0.5),
-        ),
+        border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -945,7 +986,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '티켓 QR을 스캔하세요',
+                      '$_stageHeadline 스캔',
                       style: AppTheme.nanum(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -954,9 +995,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _checkinStage == 'intermission'
-                          ? '인터미션 재입장 체크 모드'
-                          : '초기 입장 체크 모드',
+                      _stageModeDescription,
                       style: AppTheme.nanum(
                         fontSize: 12,
                         color: AppTheme.textTertiary,
@@ -972,10 +1011,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                   color: statusColor,
                   shape: BoxShape.circle,
                   boxShadow: [
-                    BoxShadow(
-                      color: statusColor.withAlpha(100),
-                      blurRadius: 8,
-                    ),
+                    BoxShadow(color: statusColor.withAlpha(100), blurRadius: 8),
                   ],
                 ),
               ),
@@ -990,22 +1026,34 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                   segments: const [
                     ButtonSegment<String>(value: 'entry', label: Text('1차 입장')),
                     ButtonSegment<String>(
-                        value: 'intermission', label: Text('인터미션')),
+                      value: 'intermission',
+                      label: Text('인터미션 확인'),
+                    ),
                   ],
                   selected: {_checkinStage},
                   onSelectionChanged: (value) {
-                    setState(() => _checkinStage = value.first);
+                    final nextStage = value.first;
+                    setState(() => _checkinStage = nextStage);
+                    if (nextStage == 'intermission') {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '인터미션은 기본적으로 티켓 화면 확인만 하고, 재입장 처리 시에만 QR을 스캔하세요.',
+                            style: AppTheme.nanum(fontSize: 13),
+                          ),
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    }
                   },
                   style: ButtonStyle(
-                    backgroundColor:
-                        WidgetStateProperty.resolveWith((states) {
+                    backgroundColor: WidgetStateProperty.resolveWith((states) {
                       if (states.contains(WidgetState.selected)) {
                         return AppTheme.goldSubtle;
                       }
                       return AppTheme.card;
                     }),
-                    foregroundColor:
-                        WidgetStateProperty.resolveWith((states) {
+                    foregroundColor: WidgetStateProperty.resolveWith((states) {
                       if (states.contains(WidgetState.selected)) {
                         return AppTheme.gold;
                       }
@@ -1044,6 +1092,43 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppTheme.card,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.border, width: 0.8),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  _isIntermissionStage
+                      ? Icons.visibility_rounded
+                      : Icons.qr_code_scanner_rounded,
+                  size: 16,
+                  color: _isIntermissionStage
+                      ? AppTheme.gold
+                      : AppTheme.textSecondary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _isIntermissionStage
+                        ? '인터미션은 화면 확인이 기본입니다. 재입장 기록이 필요할 때만 QR을 스캔하세요.'
+                        : '1차 입장은 QR 스캔으로 기록되며, 승인된 기기에서만 처리됩니다.',
+                    style: AppTheme.nanum(
+                      fontSize: 11,
+                      color: AppTheme.textSecondary,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           if (_scannerDeviceId != null) ...[
             const SizedBox(height: 8),
             Align(
@@ -1056,8 +1141,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                   color: _isDeviceBlocked
                       ? AppTheme.error
                       : (_isDeviceApproved
-                          ? AppTheme.success
-                          : AppTheme.warning),
+                            ? AppTheme.success
+                            : AppTheme.warning),
                 ),
               ),
             ),
@@ -1094,10 +1179,7 @@ class _ViewfinderPainter extends CustomPainter {
   final Color cornerColor;
   final Color borderColor;
 
-  _ViewfinderPainter({
-    required this.cornerColor,
-    required this.borderColor,
-  });
+  _ViewfinderPainter({required this.cornerColor, required this.borderColor});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1126,16 +1208,48 @@ class _ViewfinderPainter extends CustomPainter {
 
     // Top-left corner
     _drawCorner(
-        canvas, cornerPaint, 0, 0, cornerLength, cornerRadius, true, true);
+      canvas,
+      cornerPaint,
+      0,
+      0,
+      cornerLength,
+      cornerRadius,
+      true,
+      true,
+    );
     // Top-right corner
-    _drawCorner(canvas, cornerPaint, size.width, 0, cornerLength, cornerRadius,
-        false, true);
+    _drawCorner(
+      canvas,
+      cornerPaint,
+      size.width,
+      0,
+      cornerLength,
+      cornerRadius,
+      false,
+      true,
+    );
     // Bottom-left corner
-    _drawCorner(canvas, cornerPaint, 0, size.height, cornerLength, cornerRadius,
-        true, false);
+    _drawCorner(
+      canvas,
+      cornerPaint,
+      0,
+      size.height,
+      cornerLength,
+      cornerRadius,
+      true,
+      false,
+    );
     // Bottom-right corner
-    _drawCorner(canvas, cornerPaint, size.width, size.height, cornerLength,
-        cornerRadius, false, false);
+    _drawCorner(
+      canvas,
+      cornerPaint,
+      size.width,
+      size.height,
+      cornerLength,
+      cornerRadius,
+      false,
+      false,
+    );
   }
 
   void _drawCorner(
