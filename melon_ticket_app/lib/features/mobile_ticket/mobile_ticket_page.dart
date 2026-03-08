@@ -1319,8 +1319,8 @@ class _GroupTicketOverview extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
-                      width: 88,
-                      height: 120,
+                      width: 110,
+                      height: 150,
                       color: _creamDark,
                       child: imageUrl != null && imageUrl!.isNotEmpty
                           ? Image.network(
@@ -1407,7 +1407,7 @@ class _GroupTicketOverview extends StatelessWidget {
               style: AppTheme.nanum(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: _burgundy,
+                color: _cream,
                 noShadow: true,
               ),
             ),
@@ -1416,7 +1416,7 @@ class _GroupTicketOverview extends StatelessWidget {
               '전달이 필요한 티켓은 여기서 먼저 정리하고, 상세 티켓에서 QR과 좌석을 확인합니다.',
               style: AppTheme.nanum(
                 fontSize: 12,
-                color: _burgundy.withValues(alpha: 0.74),
+                color: _cream.withValues(alpha: 0.7),
                 height: 1.55,
                 noShadow: true,
               ),
@@ -1533,16 +1533,32 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            displayName,
-                            style: AppTheme.serif(
-                              fontSize: 24,
-                              color: _burgundy,
-                              noShadow: true,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        Flexible(
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  displayName,
+                                  style: AppTheme.serif(
+                                    fontSize: 24,
+                                    color: _burgundy,
+                                    noShadow: true,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '예매자',
+                                style: AppTheme.nanum(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: _burgundy.withValues(alpha: 0.5),
+                                  noShadow: true,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1569,17 +1585,6 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      recipientName != null && recipientName.isNotEmpty
-                          ? '받는 분 · 예매자 $buyerName'
-                          : '예매자',
-                      style: AppTheme.nanum(
-                        fontSize: 12,
-                        color: _burgundy.withValues(alpha: 0.64),
-                        noShadow: true,
-                      ),
                     ),
                   ],
                 ),
