@@ -12,6 +12,10 @@ Started: 2026-02-21
 - **러너 로그 관리** (`scripts/ralph/state/ralph-runner.log`):
   - 텔레그램으로 시작한 작업은 별도 로그 파일에 누적
   - `runstatus` 응답에서 로그 위치까지 같이 안내
+- **진행 알림 자동화**:
+  - PRD 한 건이 완료되면 최신 progress 섹션을 감지해 텔레그램으로 자동 요약 전송
+  - 작업이 오래 걸리면 heartbeat로 `최근 완료 / 다음 대상 / 남은 PRD` 상태를 자동 전송
+  - 워커가 완료, 중지, 반복 한도 도달로 종료될 때 종료 상태도 자동 전송
 - **중지 안정성 보강**:
   - Ralph 시작 시 `exec ./scripts/ralph/ralph.sh ...` 형태로 실행해 워커 PID와 실제 실행 프로세스가 일치하도록 정리
   - `stop` 명령으로 러너를 내릴 때 중지 대상이 분명해지도록 수정
@@ -685,4 +689,37 @@ Started: 2026-02-21
   - 버건디 배경 위에서 0.5 이하 alpha는 거의 보이지 않는다 — 최소 0.7 이상이 필요하다
   - CTA 버튼은 elevation + shadow로 터치 가능 영역을 시각적으로 구분하는 편이 효과적이다
   - 비활성 버튼은 disabled 색상을 명시적으로 분기해야 활성/비활성 구분이 명확해진다
+---
+
+## 2026-03-08 - MT-077 (공개 모바일 티켓 비주얼 시스템 고급화)
+- **영문 장식 라벨 → 한국어 전환**:
+  - `SMART TICKET` → `스마트 티켓`
+  - `GROUP TICKETS` → `그룹 티켓`
+  - `PROGRAMME` → `프로그램`
+  - `ETKT #N` → `티켓 #N` (허브 + 공유 이미지)
+  - `MELON TICKET` → `멜론티켓` (공유 이미지)
+  - `본인 확인 정보` 라벨 스타일: DM Sans → AppTheme.nanum
+  - `인스타 업로드용 4:5 이미지` → `멜론티켓 · 공유용 이미지`
+- **타이포 위계 통일**:
+  - 이름 표시: 허브/앞면/공유 이미지 모두 `AppTheme.serif()` 통일
+  - 라벨: `_InfoField`, `_InfoFieldCenter` 모두 `AppTheme.nanum()` 통일
+  - 상태 텍스트: `GoogleFonts.inter` → `AppTheme.nanum(noShadow: true)`
+  - 등급 배지: `GoogleFonts.inter` → `AppTheme.nanum(noShadow: true)`
+  - 전화번호/주문번호: `GoogleFonts.dmSans` → `AppTheme.nanum(noShadow: true)`
+  - 갤러리 카운터: `GoogleFonts.dmSans` → `AppTheme.nanum`
+  - 남은 GoogleFonts: `robotoMono`만 (카운트다운/QR 토큰 — 모노스페이스 필수)
+- **액션 바 대비 강화**:
+  - 아이콘: alpha 0.7→0.85, 라벨: alpha 0.6→0.78
+  - 컨테이너/구분선: alpha 0.06→0.10 / 0.08→0.12
+- **안내 텍스트 가독성**:
+  - 하단 안내 노트: alpha 0.3→0.5
+  - 스와이프 힌트: alpha 0.4→0.65
+- Files changed:
+  - `melon_ticket_app/lib/features/mobile_ticket/mobile_ticket_page.dart`
+- Verification:
+  - `flutter analyze --no-fatal-infos`: 에러 없음, 기존 info lint만 유지
+- **Learnings for future iterations:**
+  - 한국어 서비스에서 영문 장식 라벨은 정보 위계를 흐리게 한다 — 한국어 라벨이 더 명확하다
+  - `AppTheme.serif()`와 `AppTheme.nanum()`으로 통일하면 폰트 로딩 최적화에도 유리하다
+  - 크림 배경 위에서는 `noShadow: true` 필수 — 그림자가 기본 포함되면 텍스트가 번져 보인다
 ---
