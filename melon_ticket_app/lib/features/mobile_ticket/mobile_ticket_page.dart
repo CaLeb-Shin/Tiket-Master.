@@ -1079,9 +1079,9 @@ class _TicketViewState extends ConsumerState<_TicketView>
             // ── 액션 버튼 (카드 밖) ──
             Container(
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
+                color: Colors.white.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
               ),
               child: Row(
                 children: [
@@ -1091,7 +1091,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
                       Container(
                         width: 1,
                         height: 36,
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: Colors.white.withValues(alpha: 0.12),
                       ),
                   ],
                 ],
@@ -1140,7 +1140,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
               textAlign: TextAlign.center,
               style: AppTheme.nanum(
                 fontSize: 11,
-                color: Colors.white.withValues(alpha: 0.3),
+                color: Colors.white.withValues(alpha: 0.5),
                 height: 1.6,
               ),
             ),
@@ -1210,11 +1210,10 @@ class _GroupTicketHeader extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 '${current + 1} / $total',
-                style: GoogleFonts.dmSans(
+                style: AppTheme.nanum(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: _cream,
-                  letterSpacing: 2,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1242,7 +1241,7 @@ class _GroupTicketHeader extends StatelessWidget {
             '← 옆으로 넘겨서 다른 티켓 확인  ${total}매(${current + 1}/$total) →',
             style: AppTheme.nanum(
               fontSize: 11,
-              color: _cream.withValues(alpha: 0.4),
+              color: _cream.withValues(alpha: 0.65),
               noShadow: true,
             ),
           ),
@@ -1312,12 +1311,12 @@ class _GroupTicketOverview extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    'GROUP TICKETS',
-                    style: GoogleFonts.dmSans(
-                      fontSize: 11,
+                    '그룹 티켓',
+                    style: AppTheme.nanum(
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
                       color: _cream,
-                      letterSpacing: 2.4,
+                      letterSpacing: 1.2,
                     ),
                   ),
                 ),
@@ -1556,7 +1555,7 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Text(
                   '${index + 1}',
-                  style: GoogleFonts.dmSans(
+                  style: AppTheme.nanum(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.gold,
@@ -1573,7 +1572,7 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             displayName,
-                            style: GoogleFonts.dmSerifDisplay(
+                            style: AppTheme.serif(
                               fontSize: 24,
                               color: _cream,
                             ),
@@ -1655,12 +1654,11 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                       ),
                     const Spacer(),
                     Text(
-                      'ETKT #$entryNumber',
-                      style: GoogleFonts.dmSans(
+                      '티켓 #$entryNumber',
+                      style: AppTheme.nanum(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: _cream.withValues(alpha: 0.75),
-                        letterSpacing: 1.1,
                       ),
                     ),
                   ],
@@ -1897,12 +1895,12 @@ class _SharePosterImage extends StatelessWidget {
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          'MELON TICKET',
-                          style: GoogleFonts.dmSans(
-                            fontSize: 10,
+                          '멜론티켓',
+                          style: AppTheme.nanum(
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: _cream,
-                            letterSpacing: 2,
+                            letterSpacing: 1,
                           ),
                         ),
                       ),
@@ -1972,12 +1970,12 @@ class _SharePosterImage extends StatelessWidget {
                                         ),
                                       const Spacer(),
                                       Text(
-                                        '#$entryNumber',
-                                        style: GoogleFonts.dmSans(
+                                        '티켓 #$entryNumber',
+                                        style: AppTheme.nanum(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w700,
                                           color: _textLight,
-                                          letterSpacing: 1.1,
+                                          noShadow: true,
                                         ),
                                       ),
                                     ],
@@ -1985,7 +1983,7 @@ class _SharePosterImage extends StatelessWidget {
                                   const SizedBox(height: 12),
                                   Text(
                                     holderName,
-                                    style: GoogleFonts.dmSerifDisplay(
+                                    style: AppTheme.serif(
                                       fontSize: 30,
                                       color: _burgundy,
                                       height: 0.95,
@@ -2030,7 +2028,7 @@ class _SharePosterImage extends StatelessWidget {
                                     ),
                                   const Spacer(),
                                   Text(
-                                    '인스타 업로드용 4:5 이미지',
+                                    '멜론티켓 · 공유용 이미지',
                                     style: AppTheme.nanum(
                                       fontSize: 10,
                                       color: _textLight,
@@ -2349,9 +2347,8 @@ class _FrontCard extends StatelessWidget {
                                   const SizedBox(height: 8),
                                   Text(
                                     holderName,
-                                    style: GoogleFonts.dmSerifDisplay(
+                                    style: AppTheme.serif(
                                       fontSize: 30,
-                                      fontWeight: FontWeight.w400,
                                       color: _burgundy,
                                       height: 0.98,
                                     ),
@@ -2396,11 +2393,11 @@ class _FrontCard extends StatelessWidget {
                                 ),
                                 child: Text(
                                   '${seatGrade}석',
-                                  style: GoogleFonts.inter(
+                                  style: AppTheme.nanum(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w800,
                                     color: Colors.white,
-                                    letterSpacing: 1,
+                                    noShadow: true,
                                   ),
                                 ),
                               ),
@@ -2665,25 +2662,26 @@ class _BackCardState extends State<_BackCard>
                           Icon(
                             Icons.auto_stories_rounded,
                             size: 14,
-                            color: _textLight,
+                            color: _textMid,
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            'PROGRAMME',
-                            style: GoogleFonts.dmSans(
-                              fontSize: 10,
+                            '프로그램',
+                            style: AppTheme.nanum(
+                              fontSize: 12,
                               fontWeight: FontWeight.w700,
-                              color: _textLight,
-                              letterSpacing: 2,
+                              color: _textMid,
+                              noShadow: true,
                             ),
                           ),
                           const Spacer(),
                           Text(
-                            '${widget.pamphletUrls.length}p',
-                            style: GoogleFonts.dmSans(
-                              fontSize: 10,
+                            '${widget.pamphletUrls.length}장',
+                            style: AppTheme.nanum(
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: _textLight,
+                              noShadow: true,
                             ),
                           ),
                         ],
@@ -2738,11 +2736,11 @@ class _BackCardState extends State<_BackCard>
                             children: [
                               Text(
                                 '본인 확인 정보',
-                                style: GoogleFonts.dmSans(
-                                  fontSize: 10,
+                                style: AppTheme.nanum(
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: _textLight,
-                                  letterSpacing: 1.8,
+                                  color: _textMid,
+                                  noShadow: true,
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -2758,7 +2756,7 @@ class _BackCardState extends State<_BackCard>
                                         children: [
                                           Text(
                                             widget.buyerName,
-                                            style: GoogleFonts.dmSerifDisplay(
+                                            style: AppTheme.serif(
                                               fontSize: 18,
                                               color: _textDark,
                                             ),
@@ -2770,11 +2768,11 @@ class _BackCardState extends State<_BackCard>
                                               ),
                                               child: Text(
                                                 widget.buyerPhoneMasked!,
-                                                style: GoogleFonts.dmSans(
+                                                style: AppTheme.nanum(
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.w600,
                                                   color: _textMid,
-                                                  letterSpacing: 0.4,
+                                                  noShadow: true,
                                                 ),
                                               ),
                                             ),
@@ -2794,7 +2792,7 @@ class _BackCardState extends State<_BackCard>
                                       valueStyle:
                                           widget.recipientName != null &&
                                               widget.recipientName!.isNotEmpty
-                                          ? GoogleFonts.dmSerifDisplay(
+                                          ? AppTheme.serif(
                                               fontSize: 18,
                                               color: _textDark,
                                             )
@@ -2820,11 +2818,11 @@ class _BackCardState extends State<_BackCard>
                                               widget.naverOrderId!.isNotEmpty
                                           ? widget.naverOrderId!
                                           : '-',
-                                      valueStyle: GoogleFonts.dmSans(
+                                      valueStyle: AppTheme.nanum(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                         color: _textMid,
-                                        letterSpacing: 0.3,
+                                        noShadow: true,
                                       ),
                                     ),
                                   ),
@@ -2833,10 +2831,11 @@ class _BackCardState extends State<_BackCard>
                                     child: _InfoField(
                                       label: '티켓번호',
                                       value: '#${widget.entryNumber}',
-                                      valueStyle: GoogleFonts.inter(
+                                      valueStyle: AppTheme.nanum(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w800,
                                         color: _textDark,
+                                        noShadow: true,
                                       ),
                                     ),
                                   ),
@@ -2940,16 +2939,16 @@ class _SmartTicketHeader extends StatelessWidget {
           Icon(
             Icons.confirmation_number_rounded,
             size: 14,
-            color: AppTheme.gold.withValues(alpha: 0.8),
+            color: AppTheme.gold,
           ),
           const SizedBox(width: 8),
           Text(
-            'SMART TICKET',
-            style: GoogleFonts.dmSans(
-              fontSize: 11,
+            '스마트 티켓',
+            style: AppTheme.nanum(
+              fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: _cream.withValues(alpha: 0.9),
-              letterSpacing: 4,
+              color: _cream,
+              letterSpacing: 1.2,
             ),
           ),
           const Spacer(),
@@ -3201,20 +3200,22 @@ class _LiveStatusInCardState extends State<_LiveStatusInCard>
     if (widget.isCancelled) {
       return Text(
         '취소됨',
-        style: GoogleFonts.inter(
+        style: AppTheme.nanum(
           fontSize: 15,
           fontWeight: FontWeight.w800,
           color: const Color(0xFFFF5A5F),
+          noShadow: true,
         ),
       );
     }
     if (widget.isUsed) {
       return Text(
         '사용 완료',
-        style: GoogleFonts.inter(
+        style: AppTheme.nanum(
           fontSize: 15,
           fontWeight: FontWeight.w800,
           color: const Color(0xFF22C55E),
+          noShadow: true,
         ),
       );
     }
@@ -3281,11 +3282,11 @@ class _LiveStatusInCardState extends State<_LiveStatusInCard>
             const SizedBox(width: 5),
             Text(
               labelText,
-              style: GoogleFonts.inter(
-                fontSize: 11,
+              style: AppTheme.nanum(
+                fontSize: 12,
                 fontWeight: FontWeight.w800,
                 color: dotColor,
-                letterSpacing: 1.5,
+                noShadow: true,
               ),
             ),
             if (_status == _LiveTicketState.beforeReveal &&
@@ -3398,11 +3399,11 @@ class _InfoField extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.inter(
-              fontSize: 10,
+            style: AppTheme.nanum(
+              fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: _textLight,
-              letterSpacing: 0.5,
+              color: _textMid,
+              noShadow: true,
             ),
           ),
           const SizedBox(height: 3),
@@ -3441,11 +3442,11 @@ class _InfoFieldCenter extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
-            fontSize: 10,
+          style: AppTheme.nanum(
+            fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: _textLight,
-            letterSpacing: 0.5,
+            color: _textMid,
+            noShadow: true,
           ),
         ),
         const SizedBox(height: 3),
@@ -3889,13 +3890,13 @@ class _ActionButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: Colors.white.withValues(alpha: 0.7)),
+            Icon(icon, size: 20, color: Colors.white.withValues(alpha: 0.85)),
             const SizedBox(height: 4),
             Text(
               label,
               style: AppTheme.nanum(
                 fontSize: 11,
-                color: Colors.white.withValues(alpha: 0.6),
+                color: Colors.white.withValues(alpha: 0.78),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -4064,10 +4065,11 @@ class _PamphletFullscreenState extends State<_PamphletFullscreen> {
                     ),
                     child: Text(
                       '${_current + 1} / ${widget.urls.length}',
-                      style: GoogleFonts.dmSans(
+                      style: AppTheme.nanum(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
+                        noShadow: true,
                       ),
                     ),
                   ),
