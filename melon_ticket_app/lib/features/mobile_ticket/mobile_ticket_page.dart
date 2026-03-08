@@ -30,6 +30,7 @@ const _textMid = Color(0xFF78716C);
 const _textLight = Color(0xFFB8B2AA);
 const _divider = Color(0xFFE7E0D8);
 const _naverGreen = Color(0xFF03C75A);
+const _ticketAccent = Color(0xFFD4A574);
 const _defaultRevealLeadTime = Duration(hours: 2);
 
 DateTime? _parseEventDateTime(dynamic raw) => switch (raw) {
@@ -124,17 +125,50 @@ Widget _desktopShowcase(Widget child) {
       if (constraints.maxWidth <= _desktopBreakpoint) return child;
       return Container(
         decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0, -0.3),
-            radius: 1.2,
-            colors: [Color(0xFF2A0A0E), _burgundyDeep, Color(0xFF0A0305)],
+          gradient: LinearGradient(
+            colors: [_cream, Color(0xFFF5F0EB), Color(0xFFEFE7E1)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
         ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _desktopMaxWidth),
-            child: child,
-          ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned(
+              top: 56,
+              left: -120,
+              child: IgnorePointer(
+                child: Container(
+                  width: 320,
+                  height: 320,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _burgundy.withValues(alpha: 0.06),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 96,
+              right: -80,
+              child: IgnorePointer(
+                child: Container(
+                  width: 260,
+                  height: 260,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.goldLight.withValues(alpha: 0.10),
+                  ),
+                ),
+              ),
+            ),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: _desktopMaxWidth),
+                child: child,
+              ),
+            ),
+          ],
         ),
       );
     },
@@ -287,96 +321,17 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
     required String venueName,
     required String accessToken,
   }) async {
-    final nameController = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1917),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          '티켓 전달',
-          style: AppTheme.nanum(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: _cream,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '받는 분의 이름을 입력하면\n티켓에 이름이 표시됩니다.',
-              style: AppTheme.nanum(
-                fontSize: 13,
-                color: _textLight,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: nameController,
-              autofocus: true,
-              maxLength: 20,
-              style: AppTheme.nanum(fontSize: 16, color: _cream),
-              decoration: InputDecoration(
-                hintText: '받는 분 이름',
-                hintStyle: AppTheme.nanum(fontSize: 14, color: _textMid),
-                filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.08),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-                counterStyle: AppTheme.nanum(fontSize: 10, color: _textMid),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              '취소',
-              style: AppTheme.nanum(fontSize: 14, color: _textMid),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              final name = nameController.text.trim();
-              Navigator.pop(ctx, name.isEmpty ? null : name);
-            },
-            child: Text(
-              '전달하기',
-              style: AppTheme.nanum(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.gold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    nameController.dispose();
-
-    if (result == null || !mounted) return;
-
-    try {
-      await ref
-          .read(functionsServiceProvider)
-          .setRecipientName(accessToken: accessToken, recipientName: result);
-      _updateRecipientName(accessToken: accessToken, recipientName: result);
-    } catch (_) {
-      // Silent fail — name will still appear when shared.
-    }
-
+    // 이름 입력 없이 바로 공유 (예매자 이름 그대로 사용)
     final url = '$_ticketBaseUrl$accessToken';
     if (!mounted) return;
+
+    final ticket = _ticketData?['ticket'] as Map<String, dynamic>? ?? {};
+    final buyerName = ticket['buyerName'] as String? ?? '';
+
     Share.share(
       _buildTransferShareMessage(
         eventTitle: eventTitle,
-        recipientName: result,
+        recipientName: buyerName,
         startAt: startAt,
         venueName: venueName,
         url: url,
@@ -407,20 +362,24 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: _burgundyDeep,
+        backgroundColor: _cream,
         body: _desktopShowcase(
           Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const CircularProgressIndicator(
-                  color: AppTheme.gold,
+                  color: _burgundy,
                   strokeWidth: 2,
                 ),
                 const SizedBox(height: 16),
                 Text(
                   '티켓 불러오는 중...',
-                  style: AppTheme.nanum(fontSize: 13, color: _textLight),
+                  style: AppTheme.nanum(
+                    fontSize: 13,
+                    color: _burgundy.withValues(alpha: 0.74),
+                    noShadow: true,
+                  ),
                 ),
               ],
             ),
@@ -431,53 +390,58 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
 
     if (_errorText != null || _ticketData == null) {
       return Scaffold(
-        backgroundColor: _burgundyDeep,
+        backgroundColor: _cream,
         body: _desktopShowcase(
           Center(
             child: Padding(
               padding: const EdgeInsets.all(32),
               child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: _burgundy.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(40),
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: _burgundy.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(40),
+                    ),
+                    child: const Icon(
+                      Icons.error_outline_rounded,
+                      color: Color(0xFFFF6B6B),
+                      size: 36,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.error_outline_rounded,
-                    color: Color(0xFFFF6B6B),
-                    size: 36,
+                  const SizedBox(height: 18),
+                  Text(
+                    _errorText ?? '오류가 발생했습니다',
+                    style: AppTheme.nanum(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: _burgundy,
+                      noShadow: true,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  _errorText ?? '오류가 발생했습니다',
-                  style: AppTheme.nanum(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: _cream,
+                  const SizedBox(height: 8),
+                  Text(
+                    '링크가 올바른지 확인해주세요',
+                    style: AppTheme.nanum(
+                      fontSize: 13,
+                      color: _burgundy.withValues(alpha: 0.70),
+                      noShadow: true,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '링크가 올바른지 확인해주세요',
-                  style: AppTheme.nanum(fontSize: 13, color: _textLight),
-                ),
-                const SizedBox(height: 24),
-                TextButton.icon(
-                  onPressed: _loadTicket,
-                  icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: const Text('다시 시도'),
-                  style: TextButton.styleFrom(foregroundColor: AppTheme.gold),
-                ),
-              ],
+                  const SizedBox(height: 24),
+                  TextButton.icon(
+                    onPressed: _loadTicket,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('다시 시도'),
+                    style: TextButton.styleFrom(foregroundColor: _burgundy),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
         ),
       );
     }
@@ -496,7 +460,7 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
 
       if (_showGroupOverview) {
         return Scaffold(
-          backgroundColor: _burgundyDeep,
+          backgroundColor: _cream,
           body: _desktopShowcase(
             SafeArea(
               child: _GroupTicketOverview(
@@ -522,7 +486,7 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
       }
 
       return Scaffold(
-        backgroundColor: _burgundyDeep,
+        backgroundColor: _cream,
         body: _desktopShowcase(
           SafeArea(
             child: Column(
@@ -538,7 +502,9 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
                     itemCount: siblings.length,
                     onPageChanged: (i) => setState(() => _currentPage = i),
                     itemBuilder: (context, index) {
-                      final sibling = Map<String, dynamic>.from(siblings[index]);
+                      final sibling = Map<String, dynamic>.from(
+                        siblings[index],
+                      );
                       final data = _buildGroupTicketData(
                         sibling,
                         index,
@@ -563,7 +529,7 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
 
     // 단일 티켓
     return Scaffold(
-      backgroundColor: _burgundyDeep,
+      backgroundColor: _cream,
       body: _desktopShowcase(
         SafeArea(
           child: _TicketView(
@@ -653,103 +619,18 @@ class _TicketViewState extends ConsumerState<_TicketView>
     required String eventTitle,
     required String accessToken,
   }) async {
-    final nameController = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1917),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          '티켓 전달',
-          style: AppTheme.nanum(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: _cream,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '받는 분의 이름을 입력하면\n티켓에 이름이 표시됩니다.',
-              style: AppTheme.nanum(
-                fontSize: 13,
-                color: _textLight,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: nameController,
-              autofocus: true,
-              maxLength: 20,
-              style: AppTheme.nanum(fontSize: 16, color: _cream),
-              decoration: InputDecoration(
-                hintText: '받는 분 이름',
-                hintStyle: AppTheme.nanum(fontSize: 14, color: _textMid),
-                filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.08),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-                counterStyle: AppTheme.nanum(fontSize: 10, color: _textMid),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              '취소',
-              style: AppTheme.nanum(fontSize: 14, color: _textMid),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              final name = nameController.text.trim();
-              Navigator.pop(ctx, name.isEmpty ? null : name);
-            },
-            child: Text(
-              '전달하기',
-              style: AppTheme.nanum(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.gold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    nameController.dispose();
-
-    if (result == null || !mounted) return;
-
-    // Save recipientName to Firestore via CF
-    try {
-      await ref
-          .read(functionsServiceProvider)
-          .setRecipientName(accessToken: accessToken, recipientName: result);
-      widget.onRecipientNameUpdated?.call(
-        accessToken: accessToken,
-        recipientName: result,
-      );
-    } catch (_) {
-      // Silent fail — name will still appear when shared
-    }
-
+    // 이름 입력 없이 바로 공유 (예매자 이름 그대로 사용)
     final url = '$_ticketBaseUrl$accessToken';
     final event = widget.data['event'] as Map<String, dynamic>? ?? {};
+    final ticket = widget.data['ticket'] as Map<String, dynamic>? ?? {};
     final startAt = _parseEventDateTime(event['startAt']);
     final venueName = event['venueName'] as String? ?? '';
+    final buyerName = ticket['buyerName'] as String? ?? '';
     if (!mounted) return;
     Share.share(
       _buildTransferShareMessage(
         eventTitle: eventTitle,
-        recipientName: result,
+        recipientName: buyerName,
         startAt: startAt,
         venueName: venueName,
         url: url,
@@ -969,9 +850,9 @@ class _TicketViewState extends ConsumerState<_TicketView>
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [_burgundy, _burgundyDeep, const Color(0xFF0A0305)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+          colors: [_cream, const Color(0xFFF6F0EB), const Color(0xFFEEE5DE)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
       ),
       child: SingleChildScrollView(
@@ -1043,6 +924,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
                             qrRevealed: qrRevealed,
                             orderIndex: orderIndex,
                             totalInOrder: totalInOrder,
+                            entryNumber: entryNumber,
                             onQrTap: _flipToQr,
                             onDoubleTap: _flipToQr,
                           )
@@ -1117,9 +999,16 @@ class _TicketViewState extends ConsumerState<_TicketView>
             // ── 액션 버튼 (카드 밖) ──
             Container(
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.10),
+                color: Colors.white.withValues(alpha: 0.96),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+                border: Border.all(color: _burgundy.withValues(alpha: 0.10)),
+                boxShadow: [
+                  BoxShadow(
+                    color: _burgundy.withValues(alpha: 0.05),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
@@ -1129,7 +1018,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
                       Container(
                         width: 1,
                         height: 36,
-                        color: Colors.white.withValues(alpha: 0.12),
+                        color: _burgundy.withValues(alpha: 0.08),
                       ),
                   ],
                 ],
@@ -1178,8 +1067,9 @@ class _TicketViewState extends ConsumerState<_TicketView>
               textAlign: TextAlign.center,
               style: AppTheme.nanum(
                 fontSize: 11,
-                color: Colors.white.withValues(alpha: 0.5),
+                color: _burgundy.withValues(alpha: 0.64),
                 height: 1.6,
+                noShadow: true,
               ),
             ),
           ],
@@ -1208,82 +1098,99 @@ class _GroupTicketHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-      child: Column(
-        children: [
-          if (onBackToOverview != null)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: onBackToOverview,
-                icon: const Icon(
-                  Icons.grid_view_rounded,
-                  size: 16,
-                  color: AppTheme.gold,
-                ),
-                label: Text(
-                  '전체 티켓',
-                  style: AppTheme.nanum(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.gold,
-                  ),
-                ),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.gold,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                ),
-              ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.94),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _burgundy.withValues(alpha: 0.10)),
+          boxShadow: [
+            BoxShadow(
+              color: _burgundy.withValues(alpha: 0.06),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
             ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.confirmation_number_outlined,
-                size: 16,
-                color: AppTheme.gold,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${current + 1} / $total',
-                style: AppTheme.nanum(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: _cream,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Row(
-                children: List.generate(
-                  total,
-                  (i) => AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    width: i == current ? 18 : 6,
-                    height: 6,
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                    decoration: BoxDecoration(
-                      color: i == current
-                          ? AppTheme.gold
-                          : _cream.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(3),
+          ],
+        ),
+        child: Column(
+          children: [
+            if (onBackToOverview != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: onBackToOverview,
+                  icon: const Icon(
+                    Icons.grid_view_rounded,
+                    size: 16,
+                    color: _burgundy,
+                  ),
+                  label: Text(
+                    '전체 티켓',
+                    style: AppTheme.nanum(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: _burgundy,
+                      noShadow: true,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: _burgundy,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '← 옆으로 넘겨서 다른 티켓 확인  ${total}매(${current + 1}/$total) →',
-            style: AppTheme.nanum(
-              fontSize: 11,
-              color: _cream.withValues(alpha: 0.65),
-              noShadow: true,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.confirmation_number_outlined,
+                  size: 16,
+                  color: _burgundy,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${current + 1} / $total',
+                  style: AppTheme.nanum(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: _burgundy,
+                    noShadow: true,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Row(
+                  children: List.generate(
+                    total,
+                    (i) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      width: i == current ? 18 : 6,
+                      height: 6,
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      decoration: BoxDecoration(
+                        color: i == current
+                            ? _burgundy
+                            : _burgundy.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              '← 옆으로 넘겨서 다른 티켓 확인  ${total}매(${current + 1}/$total) →',
+              style: AppTheme.nanum(
+                fontSize: 11,
+                color: _burgundy.withValues(alpha: 0.62),
+                noShadow: true,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1342,11 +1249,15 @@ class _GroupTicketOverview extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: _burgundy,
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.18),
-                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _burgundy.withValues(alpha: 0.10),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
                   child: Text(
                     '그룹 티켓',
@@ -1355,6 +1266,7 @@ class _GroupTicketOverview extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color: _cream,
                       letterSpacing: 1.2,
+                      noShadow: true,
                     ),
                   ),
                 ),
@@ -1372,11 +1284,12 @@ class _GroupTicketOverview extends StatelessWidget {
                       style: AppTheme.nanum(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.gold,
+                        color: _burgundy,
+                        noShadow: true,
                       ),
                     ),
                     style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.gold,
+                      foregroundColor: _burgundy,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
                   )
@@ -1389,14 +1302,14 @@ class _GroupTicketOverview extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.10),
+                color: Colors.white.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+                border: Border.all(color: _burgundy.withValues(alpha: 0.10)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    blurRadius: 24,
-                    offset: const Offset(0, 10),
+                    color: _burgundy.withValues(alpha: 0.08),
+                    blurRadius: 28,
+                    offset: const Offset(0, 14),
                   ),
                 ],
               ),
@@ -1408,20 +1321,20 @@ class _GroupTicketOverview extends StatelessWidget {
                     child: Container(
                       width: 88,
                       height: 120,
-                      color: _burgundy,
+                      color: _creamDark,
                       child: imageUrl != null && imageUrl!.isNotEmpty
                           ? Image.network(
                               imageUrl!,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => const Icon(
                                 Icons.music_note_rounded,
-                                color: _cream,
+                                color: _burgundy,
                                 size: 28,
                               ),
                             )
                           : const Icon(
                               Icons.music_note_rounded,
-                              color: _cream,
+                              color: _burgundy,
                               size: 28,
                             ),
                     ),
@@ -1436,7 +1349,8 @@ class _GroupTicketOverview extends StatelessWidget {
                           style: AppTheme.nanum(
                             fontSize: 20,
                             fontWeight: FontWeight.w900,
-                            color: _cream,
+                            color: _burgundy,
+                            noShadow: true,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -1448,7 +1362,8 @@ class _GroupTicketOverview extends StatelessWidget {
                             ).format(startAt!),
                             style: AppTheme.nanum(
                               fontSize: 13,
-                              color: _cream.withValues(alpha: 0.88),
+                              color: _burgundy.withValues(alpha: 0.78),
+                              noShadow: true,
                             ),
                           ),
                         if (venueName.isNotEmpty) ...[
@@ -1457,7 +1372,8 @@ class _GroupTicketOverview extends StatelessWidget {
                             venueName,
                             style: AppTheme.nanum(
                               fontSize: 13,
-                              color: _cream.withValues(alpha: 0.88),
+                              color: _burgundy.withValues(alpha: 0.78),
+                              noShadow: true,
                             ),
                           ),
                         ],
@@ -1491,7 +1407,8 @@ class _GroupTicketOverview extends StatelessWidget {
               style: AppTheme.nanum(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: _cream,
+                color: _burgundy,
+                noShadow: true,
               ),
             ),
             const SizedBox(height: 6),
@@ -1499,8 +1416,9 @@ class _GroupTicketOverview extends StatelessWidget {
               '전달이 필요한 티켓은 여기서 먼저 정리하고, 상세 티켓에서 QR과 좌석을 확인합니다.',
               style: AppTheme.nanum(
                 fontSize: 12,
-                color: _cream.withValues(alpha: 0.75),
+                color: _burgundy.withValues(alpha: 0.74),
                 height: 1.55,
+                noShadow: true,
               ),
             ),
             const SizedBox(height: 16),
@@ -1573,9 +1491,16 @@ class _GroupTicketSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.10),
+        color: Colors.white.withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        border: Border.all(color: _burgundy.withValues(alpha: 0.10)),
+        boxShadow: [
+          BoxShadow(
+            color: _burgundy.withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1587,7 +1512,7 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppTheme.gold.withValues(alpha: 0.20),
+                  color: _burgundy.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 alignment: Alignment.center,
@@ -1596,7 +1521,8 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                   style: AppTheme.nanum(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.gold,
+                    color: _burgundy,
+                    noShadow: true,
                   ),
                 ),
               ),
@@ -1612,7 +1538,8 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                             displayName,
                             style: AppTheme.serif(
                               fontSize: 24,
-                              color: _cream,
+                              color: _burgundy,
+                              noShadow: true,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -1625,10 +1552,10 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: stateInfo.color.withValues(alpha: 0.14),
+                            color: stateInfo.color.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(999),
                             border: Border.all(
-                              color: stateInfo.color.withValues(alpha: 0.28),
+                              color: stateInfo.color.withValues(alpha: 0.24),
                             ),
                           ),
                           child: Text(
@@ -1637,6 +1564,7 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: stateInfo.color,
+                              noShadow: true,
                             ),
                           ),
                         ),
@@ -1649,7 +1577,8 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                           : '예매자',
                       style: AppTheme.nanum(
                         fontSize: 12,
-                        color: _cream.withValues(alpha: 0.78),
+                        color: _burgundy.withValues(alpha: 0.64),
+                        noShadow: true,
                       ),
                     ),
                   ],
@@ -1662,9 +1591,9 @@ class _GroupTicketSummaryCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.20),
+              color: _creamDark,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+              border: Border.all(color: _burgundy.withValues(alpha: 0.08)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1687,16 +1616,28 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: _gradeColor(seatGrade),
+                            noShadow: true,
                           ),
                         ),
                       ),
                     const Spacer(),
-                    Text(
-                      '티켓 #$entryNumber',
-                      style: AppTheme.nanum(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: _cream.withValues(alpha: 0.75),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _burgundy,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '#$entryNumber',
+                        style: AppTheme.nanum(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: _cream,
+                          noShadow: true,
+                        ),
                       ),
                     ),
                   ],
@@ -1707,7 +1648,10 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                   style: AppTheme.nanum(
                     fontSize: isRevealed ? 14 : 13,
                     fontWeight: isRevealed ? FontWeight.w800 : FontWeight.w600,
-                    color: isRevealed ? _cream : _cream.withValues(alpha: 0.85),
+                    color: isRevealed
+                        ? _burgundy
+                        : _burgundy.withValues(alpha: 0.82),
+                    noShadow: true,
                   ),
                 ),
               ],
@@ -1729,14 +1673,16 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                     style: AppTheme.nanum(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
+                      noShadow: true,
                     ),
                   ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.gold,
+                    foregroundColor: _burgundy,
+                    backgroundColor: Colors.white.withValues(alpha: 0.86),
                     side: BorderSide(
                       color: canTransfer
-                          ? AppTheme.gold.withValues(alpha: 0.55)
-                          : Colors.white.withValues(alpha: 0.18),
+                          ? _burgundy.withValues(alpha: 0.32)
+                          : _burgundy.withValues(alpha: 0.14),
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -1755,14 +1701,15 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                     style: AppTheme.nanum(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      color: _burgundyDeep,
+                      color: _cream,
+                      noShadow: true,
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.gold,
-                    foregroundColor: _burgundyDeep,
+                    backgroundColor: _burgundy,
+                    foregroundColor: _cream,
                     elevation: 2,
-                    shadowColor: AppTheme.gold.withValues(alpha: 0.3),
+                    shadowColor: _burgundy.withValues(alpha: 0.20),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1791,13 +1738,13 @@ class _OverviewMetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = accent ?? _cream;
+    final color = accent ?? _burgundy;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color: color.withValues(alpha: accent == null ? 0.08 : 0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1810,6 +1757,7 @@ class _OverviewMetaChip extends StatelessWidget {
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: color,
+              noShadow: true,
             ),
           ),
         ],
@@ -2010,9 +1958,9 @@ class _SharePosterImage extends StatelessWidget {
                                       Text(
                                         '티켓 #$entryNumber',
                                         style: AppTheme.nanum(
-                                          fontSize: 11,
+                                          fontSize: 13,
                                           fontWeight: FontWeight.w700,
-                                          color: _textLight,
+                                          color: _textMid,
                                           noShadow: true,
                                         ),
                                       ),
@@ -2068,8 +2016,8 @@ class _SharePosterImage extends StatelessWidget {
                                   Text(
                                     '멜론티켓 · 공유용 이미지',
                                     style: AppTheme.nanum(
-                                      fontSize: 10,
-                                      color: _textLight,
+                                      fontSize: 11,
+                                      color: _textMid,
                                       noShadow: true,
                                     ),
                                   ),
@@ -2223,6 +2171,7 @@ class _FrontCard extends StatelessWidget {
   final bool qrRevealed;
   final int orderIndex;
   final int totalInOrder;
+  final int entryNumber;
   final VoidCallback onQrTap;
   final VoidCallback? onDoubleTap;
 
@@ -2245,6 +2194,7 @@ class _FrontCard extends StatelessWidget {
     required this.qrRevealed,
     required this.orderIndex,
     required this.totalInOrder,
+    required this.entryNumber,
     required this.onQrTap,
     this.onDoubleTap,
   });
@@ -2352,8 +2302,8 @@ class _FrontCard extends StatelessWidget {
                             child: Text(
                               venueAddress,
                               style: AppTheme.nanum(
-                                fontSize: 11,
-                                color: _textLight,
+                                fontSize: 12,
+                                color: _textMid,
                                 noShadow: true,
                               ),
                             ),
@@ -2368,18 +2318,31 @@ class _FrontCard extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
+                                  Row(
                                     children: [
                                       _FrontIdentityChip(
-                                        label: hasRecipient ? '받는 사람' : '예매자',
+                                        label: '예매자',
                                       ),
-                                      if (hasRecipient)
-                                        const _FrontIdentityChip(
-                                          label: '전달 완료',
-                                          accentColor: AppTheme.gold,
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 3,
                                         ),
+                                        decoration: BoxDecoration(
+                                          color: _burgundy,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          '#$entryNumber',
+                                          style: AppTheme.nanum(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w800,
+                                            color: _cream,
+                                            noShadow: true,
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                   const SizedBox(height: 8),
@@ -2397,8 +2360,8 @@ class _FrontCard extends StatelessWidget {
                                   Text(
                                     ownerDescription,
                                     style: AppTheme.nanum(
-                                      fontSize: 11,
-                                      color: _textLight,
+                                      fontSize: 12,
+                                      color: _textMid,
                                       noShadow: true,
                                     ),
                                   ),
@@ -2505,14 +2468,14 @@ class _FrontCard extends StatelessWidget {
                           Icon(
                             Icons.touch_app_rounded,
                             size: 14,
-                            color: _textLight,
+                            color: _textMid,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             '두 번 탭하여 QR 보기',
                             style: AppTheme.nanum(
-                              fontSize: 11,
-                              color: _textLight,
+                              fontSize: 12,
+                              color: _textMid,
                               noShadow: true,
                             ),
                           ),
@@ -2977,7 +2940,7 @@ class _SmartTicketHeader extends StatelessWidget {
           Icon(
             Icons.confirmation_number_rounded,
             size: 14,
-            color: AppTheme.gold,
+            color: _ticketAccent,
           ),
           const SizedBox(width: 8),
           Text(
@@ -2987,6 +2950,7 @@ class _SmartTicketHeader extends StatelessWidget {
               fontWeight: FontWeight.w700,
               color: _cream,
               letterSpacing: 1.2,
+              noShadow: true,
             ),
           ),
           const Spacer(),
@@ -3022,36 +2986,42 @@ class _PosterWithQr extends StatelessWidget {
       alignment: Alignment.bottomCenter,
       children: [
         // 포스터 이미지 (전체 비율 유지)
-        Container(
+        SizedBox(
           width: double.infinity,
-          constraints: const BoxConstraints(minHeight: 200),
-          color: _creamDark,
-          child: imageUrl != null && imageUrl!.isNotEmpty
-              ? Image.network(
-                  imageUrl!,
-                  fit: BoxFit.contain,
-                  width: double.infinity,
-                  errorBuilder: (_, __, ___) => SizedBox(
-                    height: 200,
-                    child: Center(
+          height: 248,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(color: _creamDark),
+            child: imageUrl != null && imageUrl!.isNotEmpty
+                ? Image.network(
+                    imageUrl!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: _burgundy.withValues(alpha: 0.35),
+                        ),
+                      );
+                    },
+                    errorBuilder: (_, __, ___) => Center(
                       child: Icon(
                         Icons.music_note_rounded,
                         color: _textLight,
                         size: 40,
                       ),
                     ),
-                  ),
-                )
-              : SizedBox(
-                  height: 200,
-                  child: Center(
+                  )
+                : Center(
                     child: Icon(
                       Icons.music_note_rounded,
                       color: _textLight,
                       size: 40,
                     ),
                   ),
-                ),
+          ),
         ),
 
         // QR 원형 오버랩 (포스터 하단에 걸침) — 미니 QR 패턴 + 잠금 오버레이
@@ -3387,12 +3357,12 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = stateInfo.code == 'beforeReveal'
-        ? AppTheme.gold.withValues(alpha: 0.12)
+    final useLightAccent =
+        stateInfo.code == 'beforeReveal' || stateInfo.code == 'active';
+    final bgColor = useLightAccent
+        ? Colors.white.withValues(alpha: 0.10)
         : stateInfo.color.withValues(alpha: 0.14);
-    final fgColor = stateInfo.code == 'beforeReveal'
-        ? AppTheme.gold
-        : stateInfo.color;
+    final fgColor = useLightAccent ? _ticketAccent : stateInfo.color;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
@@ -3928,14 +3898,15 @@ class _ActionButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: Colors.white.withValues(alpha: 0.85)),
+            Icon(icon, size: 20, color: _burgundy),
             const SizedBox(height: 4),
             Text(
               label,
               style: AppTheme.nanum(
                 fontSize: 11,
-                color: Colors.white.withValues(alpha: 0.78),
+                color: _burgundy.withValues(alpha: 0.84),
                 fontWeight: FontWeight.w600,
+                noShadow: true,
               ),
             ),
           ],

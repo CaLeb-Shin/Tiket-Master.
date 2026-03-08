@@ -145,6 +145,7 @@ function buildPublicTicketDto(params: {
     id: params.ticketId,
     eventId: params.ticket.eventId,
     naverOrderId: params.ticket.naverOrderId || null,
+    accessToken: params.ticket.accessToken || null,
     seatGrade: params.ticket.seatGrade,
     seatInfo: params.isRevealed ? params.ticket.seatInfo : null,
     seatNumber: params.isRevealed ? params.ticket.seatNumber : null,
