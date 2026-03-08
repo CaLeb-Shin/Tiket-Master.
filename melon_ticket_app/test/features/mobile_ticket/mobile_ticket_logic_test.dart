@@ -95,5 +95,67 @@ void main() {
       expect(state.currentPage, 2);
       expect(state.showGroupOverview, isFalse);
     });
+
+    test('opening a ticket sets overview to false and correct page', () {
+      // First: initial state shows overview
+      final initial = deriveGroupTicketViewState(
+        siblings: const [
+          {'accessToken': 'ticket-a'},
+          {'accessToken': 'ticket-b'},
+          {'accessToken': 'ticket-c'},
+        ],
+        currentAccessToken: 'ticket-a',
+        preserveGroupContext: false,
+        previousPage: 0,
+        previousOverview: false,
+      );
+      expect(initial.showGroupOverview, isTrue);
+
+      // Then: simulating "open ticket #2" → preserve context with
+      // overview=false and page=1
+      final afterOpen = deriveGroupTicketViewState(
+        siblings: const [
+          {'accessToken': 'ticket-a'},
+          {'accessToken': 'ticket-b'},
+          {'accessToken': 'ticket-c'},
+        ],
+        currentAccessToken: 'ticket-a',
+        preserveGroupContext: true,
+        previousPage: 1,
+        previousOverview: false,
+      );
+      expect(afterOpen.showGroupOverview, isFalse);
+      expect(afterOpen.currentPage, 1);
+    });
+
+    test('clamps page index when siblings shrink', () {
+      final state = deriveGroupTicketViewState(
+        siblings: const [
+          {'accessToken': 'ticket-a'},
+          {'accessToken': 'ticket-b'},
+        ],
+        currentAccessToken: 'ticket-a',
+        preserveGroupContext: true,
+        previousPage: 5,
+        previousOverview: false,
+      );
+
+      expect(state.currentPage, 1); // clamped to max index
+    });
+
+    test('single-ticket order never shows group overview', () {
+      final state = deriveGroupTicketViewState(
+        siblings: const [
+          {'accessToken': 'ticket-a'},
+        ],
+        currentAccessToken: 'ticket-a',
+        preserveGroupContext: false,
+        previousPage: 0,
+        previousOverview: false,
+      );
+
+      expect(state.showGroupOverview, isFalse);
+      expect(state.currentPage, 0);
+    });
   });
 }

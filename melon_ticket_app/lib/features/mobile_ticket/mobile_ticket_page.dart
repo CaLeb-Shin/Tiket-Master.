@@ -201,7 +201,10 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
   }
 
   void _openGroupTicket(int index) {
-    _pageController?.jumpToPage(index);
+    // PageView isn't in the widget tree while overview is shown,
+    // so jumpToPage() is a no-op. Recreate controller with correct initial page.
+    _pageController?.dispose();
+    _pageController = PageController(initialPage: index);
     setState(() {
       _currentPage = index;
       _showGroupOverview = false;
@@ -1302,10 +1305,10 @@ class _GroupTicketOverview extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: Colors.white.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.12),
+                      color: Colors.white.withValues(alpha: 0.18),
                     ),
                   ),
                   child: Text(
@@ -1313,7 +1316,7 @@ class _GroupTicketOverview extends StatelessWidget {
                     style: GoogleFonts.dmSans(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: _cream.withValues(alpha: 0.9),
+                      color: _cream,
                       letterSpacing: 2.4,
                     ),
                   ),
@@ -1349,12 +1352,12 @@ class _GroupTicketOverview extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
+                color: Colors.white.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.14),
+                    color: Colors.black.withValues(alpha: 0.18),
                     blurRadius: 24,
                     offset: const Offset(0, 10),
                   ),
@@ -1408,7 +1411,7 @@ class _GroupTicketOverview extends StatelessWidget {
                             ).format(startAt!),
                             style: AppTheme.nanum(
                               fontSize: 13,
-                              color: _cream.withValues(alpha: 0.72),
+                              color: _cream.withValues(alpha: 0.88),
                             ),
                           ),
                         if (venueName.isNotEmpty) ...[
@@ -1417,7 +1420,7 @@ class _GroupTicketOverview extends StatelessWidget {
                             venueName,
                             style: AppTheme.nanum(
                               fontSize: 13,
-                              color: _cream.withValues(alpha: 0.72),
+                              color: _cream.withValues(alpha: 0.88),
                             ),
                           ),
                         ],
@@ -1459,7 +1462,7 @@ class _GroupTicketOverview extends StatelessWidget {
               '전달이 필요한 티켓은 여기서 먼저 정리하고, 상세 티켓에서 QR과 좌석을 확인합니다.',
               style: AppTheme.nanum(
                 fontSize: 12,
-                color: _cream.withValues(alpha: 0.56),
+                color: _cream.withValues(alpha: 0.75),
                 height: 1.55,
               ),
             ),
@@ -1533,9 +1536,9 @@ class _GroupTicketSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
+        color: Colors.white.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1547,7 +1550,7 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppTheme.gold.withValues(alpha: 0.14),
+                  color: AppTheme.gold.withValues(alpha: 0.20),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 alignment: Alignment.center,
@@ -1609,7 +1612,7 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                           : '예매자',
                       style: AppTheme.nanum(
                         fontSize: 12,
-                        color: _cream.withValues(alpha: 0.56),
+                        color: _cream.withValues(alpha: 0.78),
                       ),
                     ),
                   ],
@@ -1622,9 +1625,9 @@ class _GroupTicketSummaryCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.14),
+              color: Colors.black.withValues(alpha: 0.20),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1638,7 +1641,7 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: _gradeColor(seatGrade).withValues(alpha: 0.18),
+                          color: _gradeColor(seatGrade).withValues(alpha: 0.24),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
@@ -1656,7 +1659,7 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                       style: GoogleFonts.dmSans(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: _cream.withValues(alpha: 0.52),
+                        color: _cream.withValues(alpha: 0.75),
                         letterSpacing: 1.1,
                       ),
                     ),
@@ -1668,7 +1671,7 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                   style: AppTheme.nanum(
                     fontSize: isRevealed ? 14 : 13,
                     fontWeight: isRevealed ? FontWeight.w800 : FontWeight.w600,
-                    color: isRevealed ? _cream : _cream.withValues(alpha: 0.7),
+                    color: isRevealed ? _cream : _cream.withValues(alpha: 0.85),
                   ),
                 ),
               ],
@@ -1695,7 +1698,9 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.gold,
                     side: BorderSide(
-                      color: AppTheme.gold.withValues(alpha: 0.35),
+                      color: canTransfer
+                          ? AppTheme.gold.withValues(alpha: 0.55)
+                          : Colors.white.withValues(alpha: 0.18),
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -1720,7 +1725,8 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.gold,
                     foregroundColor: _burgundyDeep,
-                    elevation: 0,
+                    elevation: 2,
+                    shadowColor: AppTheme.gold.withValues(alpha: 0.3),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1749,13 +1755,13 @@ class _OverviewMetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = accent ?? _cream.withValues(alpha: 0.84);
+    final color = accent ?? _cream;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
