@@ -113,6 +113,34 @@ String _buildInviteShareMessage({
   ].join('\n');
 }
 
+/// 데스크톱 브라우저에서 티켓 컨텐츠를 중앙 쇼케이스로 감싸는 래퍼.
+/// 좁은 화면에서는 그대로 패스스루.
+const _desktopBreakpoint = 600.0;
+const _desktopMaxWidth = 480.0;
+
+Widget _desktopShowcase(Widget child) {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      if (constraints.maxWidth <= _desktopBreakpoint) return child;
+      return Container(
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment(0, -0.3),
+            radius: 1.2,
+            colors: [Color(0xFF2A0A0E), _burgundyDeep, Color(0xFF0A0305)],
+          ),
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _desktopMaxWidth),
+            child: child,
+          ),
+        ),
+      );
+    },
+  );
+}
+
 typedef _TicketStateInfo = TicketStateInfo;
 
 String _normalizeTicketStatus(String? raw) => normalizeTicketStatus(raw);
@@ -380,20 +408,22 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
     if (_isLoading) {
       return Scaffold(
         backgroundColor: _burgundyDeep,
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(
-                color: AppTheme.gold,
-                strokeWidth: 2,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                '티켓 불러오는 중...',
-                style: AppTheme.nanum(fontSize: 13, color: _textLight),
-              ),
-            ],
+        body: _desktopShowcase(
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(
+                  color: AppTheme.gold,
+                  strokeWidth: 2,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '티켓 불러오는 중...',
+                  style: AppTheme.nanum(fontSize: 13, color: _textLight),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -402,10 +432,11 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
     if (_errorText != null || _ticketData == null) {
       return Scaffold(
         backgroundColor: _burgundyDeep,
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
+        body: _desktopShowcase(
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
@@ -447,6 +478,7 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
             ),
           ),
         ),
+        ),
       );
     }
 
@@ -465,22 +497,24 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
       if (_showGroupOverview) {
         return Scaffold(
           backgroundColor: _burgundyDeep,
-          body: SafeArea(
-            child: _GroupTicketOverview(
-              eventTitle: eventTitle,
-              imageUrl: imageUrl,
-              venueName: venueName,
-              startAt: startAt,
-              siblings: siblings,
-              isRevealed: isRevealed,
-              onRefresh: _refreshTicketState,
-              onOpenTicket: _openGroupTicket,
-              onTransferTicket: (accessToken) => _showTransferDialog(
-                context,
+          body: _desktopShowcase(
+            SafeArea(
+              child: _GroupTicketOverview(
                 eventTitle: eventTitle,
-                startAt: startAt,
+                imageUrl: imageUrl,
                 venueName: venueName,
-                accessToken: accessToken,
+                startAt: startAt,
+                siblings: siblings,
+                isRevealed: isRevealed,
+                onRefresh: _refreshTicketState,
+                onOpenTicket: _openGroupTicket,
+                onTransferTicket: (accessToken) => _showTransferDialog(
+                  context,
+                  eventTitle: eventTitle,
+                  startAt: startAt,
+                  venueName: venueName,
+                  accessToken: accessToken,
+                ),
               ),
             ),
           ),
@@ -489,37 +523,39 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
 
       return Scaffold(
         backgroundColor: _burgundyDeep,
-        body: SafeArea(
-          child: Column(
-            children: [
-              _GroupTicketHeader(
-                current: _currentPage,
-                total: siblings.length,
-                onBackToOverview: _backToGroupOverview,
-              ),
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController!,
-                  itemCount: siblings.length,
-                  onPageChanged: (i) => setState(() => _currentPage = i),
-                  itemBuilder: (context, index) {
-                    final sibling = Map<String, dynamic>.from(siblings[index]);
-                    final data = _buildGroupTicketData(
-                      sibling,
-                      index,
-                      siblings.length,
-                    );
-                    return _TicketView(
-                      data: data,
-                      accessToken: sibling['accessToken'] as String,
-                      isGroupTicket: true,
-                      onRefresh: _refreshTicketState,
-                      onRecipientNameUpdated: _updateRecipientName,
-                    );
-                  },
+        body: _desktopShowcase(
+          SafeArea(
+            child: Column(
+              children: [
+                _GroupTicketHeader(
+                  current: _currentPage,
+                  total: siblings.length,
+                  onBackToOverview: _backToGroupOverview,
                 ),
-              ),
-            ],
+                Expanded(
+                  child: PageView.builder(
+                    controller: _pageController!,
+                    itemCount: siblings.length,
+                    onPageChanged: (i) => setState(() => _currentPage = i),
+                    itemBuilder: (context, index) {
+                      final sibling = Map<String, dynamic>.from(siblings[index]);
+                      final data = _buildGroupTicketData(
+                        sibling,
+                        index,
+                        siblings.length,
+                      );
+                      return _TicketView(
+                        data: data,
+                        accessToken: sibling['accessToken'] as String,
+                        isGroupTicket: true,
+                        onRefresh: _refreshTicketState,
+                        onRecipientNameUpdated: _updateRecipientName,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -528,11 +564,13 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
     // 단일 티켓
     return Scaffold(
       backgroundColor: _burgundyDeep,
-      body: SafeArea(
-        child: _TicketView(
-          data: _ticketData!,
-          accessToken: widget.accessToken,
-          onRefresh: _refreshTicketState,
+      body: _desktopShowcase(
+        SafeArea(
+          child: _TicketView(
+            data: _ticketData!,
+            accessToken: widget.accessToken,
+            onRefresh: _refreshTicketState,
+          ),
         ),
       ),
     );
