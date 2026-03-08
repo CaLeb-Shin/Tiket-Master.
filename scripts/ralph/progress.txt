@@ -1,6 +1,27 @@
 # Ralph Progress Log
 Started: 2026-02-21
 ---
+## 2026-03-08 - MT-080 (텔레그램에서 Ralph 계획 실행 제어)
+- **텔레그램 실행 명령 추가** (`scripts/ralph/telegram-command-bot.js`):
+  - `/run`, `/runstatus`, `/stop` 슬래시 명령 등록
+  - `실행해줘`, `계획 실행`, `이 계획 받고 실행해줘` 계열 한국어 명령 인식 추가
+  - 텔레그램에서 직접 Ralph 워커 시작/상태 확인/중지 가능하도록 정리
+- **Ralph 워커 상태 관리** (`scripts/ralph/state/ralph-runner-state.json`):
+  - PID, 시작 시각, 반복 횟수, 중지 시각을 상태 파일에 기록
+  - 이미 실행 중이면 중복 실행을 막고 기존 PID를 안내
+- **러너 로그 관리** (`scripts/ralph/state/ralph-runner.log`):
+  - 텔레그램으로 시작한 작업은 별도 로그 파일에 누적
+  - `runstatus` 응답에서 로그 위치까지 같이 안내
+- **중지 안정성 보강**:
+  - Ralph 시작 시 `exec ./scripts/ralph/ralph.sh ...` 형태로 실행해 워커 PID와 실제 실행 프로세스가 일치하도록 정리
+  - `stop` 명령으로 러너를 내릴 때 중지 대상이 분명해지도록 수정
+- Files changed: `scripts/ralph/telegram-command-bot.js`, `scripts/ralph/progress.txt`
+- Verification: `node --check scripts/ralph/telegram-command-bot.js`, 텔레그램 `setMyCommands` 재등록 확인
+- **Learnings for future iterations:**
+  - 텔레그램 명령 실행은 로컬 워커 기반이라 맥이 켜져 있어야 동작함
+  - `detached` 프로세스는 시작 시점부터 상태 파일로 PID를 추적해야 운영 혼선을 줄일 수 있음
+  - 자연어 명령은 공백 제거 후 비교하면 한국어 명령 변형을 안정적으로 흡수할 수 있음
+---
 
 ## 2026-03-08 - MT-057 (네이버 모바일 티켓 공개 정책을 공연 2시간 전으로 통일)
 - **Admin 정책 통일**:
@@ -372,6 +393,21 @@ Started: 2026-02-21
   - 텔레그램 장문 응답은 한 번에 보내기보다 chunk 분할이 필요하다
 ---
 
+## 2026-03-08 - Ralph Telegram Readability Update (요약/디자인 문서 전송)
+- **텔레그램 가독성 개선**:
+  - `send-telegram-summary.js`의 파일 전송 모드가 Markdown 제목, 체크박스, 굵은 텍스트를 텔레그램용 평문으로 정리해 보내도록 개선
+  - 사용자용 MD를 그대로 보내도 `■ 섹션`, `✅ 체크`, `• 목록` 형태로 읽히게 정리
+- **명령 확장**:
+  - `telegram-command-bot.js`에 `/summary`, `/design` 명령 추가
+  - 한국어로도 `최신 요약 받기`, `디자인 감사 받기` 명령 지원
+  - `getMyCommands` 기준 `done`, `remaining`, `latest`, `summary`, `design`, `help` 등록 확인
+- **실제 전송**:
+  - `멜론티켓 디자인 감사 2026-03-08.md`를 텔레그램으로 실제 발송
+- **Learnings for future iterations:**
+  - 긴 MD는 원문 그대로 보내기보다 Markdown 문법을 제거해 평문화해야 텔레그램에서 훨씬 읽기 쉽다
+  - 명령 봇은 문서 이름보다 `최신 요약`, `디자인 감사` 같은 목적 중심 명령이 더 직관적이다
+---
+
 ## Codebase Patterns
 - Cloud Functions (index.ts): v1 compat 사용 - 함수 시그니처 `(data: any, context)` 형태 (NOT `(request)`)
 - Flutter 텍스트: `AppTheme.nanum()`, `AppTheme.serif()` 사용 (기본 그림자 내장)
@@ -617,4 +653,36 @@ Started: 2026-02-21
   - Tier colors: Bronze(#CD7F32), Silver(#C0C0C0), Gold(#C9A84C), Platinum(#E5E4E2) — consistent across ticket app and admin
   - StreamBuilder works well for admin dialogs (history list) without needing Riverpod providers
   - `addMileage` Cloud Function is admin-only — perfect for manual adjustments with `[관리자]` reason prefix
+---
+
+## 2026-03-08 - MT-076 (그룹 티켓 허브 CTA 반응 오류와 저대비 텍스트 긴급 수정)
+- **저대비 텍스트 전면 수정**:
+  - GROUP TICKETS 배지: alpha 0.08→0.12 배경, 0.12→0.18 보더, 텍스트 0.9→1.0
+  - 이벤트 정보 카드: alpha 0.06→0.10 배경, 0.08→0.14 보더
+  - 날짜/장소 텍스트: alpha 0.72→0.88
+  - 안내 텍스트: alpha 0.56→0.75
+  - 티켓 카드: alpha 0.06→0.10 배경, 0.08→0.14 보더
+  - 번호 배지: alpha 0.14→0.20
+  - 받는 분/예매자 라벨: alpha 0.56→0.78
+  - ETKT 번호: alpha 0.52→0.75
+  - 좌석 등급 배지 배경: alpha 0.18→0.24
+  - 좌석 비공개 텍스트: alpha 0.7→0.85
+  - 메타 칩: alpha 0.84→1.0
+- **CTA 버튼 시각 강화**:
+  - `전달하기` 버튼: 비활성/활성에 따라 보더 alpha 분기 (0.18 / 0.55)
+  - `티켓 보기` 버튼: elevation 0→2 + gold shadow 추가
+- **회귀 테스트 추가**:
+  - `deriveGroupTicketViewState`: 티켓 열기 후 overview=false + 올바른 페이지 전환 검증
+  - 페이지 인덱스 clamp 검증 (siblings 축소 시)
+  - 단일 티켓 주문은 그룹 overview 미표시 검증
+- Files changed:
+  - `melon_ticket_app/lib/features/mobile_ticket/mobile_ticket_page.dart`
+  - `melon_ticket_app/test/features/mobile_ticket/mobile_ticket_logic_test.dart`
+- Verification:
+  - `flutter test`: 10 tests passed
+  - `flutter analyze --no-fatal-infos`: 에러 없음, 기존 info lint만 유지
+- **Learnings for future iterations:**
+  - 버건디 배경 위에서 0.5 이하 alpha는 거의 보이지 않는다 — 최소 0.7 이상이 필요하다
+  - CTA 버튼은 elevation + shadow로 터치 가능 영역을 시각적으로 구분하는 편이 효과적이다
+  - 비활성 버튼은 disabled 색상을 명시적으로 분기해야 활성/비활성 구분이 명확해진다
 ---
