@@ -723,3 +723,28 @@ Started: 2026-02-21
   - `AppTheme.serif()`와 `AppTheme.nanum()`으로 통일하면 폰트 로딩 최적화에도 유리하다
   - 크림 배경 위에서는 `noShadow: true` 필수 — 그림자가 기본 포함되면 텍스트가 번져 보인다
 ---
+
+## 2026-03-08 - MT-078 (멜론티켓 전체 브랜드 일관성 재정비)
+- **디자인 규칙 문서 작성**:
+  - `멜론티켓 디자인 규칙.md` 신규 작성
+  - 색상 체계: 사용자 앱 / 공개 티켓 / 어드민 3개 팔레트 정리
+  - 좌석 등급 색상: VIP/R/S/A 공통 HEX 명시
+  - 타이포 위계: 폰트 스택, 크기/용도 기준, 그림자 규칙
+  - 톤 연결 규칙: 메인 앱 ↔ 공개 티켓 ↔ 어드민 간 색상 순환 논리
+  - 컴포넌트 규칙: CTA 버튼, 상태 배지, 카드 패널, 하단 네비게이션
+  - 어두운 배경 대비 최소 기준표
+  - 아이콘 사용 기준
+- **브랜드 다크 색상 표준화**:
+  - `AppTheme.brandDark` (`#1A0508`) 추가 — 포스터/이미지 배경용
+  - `mobile_main_screen.dart`의 하드코딩 `#1A1A1A` → `AppTheme.brandDark`로 교체
+- Files changed:
+  - `melon_core/lib/presentation/theme.dart`
+  - `melon_ticket_app/lib/features/mobile/mobile_main_screen.dart`
+  - `멜론티켓 디자인 규칙.md` (신규)
+- Verification:
+  - `flutter analyze --no-fatal-infos`: 0 issues
+- **Learnings for future iterations:**
+  - 포스터 배경처럼 반복 사용되는 어두운 색은 하드코딩보다 테마 상수로 관리해야 일관성이 유지된다
+  - 디자인 규칙 문서는 색상 HEX 값과 용도를 함께 명시해야 다음 작업자가 바로 참조할 수 있다
+  - 톤 연결 규칙은 `색상 순환` 논리로 설명해야 밝은 앱과 어두운 티켓 화면의 관계가 직관적이다
+---
