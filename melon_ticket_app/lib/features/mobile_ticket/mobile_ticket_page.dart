@@ -1240,64 +1240,32 @@ class _GroupTicketOverview extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _burgundy,
-                    borderRadius: BorderRadius.circular(999),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _burgundy.withValues(alpha: 0.10),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    '그룹 티켓',
-                    style: AppTheme.nanum(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: _cream,
-                      letterSpacing: 1.2,
-                      noShadow: true,
-                    ),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: _cream.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: _cream.withValues(alpha: 0.25),
                   ),
                 ),
-                const Spacer(),
-                if (onRefresh != null)
-                  TextButton.icon(
-                    onPressed: () => onRefresh!.call(),
-                    icon: const Icon(
-                      Icons.refresh_rounded,
-                      size: 16,
-                      color: AppTheme.gold,
-                    ),
-                    label: Text(
-                      '새로고침',
-                      style: AppTheme.nanum(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: _burgundy,
-                        noShadow: true,
-                      ),
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: _burgundy,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                    ),
-                  )
-                else
-                  const SizedBox(width: 76),
-              ],
+                child: Text(
+                  '그룹 티켓',
+                  style: AppTheme.nanum(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _cream,
+                    letterSpacing: 1.6,
+                    noShadow: true,
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
