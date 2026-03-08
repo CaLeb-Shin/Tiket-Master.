@@ -263,7 +263,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                 // ═══ Hero Poster ═══
                 Container(
                   width: double.infinity,
-                  color: const Color(0xFF1A1A1A),
+                  color: AppTheme.brandDark,
                   child: Stack(
                     children: [
                       // Poster image (전체 표시)
@@ -276,7 +276,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                             placeholder: (_, __) => AspectRatio(
                               aspectRatio: 3 / 4,
                               child: Container(
-                                color: const Color(0xFF1A1A1A),
+                                color: AppTheme.brandDark,
                                 child: const Center(
                                   child: CircularProgressIndicator(
                                     color: AppTheme.gold,
@@ -287,7 +287,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                             ),
                             errorWidget: (_, __, ___) => AspectRatio(
                               aspectRatio: 3 / 4,
-                              child: Container(color: const Color(0xFF1A1A1A)),
+                              child: Container(color: AppTheme.brandDark),
                             ),
                           ),
                         )
@@ -295,7 +295,7 @@ class _QuickBookingTabState extends ConsumerState<_QuickBookingTab>
                         AspectRatio(
                           aspectRatio: 3 / 4,
                           child: Container(
-                            color: const Color(0xFF1A1A1A),
+                            color: AppTheme.brandDark,
                             child: Center(
                               child: Text(
                                 event.title.isNotEmpty

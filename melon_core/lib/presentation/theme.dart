@@ -46,6 +46,9 @@ class AppTheme {
   static const LinearGradient primaryGradient = goldGradient;
   static const LinearGradient premiumGradient = goldGradientVertical;
 
+  // ─── Brand Dark (공연 포스터/이미지 배경) ───
+  static const Color brandDark = Color(0xFF1A0508);
+
   // ─── Sage (editorial secondary) ───
   static const Color sage = Color(0xFF748386);
 
