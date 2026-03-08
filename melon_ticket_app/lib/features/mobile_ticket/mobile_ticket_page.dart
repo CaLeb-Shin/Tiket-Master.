@@ -2208,7 +2208,7 @@ class _FrontCard extends StatelessWidget {
                   // ── 헤더: SMART TICKET ──
                   _SmartTicketHeader(stateInfo: stateInfo, gradeCol: gradeCol),
 
-                  // ── 포스터 + QR 오버랩 ──
+                  // ── 포스터 풀사이즈 + QR 오버랩 ──
                   _PosterWithQr(
                     imageUrl: imageUrl,
                     naverProductUrl: naverProductUrl,
@@ -2218,42 +2218,119 @@ class _FrontCard extends StatelessWidget {
                     onQrTap: onQrTap,
                   ),
 
-                  // ── 공연 정보 섹션 (v4 레이아웃) ──
+                  // ── 보딩패스 정보 섹션 ──
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 공연명
+                        // 공연명 (대형)
                         Text(
                           eventTitle,
                           style: AppTheme.nanum(
                             color: _textDark,
-                            fontSize: 20,
+                            fontSize: 22,
                             fontWeight: FontWeight.w900,
                             letterSpacing: -0.3,
+                            height: 1.25,
                             noShadow: true,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
 
-                        // Date & Time (합침)
-                        _InfoField(
-                          label: '공연 일시',
-                          value: startAt != null
-                              ? DateFormat(
-                                  'yyyy.MM.dd (E)  HH:mm',
-                                  'ko_KR',
-                                ).format(startAt!)
-                              : '-',
+                        // ── Row 1: 예매자 | 날짜 ──
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: _InfoField(
+                                label: 'Holder  ·  예매자',
+                                child: Text(
+                                  holderName,
+                                  style: AppTheme.serif(
+                                    fontSize: 26,
+                                    color: _burgundy,
+                                    height: 1.1,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              flex: 2,
+                              child: _InfoField(
+                                label: 'Date  ·  공연 일시',
+                                value: startAt != null
+                                    ? DateFormat(
+                                        'MM.dd (E)',
+                                        'ko_KR',
+                                      ).format(startAt!)
+                                    : '-',
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 18),
 
-                        // Venue
+                        // ── Row 2: 티켓 No. | 등급 | 좌석 | 시간 ──
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: _InfoField(
+                                label: 'No.',
+                                child: Text(
+                                  '#$entryNumber',
+                                  style: AppTheme.nanum(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                    color: _burgundy,
+                                    noShadow: true,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: _InfoField(
+                                label: 'Grade  ·  등급',
+                                child: Text(
+                                  '${seatGrade}석',
+                                  style: AppTheme.nanum(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                    color: gradeCol,
+                                    noShadow: true,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (totalInOrder > 1)
+                              Expanded(
+                                child: _InfoField(
+                                  label: 'Tickets',
+                                  value: '$orderIndex / $totalInOrder',
+                                ),
+                              ),
+                            Expanded(
+                              child: _InfoField(
+                                label: 'Time',
+                                value: startAt != null
+                                    ? DateFormat('HH:mm').format(startAt!)
+                                    : '-',
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+
+                        // ── Row 3: 공연장 (풀 width, 탭 가능) ──
                         _InfoField(
-                          label: '공연장',
+                          label: 'Venue  ·  공연장',
                           value: venueName,
                           onTap: venueName.isNotEmpty
                               ? () {
@@ -2281,158 +2358,50 @@ class _FrontCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                        const SizedBox(height: 16),
-
-                        // 이름 + 등급
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Flexible(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      _FrontIdentityChip(
-                                        label: '예매자',
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 3,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _burgundy,
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          '#$entryNumber',
-                                          style: AppTheme.nanum(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w800,
-                                            color: _cream,
-                                            noShadow: true,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    holderName,
-                                    style: AppTheme.serif(
-                                      fontSize: 30,
-                                      color: _burgundy,
-                                      height: 0.98,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    ownerDescription,
-                                    style: AppTheme.nanum(
-                                      fontSize: 12,
-                                      color: _textMid,
-                                      noShadow: true,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Spacer(),
-                            _InfoField(
-                              label: '등급',
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      gradeCol,
-                                      gradeCol.withValues(alpha: 0.85),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(6),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: gradeCol.withValues(alpha: 0.3),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  '${seatGrade}석',
-                                  style: AppTheme.nanum(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                    noShadow: true,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Status — LIVE 카운트다운 (풀 width)
-                        _InfoField(
-                          label: '티켓 상태',
-                          child: _LiveStatusInCard(
-                            startAt: startAt,
-                            revealAt: revealAt,
-                            isCancelled: isCancelled,
-                            isUsed: isUsed,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Tickets (n매 중 몇 번째)
-                        if (totalInOrder > 1)
-                          _InfoField(
-                            label: '구매 티켓',
-                            value:
-                                '${totalInOrder}매 ($orderIndex/$totalInOrder)',
-                          ),
                       ],
                     ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
 
                   // ── 구분선 (골드 다이아몬드) ──
                   _GoldDivider(),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
 
-                  // ── 런타임 & 인터미션 (가운데 정렬) ──
+                  // ── 티켓 상태 + 더블탭 안내 ──
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Expanded(
+                          child: _InfoField(
+                            label: 'Status  ·  상태',
+                            child: _LiveStatusInCard(
+                              startAt: startAt,
+                              revealAt: revealAt,
+                              isCancelled: isCancelled,
+                              isUsed: isUsed,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: _InfoFieldCenter(
                             label: '러닝타임',
                             value: '2시간 10분',
                           ),
                         ),
-                        Expanded(
-                          child: _InfoFieldCenter(label: '인터미션', value: '15분'),
-                        ),
                       ],
                     ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
                   // ── 더블클릭 안내 ──
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
+                    padding: const EdgeInsets.only(bottom: 18),
                     child: GestureDetector(
                       onDoubleTap: onDoubleTap,
                       child: Row(
@@ -2958,10 +2927,10 @@ class _PosterWithQr extends StatelessWidget {
       clipBehavior: Clip.none,
       alignment: Alignment.bottomCenter,
       children: [
-        // 포스터 이미지 (전체 비율 유지)
+        // 포스터 이미지 (풀사이즈)
         SizedBox(
           width: double.infinity,
-          height: 248,
+          height: 340,
           child: DecoratedBox(
             decoration: const BoxDecoration(color: _creamDark),
             child: imageUrl != null && imageUrl!.isNotEmpty
@@ -3381,13 +3350,14 @@ class _InfoField extends StatelessWidget {
           Text(
             label,
             style: AppTheme.nanum(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: _textMid,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: _burgundy.withValues(alpha: 0.50),
+              letterSpacing: 0.5,
               noShadow: true,
             ),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           if (child != null)
             child!
           else
@@ -3420,17 +3390,19 @@ class _InfoFieldCenter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: AppTheme.nanum(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: _textMid,
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: _burgundy.withValues(alpha: 0.50),
+            letterSpacing: 0.5,
             noShadow: true,
           ),
         ),
-        const SizedBox(height: 3),
+        const SizedBox(height: 4),
         Text(
           value,
           style: AppTheme.nanum(
