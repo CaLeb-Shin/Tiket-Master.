@@ -2279,6 +2279,19 @@ class _FrontCard extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            // 공연 일시
+                            Expanded(
+                              flex: 4,
+                              child: _InfoFieldCentered(
+                                label: 'Date  ·  공연 일시',
+                                value: startAt != null
+                                    ? DateFormat(
+                                        'MM.dd (E) HH:mm',
+                                        'ko_KR',
+                                      ).format(startAt!)
+                                    : '-',
+                              ),
+                            ),
                             // 등급
                             Expanded(
                               flex: 3,
@@ -2299,44 +2312,23 @@ class _FrontCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 18),
 
-                        // ── Row 2: 공연장 | 날짜+시간 ──
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: _InfoField(
-                                label: 'Venue  ·  공연장',
-                                value: venueName,
-                                onTap: venueName.isNotEmpty
-                                    ? () {
-                                        final query = venueAddress.isNotEmpty
-                                            ? venueAddress
-                                            : venueName;
-                                        launchUrl(
-                                          Uri.parse(
-                                            'https://map.kakao.com/link/search/$query',
-                                          ),
-                                          mode: LaunchMode.externalApplication,
-                                        );
-                                      }
-                                    : null,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              flex: 2,
-                              child: _InfoFieldCentered(
-                                label: 'Date  ·  공연 일시',
-                                value: startAt != null
-                                    ? DateFormat(
-                                        'MM.dd (E) HH:mm',
-                                        'ko_KR',
-                                      ).format(startAt!)
-                                    : '-',
-                              ),
-                            ),
-                          ],
+                        // ── Row 2: 공연장 ──
+                        _InfoField(
+                          label: 'Venue  ·  공연장',
+                          value: venueName,
+                          onTap: venueName.isNotEmpty
+                              ? () {
+                                  final query = venueAddress.isNotEmpty
+                                      ? venueAddress
+                                      : venueName;
+                                  launchUrl(
+                                    Uri.parse(
+                                      'https://map.kakao.com/link/search/$query',
+                                    ),
+                                    mode: LaunchMode.externalApplication,
+                                  );
+                                }
+                              : null,
                         ),
                         if (venueAddress.isNotEmpty)
                           Padding(
