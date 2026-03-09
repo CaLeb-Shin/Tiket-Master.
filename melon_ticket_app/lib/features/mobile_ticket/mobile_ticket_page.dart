@@ -2317,12 +2317,13 @@ class _FrontCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 18),
 
-                        // ── Row 3: 티켓 No. | 등급 | 매수 (3등분) ──
+                        // ── Row 3: 티켓 No. | 등급 | 매수 ──
                         IntrinsicHeight(
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
+                                flex: 2,
                                 child: _InfoField(
                                   label: 'No.',
                                   child: Text(
@@ -2341,8 +2342,8 @@ class _FrontCard extends StatelessWidget {
                                 color: _burgundy.withValues(alpha: 0.08),
                               ),
                               Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(left: 16),
+                                flex: 4,
+                                child: Center(
                                   child: _InfoField(
                                     label: 'Grade  ·  등급',
                                     child: Text(
@@ -2362,6 +2363,7 @@ class _FrontCard extends StatelessWidget {
                                 color: _burgundy.withValues(alpha: 0.08),
                               ),
                               Expanded(
+                                flex: 3,
                                 child: Padding(
                                   padding: const EdgeInsets.only(left: 16),
                                   child: _InfoField(
@@ -2389,7 +2391,7 @@ class _FrontCard extends StatelessWidget {
 
                   const SizedBox(height: 14),
 
-                  // ── 하단: 상태 라이브 + 러닝타임 + 인터미션 (3등분) ──
+                  // ── 하단: 상태 라이브 + 러닝타임 + 인터미션 ──
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: IntrinsicHeight(
@@ -2397,6 +2399,7 @@ class _FrontCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
+                            flex: 2,
                             child: _InfoField(
                               label: 'LIVE · 좌석공개',
                               child: _LiveStatusInCard(
@@ -2412,8 +2415,8 @@ class _FrontCard extends StatelessWidget {
                             color: _burgundy.withValues(alpha: 0.08),
                           ),
                           Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 16),
+                            flex: 4,
+                            child: Center(
                               child: _InfoField(
                                 label: 'Runtime',
                                 value: '130분',
@@ -2425,6 +2428,7 @@ class _FrontCard extends StatelessWidget {
                             color: _burgundy.withValues(alpha: 0.08),
                           ),
                           Expanded(
+                            flex: 3,
                             child: Padding(
                               padding: const EdgeInsets.only(left: 16),
                               child: _InfoField(
