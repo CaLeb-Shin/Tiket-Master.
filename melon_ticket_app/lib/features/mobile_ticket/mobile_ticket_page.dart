@@ -2184,25 +2184,27 @@ class _FrontCard extends StatelessWidget {
 
     return GestureDetector(
       onDoubleTap: onDoubleTap,
-      child: ClipPath(
-        clipper: const _BoardingPassClipper(
-          notchRadius: 16,
-          notchPosition: 0.55,
-        ),
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: _cream,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                blurRadius: 32,
-                offset: const Offset(0, 12),
+      child: Stack(
+        children: [
+          ClipPath(
+            clipper: const _BoardingPassClipper(
+              notchRadius: 20,
+              notchPosition: 0.58,
+            ),
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: _cream,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 32,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Stack(
-            children: [
+              child: Stack(
+                children: [
               Column(
                 children: [
                   // ── 헤더: SMART TICKET ──
@@ -2240,24 +2242,34 @@ class _FrontCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 20),
 
-                        // ── Row 1: 예매자 | 날짜 ──
+                        // ── Row 1: 공연장 | 날짜+시간 ──
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
                               flex: 3,
                               child: _InfoField(
-                                label: 'Holder  ·  예매자',
-                                child: Text(
-                                  holderName,
-                                  style: AppTheme.serif(
-                                    fontSize: 26,
-                                    color: _burgundy,
-                                    height: 1.1,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                label: 'Venue  ·  공연장',
+                                value: venueName,
+                                valueStyle: AppTheme.nanum(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  color: _textDark,
+                                  noShadow: true,
                                 ),
+                                onTap: venueName.isNotEmpty
+                                    ? () {
+                                        final query = venueAddress.isNotEmpty
+                                            ? venueAddress
+                                            : venueName;
+                                        launchUrl(
+                                          Uri.parse(
+                                            'https://map.kakao.com/link/search/$query',
+                                          ),
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      }
+                                    : null,
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -2267,7 +2279,7 @@ class _FrontCard extends StatelessWidget {
                                 label: 'Date  ·  공연 일시',
                                 value: startAt != null
                                     ? DateFormat(
-                                        'MM.dd (E)',
+                                        'MM.dd (E) HH:mm',
                                         'ko_KR',
                                       ).format(startAt!)
                                     : '-',
@@ -2275,9 +2287,37 @@ class _FrontCard extends StatelessWidget {
                             ),
                           ],
                         ),
+                        if (venueAddress.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: Text(
+                              venueAddress,
+                              style: AppTheme.nanum(
+                                fontSize: 12,
+                                color: _textMid,
+                                noShadow: true,
+                              ),
+                            ),
+                          ),
                         const SizedBox(height: 18),
 
-                        // ── Row 2: 티켓 No. | 등급 | 좌석 | 시간 ──
+                        // ── Row 2: 예매자 이름 (대형) ──
+                        _InfoField(
+                          label: 'Holder  ·  예매자',
+                          child: Text(
+                            holderName,
+                            style: AppTheme.serif(
+                              fontSize: 28,
+                              color: _burgundy,
+                              height: 1.1,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+
+                        // ── Row 3: 티켓 No. | 등급 | 매수 ──
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -2316,68 +2356,32 @@ class _FrontCard extends StatelessWidget {
                                   value: '$orderIndex / $totalInOrder',
                                 ),
                               ),
-                            Expanded(
-                              child: _InfoField(
-                                label: 'Time',
-                                value: startAt != null
-                                    ? DateFormat('HH:mm').format(startAt!)
-                                    : '-',
-                              ),
-                            ),
                           ],
                         ),
-                        const SizedBox(height: 18),
-
-                        // ── Row 3: 공연장 (풀 width, 탭 가능) ──
-                        _InfoField(
-                          label: 'Venue  ·  공연장',
-                          value: venueName,
-                          onTap: venueName.isNotEmpty
-                              ? () {
-                                  final query = venueAddress.isNotEmpty
-                                      ? venueAddress
-                                      : venueName;
-                                  launchUrl(
-                                    Uri.parse(
-                                      'https://map.kakao.com/link/search/$query',
-                                    ),
-                                    mode: LaunchMode.externalApplication,
-                                  );
-                                }
-                              : null,
-                        ),
-                        if (venueAddress.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              venueAddress,
-                              style: AppTheme.nanum(
-                                fontSize: 12,
-                                color: _textMid,
-                                noShadow: true,
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                   ),
 
                   const SizedBox(height: 18),
 
+                  // ── 노치 구분선 영역 ──
+                  // (ClipPath 노치와 정렬되는 위치)
+
                   // ── 구분선 (골드 다이아몬드) ──
                   _GoldDivider(),
 
                   const SizedBox(height: 14),
 
-                  // ── 티켓 상태 + 더블탭 안내 ──
+                  // ── 하단: 상태 라이브 + 러닝타임 + 인터미션 ──
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
+                          flex: 2,
                           child: _InfoField(
-                            label: 'Status  ·  상태',
+                            label: 'LIVE',
                             child: _LiveStatusInCard(
                               startAt: startAt,
                               revealAt: revealAt,
@@ -2386,11 +2390,16 @@ class _FrontCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
                         Expanded(
-                          child: _InfoFieldCenter(
-                            label: '러닝타임',
-                            value: '2시간 10분',
+                          child: _InfoField(
+                            label: 'Runtime',
+                            value: '130분',
+                          ),
+                        ),
+                        Expanded(
+                          child: _InfoField(
+                            label: 'Break',
+                            value: '15분',
                           ),
                         ),
                       ],
@@ -2430,6 +2439,57 @@ class _FrontCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+          // 노치 안쪽 그림자 효과 (왼쪽)
+          Positioned.fill(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final notchY = constraints.maxHeight * 0.58;
+                const nr = 20.0;
+                return Stack(
+                  children: [
+                    Positioned(
+                      left: -nr,
+                      top: notchY - nr,
+                      child: Container(
+                        width: nr * 2,
+                        height: nr * 2,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.12),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: -nr,
+                      top: notchY - nr,
+                      child: Container(
+                        width: nr * 2,
+                        height: nr * 2,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.12),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -3170,123 +3230,71 @@ class _LiveStatusInCardState extends State<_LiveStatusInCard>
       );
     }
 
-    final now = DateTime.now();
-    final targetForToday = switch (_status) {
-      _LiveTicketState.beforeReveal => widget.revealAt,
-      _LiveTicketState.beforeStart => widget.startAt,
-      _ => null,
-    };
-    final isToday =
-        targetForToday != null && targetForToday.difference(now).inDays == 0;
-
     final Color dotColor;
-    final String labelText;
 
     switch (_status) {
       case _LiveTicketState.beforeReveal:
         dotColor = const Color(0xFF22C55E);
-        labelText = isToday ? '오늘 공개' : '공개 예정';
       case _LiveTicketState.beforeStart:
         dotColor = AppTheme.gold;
-        labelText = '입장 가능';
       case _LiveTicketState.playing:
         dotColor = const Color(0xFFFF4444);
-        labelText = '공연 중';
       case _LiveTicketState.ended:
         dotColor = _textLight;
-        labelText = '종료';
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Row(
-          children: [
-            AnimatedBuilder(
-              animation: _pulseCtrl,
-              builder: (_, __) => Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _status == _LiveTicketState.ended
-                      ? dotColor
-                      : Color.lerp(
-                          dotColor,
-                          dotColor.withValues(alpha: 0.3),
-                          _pulseCtrl.value,
+        // 라이브 펄스 dot (크게)
+        AnimatedBuilder(
+          animation: _pulseCtrl,
+          builder: (_, __) => Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _status == _LiveTicketState.ended
+                  ? dotColor
+                  : Color.lerp(
+                      dotColor,
+                      dotColor.withValues(alpha: 0.2),
+                      _pulseCtrl.value,
+                    ),
+              boxShadow: _status != _LiveTicketState.ended
+                  ? [
+                      BoxShadow(
+                        color: dotColor.withValues(
+                          alpha: 0.6 * (1 - _pulseCtrl.value),
                         ),
-                  boxShadow: _status != _LiveTicketState.ended
-                      ? [
-                          BoxShadow(
-                            color: dotColor.withValues(
-                              alpha: 0.4 * (1 - _pulseCtrl.value),
-                            ),
-                            blurRadius: 6,
-                          ),
-                        ]
-                      : null,
-                ),
-              ),
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      ),
+                    ]
+                  : null,
             ),
-            const SizedBox(width: 5),
-            Text(
-              labelText,
-              style: AppTheme.nanum(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: dotColor,
-                noShadow: true,
-              ),
-            ),
-            if (_status == _LiveTicketState.beforeReveal &&
-                widget.revealAt != null) ...[
-              const SizedBox(width: 10),
-              Text(
-                _fmt(_remaining),
-                style: GoogleFonts.robotoMono(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: _textDark,
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
-        if (_status == _LiveTicketState.beforeReveal &&
-            widget.revealAt != null) ...[
-          const SizedBox(height: 3),
+        const SizedBox(width: 8),
+        // 카운트다운만 표시 (라벨 텍스트 제거)
+        if (_remaining > Duration.zero)
           Text(
-            '좌석 공개까지 남은 시간',
+            _fmt(_remaining),
+            style: GoogleFonts.robotoMono(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: _textDark,
+            ),
+          )
+        else if (_status == _LiveTicketState.ended)
+          Text(
+            '종료',
             style: AppTheme.nanum(
-              fontSize: 11,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
               color: _textLight,
               noShadow: true,
             ),
           ),
-        ],
-        if (_status == _LiveTicketState.beforeStart) ...[
-          const SizedBox(height: 2),
-          Text(
-            '좌석과 QR이 공개되었습니다',
-            style: AppTheme.nanum(
-              fontSize: 11,
-              color: _textLight,
-              noShadow: true,
-            ),
-          ),
-        ],
-        if (_status == _LiveTicketState.playing) ...[
-          const SizedBox(height: 2),
-          Text(
-            '공연 진행 중',
-            style: AppTheme.nanum(
-              fontSize: 11,
-              color: _textLight,
-              noShadow: true,
-            ),
-          ),
-        ],
       ],
     );
   }
