@@ -2326,7 +2326,7 @@ class _FrontCard extends StatelessWidget {
                             const SizedBox(width: 16),
                             Expanded(
                               flex: 2,
-                              child: _InfoField(
+                              child: _InfoFieldCentered(
                                 label: 'Date  ·  공연 일시',
                                 value: startAt != null
                                     ? DateFormat(
