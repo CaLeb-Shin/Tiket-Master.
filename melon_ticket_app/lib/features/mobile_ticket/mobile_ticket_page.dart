@@ -2318,52 +2318,48 @@ class _FrontCard extends StatelessWidget {
                         const SizedBox(height: 18),
 
                         // ── Row 3: 티켓 No. | 등급 | 매수 (가운데 정렬) ──
-                        IntrinsicHeight(
-                          child: Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: _InfoFieldCentered(
-                                  label: 'No.',
-                                  child: Text(
-                                    '#$entryNumber',
-                                    style: AppTheme.nanum(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w900,
-                                      color: _burgundy,
-                                      noShadow: true,
-                                    ),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: _InfoFieldCentered(
+                                label: 'No.',
+                                child: Text(
+                                  '#$entryNumber',
+                                  style: AppTheme.nanum(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                    color: _burgundy,
+                                    noShadow: true,
                                   ),
                                 ),
                               ),
-                              Container(width: 1, color: _burgundy.withValues(alpha: 0.08)),
-                              Expanded(
-                                flex: 4,
-                                child: _InfoFieldCentered(
-                                  label: 'Grade  ·  등급',
-                                  child: Text(
-                                    '${seatGrade}석',
-                                    style: AppTheme.nanum(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w900,
-                                      color: gradeCol,
-                                      noShadow: true,
-                                    ),
+                            ),
+                            Expanded(
+                              flex: 4,
+                              child: _InfoFieldCentered(
+                                label: 'Grade  ·  등급',
+                                child: Text(
+                                  '${seatGrade}석',
+                                  style: AppTheme.nanum(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                    color: gradeCol,
+                                    noShadow: true,
                                   ),
                                 ),
                               ),
-                              Container(width: 1, color: _burgundy.withValues(alpha: 0.08)),
-                              Expanded(
-                                flex: 3,
-                                child: _InfoFieldCentered(
-                                  label: 'Tickets',
-                                  value: totalInOrder > 1
-                                      ? '$orderIndex / $totalInOrder'
-                                      : '1매',
-                                ),
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: _InfoFieldCentered(
+                                label: 'Tickets',
+                                value: totalInOrder > 1
+                                    ? '$orderIndex / $totalInOrder'
+                                    : '1매',
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -2382,39 +2378,35 @@ class _FrontCard extends StatelessWidget {
                   // ── 하단: 상태 라이브 + 러닝타임 + 인터미션 (가운데 정렬) ──
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: IntrinsicHeight(
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: _InfoFieldCentered(
-                              label: 'LIVE · 좌석공개',
-                              child: _LiveStatusInCard(
-                                startAt: startAt,
-                                revealAt: revealAt,
-                                isCancelled: isCancelled,
-                                isUsed: isUsed,
-                              ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: _InfoFieldCentered(
+                            label: 'LIVE · 좌석공개',
+                            child: _LiveStatusInCard(
+                              startAt: startAt,
+                              revealAt: revealAt,
+                              isCancelled: isCancelled,
+                              isUsed: isUsed,
                             ),
                           ),
-                          Container(width: 1, color: _burgundy.withValues(alpha: 0.08)),
-                          Expanded(
-                            flex: 4,
-                            child: _InfoFieldCentered(
-                              label: 'Runtime',
-                              value: '130분',
-                            ),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: _InfoFieldCentered(
+                            label: 'Runtime',
+                            value: '130분',
                           ),
-                          Container(width: 1, color: _burgundy.withValues(alpha: 0.08)),
-                          Expanded(
-                            flex: 3,
-                            child: _InfoFieldCentered(
-                              label: 'Break',
-                              value: '15분',
-                            ),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: _InfoFieldCentered(
+                            label: 'Break',
+                            value: '15분',
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
 
@@ -2452,7 +2444,7 @@ class _FrontCard extends StatelessWidget {
           ),
         ),
       ),
-          // 노치 버건디 투명 강조 (양쪽)
+          // 노치 inner shadow (구멍 깊이감)
           Positioned.fill(
             child: IgnorePointer(
               child: LayoutBuilder(
@@ -2461,41 +2453,43 @@ class _FrontCard extends StatelessWidget {
                   const nr = 20.0;
                   return Stack(
                     children: [
+                      // 왼쪽 노치 — 그림자로 깊이감
                       Positioned(
-                        left: -nr,
+                        left: -nr + 2,
                         top: notchY - nr,
                         child: Container(
                           width: nr * 2,
                           height: nr * 2,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: _burgundy.withValues(alpha: 0.35),
-                            boxShadow: [
-                              BoxShadow(
-                                color: _burgundy.withValues(alpha: 0.10),
-                                blurRadius: 6,
-                                spreadRadius: 1,
-                              ),
-                            ],
+                            gradient: RadialGradient(
+                              colors: [
+                                Colors.transparent,
+                                _burgundy.withValues(alpha: 0.06),
+                                _burgundy.withValues(alpha: 0.15),
+                              ],
+                              stops: const [0.0, 0.7, 1.0],
+                            ),
                           ),
                         ),
                       ),
+                      // 오른쪽 노치 — 그림자로 깊이감
                       Positioned(
-                        right: -nr,
+                        right: -nr + 2,
                         top: notchY - nr,
                         child: Container(
                           width: nr * 2,
                           height: nr * 2,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: _burgundy.withValues(alpha: 0.35),
-                            boxShadow: [
-                              BoxShadow(
-                                color: _burgundy.withValues(alpha: 0.10),
-                                blurRadius: 6,
-                                spreadRadius: 1,
-                              ),
-                            ],
+                            gradient: RadialGradient(
+                              colors: [
+                                Colors.transparent,
+                                _burgundy.withValues(alpha: 0.06),
+                                _burgundy.withValues(alpha: 0.15),
+                              ],
+                              stops: const [0.0, 0.7, 1.0],
+                            ),
                           ),
                         ),
                       ),
