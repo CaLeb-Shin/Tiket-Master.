@@ -2317,14 +2317,13 @@ class _FrontCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 18),
 
-                        // ── Row 3: 티켓 No. | 등급 | 매수 ──
+                        // ── Row 3: 티켓 No. | 등급 | 매수 (가운데 정렬) ──
                         IntrinsicHeight(
                           child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
                                 flex: 2,
-                                child: _InfoField(
+                                child: _InfoFieldCentered(
                                   label: 'No.',
                                   child: Text(
                                     '#$entryNumber',
@@ -2337,41 +2336,30 @@ class _FrontCard extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              Container(
-                                width: 1,
-                                color: _burgundy.withValues(alpha: 0.08),
-                              ),
+                              Container(width: 1, color: _burgundy.withValues(alpha: 0.08)),
                               Expanded(
                                 flex: 4,
-                                child: Center(
-                                  child: _InfoField(
-                                    label: 'Grade  ·  등급',
-                                    child: Text(
-                                      '${seatGrade}석',
-                                      style: AppTheme.nanum(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w900,
-                                        color: gradeCol,
-                                        noShadow: true,
-                                      ),
+                                child: _InfoFieldCentered(
+                                  label: 'Grade  ·  등급',
+                                  child: Text(
+                                    '${seatGrade}석',
+                                    style: AppTheme.nanum(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w900,
+                                      color: gradeCol,
+                                      noShadow: true,
                                     ),
                                   ),
                                 ),
                               ),
-                              Container(
-                                width: 1,
-                                color: _burgundy.withValues(alpha: 0.08),
-                              ),
+                              Container(width: 1, color: _burgundy.withValues(alpha: 0.08)),
                               Expanded(
                                 flex: 3,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(left: 16),
-                                  child: _InfoField(
-                                    label: 'Tickets',
-                                    value: totalInOrder > 1
-                                        ? '$orderIndex / $totalInOrder'
-                                        : '1매',
-                                  ),
+                                child: _InfoFieldCentered(
+                                  label: 'Tickets',
+                                  value: totalInOrder > 1
+                                      ? '$orderIndex / $totalInOrder'
+                                      : '1매',
                                 ),
                               ),
                             ],
@@ -2391,16 +2379,15 @@ class _FrontCard extends StatelessWidget {
 
                   const SizedBox(height: 14),
 
-                  // ── 하단: 상태 라이브 + 러닝타임 + 인터미션 ──
+                  // ── 하단: 상태 라이브 + 러닝타임 + 인터미션 (가운데 정렬) ──
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: IntrinsicHeight(
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             flex: 2,
-                            child: _InfoField(
+                            child: _InfoFieldCentered(
                               label: 'LIVE · 좌석공개',
                               child: _LiveStatusInCard(
                                 startAt: startAt,
@@ -2410,31 +2397,20 @@ class _FrontCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          Container(
-                            width: 1,
-                            color: _burgundy.withValues(alpha: 0.08),
-                          ),
+                          Container(width: 1, color: _burgundy.withValues(alpha: 0.08)),
                           Expanded(
                             flex: 4,
-                            child: Center(
-                              child: _InfoField(
-                                label: 'Runtime',
-                                value: '130분',
-                              ),
+                            child: _InfoFieldCentered(
+                              label: 'Runtime',
+                              value: '130분',
                             ),
                           ),
-                          Container(
-                            width: 1,
-                            color: _burgundy.withValues(alpha: 0.08),
-                          ),
+                          Container(width: 1, color: _burgundy.withValues(alpha: 0.08)),
                           Expanded(
                             flex: 3,
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 16),
-                              child: _InfoField(
-                                label: 'Break',
-                                value: '15분',
-                              ),
+                            child: _InfoFieldCentered(
+                              label: 'Break',
+                              value: '15분',
                             ),
                           ),
                         ],
@@ -3289,60 +3265,91 @@ class _LiveStatusInCardState extends State<_LiveStatusInCard>
         dotColor = _textLight;
     }
 
+    // D-day와 시간 분리
+    final dDay = _remaining.inDays > 0 ? 'D-${_remaining.inDays}' : '';
+    final hms = _remaining > Duration.zero
+        ? () {
+            final h = (_remaining.inHours % 24);
+            final m = _remaining.inMinutes % 60;
+            final s = _remaining.inSeconds % 60;
+            return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+          }()
+        : '';
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 라이브 펄스 dot
-        AnimatedBuilder(
-          animation: _pulseCtrl,
-          builder: (_, __) => Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _status == _LiveTicketState.ended
-                  ? dotColor
-                  : Color.lerp(
-                      dotColor,
-                      dotColor.withValues(alpha: 0.2),
-                      _pulseCtrl.value,
-                    ),
-              boxShadow: _status != _LiveTicketState.ended
-                  ? [
-                      BoxShadow(
-                        color: dotColor.withValues(
-                          alpha: 0.6 * (1 - _pulseCtrl.value),
+        // ● dot + D-day (가로)
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedBuilder(
+              animation: _pulseCtrl,
+              builder: (_, __) => Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _status == _LiveTicketState.ended
+                      ? dotColor
+                      : Color.lerp(
+                          dotColor,
+                          dotColor.withValues(alpha: 0.2),
+                          _pulseCtrl.value,
                         ),
-                        blurRadius: 10,
-                        spreadRadius: 2,
-                      ),
-                    ]
-                  : null,
+                  boxShadow: _status != _LiveTicketState.ended
+                      ? [
+                          BoxShadow(
+                            color: dotColor.withValues(
+                              alpha: 0.6 * (1 - _pulseCtrl.value),
+                            ),
+                            blurRadius: 10,
+                            spreadRadius: 2,
+                          ),
+                        ]
+                      : null,
+                ),
+              ),
             ),
-          ),
+            if (dDay.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              Text(
+                dDay,
+                style: AppTheme.nanum(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: _textDark,
+                  noShadow: true,
+                ),
+              ),
+            ],
+            if (_status == _LiveTicketState.ended) ...[
+              const SizedBox(width: 6),
+              Text(
+                '종료',
+                style: AppTheme.nanum(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: _textLight,
+                  noShadow: true,
+                ),
+              ),
+            ],
+          ],
         ),
-        const SizedBox(height: 4),
-        // 카운트다운 (아래로)
-        if (_remaining > Duration.zero)
+        // 시간 (아래)
+        if (hms.isNotEmpty) ...[
+          const SizedBox(height: 2),
           Text(
-            _fmt(_remaining),
+            hms,
             style: GoogleFonts.robotoMono(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: _textDark,
-            ),
-          )
-        else if (_status == _LiveTicketState.ended)
-          Text(
-            '종료',
-            style: AppTheme.nanum(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: _textLight,
-              noShadow: true,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: _textMid,
             ),
           ),
+        ],
       ],
     );
   }
@@ -3436,17 +3443,22 @@ class _InfoField extends StatelessWidget {
   }
 }
 
-// ── 정보 필드 (가운데 정렬) ──
-class _InfoFieldCenter extends StatelessWidget {
+// ── 정보 필드 (칸 안에서 가운데 정렬) ──
+class _InfoFieldCentered extends StatelessWidget {
   final String label;
-  final String value;
+  final String? value;
+  final Widget? child;
 
-  const _InfoFieldCenter({required this.label, required this.value});
+  const _InfoFieldCentered({
+    required this.label,
+    this.value,
+    this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           label,
@@ -3457,17 +3469,22 @@ class _InfoFieldCenter extends StatelessWidget {
             letterSpacing: 0.5,
             noShadow: true,
           ),
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 4),
-        Text(
-          value,
-          style: AppTheme.nanum(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: _textDark,
-            noShadow: true,
+        if (child != null)
+          child!
+        else
+          Text(
+            value ?? '-',
+            style: AppTheme.nanum(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: _textDark,
+              noShadow: true,
+            ),
+            textAlign: TextAlign.center,
           ),
-        ),
       ],
     );
   }
