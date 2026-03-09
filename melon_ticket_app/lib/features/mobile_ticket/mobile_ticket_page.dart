@@ -2317,7 +2317,7 @@ class _FrontCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 18),
 
-                        // ── Row 3: 티켓 No. | 등급 | 매수 ──
+                        // ── Row 3: 티켓 No. | 등급 | 매수 (3등분) ──
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -2349,13 +2349,14 @@ class _FrontCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (totalInOrder > 1)
-                              Expanded(
-                                child: _InfoField(
-                                  label: 'Tickets',
-                                  value: '$orderIndex / $totalInOrder',
-                                ),
+                            Expanded(
+                              child: _InfoField(
+                                label: 'Tickets',
+                                value: totalInOrder > 1
+                                    ? '$orderIndex / $totalInOrder'
+                                    : '1매',
                               ),
+                            ),
                           ],
                         ),
                       ],
@@ -2372,16 +2373,15 @@ class _FrontCard extends StatelessWidget {
 
                   const SizedBox(height: 14),
 
-                  // ── 하단: 상태 라이브 + 러닝타임 + 인터미션 ──
+                  // ── 하단: 상태 라이브 + 러닝타임 + 인터미션 (3등분) ──
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          flex: 2,
                           child: _InfoField(
-                            label: 'LIVE',
+                            label: 'LIVE  ·  좌석공개 예정시간',
                             child: _LiveStatusInCard(
                               startAt: startAt,
                               revealAt: revealAt,
@@ -2440,53 +2440,57 @@ class _FrontCard extends StatelessWidget {
           ),
         ),
       ),
-          // 노치 안쪽 그림자 효과 (왼쪽)
+          // 노치 버건디 강조 (양쪽)
           Positioned.fill(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final notchY = constraints.maxHeight * 0.58;
-                const nr = 20.0;
-                return Stack(
-                  children: [
-                    Positioned(
-                      left: -nr,
-                      top: notchY - nr,
-                      child: Container(
-                        width: nr * 2,
-                        height: nr * 2,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              blurRadius: 6,
-                              spreadRadius: 1,
-                            ),
-                          ],
+            child: IgnorePointer(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final notchY = constraints.maxHeight * 0.58;
+                  const nr = 20.0;
+                  return Stack(
+                    children: [
+                      Positioned(
+                        left: -nr,
+                        top: notchY - nr,
+                        child: Container(
+                          width: nr * 2,
+                          height: nr * 2,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _burgundy,
+                            boxShadow: [
+                              BoxShadow(
+                                color: _burgundy.withValues(alpha: 0.18),
+                                blurRadius: 8,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    Positioned(
-                      right: -nr,
-                      top: notchY - nr,
-                      child: Container(
-                        width: nr * 2,
-                        height: nr * 2,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              blurRadius: 6,
-                              spreadRadius: 1,
-                            ),
-                          ],
+                      Positioned(
+                        right: -nr,
+                        top: notchY - nr,
+                        child: Container(
+                          width: nr * 2,
+                          height: nr * 2,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _burgundy,
+                            boxShadow: [
+                              BoxShadow(
+                                color: _burgundy.withValues(alpha: 0.18),
+                                blurRadius: 8,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                );
-              },
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -2987,43 +2991,49 @@ class _PosterWithQr extends StatelessWidget {
       clipBehavior: Clip.none,
       alignment: Alignment.bottomCenter,
       children: [
-        // 포스터 이미지 (풀사이즈)
-        SizedBox(
+        // 포스터 이미지 (전체 보이도록)
+        Container(
           width: double.infinity,
-          height: 340,
-          child: DecoratedBox(
-            decoration: const BoxDecoration(color: _creamDark),
-            child: imageUrl != null && imageUrl!.isNotEmpty
-                ? Image.network(
-                    imageUrl!,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    loadingBuilder: (context, child, progress) {
-                      if (progress == null) return child;
-                      return Center(
+          constraints: const BoxConstraints(minHeight: 200),
+          color: _creamDark,
+          child: imageUrl != null && imageUrl!.isNotEmpty
+              ? Image.network(
+                  imageUrl!,
+                  fit: BoxFit.fitWidth,
+                  width: double.infinity,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return const SizedBox(
+                      height: 280,
+                      child: Center(
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: _burgundy.withValues(alpha: 0.35),
+                          color: _burgundy,
                         ),
-                      );
-                    },
-                    errorBuilder: (_, __, ___) => Center(
+                      ),
+                    );
+                  },
+                  errorBuilder: (_, __, ___) => const SizedBox(
+                    height: 280,
+                    child: Center(
                       child: Icon(
                         Icons.music_note_rounded,
                         color: _textLight,
                         size: 40,
                       ),
                     ),
-                  )
-                : Center(
+                  ),
+                )
+              : const SizedBox(
+                  height: 280,
+                  child: Center(
                     child: Icon(
                       Icons.music_note_rounded,
                       color: _textLight,
                       size: 40,
                     ),
                   ),
-          ),
+                ),
         ),
 
         // QR 원형 오버랩 (포스터 하단에 걸침) — 미니 QR 패턴 + 잠금 오버레이
