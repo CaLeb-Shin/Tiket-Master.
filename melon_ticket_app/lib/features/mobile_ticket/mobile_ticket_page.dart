@@ -3289,9 +3289,11 @@ class _LiveStatusInCardState extends State<_LiveStatusInCard>
         dotColor = _textLight;
     }
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // 라이브 펄스 dot (크게)
+        // 라이브 펄스 dot
         AnimatedBuilder(
           animation: _pulseCtrl,
           builder: (_, __) => Container(
@@ -3320,13 +3322,13 @@ class _LiveStatusInCardState extends State<_LiveStatusInCard>
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        // 카운트다운만 표시 (라벨 텍스트 제거)
+        const SizedBox(height: 4),
+        // 카운트다운 (아래로)
         if (_remaining > Duration.zero)
           Text(
             _fmt(_remaining),
             style: GoogleFonts.robotoMono(
-              fontSize: 14,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
               color: _textDark,
             ),
