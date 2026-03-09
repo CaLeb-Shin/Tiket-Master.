@@ -2401,25 +2401,43 @@ class _FrontCard extends StatelessWidget {
 
                   const SizedBox(height: 16),
 
-                  // ── 더블클릭 안내 ──
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 18),
-                    child: GestureDetector(
-                      onDoubleTap: onDoubleTap,
+                  // ── 하단 띠: 두 번 탭하여 QR 보기 ──
+                  GestureDetector(
+                    onDoubleTap: onDoubleTap,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFF1A0508),
+                            _burgundy,
+                            const Color(0xFF1A0508),
+                          ],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(20),
+                          bottomRight: Radius.circular(20),
+                        ),
+                      ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.touch_app_rounded,
                             size: 14,
-                            color: _textMid,
+                            color: _cream.withValues(alpha: 0.7),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 6),
                           Text(
                             '두 번 탭하여 QR 보기',
                             style: AppTheme.nanum(
                               fontSize: 12,
-                              color: _textMid,
+                              fontWeight: FontWeight.w600,
+                              color: _cream.withValues(alpha: 0.7),
+                              letterSpacing: 0.5,
                               noShadow: true,
                             ),
                           ),
