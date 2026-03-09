@@ -2242,7 +2242,64 @@ class _FrontCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 20),
 
-                        // ── Row 1: 공연장 | 날짜+시간 ──
+                        // ── Row 1: 예매자 | No. | 등급 ──
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            // 예매자 이름 (대형)
+                            Expanded(
+                              flex: 5,
+                              child: _InfoField(
+                                label: 'Holder  ·  예매자',
+                                child: Text(
+                                  holderName,
+                                  style: AppTheme.serif(
+                                    fontSize: 28,
+                                    color: _burgundy,
+                                    height: 1.1,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            // No.
+                            Expanded(
+                              flex: 2,
+                              child: _InfoFieldCentered(
+                                label: 'No.',
+                                child: Text(
+                                  '#$entryNumber',
+                                  style: AppTheme.nanum(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: _burgundy,
+                                    noShadow: true,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // 등급
+                            Expanded(
+                              flex: 3,
+                              child: _InfoFieldCentered(
+                                label: 'Grade  ·  등급',
+                                child: Text(
+                                  '${seatGrade}석',
+                                  style: AppTheme.nanum(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: gradeCol,
+                                    noShadow: true,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+
+                        // ── Row 2: 공연장 | 날짜+시간 ──
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -2251,12 +2308,6 @@ class _FrontCard extends StatelessWidget {
                               child: _InfoField(
                                 label: 'Venue  ·  공연장',
                                 value: venueName,
-                                valueStyle: AppTheme.nanum(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w800,
-                                  color: _textDark,
-                                  noShadow: true,
-                                ),
                                 onTap: venueName.isNotEmpty
                                     ? () {
                                         final query = venueAddress.isNotEmpty
@@ -2299,68 +2350,6 @@ class _FrontCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                        const SizedBox(height: 18),
-
-                        // ── Row 2: 예매자 이름 (대형) ──
-                        _InfoField(
-                          label: 'Holder  ·  예매자',
-                          child: Text(
-                            holderName,
-                            style: AppTheme.serif(
-                              fontSize: 28,
-                              color: _burgundy,
-                              height: 1.1,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-
-                        // ── Row 3: 티켓 No. | 등급 | 매수 (가운데 정렬) ──
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: _InfoFieldCentered(
-                                label: 'No.',
-                                child: Text(
-                                  '#$entryNumber',
-                                  style: AppTheme.nanum(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w900,
-                                    color: _burgundy,
-                                    noShadow: true,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 4,
-                              child: _InfoFieldCentered(
-                                label: 'Grade  ·  등급',
-                                child: Text(
-                                  '${seatGrade}석',
-                                  style: AppTheme.nanum(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w900,
-                                    color: gradeCol,
-                                    noShadow: true,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 3,
-                              child: _InfoFieldCentered(
-                                label: 'Tickets',
-                                value: totalInOrder > 1
-                                    ? '$orderIndex / $totalInOrder'
-                                    : '1매',
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                   ),
