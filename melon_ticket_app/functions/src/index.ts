@@ -3122,17 +3122,30 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
   const eventDoc = await db.collection("events").doc(ticket.eventId).get();
   const event = eventDoc.exists ? eventDoc.data() : null;
 
-  // 공유받은 사람(recipientName 있음)은 자기 티켓만, 예매자 본인은 전체 그룹
-  const isTransferred = !!ticket.recipientName;
+  // 그룹 티켓: 같은 주문의 sibling 조회
   const siblingDocs: Array<{ id: string; data: any }> = [];
-  if (!isTransferred && ticket.naverOrderId) {
+  let isGroupOwner = false;
+  if (ticket.naverOrderId) {
     const siblingSnap = await db.collection("mobileTickets")
       .where("naverOrderId", "==", ticket.naverOrderId)
       .get();
 
+    // 주문 내 가장 작은 entryNumber = 구매자(owner)
+    let minEntry = Infinity;
     for (const doc of siblingSnap.docs) {
-      siblingDocs.push({ id: doc.id, data: doc.data() });
+      const d = doc.data();
+      const en = d.entryNumber || Infinity;
+      if (en < minEntry) minEntry = en;
     }
+    isGroupOwner = (ticket.entryNumber || Infinity) === minEntry;
+
+    if (isGroupOwner) {
+      // 구매자: 전체 sibling 반환
+      for (const doc of siblingSnap.docs) {
+        siblingDocs.push({ id: doc.id, data: doc.data() });
+      }
+    }
+    // 공유받은 사람: siblingDocs 비어있음 → 자기 티켓만
   }
 
   return buildMobileTicketPublicPayload({

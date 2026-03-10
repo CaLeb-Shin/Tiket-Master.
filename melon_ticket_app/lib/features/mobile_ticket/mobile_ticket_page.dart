@@ -91,9 +91,10 @@ String _buildTransferShareMessage({
   required String url,
 }) {
   return [
+    '$eventTitle 티켓 전달',
     recipientName.isNotEmpty
         ? '🎫 ${recipientName}님에게 티켓을 보냈어요!'
-        : '🎫 $eventTitle 티켓을 전달했어요!',
+        : '🎫 티켓을 전달했어요!',
     '',
     '🎵 $eventTitle',
     if (startAt != null)
