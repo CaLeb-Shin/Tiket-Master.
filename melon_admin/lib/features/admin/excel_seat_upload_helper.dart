@@ -519,9 +519,60 @@ class ExcelTemplateDownloader {
 // ═══════════════════════════════════════════════════
 
 class EnhancedExcelParser {
+  /// xlsx ZIP 내 styles.xml에서 호환되지 않는 numFmt 제거
+  static List<int> _sanitizeNumFmts(List<int> bytes) {
+    try {
+      final arch = archive.ZipDecoder().decodeBytes(bytes);
+      final stylesFile = arch.files.firstWhere(
+        (f) => f.name == 'xl/styles.xml',
+        orElse: () => archive.ArchiveFile('', 0, []),
+      );
+      if (stylesFile.name.isEmpty || stylesFile.content == null) return bytes;
+
+      final stylesXml = utf8.decode(stylesFile.content as List<int>);
+      final doc = xml.XmlDocument.parse(stylesXml);
+
+      // numFmts 요소 찾아서 id < 164인 커스텀 항목 제거
+      final numFmts = doc.findAllElements('numFmts');
+      for (final numFmtsEl in numFmts) {
+        final toRemove = <xml.XmlElement>[];
+        for (final fmt in numFmtsEl.findElements('numFmt')) {
+          final id = int.tryParse(fmt.getAttribute('numFmtId') ?? '') ?? 0;
+          // 빌트인 포맷(0-163)이 커스텀으로 선언된 경우 제거
+          if (id < 164) toRemove.add(fmt);
+        }
+        for (final el in toRemove) {
+          el.parent?.children.remove(el);
+        }
+        // count 속성 업데이트
+        final remaining = numFmtsEl.findElements('numFmt').length;
+        numFmtsEl.setAttribute('count', '$remaining');
+      }
+
+      // 수정된 styles.xml로 ZIP 재구성
+      final newArch = archive.Archive();
+      for (final file in arch.files) {
+        if (file.name == 'xl/styles.xml') {
+          final newContent = utf8.encode(doc.toXmlString());
+          newArch.addFile(archive.ArchiveFile(
+            file.name,
+            newContent.length,
+            newContent,
+          ));
+        } else {
+          newArch.addFile(file);
+        }
+      }
+      return archive.ZipEncoder().encode(newArch) ?? bytes;
+    } catch (_) {
+      return bytes; // 실패 시 원본 반환
+    }
+  }
+
   /// Auto-detect format and parse Excel bytes
   static ExcelParseResult parse(List<int> bytes, {int gridCols = 60}) {
-    final excel = Excel.decodeBytes(bytes);
+    final sanitized = _sanitizeNumFmts(bytes);
+    final excel = Excel.decodeBytes(sanitized);
     // Resolve theme colors from raw xlsx ZIP (dart excel package can't do this)
     final colorResolver = _ThemeColorResolver(bytes);
     final allSeats = <LayoutSeat>[];
