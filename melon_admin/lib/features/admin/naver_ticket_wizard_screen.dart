@@ -1684,7 +1684,7 @@ class _NaverTicketWizardScreenState
     await _processExcelBytes(bytes, fileName);
   }
 
-  /// .xls → .xlsx 변환 (CF 호출) 후 파싱, .xlsx는 바로 파싱
+  /// 엑셀 파일을 CF로 정리(numFmt 제거) 후 파싱
   Future<void> _processExcelBytes(Uint8List bytes, String fileName) async {
     setState(() {
       _isParsingSeat = true;
@@ -1696,24 +1696,18 @@ class _NaverTicketWizardScreenState
     await Future.delayed(const Duration(milliseconds: 300));
 
     try {
-      var xlsxBytes = bytes.toList();
-      final ext = fileName.split('.').last.toLowerCase();
-
-      // .xls 파일이면 CF로 변환
-      if (ext == 'xls') {
-        setState(() {}); // show "변환 중" state
-        final response = await http.post(
-          Uri.parse('$_cfBaseUrl/convertXlsToXlsxHttp'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'base64': base64Encode(bytes)}),
-        );
-        if (response.statusCode != 200) {
-          final err = jsonDecode(response.body)['error'] ?? 'HTTP ${response.statusCode}';
-          throw Exception('.xls 변환 실패: $err');
-        }
-        final resultBase64 = jsonDecode(response.body)['base64'] as String;
-        xlsxBytes = base64Decode(resultBase64);
+      // 모든 엑셀 파일을 CF를 통해 정리 (.xls 변환 + .xlsx numFmt 호환성 처리)
+      final response = await http.post(
+        Uri.parse('$_cfBaseUrl/convertXlsToXlsxHttp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'base64': base64Encode(bytes)}),
+      );
+      if (response.statusCode != 200) {
+        final err = jsonDecode(response.body)['error'] ?? 'HTTP ${response.statusCode}';
+        throw Exception('엑셀 처리 실패: $err');
       }
+      final resultBase64 = jsonDecode(response.body)['base64'] as String;
+      final xlsxBytes = base64Decode(resultBase64);
 
       final parseResult = EnhancedExcelParser.parse(xlsxBytes);
 
