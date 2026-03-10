@@ -466,35 +466,23 @@ function generateOutput(seats, outputPath) {
 // ─────────────────────────────────────────────────
 
 function parseRowFormat(ws, maxRow, maxCol, legend) {
-  // "X열" 라벨 행을 찾아서 열 그룹 구성
-  // 층 구분은 오른쪽 끝 열에 "1층", "2층", "3층" 텍스트로 판단
   const allSeats = [];
 
-  // 1단계: 층 마커 찾기
-  // 방법1: 오른쪽 열(col 40+)에 "N층" 텍스트 → 해당 층의 END 마커
-  // 방법2: 데이터 영역에서 "N층 NNN석" → 해당 층의 START 마커
-  const floorEndMarkers = []; // {row, floorNum}
-  const floorStartMarkers = []; // {row, floorNum}
+  // 1단계: 층 마커 찾기 (col >= 15에서 "N층" END 마커)
+  const floorEndMarkers = [];
   for (let r = 0; r <= maxRow; r++) {
     for (let c = 0; c <= maxCol; c++) {
       const val = getVal(ws, r, c);
       if (!val) continue;
       const fm = val.match(/^(\d)층$/);
-      if (fm && c >= 40) {
-        // 오른쪽 영역의 "N층" = END 마커
+      if (fm && c >= 15) {
         floorEndMarkers.push({ row: r, floorNum: parseInt(fm[1]) });
-      }
-      const fm2 = val.match(/^(\d)층\s+\d+석$/);
-      if (fm2 && c >= 40) {
-        // "N층 NNN석" = 요약 정보 (무시)
       }
     }
   }
   floorEndMarkers.sort((a, b) => a.row - b.row);
 
-  // END 마커에서 층 범위 결정: "N층" 마커 이후는 (N+1)층
-  // 기본: 1층
-  const floorRanges = []; // {startRow, endRow, name}
+  const floorRanges = [];
   let prevEnd = 0;
   for (const marker of floorEndMarkers) {
     floorRanges.push({
@@ -504,28 +492,44 @@ function parseRowFormat(ws, maxRow, maxCol, legend) {
     });
     prevEnd = marker.row + 1;
   }
-  // 마지막 마커 이후 남은 행이 있으면 추가
+  // 마지막 마커 이후 남은 행 → 마지막 층 확장
   if (prevEnd <= maxRow && floorEndMarkers.length > 0) {
-    const lastFloor = floorEndMarkers[floorEndMarkers.length - 1].floorNum + 1;
-    // 실제로 더 이상 없을 수 있으므로 남은 행 무시
+    floorRanges[floorRanges.length - 1].endRow = maxRow;
   }
-  // 마커가 없으면 전체를 1층으로
   if (floorRanges.length === 0) {
     floorRanges.push({ startRow: 0, endRow: maxRow, name: "1층" });
   }
 
   console.log(`   층 범위: ${floorRanges.map(f => f.name + " (row " + f.startRow + "-" + f.endRow + ")").join(", ")}`);
 
-  // 2단계: "X열" 라벨 찾기
-  const rowGroups = []; // {name, labelRow, labelCol, floor}
+  // 2단계: 열 섹션 감지 (빈 열로 구분되는 연속 열 그룹)
+  const colHasData = new Array(maxCol + 1).fill(false);
+  for (let r = 0; r <= maxRow; r++) {
+    for (let c = 0; c <= maxCol; c++) {
+      const val = getVal(ws, r, c);
+      if (val && /^\d+$/.test(val)) colHasData[c] = true;
+    }
+  }
+  const sections = [];
+  let secStart = -1;
+  for (let c = 0; c <= maxCol + 1; c++) {
+    if (c <= maxCol && colHasData[c]) {
+      if (secStart < 0) secStart = c;
+    } else if (secStart >= 0) {
+      sections.push({ startCol: secStart, endCol: c - 1 });
+      secStart = -1;
+    }
+  }
+  console.log(`   열 섹션 ${sections.length}개: ${sections.map(s => "[" + s.startCol + "-" + s.endCol + "]").join(", ")}`);
+
+  // 3단계: "X열" 라벨 찾기 (regex: "X열" or "X열 (NNN)")
+  const rowLabels = [];
   for (let r = 0; r <= maxRow; r++) {
     for (let c = 0; c <= maxCol; c++) {
       const val = getVal(ws, r, c);
       if (!val) continue;
-      // "O열", "A열", "B열" 등
-      const m = val.match(/^([A-Z])열$/);
+      const m = val.match(/^([A-Z])열/);
       if (m) {
-        // 이 열 그룹이 어느 층에 속하는지 (층 범위에서 확인)
         let floorName = "1층";
         for (const fr of floorRanges) {
           if (r >= fr.startRow && r <= fr.endRow) {
@@ -533,106 +537,142 @@ function parseRowFormat(ws, maxRow, maxCol, legend) {
             break;
           }
         }
-        rowGroups.push({
-          name: m[1] + "열",
-          labelRow: r,
-          labelCol: c,
-          floor: floorName,
-        });
+        const section = sections.find(s => c >= s.startCol && c <= s.endCol);
+        if (section) {
+          rowLabels.push({
+            name: m[1] + "열",
+            labelRow: r,
+            labelCol: c,
+            floor: floorName,
+            colStart: section.startCol,
+            colEnd: section.endCol,
+          });
+        }
+      }
+    }
+  }
+  if (rowLabels.length === 0) return [];
+
+  // 4단계: 데이터 행 범위 결정
+  for (const label of rowLabels) {
+    const fr = floorRanges.find(f => f.name === label.floor);
+    label.dataStartRow = label.labelRow + 1;
+    label.dataEndRow = fr ? fr.endRow : maxRow;
+
+    // 같은 층 + 같은 섹션에서 다음 라벨이 있으면 그 전까지만
+    for (const other of rowLabels) {
+      if (other === label) continue;
+      if (other.floor === label.floor &&
+          other.colStart === label.colStart && other.colEnd === label.colEnd &&
+          other.labelRow > label.labelRow) {
+        label.dataEndRow = Math.min(label.dataEndRow, other.labelRow - 1);
       }
     }
   }
 
-  if (rowGroups.length === 0) return [];
+  console.log(`   열 그룹 ${rowLabels.length}개: ${rowLabels.map(g => g.floor + " " + g.name + " [" + g.colStart + "-" + g.colEnd + "] row " + g.dataStartRow + "-" + g.dataEndRow).join(", ")}`);
 
-  console.log(`   열 그룹 ${rowGroups.length}개: ${rowGroups.map(g => g.floor + " " + g.name).join(", ")}`);
-
-  // 3단계: 같은 라벨 행에 있는 열 그룹끼리 묶기
-  const labelRows = {};
-  for (const rg of rowGroups) {
-    const key = rg.labelRow;
-    if (!labelRows[key]) labelRows[key] = [];
-    labelRows[key].push(rg);
+  // 5단계: 제외 색상 감지 (시야장애석, 하우스유보석)
+  const excludedColors = new Set();
+  let hasShiyaText = false;
+  let hasYuboText = false;
+  for (let r = 0; r <= Math.min(10, maxRow); r++) {
+    for (let c = 0; c <= maxCol; c++) {
+      const val = getVal(ws, r, c);
+      if (!val) continue;
+      if (val.includes("시야")) hasShiyaText = true;
+      if (val.includes("유보")) hasYuboText = true;
+    }
   }
 
-  // 4단계: 각 열 그룹의 좌석 범위 결정
-  for (const [labelRowStr, groups] of Object.entries(labelRows)) {
-    const labelRow = parseInt(labelRowStr);
-    groups.sort((a, b) => a.labelCol - b.labelCol);
-
-    // 좌석 데이터가 시작되는 행 (라벨 행 + 1~3 아래)
-    let dataStartRow = labelRow + 1;
-    for (let r = labelRow + 1; r <= Math.min(labelRow + 5, maxRow); r++) {
-      let hasSeats = false;
-      for (let c = 0; c <= maxCol; c++) {
-        const val = getVal(ws, r, c);
-        const rgb = getRGB(ws, r, c);
-        if (val && /^\d+$/.test(val) && rgb) {
-          hasSeats = true;
-          break;
-        }
-      }
-      if (hasSeats) { dataStartRow = r; break; }
-    }
-
-    // 좌석 데이터 끝 행 (다음 라벨 행 전, 또는 빈 행)
-    const allLabelRows = Object.keys(labelRows).map(Number).sort((a, b) => a - b);
-    const nextLabelIdx = allLabelRows.indexOf(labelRow) + 1;
-    const dataEndRow = nextLabelIdx < allLabelRows.length
-      ? allLabelRows[nextLabelIdx] - 2
-      : maxRow;
-
-    for (let gi = 0; gi < groups.length; gi++) {
-      const group = groups[gi];
-      const nextGroup = groups[gi + 1];
-
-      // 좌석 열 범위: 라벨 열부터 다음 그룹 라벨 전까지
-      // 여러 데이터 행에서 좌석이 있는 가장 넓은 범위 찾기
-      let minSeatCol = maxCol;
-      let maxSeatCol = 0;
-
-      const endSearchCol = nextGroup ? nextGroup.labelCol - 1 : maxCol;
-
-      for (let r = dataStartRow; r <= dataEndRow; r++) {
-        for (let c = group.labelCol; c <= endSearchCol; c++) {
-          const val = getVal(ws, r, c);
-          const rgb = getRGB(ws, r, c);
-          if (val && /^\d+$/.test(val) && rgb) {
-            if (c < minSeatCol) minSeatCol = c;
-            if (c > maxSeatCol) maxSeatCol = c;
-          }
-        }
-      }
-
-      if (minSeatCol > maxSeatCol) continue;
-
-      // 좌석 추출
-      for (let r = dataStartRow; r <= dataEndRow; r++) {
-        const rowSeats = [];
-        for (let c = minSeatCol; c <= maxSeatCol; c++) {
+  if (hasShiyaText || hasYuboText) {
+    const colorCounts = {};
+    for (const label of rowLabels) {
+      for (let r = label.dataStartRow; r <= label.dataEndRow; r++) {
+        for (let c = label.colStart; c <= label.colEnd; c++) {
           const val = getVal(ws, r, c);
           if (!val || !/^\d+$/.test(val)) continue;
           const rgb = getRGB(ws, r, c);
-          let grade = null;
-          if (rgb && legend[rgb]) grade = legend[rgb];
-          if (!grade && rgb) grade = classifyByHSL(rgb);
-          if (!grade) continue;
-
-          // 유보석은 건너뛰기
-          if (grade === "유보석" || grade === "장애인석") continue;
-
-          rowSeats.push({
-            floor: group.floor,
-            block: group.name, // "열" 이름을 block으로 사용
-            row: 0, // 열 형식에서는 별도 행 번호 없음
-            seatNum: parseInt(val),
-            grade,
-            rgb,
-          });
+          if (!rgb) continue;
+          colorCounts[rgb] = (colorCounts[rgb] || 0) + 1;
         }
+      }
+    }
 
-        // 행이 있으면 추가 (row 번호는 좌석 번호 범위로 구분)
-        allSeats.push(...rowSeats);
+    for (const [rgb, count] of Object.entries(colorCounts)) {
+      const grade = classifyByHSL(rgb);
+      if (grade && grade.includes("시야방해")) {
+        excludedColors.add(rgb);
+        console.log(`   제외: #${rgb} (시야장애석, ${count}석)`);
+      }
+      if (hasYuboText) {
+        const { h, s } = hexToHSL(rgb);
+        if (h >= 40 && h < 70 && s > 50 && count <= 20) {
+          excludedColors.add(rgb);
+          console.log(`   제외: #${rgb} (하우스유보석, ${count}석)`);
+        }
+      }
+    }
+  }
+
+  // 유보석/장애인석 색상도 범례에서 등록
+  for (let r = 0; r <= maxRow; r++) {
+    for (let c = 0; c <= maxCol; c++) {
+      const val = getVal(ws, r, c);
+      if (!val) continue;
+      if (val.includes("유보석") || val.includes("장애인")) {
+        const rgb = getRGB(ws, r, c);
+        if (rgb) excludedColors.add(rgb);
+      }
+    }
+  }
+
+  // 6단계: 좌석 추출
+  for (const label of rowLabels) {
+    // 이 그룹에 색상 있는 좌석이 있는지 확인
+    let hasColoredSeats = false;
+    for (let r = label.dataStartRow; r <= label.dataEndRow; r++) {
+      for (let c = label.colStart; c <= label.colEnd; c++) {
+        const val = getVal(ws, r, c);
+        if (!val || !/^\d+$/.test(val)) continue;
+        const rgb = getRGB(ws, r, c);
+        if (rgb && !excludedColors.has(rgb)) {
+          hasColoredSeats = true;
+          break;
+        }
+      }
+      if (hasColoredSeats) break;
+    }
+
+    if (!hasColoredSeats) {
+      console.log(`   ${label.floor} ${label.name}: 색상 없음 → 제외`);
+      continue;
+    }
+
+    for (let r = label.dataStartRow; r <= label.dataEndRow; r++) {
+      for (let c = label.colStart; c <= label.colEnd; c++) {
+        const val = getVal(ws, r, c);
+        if (!val || !/^\d+$/.test(val)) continue;
+
+        const rgb = getRGB(ws, r, c);
+        if (rgb && excludedColors.has(rgb)) continue;
+
+        let grade = null;
+        if (rgb && legend[rgb]) grade = legend[rgb];
+        if (!grade && rgb) grade = classifyByHSL(rgb);
+        if (!grade && !rgb) grade = "A석"; // 무색 = A석
+
+        if (!grade) continue;
+        if (grade.includes("시야방해") || grade === "유보석" || grade === "장애인석") continue;
+
+        allSeats.push({
+          floor: label.floor,
+          block: label.name,
+          row: 0,
+          seatNum: parseInt(val),
+          grade,
+          rgb,
+        });
       }
     }
   }
