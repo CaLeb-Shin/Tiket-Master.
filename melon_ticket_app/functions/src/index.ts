@@ -3683,3 +3683,123 @@ export const convertXlsToXlsxHttp = functions
       res.status(500).json({ error: `변환 실패: ${err.message}` });
     }
   });
+
+// ============================================================
+// 봇 좌석 배정 결과 → mobileTickets 반영
+// ============================================================
+
+/**
+ * POST /updateTicketSeatsHttp
+ * Header: Authorization: Bearer {BOT_API_KEY}
+ * Body: {
+ *   eventId: string,
+ *   assignments: [
+ *     {
+ *       naverOrderId?: string,
+ *       buyerName: string,
+ *       buyerPhone?: string,
+ *       seatGrade: string,        // "VIP", "R", "S", "A"
+ *       seats: [
+ *         { floor: "1층", section: "B구역", row: 3, number: 15 },
+ *         ...
+ *       ]
+ *     }
+ *   ]
+ * }
+ */
+export const updateTicketSeatsHttp = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (req.method !== "POST") { res.status(405).json({ error: "Method not allowed" }); return; }
+  if (!requireBotRequestAuth(req, res)) return;
+
+  const { eventId, assignments } = req.body;
+  if (!eventId || !Array.isArray(assignments) || assignments.length === 0) {
+    res.status(400).json({ error: "eventId와 assignments 배열이 필요합니다" });
+    return;
+  }
+
+  try {
+    let updated = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (const assign of assignments) {
+      const { naverOrderId, buyerName, seatGrade, seats } = assign;
+      if (!buyerName || !seatGrade || !Array.isArray(seats) || seats.length === 0) {
+        errors.push(`${buyerName || "?"}: 필수 필드 누락`);
+        skipped++;
+        continue;
+      }
+
+      // 1. naverOrderId로 먼저 찾기
+      let ticketDocs: admin.firestore.QueryDocumentSnapshot[] = [];
+      if (naverOrderId) {
+        const orderSnap = await db.collection("naverOrders")
+          .where("naverOrderId", "==", naverOrderId)
+          .where("eventId", "==", eventId)
+          .limit(1).get();
+
+        if (!orderSnap.empty) {
+          const orderData = orderSnap.docs[0].data();
+          const ticketIds: string[] = orderData.ticketIds || [];
+          for (const tid of ticketIds) {
+            const tDoc = await db.collection("mobileTickets").doc(tid).get();
+            if (tDoc.exists && tDoc.data()?.status === "active") {
+              ticketDocs.push(tDoc as admin.firestore.QueryDocumentSnapshot);
+            }
+          }
+        }
+      }
+
+      // 2. naverOrderId 매칭 실패 시 buyerName + seatGrade로 검색
+      if (ticketDocs.length === 0) {
+        const ticketSnap = await db.collection("mobileTickets")
+          .where("eventId", "==", eventId)
+          .where("buyerName", "==", buyerName)
+          .where("seatGrade", "==", seatGrade)
+          .where("status", "==", "active")
+          .get();
+        ticketDocs = ticketSnap.docs;
+      }
+
+      if (ticketDocs.length === 0) {
+        errors.push(`${buyerName}(${seatGrade}): 티켓 없음`);
+        skipped++;
+        continue;
+      }
+
+      // 3. 좌석 배정 — 티켓 수와 좌석 수 매칭
+      const batch = db.batch();
+      const now = admin.firestore.Timestamp.now();
+      const seatsToAssign = seats.slice(0, ticketDocs.length);
+
+      for (let i = 0; i < Math.min(ticketDocs.length, seatsToAssign.length); i++) {
+        const tDoc = ticketDocs[i];
+        const s = seatsToAssign[i];
+        const seatInfo = [
+          s.floor || "",
+          s.section || "",
+          s.row ? `${s.row}열` : "",
+          s.number ? `${s.number}번` : "",
+        ].filter(Boolean).join(" ");
+
+        batch.update(tDoc.ref, {
+          seatInfo,
+          seatNumber: s.number ? `${s.number}` : "",
+          seatAssignedAt: now,
+          seatAssignedBy: "bot",
+        });
+      }
+
+      await batch.commit();
+      updated += seatsToAssign.length;
+    }
+
+    functions.logger.info(`좌석 배정 완료: ${updated}매 업데이트, ${skipped}건 스킵`);
+    res.status(200).json({ success: true, updated, skipped, errors });
+  } catch (err: any) {
+    sendHttpError(res, err, "updateTicketSeatsHttp 오류:");
+  }
+});
