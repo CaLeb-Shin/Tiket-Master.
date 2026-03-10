@@ -3655,7 +3655,24 @@ export const convertXlsToXlsxHttp = functions
 
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const XLSX = require("xlsx");
-      const workbook = XLSX.read(inputBuffer, { type: "buffer" });
+      const workbook = XLSX.read(inputBuffer, {
+        type: "buffer",
+        cellStyles: true,
+        cellNF: false,
+      });
+
+      // numFmt 메타데이터 제거 — Dart excel 패키지 호환성 문제 방지
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        for (const cellAddr of Object.keys(sheet)) {
+          if (cellAddr.startsWith("!")) continue;
+          const cell = sheet[cellAddr];
+          if (cell) {
+            delete cell.z; // number format 제거
+          }
+        }
+      }
+
       const outputBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
       res.status(200).json({
