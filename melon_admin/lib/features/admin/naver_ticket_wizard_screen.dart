@@ -9,6 +9,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:desktop_drop/desktop_drop.dart';
+import 'package:http/http.dart' as http;
 import '../../app/admin_theme.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
@@ -62,6 +64,7 @@ class _NaverTicketWizardScreenState
   bool _isParsingSeat = false;
   bool _isUploadingSeats = false;
   String? _seatError;
+  bool _isDragging = false;
 
   // Step 3: 주문 입력
   final _orderIdCtrl = TextEditingController();
@@ -913,23 +916,39 @@ class _NaverTicketWizardScreenState
               ),
               const SizedBox(height: 32),
 
-              // 엑셀 업로드 영역
-              GestureDetector(
+              // 엑셀 업로드 영역 (드래그앤드롭 지원)
+              DropTarget(
+                onDragEntered: (_) => setState(() => _isDragging = true),
+                onDragExited: (_) => setState(() => _isDragging = false),
+                onDragDone: (details) {
+                  setState(() => _isDragging = false);
+                  if (_isParsingSeat || details.files.isEmpty) return;
+                  final file = details.files.first;
+                  final ext = file.name.split('.').last.toLowerCase();
+                  if (!['xlsx', 'xls'].contains(ext)) {
+                    setState(() => _seatError = '.xlsx 또는 .xls 파일만 지원합니다.');
+                    return;
+                  }
+                  file.readAsBytes().then((bytes) => _processExcelBytes(bytes, file.name));
+                },
+                child: GestureDetector(
                 onTap: _isParsingSeat ? null : _pickSeatExcel,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 32),
                   decoration: BoxDecoration(
-                    color: AdminTheme.card,
+                    color: _isDragging ? AdminTheme.gold.withValues(alpha: 0.08) : AdminTheme.card,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
-                      color: _seatData != null
+                      color: _isDragging
+                          ? AdminTheme.gold
+                          : _seatData != null
                           ? AdminTheme.success
                           : _seatError != null
                           ? AdminTheme.error
                           : AdminTheme.border,
-                      width: _seatData != null || _seatError != null ? 1 : 0.5,
+                      width: _isDragging || _seatData != null || _seatError != null ? 1 : 0.5,
                     ),
                   ),
                   child: _isParsingSeat
@@ -983,7 +1002,7 @@ class _NaverTicketWizardScreenState
                                   ? '좌석 ${_seatData!.totalSeats}석 로드 완료'
                                   : _seatError != null
                                   ? '파싱 실패'
-                                  : '엑셀 파일 선택 (.xlsx)',
+                                  : '엑셀 파일을 선택하거나 끌어서 놓으세요',
                               style: AdminTheme.sans(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -1023,6 +1042,7 @@ class _NaverTicketWizardScreenState
                           ],
                         ),
                 ),
+              ),
               ),
 
               // 파싱 결과 요약 (성공 시) — 디버그 접힌 상태
@@ -1649,14 +1669,23 @@ class _NaverTicketWizardScreenState
     }
   }
 
+  static const _cfBaseUrl = 'https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net';
+
   Future<void> _pickSeatExcel() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['xlsx', 'xls', 'csv'],
+      allowedExtensions: ['xlsx', 'xls'],
       withData: true,
     );
     if (result == null || result.files.single.bytes == null) return;
 
+    final fileName = result.files.single.name;
+    final bytes = result.files.single.bytes!;
+    await _processExcelBytes(bytes, fileName);
+  }
+
+  /// .xls → .xlsx 변환 (CF 호출) 후 파싱, .xlsx는 바로 파싱
+  Future<void> _processExcelBytes(Uint8List bytes, String fileName) async {
     setState(() {
       _isParsingSeat = true;
       _seatError = null;
@@ -1664,13 +1693,29 @@ class _NaverTicketWizardScreenState
       _parseResult = null;
     });
 
-    // Brief delay so user sees the loading state
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 300));
 
     try {
-      final parseResult = EnhancedExcelParser.parse(
-        result.files.single.bytes!.toList(),
-      );
+      var xlsxBytes = bytes.toList();
+      final ext = fileName.split('.').last.toLowerCase();
+
+      // .xls 파일이면 CF로 변환
+      if (ext == 'xls') {
+        setState(() {}); // show "변환 중" state
+        final response = await http.post(
+          Uri.parse('$_cfBaseUrl/convertXlsToXlsxHttp'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'base64': base64Encode(bytes)}),
+        );
+        if (response.statusCode != 200) {
+          final err = jsonDecode(response.body)['error'] ?? 'HTTP ${response.statusCode}';
+          throw Exception('.xls 변환 실패: $err');
+        }
+        final resultBase64 = jsonDecode(response.body)['base64'] as String;
+        xlsxBytes = base64Decode(resultBase64);
+      }
+
+      final parseResult = EnhancedExcelParser.parse(xlsxBytes);
 
       if (!mounted) return;
 

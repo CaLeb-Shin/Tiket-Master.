@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -3071,6 +3071,43 @@ exports.searchAddressHttp = functions.https.onRequest(async (req, res) => {
     catch (err) {
         functions.logger.error("카카오 검색 에러:", err);
         res.status(500).json({ error: err.message });
+    }
+});
+// ============================================================
+// Excel .xls → .xlsx 변환
+// ============================================================
+/**
+ * POST /convertXlsToXlsxHttp
+ * Body: { base64: "..." }  (원본 엑셀 base64)
+ * Returns: { base64: "..." } (변환된 .xlsx base64)
+ */
+exports.convertXlsToXlsxHttp = functions
+    .runWith({ memory: "512MB", timeoutSeconds: 30 })
+    .https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return;
+    }
+    try {
+        const inputBase64 = req.body?.base64;
+        if (!inputBase64 || typeof inputBase64 !== "string") {
+            res.status(400).json({ error: "base64 필드가 필요합니다" });
+            return;
+        }
+        const inputBuffer = Buffer.from(inputBase64, "base64");
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const XLSX = require("xlsx");
+        const workbook = XLSX.read(inputBuffer, { type: "buffer" });
+        const outputBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+        res.status(200).json({
+            base64: Buffer.from(outputBuffer).toString("base64"),
+        });
+    }
+    catch (err) {
+        functions.logger.error("Excel 변환 에러:", err);
+        res.status(500).json({ error: `변환 실패: ${err.message}` });
     }
 });
 //# sourceMappingURL=index.js.map

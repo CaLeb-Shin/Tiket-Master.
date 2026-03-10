@@ -3627,3 +3627,42 @@ export const searchAddressHttp = functions.https.onRequest(async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ============================================================
+// Excel .xls → .xlsx 변환
+// ============================================================
+
+/**
+ * POST /convertXlsToXlsxHttp
+ * Body: { base64: "..." }  (원본 엑셀 base64)
+ * Returns: { base64: "..." } (변환된 .xlsx base64)
+ */
+export const convertXlsToXlsxHttp = functions
+  .runWith({ memory: "512MB", timeoutSeconds: 30 })
+  .https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    try {
+      const inputBase64 = req.body?.base64;
+      if (!inputBase64 || typeof inputBase64 !== "string") {
+        res.status(400).json({ error: "base64 필드가 필요합니다" });
+        return;
+      }
+
+      const inputBuffer = Buffer.from(inputBase64, "base64");
+
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const XLSX = require("xlsx");
+      const workbook = XLSX.read(inputBuffer, { type: "buffer" });
+      const outputBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+
+      res.status(200).json({
+        base64: Buffer.from(outputBuffer).toString("base64"),
+      });
+    } catch (err: any) {
+      functions.logger.error("Excel 변환 에러:", err);
+      res.status(500).json({ error: `변환 실패: ${err.message}` });
+    }
+  });
