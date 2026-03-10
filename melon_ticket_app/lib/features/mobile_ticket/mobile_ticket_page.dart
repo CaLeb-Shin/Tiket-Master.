@@ -71,11 +71,14 @@ String _buildTicketShareMessage({
   required String venueName,
   required String url,
 }) {
-  final schedule = _formatShareSchedule(startAt, venueName);
   return [
-    '$eventTitle 모바일 티켓',
-    if (schedule.isNotEmpty) schedule,
-    '공연장 입장 시 이 링크의 QR을 보여주세요.',
+    '🎫 $eventTitle 모바일 티켓',
+    '',
+    if (startAt != null)
+      '📅 ${DateFormat('yyyy.MM.dd (E) HH:mm', 'ko_KR').format(startAt)}',
+    if (venueName.trim().isNotEmpty) '📍 ${venueName.trim()}',
+    '',
+    '👇 공연장 입장 시 이 링크의 QR을 보여주세요',
     url,
   ].join('\n');
 }
@@ -87,14 +90,17 @@ String _buildTransferShareMessage({
   required String venueName,
   required String url,
 }) {
-  final schedule = _formatShareSchedule(startAt, venueName);
   return [
     recipientName.isNotEmpty
-        ? '$recipientName님 티켓을 보냈어요.'
-        : '$eventTitle 티켓을 전달했어요.',
-    eventTitle,
-    if (schedule.isNotEmpty) schedule,
-    '아래 링크에서 모바일 티켓을 확인해주세요.',
+        ? '🎫 ${recipientName}님에게 티켓을 보냈어요!'
+        : '🎫 $eventTitle 티켓을 전달했어요!',
+    '',
+    '🎵 $eventTitle',
+    if (startAt != null)
+      '📅 ${DateFormat('yyyy.MM.dd (E) HH:mm', 'ko_KR').format(startAt)}',
+    if (venueName.trim().isNotEmpty) '📍 ${venueName.trim()}',
+    '',
+    '👇 아래 링크에서 모바일 티켓을 확인하세요',
     url,
   ].join('\n');
 }
@@ -105,11 +111,14 @@ String _buildInviteShareMessage({
   required String venueName,
   required String url,
 }) {
-  final schedule = _formatShareSchedule(startAt, venueName);
   return [
-    '같이 가요! $eventTitle',
-    if (schedule.isNotEmpty) schedule,
-    '아래 링크에서 예매할 수 있어요.',
+    '🎶 같이 가요! $eventTitle',
+    '',
+    if (startAt != null)
+      '📅 ${DateFormat('yyyy.MM.dd (E) HH:mm', 'ko_KR').format(startAt)}',
+    if (venueName.trim().isNotEmpty) '📍 ${venueName.trim()}',
+    '',
+    '👇 아래 링크에서 예매할 수 있어요',
     url,
   ].join('\n');
 }

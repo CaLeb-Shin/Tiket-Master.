@@ -3122,8 +3122,10 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
   const eventDoc = await db.collection("events").doc(ticket.eventId).get();
   const event = eventDoc.exists ? eventDoc.data() : null;
 
+  // 공유받은 사람(recipientName 있음)은 자기 티켓만, 예매자 본인은 전체 그룹
+  const isTransferred = !!ticket.recipientName;
   const siblingDocs: Array<{ id: string; data: any }> = [];
-  if (ticket.naverOrderId) {
+  if (!isTransferred && ticket.naverOrderId) {
     const siblingSnap = await db.collection("mobileTickets")
       .where("naverOrderId", "==", ticket.naverOrderId)
       .get();
