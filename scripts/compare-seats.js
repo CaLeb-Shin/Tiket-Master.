@@ -4,13 +4,21 @@ const args = process.argv.slice(2);
 const file1 = args[0] || "좌석파싱/1_결과.xlsx";
 const file2 = args[1] || "좌석파싱/2.xlsx";
 
-const r1 = XLSX.readFile(file1);
-const ws1 = r1.Sheets["상품별좌석현황"];
-const d1 = XLSX.utils.sheet_to_json(ws1);
+function loadSheet(filePath) {
+  const wb = XLSX.readFile(filePath);
+  const ws = wb.Sheets["상품별좌석현황"] || wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws);
+  // Carry forward 좌석등급 from merged cells
+  let lastGrade = "";
+  for (const row of rows) {
+    if (row["좌석등급"]) lastGrade = row["좌석등급"];
+    else row["좌석등급"] = lastGrade;
+  }
+  return rows;
+}
 
-const r2 = XLSX.readFile(file2);
-const ws2 = r2.Sheets["상품별좌석현황"];
-const d2 = XLSX.utils.sheet_to_json(ws2);
+const d1 = loadSheet(file1);
+const d2 = loadSheet(file2);
 
 console.log("비교:", file1, "vs", file2);
 

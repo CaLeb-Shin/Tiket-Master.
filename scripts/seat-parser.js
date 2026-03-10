@@ -756,6 +756,302 @@ function generateRowFormatOutput(seats, outputPath) {
 }
 
 // ─────────────────────────────────────────────────
+// "구역" 기반 형식 파싱 (대구콘서트하우스 등)
+// ─────────────────────────────────────────────────
+
+function findZoneHeaders(ws, maxRow, maxCol) {
+  const zones = [];
+  for (let r = 0; r <= maxRow; r++) {
+    for (let c = 0; c <= maxCol; c++) {
+      const val = getVal(ws, r, c);
+      if (!val) continue;
+      const m = val.replace(/\s+/g, "").match(/(\d)층([A-Z])구역\((\d+)\)/);
+      if (m) {
+        zones.push({
+          floorNum: parseInt(m[1]),
+          floorName: m[1] + "층",
+          zoneName: m[2] + "구역",
+          zoneLetter: m[2],
+          capacity: parseInt(m[3]),
+          headerRow: r,
+          headerCol: c,
+        });
+      }
+    }
+  }
+  return zones;
+}
+
+function parseZoneFormat(ws, maxRow, maxCol, zoneHeaders) {
+  // Group zones by floor
+  const floorMap = {};
+  for (const zh of zoneHeaders) {
+    if (!floorMap[zh.floorNum]) floorMap[zh.floorNum] = [];
+    floorMap[zh.floorNum].push(zh);
+  }
+  const floorNums = Object.keys(floorMap).map(Number).sort();
+
+  const allSeats = [];
+
+  for (let fi = 0; fi < floorNums.length; fi++) {
+    const floorNum = floorNums[fi];
+    const zones = floorMap[floorNum].sort((a, b) => a.headerCol - b.headerCol);
+    const headerRow = zones[0].headerRow;
+    const floorName = zones[0].floorName;
+
+    // Data row range
+    const nextFloorNum = floorNums[fi + 1];
+    const nextHeaderRow = nextFloorNum ? floorMap[nextFloorNum][0].headerRow : maxRow + 1;
+    const dataStartRow = headerRow + 1;
+    const dataEndRow = nextHeaderRow - 1;
+
+    // Find "열" columns — search header row ± 2
+    const rowLabelCols = [];
+    let rowLabelRow = headerRow;
+    for (let searchR = Math.max(0, headerRow - 2); searchR <= Math.min(maxRow, headerRow + 2); searchR++) {
+      const found = [];
+      for (let c = 0; c <= maxCol; c++) {
+        if (getVal(ws, searchR, c) === "열") found.push(c);
+      }
+      if (found.length >= 2) {
+        rowLabelCols.push(...found);
+        rowLabelRow = searchR;
+        break;
+      }
+    }
+    rowLabelCols.sort((a, b) => a - b);
+
+    // Data starts after both zone header and "열" row
+    const actualDataStart = Math.max(headerRow, rowLabelRow) + 1;
+
+    // Build sections from "열" column pairs
+    const sections = [];
+    for (let i = 0; i < rowLabelCols.length - 1; i++) {
+      sections.push({
+        seatStartCol: rowLabelCols[i] + 1,
+        seatEndCol: rowLabelCols[i + 1] - 1,
+        rowLabelCol: rowLabelCols[i],
+      });
+    }
+
+    // Assign zones to sections
+    for (const zone of zones) {
+      for (const section of sections) {
+        if (zone.headerCol >= section.seatStartCol && zone.headerCol <= section.seatEndCol) {
+          zone.seatStartCol = section.seatStartCol;
+          zone.seatEndCol = section.seatEndCol;
+          zone.rowLabelCol = section.rowLabelCol;
+          break;
+        }
+      }
+    }
+
+    console.log(`   ${floorName}: 열 cols=[${rowLabelCols.join(",")}], 구역 ${zones.map(z => `${z.zoneName}(col ${z.seatStartCol}-${z.seatEndCol})`).join(", ")}`);
+
+    // Parse seats for each zone
+    for (const zone of zones) {
+      if (zone.seatStartCol == null) continue;
+
+      for (let r = actualDataStart; r <= dataEndRow; r++) {
+        // Get row label from any "열" column
+        let rowLabel = null;
+        for (const rc of rowLabelCols) {
+          const val = getVal(ws, r, rc);
+          if (val != null && String(val).trim() !== "") {
+            rowLabel = String(val).trim();
+            break;
+          }
+        }
+        if (!rowLabel) continue;
+
+        // Read seats in zone's column range
+        for (let c = zone.seatStartCol; c <= zone.seatEndCol; c++) {
+          const val = getVal(ws, r, c);
+          if (!val || !/^\d+$/.test(val)) continue;
+
+          const rgb = getRGB(ws, r, c);
+
+          allSeats.push({
+            floor: floorName,
+            zone: zone.zoneName,
+            zoneLetter: zone.zoneLetter,
+            rowLabel,
+            seatNum: parseInt(val),
+            rgb,
+          });
+        }
+      }
+    }
+  }
+
+  return allSeats;
+}
+
+function classifyZoneGrade(hex) {
+  if (!hex) return "A석"; // no color → A석 (3F pattern)
+
+  const { h, s, l } = hexToHSL(hex);
+
+  // Skip dark/white/grey
+  if (l < 15) return null;
+  if (l > 95) return null;
+  if (s < 8) return null;
+
+  // Pink/light red (FF8080: h=0, l=75) → VIP석
+  if ((h >= 340 || h <= 15) && l >= 60 && s > 30) return "VIP석";
+
+  // Blue (0066CC: h=210, l=40; 99CCFF: h=210, l=80) → R석
+  if (h >= 190 && h <= 250 && s > 20) return "R석";
+
+  // Purple (800080: h=300, l=25) → S석
+  if (h >= 270 && h <= 330 && s > 20) return "S석";
+
+  // Orange (FF6600: h=24, s=100, l=50) → A석
+  if (h >= 15 && h <= 40 && s > 50) return "A석";
+
+  return null;
+}
+
+function buildZoneExcludedColors(ws, maxRow, maxCol, rawSeats) {
+  const legendItems = [];
+
+  // Scan right side for exclusion categories with counts
+  for (let r = 0; r <= maxRow; r++) {
+    for (let c = Math.max(0, maxCol - 12); c <= maxCol; c++) {
+      const val = getVal(ws, r, c);
+      if (!val) continue;
+
+      // Pattern: "카테고리명 : 숫자" or "카테고리명:숫자"
+      const m = val.match(/([\uAC00-\uD7A3]+석?)\s*[:：]\s*(\d+)/);
+      if (m && !["VIP석", "R석", "S석", "A석"].includes(m[1])) {
+        const rgb = getRGB(ws, r, c);
+        legendItems.push({ name: m[1], count: parseInt(m[2]), rgb });
+        console.log(`   범례 제외: ${m[1]} = ${m[2]}석${rgb ? ` (#${rgb})` : ""}`);
+      }
+    }
+  }
+
+  // Count seat colors
+  const colorCounts = {};
+  for (const seat of rawSeats) {
+    if (!seat.rgb) continue;
+    colorCounts[seat.rgb] = (colorCounts[seat.rgb] || 0) + 1;
+  }
+
+  console.log("\n🎨 구역 형식 색상 분포:");
+  for (const [rgb, count] of Object.entries(colorCounts).sort((a, b) => b[1] - a[1])) {
+    const { h, s, l } = hexToHSL(rgb);
+    console.log(`   #${rgb}: ${count}석 (H=${h.toFixed(0)} S=${s.toFixed(0)} L=${l.toFixed(0)})`);
+  }
+
+  // Match excluded colors by count
+  const excluded = new Set();
+  const usedCounts = new Set();
+
+  for (const item of legendItems) {
+    // Direct color match first
+    if (item.rgb && colorCounts[item.rgb] === item.count) {
+      excluded.add(item.rgb);
+      usedCounts.add(item.count);
+      console.log(`   제외: #${item.rgb} (${item.count}석) → ${item.name}`);
+      continue;
+    }
+
+    // Count-based match
+    for (const [rgb, count] of Object.entries(colorCounts)) {
+      if (count === item.count && !usedCounts.has(count) && !excluded.has(rgb)) {
+        excluded.add(rgb);
+        console.log(`   제외 (카운트 매칭): #${rgb} (${count}석) → ${item.name}`);
+      }
+    }
+    usedCounts.add(item.count);
+  }
+
+  return excluded;
+}
+
+function generateZoneFormatOutput(seats, outputPath) {
+  const gradeOrder = ["VIP석", "R석", "S석", "A석"];
+  const zoneOrder = "ABCDEFGHIJ".split("");
+  const specialRowOrder = { W: 0, N: 1, G: 2 };
+
+  // Group by grade + floor + zone + row
+  const groups = {};
+  for (const seat of seats) {
+    const key = `${seat.grade}|${seat.floor}|${seat.zoneLetter}|${seat.rowLabel}`;
+    if (!groups[key]) {
+      groups[key] = {
+        grade: seat.grade,
+        floor: seat.floor,
+        zoneLetter: seat.zoneLetter,
+        rowLabel: seat.rowLabel,
+        displayRow: `${seat.zone} ${seat.rowLabel}열`,
+        seatNums: new Set(),
+      };
+    }
+    groups[key].seatNums.add(seat.seatNum);
+  }
+
+  for (const g of Object.values(groups)) {
+    g.seatNums = [...g.seatNums].sort((a, b) => a - b);
+  }
+
+  const sorted = Object.values(groups).sort((a, b) => {
+    const gi = gradeOrder.indexOf(a.grade) - gradeOrder.indexOf(b.grade);
+    if (gi !== 0) return gi;
+    const fi = a.floor.localeCompare(b.floor);
+    if (fi !== 0) return fi;
+    const zi = zoneOrder.indexOf(a.zoneLetter) - zoneOrder.indexOf(b.zoneLetter);
+    if (zi !== 0) return zi;
+    const aSpecial = specialRowOrder[a.rowLabel];
+    const bSpecial = specialRowOrder[b.rowLabel];
+    if (aSpecial != null && bSpecial != null) return aSpecial - bSpecial;
+    if (aSpecial != null) return -1;
+    if (bSpecial != null) return 1;
+    const aNum = parseInt(a.rowLabel);
+    const bNum = parseInt(b.rowLabel);
+    if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+    return a.rowLabel.localeCompare(b.rowLabel);
+  });
+
+  const rows = [["No", "이용(관람)일", "회차", "좌석등급", "층", "열", "좌석수", "좌석번호"]];
+  let no = 1;
+  let totalSeats = 0;
+  for (const g of sorted) {
+    rows.push([
+      no++, "", "", g.grade, g.floor, g.displayRow,
+      g.seatNums.length, g.seatNums.join(" "),
+    ]);
+    totalSeats += g.seatNums.length;
+  }
+  rows.push(["", "", "", "", "", "합계", totalSeats, ""]);
+
+  const newWs = XLSX.utils.aoa_to_sheet(rows);
+  const newWb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(newWb, newWs, "상품별좌석현황");
+  newWs["!cols"] = [
+    { wch: 5 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+    { wch: 5 }, { wch: 14 }, { wch: 7 }, { wch: 80 },
+  ];
+  XLSX.writeFile(newWb, outputPath);
+
+  console.log(`\n✅ 출력: ${path.basename(outputPath)}`);
+  console.log(`   ${sorted.length}행, ${totalSeats}석`);
+  console.log("\n📋 등급별:");
+  const stats = {};
+  for (const g of sorted) {
+    if (!stats[g.grade]) stats[g.grade] = 0;
+    stats[g.grade] += g.seatNums.length;
+  }
+  for (const grade of gradeOrder) {
+    if (stats[grade]) console.log(`   ${grade}: ${stats[grade]}석`);
+  }
+  for (const [grade, count] of Object.entries(stats)) {
+    if (!gradeOrder.includes(grade)) console.log(`   ${grade}: ${count}석 (미분류)`);
+  }
+}
+
+// ─────────────────────────────────────────────────
 // 메인
 // ─────────────────────────────────────────────────
 
@@ -784,61 +1080,89 @@ function main() {
     console.log("   (범례 없음 — HSL 색조 기반 분류 사용)");
   }
 
-  // 2. 블록 구조 파싱 시도
+  // 2. 구조 감지
   console.log("\n🏢 구조 감지:");
-  const floors = findBlockHeaders(ws, maxRow, maxCol);
 
-  if (floors.length > 0) {
-    // ── 블록 형식 (부산 등) ──
-    console.log("   형식: 블록 기반");
-    for (const floor of floors) {
-      console.log(`   ${floor.name}: ${floor.blocks.map(b => b.name).join(", ")}`);
-      determineBlockColumns(ws, floor, maxCol, maxRow);
+  // 2a. 구역 형식 감지 (우선)
+  const zoneHeaders = findZoneHeaders(ws, maxRow, maxCol);
+
+  if (zoneHeaders.length > 0) {
+    // ── 구역 형식 (대구콘서트하우스 등) ──
+    console.log("   형식: 구역 기반");
+    const rawSeats = parseZoneFormat(ws, maxRow, maxCol, zoneHeaders);
+    console.log(`\n   원시 좌석: ${rawSeats.length}개`);
+
+    // 제외 색상 감지
+    const excludedColors = buildZoneExcludedColors(ws, maxRow, maxCol, rawSeats);
+
+    // 등급 분류
+    const gradedSeats = [];
+    for (const seat of rawSeats) {
+      if (seat.rgb && excludedColors.has(seat.rgb)) continue;
+      const grade = classifyZoneGrade(seat.rgb);
+      if (!grade) continue;
+      gradedSeats.push({ ...seat, grade });
     }
 
-    const colorMapping = buildColorMapping(ws, floors, maxRow);
-    console.log("\n🎨 색상 매핑:");
-    for (const [rgb, grade] of Object.entries(colorMapping)) {
-      console.log(`   #${rgb} → ${grade}`);
-    }
-
-    const effectiveLegend = Object.keys(legend).length > 0 ? legend : colorMapping;
-    const seats = extractSeats(ws, floors, effectiveLegend, maxRow);
-    if (seats.length === 0) {
+    if (gradedSeats.length === 0) {
       console.error("❌ 좌석을 찾을 수 없습니다.");
       process.exit(1);
     }
-    generateOutput(seats, outputPath);
+    generateZoneFormatOutput(gradedSeats, outputPath);
+
   } else {
-    // ── 열 형식 (대전/광주 등) ──
-    console.log("   형식: 열 기반");
+    // 2b. 블록 형식 감지
+    const floors = findBlockHeaders(ws, maxRow, maxCol);
 
-    // 범례 + HSL 분류 합치기
-    const effectiveLegend = { ...legend };
+    if (floors.length > 0) {
+      // ── 블록 형식 (부산 등) ──
+      console.log("   형식: 블록 기반");
+      for (const floor of floors) {
+        console.log(`   ${floor.name}: ${floor.blocks.map(b => b.name).join(", ")}`);
+        determineBlockColumns(ws, floor, maxCol, maxRow);
+      }
 
-    // 유보석, 장애인석 색상 추가 (제외용)
-    for (let r = 0; r <= maxRow; r++) {
-      for (let c = 0; c <= maxCol; c++) {
-        const val = getVal(ws, r, c);
-        if (!val) continue;
-        if (val.includes("유보석")) {
-          // 이 셀의 색상을 유보석으로 등록
-          const rgb = getRGB(ws, r, c);
-          if (rgb) effectiveLegend[rgb] = "유보석";
-        }
-        if (val.includes("장애인")) {
-          const rgb = getRGB(ws, r, c);
-          if (rgb) effectiveLegend[rgb] = "장애인석";
+      const colorMapping = buildColorMapping(ws, floors, maxRow);
+      console.log("\n🎨 색상 매핑:");
+      for (const [rgb, grade] of Object.entries(colorMapping)) {
+        console.log(`   #${rgb} → ${grade}`);
+      }
+
+      const effectiveLegend = Object.keys(legend).length > 0 ? legend : colorMapping;
+      const seats = extractSeats(ws, floors, effectiveLegend, maxRow);
+      if (seats.length === 0) {
+        console.error("❌ 좌석을 찾을 수 없습니다.");
+        process.exit(1);
+      }
+      generateOutput(seats, outputPath);
+    } else {
+      // ── 열 형식 (대전/광주 등) ──
+      console.log("   형식: 열 기반");
+
+      const effectiveLegend = { ...legend };
+
+      for (let r = 0; r <= maxRow; r++) {
+        for (let c = 0; c <= maxCol; c++) {
+          const val = getVal(ws, r, c);
+          if (!val) continue;
+          if (val.includes("유보석")) {
+            const rgb = getRGB(ws, r, c);
+            if (rgb) effectiveLegend[rgb] = "유보석";
+          }
+          if (val.includes("장애인")) {
+            const rgb = getRGB(ws, r, c);
+            if (rgb) effectiveLegend[rgb] = "장애인석";
+          }
         }
       }
-    }
 
-    const seats = parseRowFormat(ws, maxRow, maxCol, effectiveLegend);
-    if (seats.length === 0) {
-      console.error("❌ 좌석을 찾을 수 없습니다.");
-      process.exit(1);
+      const seats = parseRowFormat(ws, maxRow, maxCol, effectiveLegend);
+      if (seats.length === 0) {
+        console.error("❌ 좌석을 찾을 수 없습니다.");
+        process.exit(1);
+      }
+      generateRowFormatOutput(seats, outputPath);
     }
-    generateRowFormatOutput(seats, outputPath);
   }
 }
 
