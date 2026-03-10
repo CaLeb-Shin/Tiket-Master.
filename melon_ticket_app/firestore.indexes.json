@@ -85,6 +85,15 @@
         { "fieldPath": "eventId", "order": "ASCENDING" },
         { "fieldPath": "scannedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "smsTasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "priority", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

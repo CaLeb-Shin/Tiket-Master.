@@ -2600,20 +2600,40 @@ async function enqueueNaverOrderSmsTask(params: {
     return;
   }
 
+  const now = admin.firestore.Timestamp.now();
+  const baseFields = {
+    eventId: params.eventId,
+    naverOrderId: params.orderId,
+    buyerName: params.buyerName,
+    buyerPhone: params.buyerPhone,
+    sentAt: null,
+    error: null,
+  };
+
   try {
+    // 1번: 주문 확인 문자 (먼저 발송)
     await db.collection("smsTasks").add({
-      eventId: params.eventId,
-      naverOrderId: params.orderId,
-      buyerName: params.buyerName,
-      buyerPhone: params.buyerPhone,
+      ...baseFields,
+      type: "orderConfirm",
+      productName: params.productName,
+      seatGrade: params.seatGrade,
+      quantity: params.quantity,
+      status: "pending",
+      priority: 1,
+      createdAt: now,
+    });
+
+    // 2번: 모바일 티켓 링크 문자 (나중에 발송)
+    await db.collection("smsTasks").add({
+      ...baseFields,
+      type: "mobileTicket",
       productName: params.productName,
       seatGrade: params.seatGrade,
       quantity: params.quantity,
       ticketUrls: params.ticketUrls.map((ticket) => ticket.url),
       status: "pending",
-      createdAt: admin.firestore.Timestamp.now(),
-      sentAt: null,
-      error: null,
+      priority: 2,
+      createdAt: admin.firestore.Timestamp.fromMillis(now.toMillis() + 5000),
     });
   } catch (smsErr: any) {
     functions.logger.warn(
@@ -3322,6 +3342,7 @@ export const getPendingSmsHttp = functions.https.onRequest(async (req, res) => {
 
   const snap = await db.collection("smsTasks")
     .where("status", "==", "pending")
+    .orderBy("priority")
     .orderBy("createdAt")
     .limit(10)
     .get();
@@ -3330,12 +3351,14 @@ export const getPendingSmsHttp = functions.https.onRequest(async (req, res) => {
     const d = doc.data();
     return {
       id: doc.id,
+      type: d.type || "orderConfirm",
       buyerName: d.buyerName || "",
       buyerPhone: d.buyerPhone || "",
       productName: d.productName || "",
       seatGrade: d.seatGrade || "",
       quantity: d.quantity || 1,
       ticketUrls: d.ticketUrls || [],
+      priority: d.priority || 1,
     };
   });
 
