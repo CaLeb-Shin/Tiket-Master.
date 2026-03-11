@@ -29,7 +29,8 @@ const _gradeOrder = ['VIP', 'R', 'S', 'A'];
 external JSPromise<JSString> _openKakaoPostcode();
 
 class NaverTicketWizardScreen extends ConsumerStatefulWidget {
-  const NaverTicketWizardScreen({super.key});
+  final String? editEventId;
+  const NaverTicketWizardScreen({super.key, this.editEventId});
 
   @override
   ConsumerState<NaverTicketWizardScreen> createState() =>
@@ -74,6 +75,43 @@ class _NaverTicketWizardScreenState
   String _selectedGrade = 'S';
   int _quantity = 1;
   bool _isCreatingOrder = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.editEventId != null) {
+      _createdEventId = widget.editEventId;
+      _loadExistingEvent(widget.editEventId!);
+    }
+  }
+
+  Future<void> _loadExistingEvent(String eventId) async {
+    final doc = await FirebaseFirestore.instance
+        .collection('events')
+        .doc(eventId)
+        .get();
+    if (!doc.exists || !mounted) return;
+    final d = doc.data()!;
+    setState(() {
+      _titleCtrl.text = d['title'] ?? '';
+      _venueNameCtrl.text = d['venueName'] ?? '';
+      _venueAddress = d['venueAddress'];
+      _startAt = (d['startAt'] as Timestamp).toDate();
+      if (d['naverProductUrl'] != null) {
+        _naverUrlCtrl.text = d['naverProductUrl'];
+      }
+      if (d['priceByGrade'] != null) {
+        final prices = Map<String, dynamic>.from(d['priceByGrade']);
+        _enabledGrades.clear();
+        for (final e in prices.entries) {
+          _enabledGrades.add(e.key);
+          _gradePriceControllers[e.key]?.text = e.value.toString();
+        }
+      }
+      // 좌석이 있으면 Step 2로, 없으면 Step 1
+      _currentStep = 1;
+    });
+  }
 
   @override
   void dispose() {

@@ -1349,14 +1349,38 @@ class _EventRowState extends ConsumerState<_EventRow> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          event.title,
-                          overflow: TextOverflow.ellipsis,
-                          style: AdminTheme.sans(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: AdminTheme.textPrimary,
-                          ),
+                        Row(
+                          children: [
+                            if (event.naverOnly) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                margin: const EdgeInsets.only(right: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF03C75A).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                                child: Text(
+                                  'N',
+                                  style: AdminTheme.sans(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF03C75A),
+                                  ),
+                                ),
+                              ),
+                            ],
+                            Expanded(
+                              child: Text(
+                                event.title,
+                                overflow: TextOverflow.ellipsis,
+                                style: AdminTheme.sans(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: AdminTheme.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         if (event.venueName != null) ...[
                           const SizedBox(height: 2),
@@ -1437,11 +1461,15 @@ class _EventRowState extends ConsumerState<_EventRow> {
                         children: [
                           shad.MenuButton(
                             child: Text(
-                              '공연 수정',
-                              style: AdminTheme.sans(fontSize: 13),
+                              event.naverOnly ? '네이버 티켓 수정' : '공연 수정',
+                              style: AdminTheme.sans(
+                                fontSize: 13,
+                                color: event.naverOnly ? const Color(0xFF03C75A) : null,
+                              ),
                             ),
-                            onPressed: (_) =>
-                                context.go('/events/${event.id}/edit'),
+                            onPressed: (_) => event.naverOnly
+                                ? context.go('/naver-ticket?eventId=${event.id}')
+                                : context.go('/events/${event.id}/edit'),
                           ),
                           shad.MenuButton(
                             child: Text(
@@ -1467,14 +1495,15 @@ class _EventRowState extends ConsumerState<_EventRow> {
                             onPressed: (_) =>
                                 context.go('/events/${event.id}/bookers'),
                           ),
-                          shad.MenuButton(
-                            child: Text(
-                              '네이버 주문',
-                              style: AdminTheme.sans(fontSize: 13),
+                          if (event.naverOnly)
+                            shad.MenuButton(
+                              child: Text(
+                                '네이버 주문',
+                                style: AdminTheme.sans(fontSize: 13),
+                              ),
+                              onPressed: (_) =>
+                                  context.go('/events/${event.id}/naver-orders'),
                             ),
-                            onPressed: (_) =>
-                                context.go('/events/${event.id}/naver-orders'),
-                          ),
                           const shad.MenuDivider(),
                           shad.MenuButton(
                             child: Text(
@@ -1525,8 +1554,16 @@ class _EventRowState extends ConsumerState<_EventRow> {
       builder: (_) => shad.DropdownMenu(
         children: [
           shad.MenuButton(
-            child: Text('공연 수정', style: AdminTheme.sans(fontSize: 13)),
-            onPressed: (_) => context.go('/events/${event.id}/edit'),
+            child: Text(
+              event.naverOnly ? '네이버 티켓 수정' : '공연 수정',
+              style: AdminTheme.sans(
+                fontSize: 13,
+                color: event.naverOnly ? const Color(0xFF03C75A) : null,
+              ),
+            ),
+            onPressed: (_) => event.naverOnly
+                ? context.go('/naver-ticket?eventId=${event.id}')
+                : context.go('/events/${event.id}/edit'),
           ),
           shad.MenuButton(
             child: Text('좌석 관리', style: AdminTheme.sans(fontSize: 13)),
@@ -1540,10 +1577,11 @@ class _EventRowState extends ConsumerState<_EventRow> {
             child: Text('예매자 목록', style: AdminTheme.sans(fontSize: 13)),
             onPressed: (_) => context.go('/events/${event.id}/bookers'),
           ),
-          shad.MenuButton(
-            child: Text('네이버 주문', style: AdminTheme.sans(fontSize: 13)),
-            onPressed: (_) => context.go('/events/${event.id}/naver-orders'),
-          ),
+          if (event.naverOnly)
+            shad.MenuButton(
+              child: Text('네이버 주문', style: AdminTheme.sans(fontSize: 13)),
+              onPressed: (_) => context.go('/events/${event.id}/naver-orders'),
+            ),
           const shad.MenuDivider(),
           shad.MenuButton(
             child: Text('공연 복제', style: AdminTheme.sans(fontSize: 13)),

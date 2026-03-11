@@ -64,7 +64,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/naver-ticket',
             name: 'naverTicketWizard',
-            builder: (context, state) => const NaverTicketWizardScreen(),
+            builder: (context, state) => NaverTicketWizardScreen(
+              editEventId: state.uri.queryParameters['eventId'],
+            ),
           ),
           GoRoute(
             path: '/events/create',
