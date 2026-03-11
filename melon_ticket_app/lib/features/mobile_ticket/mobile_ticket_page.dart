@@ -91,7 +91,6 @@ String _buildTransferShareMessage({
   required String url,
 }) {
   return [
-    '$eventTitle 티켓 전달',
     recipientName.isNotEmpty
         ? '🎫 ${recipientName}님이 티켓을 보냈어요!'
         : '🎫 티켓을 전달했어요!',
@@ -346,7 +345,7 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
         venueName: venueName,
         url: url,
       ),
-      subject: '$eventTitle 티켓 전달',
+      subject: '🎫 티켓이 도착했어요!',
     );
   }
 
@@ -645,7 +644,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
         venueName: venueName,
         url: url,
       ),
-      subject: '$eventTitle 티켓 전달',
+      subject: '🎫 티켓이 도착했어요!',
     );
   }
 
@@ -1322,13 +1321,18 @@ class _GroupTicketOverview extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          eventTitle,
-                          style: AppTheme.nanum(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                            color: _burgundy,
-                            noShadow: true,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            eventTitle,
+                            style: AppTheme.nanum(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: _burgundy,
+                              noShadow: true,
+                            ),
+                            maxLines: 1,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -2236,19 +2240,23 @@ class _FrontCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 공연명 (대형)
-                        Text(
-                          eventTitle,
-                          style: AppTheme.nanum(
-                            color: _textDark,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.3,
-                            height: 1.25,
-                            noShadow: true,
+                        // 공연명 (대형, 한 줄 — 길면 자동 축소)
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            eventTitle,
+                            style: AppTheme.nanum(
+                              color: _textDark,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.3,
+                              height: 1.25,
+                              noShadow: true,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 20),
 
@@ -2732,17 +2740,20 @@ class _BackCardState extends State<_BackCard>
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
                       children: [
-                        Text(
-                          widget.eventTitle,
-                          style: AppTheme.nanum(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: _textDark,
-                            noShadow: true,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            widget.eventTitle,
+                            style: AppTheme.nanum(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: _textDark,
+                              noShadow: true,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
