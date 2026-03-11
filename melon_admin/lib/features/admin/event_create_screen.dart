@@ -818,54 +818,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           ],
         ],
 
-        const SizedBox(height: 48),
-
-        // ── Section 4: 포스터 ──
-        _sectionHeader('포스터', guide: '메인 화면 카드 배경 + 상세 페이지 헤더 이미지'),
-        const SizedBox(height: 24),
-        _buildPosterPicker(),
-
-        const SizedBox(height: 48),
-
-        // ── Section 4.5: 팜플렛 ──
-        _sectionHeader('팜플렛', guide: '상세 페이지 \'상세정보\' 탭에 이미지로 표시'),
-        const SizedBox(height: 8),
-        Text(
-          '공연 상세 팜플렛 이미지를 등록하세요 (최대 $_maxPamphlets장, 장당 3MB)',
-          style: AdminTheme.sans(fontSize: 12, color: AdminTheme.textTertiary),
-        ),
-        const SizedBox(height: 16),
-        _buildPamphletPicker(),
-
-        const SizedBox(height: 48),
-
-        // ── Section 5: 상세 정보 ──
-        _sectionHeader('상세 정보', guide: '상세 페이지 하단 정보 영역에 표시'),
-        const SizedBox(height: 24),
-        _buildOptionalFields(),
-
-        const SizedBox(height: 48),
-
-        // ── Section 6: 제작/기획 ──
-        _sectionHeader('제작 / 기획', guide: '상세 페이지 하단 크레딧에 표시'),
-        const SizedBox(height: 24),
-        _buildProducerFields(),
-
-        const SizedBox(height: 48),
-
-        // ── Section 7: 할인 정책 ──
-        _sectionHeader('할인 정책', guide: '결제 화면에서 할인 자동 적용'),
-        const SizedBox(height: 24),
-        _buildDiscountSection(),
-
-        const SizedBox(height: 48),
-
-        // ── Section 8: 추가 설정 ──
-        _sectionHeader('추가 설정', guide: '예매 화면 + 티켓 상세에 반영'),
-        const SizedBox(height: 24),
-        _buildAdditionalSettings(),
-
-        const SizedBox(height: 100),
+        const SizedBox(height: 60),
       ],
     );
   }
@@ -1138,7 +1091,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      _isEditMode ? 'UPDATE EVENT' : 'REGISTER EVENT',
+                      _isEditMode ? '공연 수정완료' : '공연 등록완료',
                       style: AdminTheme.serif(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
