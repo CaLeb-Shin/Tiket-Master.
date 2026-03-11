@@ -918,12 +918,6 @@ async function handleMessage(message) {
 
   const rawText = message.text || '';
 
-  // 📦 주문 메시지 자동 감지
-  if (rawText.includes('📦') && rawText.includes('주문번호:')) {
-    await handleOrderMessage(rawText);
-    return;
-  }
-
   // /testorder 명령어
   if (rawText.trim().startsWith('/testorder')) {
     const args = rawText.trim().replace(/^\/testorder\s*/, '').trim();
