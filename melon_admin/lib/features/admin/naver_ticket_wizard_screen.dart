@@ -1196,10 +1196,27 @@ class _NaverTicketWizardScreenState
                       ),
                       const SizedBox(width: 10),
                       ElevatedButton.icon(
-                        onPressed: () => setState(() => _currentStep = 2),
-                        icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('공연 등록이 완료되었습니다'),
+                              backgroundColor: AdminTheme.success,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                          if (Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                          } else {
+                            context.go('/');
+                          }
+                        },
+                        icon: const Icon(Icons.check_rounded, size: 18),
                         label: Text(
-                          '다음 단계',
+                          '공연 등록완료',
                           style: AdminTheme.sans(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -1216,6 +1233,17 @@ class _NaverTicketWizardScreenState
                           ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      TextButton(
+                        onPressed: () => setState(() => _currentStep = 2),
+                        child: Text(
+                          '주문 입력 →',
+                          style: AdminTheme.sans(
+                            fontSize: 12,
+                            color: AdminTheme.textTertiary,
                           ),
                         ),
                       ),
