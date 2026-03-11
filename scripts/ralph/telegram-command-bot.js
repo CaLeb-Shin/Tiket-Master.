@@ -279,6 +279,16 @@ function matchEvent(events, productName) {
 
   const name = productName.toLowerCase();
 
+  // 지난 공연 제외 (공연일이 지난 이벤트 필터링)
+  const now = new Date();
+  events = events.filter(e => {
+    if (!e.date) return true; // 날짜 없으면 일단 포함
+    const eventDate = new Date(e.date);
+    return eventDate >= now;
+  });
+
+  if (events.length === 0) return null;
+
   // 지역명 추출 (공연명에서 [창원], [대구] 등 또는 끝에 붙는 "창원", "대구")
   const regions = ['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종',
     '수원', '창원', '고양', '용인', '성남', '청주', '전주', '천안', '안산',
