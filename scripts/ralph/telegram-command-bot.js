@@ -331,19 +331,23 @@ function matchEvent(events, productName) {
   if (bestMatch && bestScore > 0) return bestMatch;
 
   // ── 2차: title 부분 매칭 ──
+  // +&·/ 등도 분리자로 처리 → "디즈니+지브리" → ["디즈니","지브리"], "지브리&뮤지컬" → ["지브리","뮤지컬"]
+  const tokenize = (s) => s.split(/[\s+&·/|,()[\]]+/).filter((w) => w.length >= 2);
+  const nameTokens = tokenize(name);
+
   bestScore = 0;
   for (const event of candidates) {
     const title = (event.title || '').toLowerCase();
     if (!title) continue;
 
-    const titleWords = title.split(/\s+/).filter((w) => w.length >= 2);
+    const titleTokens = tokenize(title);
     let matched = 0;
-    for (const word of titleWords) {
-      if (name.includes(word)) matched++;
+    for (const token of titleTokens) {
+      if (nameTokens.some(nt => nt.includes(token) || token.includes(nt))) matched++;
     }
-    const ratio = titleWords.length > 0 ? matched / titleWords.length : 0;
+    const ratio = titleTokens.length > 0 ? matched / titleTokens.length : 0;
 
-    if (ratio > 0.5 && matched > bestScore) {
+    if (ratio > 0.4 && matched > bestScore) {
       bestScore = matched;
       bestMatch = event;
     }
