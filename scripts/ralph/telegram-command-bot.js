@@ -474,7 +474,7 @@ function buildHelpMessage() {
     '🎫 멜론티켓 발권 봇',
     '',
     '사용 방법:',
-    '• 📦 주문 메시지를 그대로 전달하면 자동 발권',
+    '• /발권 + 주문 메시지 붙여넣기 → 수동 발권',
     '• /testorder — 테스트 주문으로 파이프라인 검증',
     '• /help — 이 도움말 보기',
   ].join('\n');
@@ -488,39 +488,37 @@ async function handleMessage(message) {
 
   const rawText = message.text || '';
 
+  const trimmed = rawText.trim();
+
+  // /발권 명령어 — 뒤에 붙은 주문 메시지로 발권
+  if (trimmed.startsWith('/발권')) {
+    const orderText = trimmed.replace(/^\/발권\s*/, '').trim();
+    if (!orderText) {
+      await sendMessage('사용법: /발권 + 주문 메시지 붙여넣기\n\n예:\n/발권 📦 새 주문!\n🎫 공연: ...\n👤 구매자: ...\n📱 연락처: ...\n주문번호: ...');
+      return;
+    }
+    await handleOrderMessage(orderText);
+    return;
+  }
+
   // /testorder 명령어
-  if (rawText.trim().startsWith('/testorder')) {
-    const args = rawText.trim().replace(/^\/testorder\s*/, '').trim();
+  if (trimmed.startsWith('/testorder')) {
+    const args = trimmed.replace(/^\/testorder\s*/, '').trim();
     await handleTestOrder(args);
     return;
   }
 
   // /help 또는 /start
-  if (rawText.trim() === '/help' || rawText.trim() === '/start') {
+  if (trimmed === '/help' || trimmed === '/start') {
     await sendMessage(buildHelpMessage());
     return;
   }
-
-  // 📦 주문 메시지 자동 감지
-  if (rawText.includes('📦') && rawText.includes('주문번호:')) {
-    await handleOrderMessage(rawText);
-    return;
-  }
-
-  // 알 수 없는 메시지
-  await sendMessage([
-    '알 수 없는 명령입니다.',
-    '',
-    '사용 방법:',
-    '• 📦 주문 메시지를 그대로 전달하면 자동 발권',
-    '• /testorder — 테스트 주문 검증',
-    '• /help — 도움말',
-  ].join('\n'));
 }
 
 async function registerCommands() {
   await telegramRequest('setMyCommands', {
     commands: [
+      { command: '발권', description: '주문 메시지로 수동 발권' },
       { command: 'testorder', description: '테스트 주문으로 발권 파이프라인 검증' },
       { command: 'help', description: '명령어 보기' },
     ],
