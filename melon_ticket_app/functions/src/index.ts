@@ -2635,9 +2635,10 @@ async function enqueueNaverOrderSmsTask(params: {
   quantity: number;
   ticketUrls: NaverTicketLink[];
   dryRun: boolean;
+  skipSms?: boolean;
   logPrefix?: string;
 }): Promise<void> {
-  if (params.dryRun) {
+  if (params.dryRun || params.skipSms) {
     return;
   }
 
@@ -2861,6 +2862,7 @@ async function createNaverOrderInternal(
     quantity: input.quantity,
     ticketUrls,
     dryRun: input.dryRun,
+    skipSms: input.skipSms,
     logPrefix: options.logPrefix,
   });
 

@@ -9,6 +9,7 @@ export type ParsedNaverOrderCreateInput = {
   orderDate?: string;
   memo?: string | null;
   dryRun: boolean;
+  skipSms?: boolean;
 };
 
 export class NaverTicketLogicError extends Error {
@@ -105,6 +106,7 @@ export function parseNaverOrderCreateInput(raw: any): ParsedNaverOrderCreateInpu
     orderDate: typeof raw?.orderDate === "string" ? raw.orderDate : undefined,
     memo: typeof raw?.memo === "string" && raw.memo.trim() !== "" ? raw.memo.trim() : null,
     dryRun: raw?.dryRun === true,
+    skipSms: raw?.skipSms === true,
   };
 }
 
