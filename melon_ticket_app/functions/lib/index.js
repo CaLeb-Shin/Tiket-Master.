@@ -653,23 +653,57 @@ function findConsecutiveSeats(seats, quantity, preferredSeatIds = []) {
     }
     if (candidates.length === 0)
         return null;
-    // 선호 좌석 포함 우선 + 중앙 근접 좌석 우선
+    // ── 좌석 배정 스코어링 (seat_selection_screen.dart _scoreSequence 동일 로직) ──
+    // Center(40) + Row Position(25) + Grade(15) = 최대 80점/석
     const preferredSet = new Set(preferredSeatIds);
-    const numbers = seats.map((s) => s.number);
-    const minNumber = Math.min(...numbers);
-    const maxNumber = Math.max(...numbers);
-    const center = (minNumber + maxNumber) / 2;
+    // 전체 row 목록 (앞열 우선 판단용)
+    const allRowNums = [...new Set(seats.map((s) => {
+            const r = parseInt(s.row || "1", 10);
+            return isNaN(r) ? 1 : r;
+        }))].sort((a, b) => a - b);
+    function scoreCandidate(seq) {
+        // 해당 row의 좌석 번호 범위 (center 계산용)
+        const rowKey = `${seq[0].block}-${seq[0].floor}-${seq[0].row || ""}`;
+        const rowSeats = seats.filter((s) => `${s.block}-${s.floor}-${s.row || ""}` === rowKey);
+        const rowNumbers = rowSeats.map((s) => s.number);
+        const minNum = Math.min(...rowNumbers);
+        const maxNum = Math.max(...rowNumbers);
+        const center = (minNum + maxNum) / 2;
+        const rowWidth = maxNum - minNum;
+        let totalScore = 0;
+        for (const seat of seq) {
+            // Center score (0-40): 가운데일수록 높음
+            if (rowWidth > 0) {
+                const centerOffset = Math.abs(seat.number - center) / (rowWidth / 2);
+                totalScore += (1 - centerOffset) * 40;
+            }
+            else {
+                totalScore += 40;
+            }
+            // Row position score (0-25): 30% 지점(앞쪽) 선호
+            const rowNum = parseInt(seat.row || "1", 10) || 1;
+            if (allRowNums.length > 1) {
+                const rowIndex = allRowNums.indexOf(rowNum);
+                const idealIdx = Math.min(Math.round(allRowNums.length * 0.3), allRowNums.length - 1);
+                const maxIdx = Math.max(1, allRowNums.length - 1);
+                const rowOffset = Math.abs(rowIndex - idealIdx) / maxIdx;
+                totalScore += (1 - rowOffset) * 25;
+            }
+            else {
+                totalScore += 25;
+            }
+        }
+        return totalScore / seq.length;
+    }
     candidates.sort((a, b) => {
+        // 선호 좌석 포함 우선
         const aPreferred = a.reduce((count, seat) => count + (preferredSet.has(seat.id) ? 1 : 0), 0);
         const bPreferred = b.reduce((count, seat) => count + (preferredSet.has(seat.id) ? 1 : 0), 0);
         if (aPreferred !== bPreferred) {
             return bPreferred - aPreferred;
         }
-        const aAvg = a.reduce((sum, seat) => sum + seat.number, 0) / a.length;
-        const bAvg = b.reduce((sum, seat) => sum + seat.number, 0) / b.length;
-        const aDist = Math.abs(aAvg - center);
-        const bDist = Math.abs(bAvg - center);
-        return aDist - bDist;
+        // 스코어 높은 순
+        return scoreCandidate(b) - scoreCandidate(a);
     });
     return candidates[0];
 }
