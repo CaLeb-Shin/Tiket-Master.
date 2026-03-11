@@ -56,6 +56,7 @@ class _NaverTicketWizardScreenState
   final _naverUrlCtrl = TextEditingController(); // 네이버 판매 URL
   String? _venueAddress; // 공연장 주소
   bool _naverOnly = true; // 네이버 전용 (새 봇) vs 놀티켓 연계 (기존 봇)
+  bool _showExistingEvents = false;
   bool _isCreatingEvent = false;
 
   // Step 2: 좌석 등록
@@ -655,75 +656,115 @@ class _NaverTicketWizardScreenState
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '기존 공연 선택',
-              style: AdminTheme.sans(fontSize: 13, fontWeight: FontWeight.w600),
+            GestureDetector(
+              onTap: () => setState(() => _showExistingEvents = !_showExistingEvents),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AdminTheme.card,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: AdminTheme.border, width: 0.5),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      '기존 공연 선택',
+                      style: AdminTheme.sans(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '(${events.length})',
+                      style: AdminTheme.sans(fontSize: 12, color: AdminTheme.textTertiary),
+                    ),
+                    const Spacer(),
+                    AnimatedRotation(
+                      turns: _showExistingEvents ? 0.25 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: const Icon(
+                        Icons.chevron_right,
+                        size: 18,
+                        color: AdminTheme.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 8),
-            ...events.map((doc) {
-              final d = doc.data() as Map<String, dynamic>;
-              final title = d['title'] as String? ?? '';
-              final venue = d['venueName'] as String? ?? '';
-              final startAt = (d['startAt'] as Timestamp?)?.toDate();
-              final dateStr = startAt != null
-                  ? DateFormat('MM.dd HH:mm').format(startAt)
-                  : '';
+            AnimatedCrossFade(
+              firstChild: const SizedBox.shrink(),
+              secondChild: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Column(
+                  children: events.map((doc) {
+                    final d = doc.data() as Map<String, dynamic>;
+                    final title = d['title'] as String? ?? '';
+                    final venue = d['venueName'] as String? ?? '';
+                    final startAt = (d['startAt'] as Timestamp?)?.toDate();
+                    final dateStr = startAt != null
+                        ? DateFormat('MM.dd HH:mm').format(startAt)
+                        : '';
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _createdEventId = doc.id;
-                      _currentStep = 2; // 좌석 이미 있으면 바로 주문으로
-                    });
-                    // 좌석 유무 확인
-                    _checkSeatsAndNavigate(doc.id);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AdminTheme.card,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: AdminTheme.border, width: 0.5),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _createdEventId = doc.id;
+                            _currentStep = 2;
+                          });
+                          _checkSeatsAndNavigate(doc.id);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AdminTheme.card,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: AdminTheme.border, width: 0.5),
+                          ),
+                          child: Row(
                             children: [
-                              Text(
-                                title,
-                                style: AdminTheme.sans(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      title,
+                                      style: AdminTheme.sans(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      '$venue  ·  $dateStr',
+                                      style: AdminTheme.sans(
+                                        fontSize: 11,
+                                        color: AdminTheme.textTertiary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              Text(
-                                '$venue  ·  $dateStr',
-                                style: AdminTheme.sans(
-                                  fontSize: 11,
-                                  color: AdminTheme.textTertiary,
-                                ),
+                              const Icon(
+                                Icons.chevron_right,
+                                size: 18,
+                                color: AdminTheme.textTertiary,
                               ),
                             ],
                           ),
                         ),
-                        const Icon(
-                          Icons.chevron_right,
-                          size: 18,
-                          color: AdminTheme.textTertiary,
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  }).toList(),
                 ),
-              );
-            }),
+              ),
+              crossFadeState: _showExistingEvents
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 200),
+            ),
             const SizedBox(height: 16),
             Row(
               children: [
