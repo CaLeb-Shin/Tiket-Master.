@@ -1193,8 +1193,8 @@ function parseNaverOrderMessage(text) {
     result.buyerPhone = phoneMatch[1].trim();
   }
 
-  // 주문번호
-  const orderMatch = text.match(/주문번호:\s*(\d+)/);
+  // 주문번호 (숫자 또는 TEST로 시작하는 테스트 번호)
+  const orderMatch = text.match(/주문번호:\s*(\S+)/);
   if (orderMatch) {
     result.naverOrderId = orderMatch[1].trim();
   }
