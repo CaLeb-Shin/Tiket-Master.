@@ -1154,49 +1154,42 @@ class _GroupTicketHeader extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.confirmation_number_outlined,
-                  size: 16,
-                  color: _burgundy,
-                ),
-                const SizedBox(width: 8),
                 Text(
-                  '${current + 1} / $total',
+                  '${current + 1}',
                   style: AppTheme.nanum(
                     fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     color: _burgundy,
                     noShadow: true,
                   ),
                 ),
-                const SizedBox(width: 12),
+                Text(
+                  ' / $total',
+                  style: AppTheme.nanum(
+                    fontSize: 13,
+                    color: _burgundy.withValues(alpha: 0.45),
+                    noShadow: true,
+                  ),
+                ),
+                const SizedBox(width: 16),
                 Row(
                   children: List.generate(
                     total,
                     (i) => AnimatedContainer(
                       duration: const Duration(milliseconds: 250),
-                      width: i == current ? 18 : 6,
+                      width: i == current ? 20 : 6,
                       height: 6,
                       margin: const EdgeInsets.symmetric(horizontal: 2),
                       decoration: BoxDecoration(
                         color: i == current
                             ? _burgundy
-                            : _burgundy.withValues(alpha: 0.18),
+                            : _burgundy.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(3),
                       ),
                     ),
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '← 옆으로 넘겨서 다른 티켓 확인  ${total}매(${current + 1}/$total) →',
-              style: AppTheme.nanum(
-                fontSize: 11,
-                color: _burgundy.withValues(alpha: 0.62),
-                noShadow: true,
-              ),
             ),
           ],
         ),
@@ -1387,19 +1380,19 @@ class _GroupTicketOverview extends StatelessWidget {
             Text(
               '전체 티켓',
               style: AppTheme.nanum(
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.w800,
                 color: _cream,
+                letterSpacing: 0.4,
                 noShadow: true,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
-              '전달이 필요한 티켓은 여기서 먼저 정리하고, 상세 티켓에서 QR과 좌석을 확인합니다.',
+              '탭해서 QR · 좌석을 확인하세요',
               style: AppTheme.nanum(
                 fontSize: 12,
-                color: _cream.withValues(alpha: 0.7),
-                height: 1.55,
+                color: _cream.withValues(alpha: 0.55),
                 noShadow: true,
               ),
             ),
@@ -1514,29 +1507,30 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Flexible(
-                          child: Row(
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Flexible(
-                                child: Text(
-                                  displayName,
-                                  style: AppTheme.serif(
-                                    fontSize: 24,
-                                    color: _burgundy,
-                                    noShadow: true,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
                               Text(
-                                '예매자',
+                                displayName,
                                 style: AppTheme.nanum(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: _burgundy.withValues(alpha: 0.5),
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  color: _burgundy,
+                                  noShadow: true,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                recipientName != null && recipientName.isNotEmpty
+                                    ? '수령인'
+                                    : '예매자',
+                                style: AppTheme.nanum(
+                                  fontSize: 11,
+                                  color: _burgundy.withValues(alpha: 0.42),
                                   noShadow: true,
                                 ),
                               ),
