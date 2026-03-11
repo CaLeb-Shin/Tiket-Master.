@@ -1061,6 +1061,20 @@ async function registerCommands() {
 async function pollLoop() {
   const state = readState();
 
+  // 첫 시작 시 기존 메시지 건너뛰기 (lastUpdateId가 0이면 새로 시작)
+  if (state.lastUpdateId === 0) {
+    try {
+      const pending = await telegramRequest('getUpdates', { offset: -1, limit: 1 });
+      if (Array.isArray(pending) && pending.length > 0) {
+        state.lastUpdateId = pending[pending.length - 1].update_id;
+        writeState(state);
+        log('기존 메시지 건너뛰기 완료 (offset: ' + state.lastUpdateId + ')');
+      }
+    } catch (e) {
+      log('기존 메시지 건너뛰기 실패: ' + e.message);
+    }
+  }
+
   while (true) {
     try {
       const updates = await telegramRequest('getUpdates', {
