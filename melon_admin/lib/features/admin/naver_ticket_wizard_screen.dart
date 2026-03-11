@@ -309,6 +309,14 @@ class _NaverTicketWizardScreenState
                             final time = await showTimePicker(
                               context: context,
                               initialTime: TimeOfDay.fromDateTime(_startAt),
+                              builder: (context, child) {
+                                return MediaQuery(
+                                  data: MediaQuery.of(context).copyWith(
+                                    alwaysUse24HourFormat: true,
+                                  ),
+                                  child: child!,
+                                );
+                              },
                             );
                             if (time == null) return;
                             setState(() {
