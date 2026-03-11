@@ -2670,82 +2670,130 @@ async function createNaverOrderInternal(
   if (!eventDoc.exists) {
     throw new functions.https.HttpsError("not-found", "이벤트를 찾을 수 없습니다");
   }
-
-  const allSeatsSnap = await db.collection("seats")
-    .where("eventId", "==", input.eventId)
-    .where("grade", "==", input.seatGrade)
-    .where("status", "==", "available")
-    .get();
-
-  if (allSeatsSnap.size < input.quantity) {
-    throw new functions.https.HttpsError(
-      "resource-exhausted",
-      `${input.seatGrade} 등급 잔여 좌석이 부족합니다 (잔여: ${allSeatsSnap.size}, 요청: ${input.quantity})`,
-    );
-  }
-
-  const selectedSeatDocs = findAdjacentSeats(allSeatsSnap.docs, input.quantity);
-  if (!selectedSeatDocs) {
-    throw new functions.https.HttpsError(
-      "resource-exhausted",
-      `${input.seatGrade} 등급에 연석 ${input.quantity}매를 찾을 수 없습니다 (잔여 ${allSeatsSnap.size}석이지만 인접 좌석 부족)`,
-    );
-  }
-
-  const activeTicketsSnap = await db.collection("mobileTickets")
-    .where("eventId", "==", input.eventId)
-    .where("seatGrade", "==", input.seatGrade)
-    .where("status", "==", "active")
-    .get();
-  const nextEntryNumber = activeTicketsSnap.size + 1;
+  const eventData = eventDoc.data()!;
+  const seatAssignMode = eventData.seatAssignMode || "immediate";
+  const isDeferred = seatAssignMode === "deferred";
 
   const now = admin.firestore.Timestamp.now();
   const ticketIds: string[] = [];
   const ticketUrls: NaverTicketLink[] = [];
   const batch = db.batch();
 
-  selectedSeatDocs.forEach((seatDoc, index) => {
-    const seat = seatDoc.data();
-    const ticketRef = db.collection("mobileTickets").doc();
-    const accessToken = uuidv4();
-    const entryNumber = nextEntryNumber + index;
-    const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
-      .filter(Boolean)
-      .join(" ");
+  if (isDeferred) {
+    // ── deferred 모드: 좌석 미배정, 티켓만 생성 ──
+    const activeTicketsSnap = await db.collection("mobileTickets")
+      .where("eventId", "==", input.eventId)
+      .where("seatGrade", "==", input.seatGrade)
+      .where("status", "==", "active")
+      .get();
+    const nextEntryNumber = activeTicketsSnap.size + 1;
 
-    batch.set(ticketRef, {
-      naverOrderId: "",
-      eventId: input.eventId,
-      seatGrade: input.seatGrade,
-      seatId: seatDoc.id,
-      seatNumber: `${seat.number}`,
-      seatInfo,
-      buyerName: input.buyerName,
-      buyerPhone: input.buyerPhone,
-      status: "active",
-      issuedAt: now,
-      usedAt: null,
-      cancelledAt: null,
-      qrVersion: 1,
-      accessToken,
-      entryNumber,
-      entryCheckedInAt: null,
-      lastCheckInStage: null,
-    });
+    for (let i = 0; i < input.quantity; i++) {
+      const ticketRef = db.collection("mobileTickets").doc();
+      const accessToken = uuidv4();
+      const entryNumber = nextEntryNumber + i;
 
-    batch.update(seatDoc.ref, {
-      status: "reserved",
-      updatedAt: now,
-    });
+      batch.set(ticketRef, {
+        naverOrderId: "",
+        eventId: input.eventId,
+        seatGrade: input.seatGrade,
+        seatId: null,
+        seatNumber: null,
+        seatInfo: "좌석 미확정",
+        buyerName: input.buyerName,
+        buyerPhone: input.buyerPhone,
+        status: "active",
+        issuedAt: now,
+        usedAt: null,
+        cancelledAt: null,
+        qrVersion: 1,
+        accessToken,
+        entryNumber,
+        entryCheckedInAt: null,
+        lastCheckInStage: null,
+      });
 
-    ticketIds.push(ticketRef.id);
-    ticketUrls.push({
-      ticketId: ticketRef.id,
-      accessToken,
-      entryNumber,
-      url: `${MOBILE_TICKET_PUBLIC_URL}${accessToken}`,
+      ticketIds.push(ticketRef.id);
+      ticketUrls.push({
+        ticketId: ticketRef.id,
+        accessToken,
+        entryNumber,
+        url: `${MOBILE_TICKET_PUBLIC_URL}${accessToken}`,
+      });
+    }
+  } else {
+    // ── immediate 모드: 기존처럼 즉시 좌석 배정 ──
+    const allSeatsSnap = await db.collection("seats")
+      .where("eventId", "==", input.eventId)
+      .where("grade", "==", input.seatGrade)
+      .where("status", "==", "available")
+      .get();
+
+    if (allSeatsSnap.size < input.quantity) {
+      throw new functions.https.HttpsError(
+        "resource-exhausted",
+        `${input.seatGrade} 등급 잔여 좌석이 부족합니다 (잔여: ${allSeatsSnap.size}, 요청: ${input.quantity})`,
+      );
+    }
+
+    const selectedSeatDocs = findAdjacentSeats(allSeatsSnap.docs, input.quantity);
+    if (!selectedSeatDocs) {
+      throw new functions.https.HttpsError(
+        "resource-exhausted",
+        `${input.seatGrade} 등급에 연석 ${input.quantity}매를 찾을 수 없습니다 (잔여 ${allSeatsSnap.size}석이지만 인접 좌석 부족)`,
+      );
+    }
+
+    const activeTicketsSnap = await db.collection("mobileTickets")
+      .where("eventId", "==", input.eventId)
+      .where("seatGrade", "==", input.seatGrade)
+      .where("status", "==", "active")
+      .get();
+    const nextEntryNumber = activeTicketsSnap.size + 1;
+
+    selectedSeatDocs.forEach((seatDoc, index) => {
+      const seat = seatDoc.data();
+      const ticketRef = db.collection("mobileTickets").doc();
+      const accessToken = uuidv4();
+      const entryNumber = nextEntryNumber + index;
+      const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
+        .filter(Boolean)
+        .join(" ");
+
+      batch.set(ticketRef, {
+        naverOrderId: "",
+        eventId: input.eventId,
+        seatGrade: input.seatGrade,
+        seatId: seatDoc.id,
+        seatNumber: `${seat.number}`,
+        seatInfo,
+        buyerName: input.buyerName,
+        buyerPhone: input.buyerPhone,
+        status: "active",
+        issuedAt: now,
+        usedAt: null,
+        cancelledAt: null,
+        qrVersion: 1,
+        accessToken,
+        entryNumber,
+        entryCheckedInAt: null,
+        lastCheckInStage: null,
+      });
+
+      batch.update(seatDoc.ref, {
+        status: "reserved",
+        updatedAt: now,
+      });
+
+      ticketIds.push(ticketRef.id);
+      ticketUrls.push({
+        ticketId: ticketRef.id,
+        accessToken,
+        entryNumber,
+        url: `${MOBILE_TICKET_PUBLIC_URL}${accessToken}`,
+      });
     });
-  });
+  }
 
   const orderRef = db.collection("naverOrders").doc();
   batch.set(orderRef, {
@@ -2773,7 +2821,6 @@ async function createNaverOrderInternal(
 
   await batch.commit();
 
-  const eventData = eventDoc.data();
   await enqueueNaverOrderSmsTask({
     eventId: input.eventId,
     orderId: orderRef.id,
@@ -2798,6 +2845,94 @@ async function createNaverOrderInternal(
     tickets: ticketUrls,
   };
 }
+
+// ============================================================
+// assignDeferredSeats - 미확정 티켓에 좌석 일괄 배정 (놀티켓 연동)
+// ============================================================
+// 미판매 엑셀 업로드 후 available 좌석이 세팅된 상태에서 호출.
+// eventId + seatGrade 기준으로 seatId가 null인 active 티켓을 찾아 연석 우선 배정.
+export const assignDeferredSeats = functions.https.onCall(async (data: any, context) => {
+  await assertAdmin(context?.auth?.uid);
+
+  const eventId = (data.eventId || "").trim();
+  const seatGrade = (data.seatGrade || "").trim();
+  if (!eventId || !seatGrade) {
+    throw new functions.https.HttpsError("invalid-argument", "eventId와 seatGrade가 필요합니다");
+  }
+
+  // 미확정(seatId == null) 티켓 조회
+  const unassignedSnap = await db.collection("mobileTickets")
+    .where("eventId", "==", eventId)
+    .where("seatGrade", "==", seatGrade)
+    .where("status", "==", "active")
+    .where("seatId", "==", null)
+    .get();
+
+  if (unassignedSnap.empty) {
+    return { success: true, assigned: 0, message: "배정할 미확정 티켓이 없습니다" };
+  }
+
+  // available 좌석 조회
+  const availableSnap = await db.collection("seats")
+    .where("eventId", "==", eventId)
+    .where("grade", "==", seatGrade)
+    .where("status", "==", "available")
+    .get();
+
+  if (availableSnap.size < unassignedSnap.size) {
+    throw new functions.https.HttpsError(
+      "resource-exhausted",
+      `잔여 좌석 부족 (미확정 ${unassignedSnap.size}매, 잔여 ${availableSnap.size}석)`,
+    );
+  }
+
+  // 연석 우선으로 좌석 배정
+  const selectedSeats = findAdjacentSeats(availableSnap.docs, unassignedSnap.size);
+  if (!selectedSeats) {
+    throw new functions.https.HttpsError(
+      "resource-exhausted",
+      `연석 ${unassignedSnap.size}매를 찾을 수 없습니다 (잔여 ${availableSnap.size}석)`,
+    );
+  }
+
+  const now = admin.firestore.Timestamp.now();
+  const batch = db.batch();
+  const assignments: Array<{ ticketId: string; seatInfo: string }> = [];
+
+  unassignedSnap.docs.forEach((ticketDoc, index) => {
+    const seatDoc = selectedSeats[index];
+    const seat = seatDoc.data();
+    const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
+      .filter(Boolean)
+      .join(" ");
+
+    batch.update(ticketDoc.ref, {
+      seatId: seatDoc.id,
+      seatNumber: `${seat.number}`,
+      seatInfo,
+      updatedAt: now,
+    });
+
+    batch.update(seatDoc.ref, {
+      status: "reserved",
+      updatedAt: now,
+    });
+
+    assignments.push({ ticketId: ticketDoc.id, seatInfo });
+  });
+
+  await batch.commit();
+
+  functions.logger.info(
+    `좌석 사후 배정 완료: ${eventId}, ${seatGrade} x${assignments.length}매`,
+  );
+
+  return {
+    success: true,
+    assigned: assignments.length,
+    assignments,
+  };
+});
 
 async function getNaverOrderDocById(orderId: string) {
   const orderRef = db.collection("naverOrders").doc(orderId);

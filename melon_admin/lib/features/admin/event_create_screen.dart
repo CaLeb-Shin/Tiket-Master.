@@ -72,6 +72,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   bool _isStanding = false;
   final _standingCapacityCtrl = TextEditingController(text: '100');
 
+  // ── 좌석 배정 모드 (놀티켓 연동) ──
+  String _seatAssignMode = 'immediate'; // 'immediate' or 'deferred'
+
   // ── 다회 공연 (연속 회차) ──
   bool _isMultiSession = false;
   final List<DateTime> _sessionDates = []; // 추가 회차 날짜
@@ -273,6 +276,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       'showRemainingSeats': _showRemainingSeats,
       'isStanding': _isStanding,
       'standingCapacity': _standingCapacityCtrl.text,
+      'seatAssignMode': _seatAssignMode,
       if (_hallId != null) 'hallId': _hallId,
       'discountPolicies': _discountPolicies.map((p) => p.toMap()).toList(),
       if (_selectedVenue != null) 'venueId': _selectedVenue!.id,
@@ -346,6 +350,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       _showRemainingSeats = data['showRemainingSeats'] as bool? ?? true;
       _isStanding = data['isStanding'] as bool? ?? false;
       _standingCapacityCtrl.text = data['standingCapacity'] as String? ?? '100';
+      _seatAssignMode = data['seatAssignMode'] as String? ?? 'immediate';
       _hallId = data['hallId'] as String?;
 
       if (data['enabledGrades'] != null) {
@@ -428,6 +433,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         _inquiryInfoCtrl.text = event.inquiryInfo ?? '';
         _showRemainingSeats = event.showRemainingSeats;
         _isStanding = event.isStanding;
+        _seatAssignMode = event.seatAssignMode;
         _hallId = event.hallId;
 
         if (event.priceByGrade != null) {
@@ -501,6 +507,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         _inquiryInfoCtrl.text = event.inquiryInfo ?? '';
         _showRemainingSeats = event.showRemainingSeats;
         _isStanding = event.isStanding;
+        _seatAssignMode = event.seatAssignMode;
         _hallId = event.hallId;
 
         if (event.priceByGrade != null) {
@@ -738,6 +745,11 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         _buildStandingToggle(),
 
         const SizedBox(height: 20),
+
+        // ── 좌석 배정 모드 (놀티켓 연동) ──
+        if (!_isStanding) _buildSeatAssignModeToggle(),
+
+        if (!_isStanding) const SizedBox(height: 20),
 
         // ── 태그 ──
         _field('태그', guide: '→ 메인 필터 + 상세 태그 배지', child: _buildTagsSelector()),
@@ -1418,6 +1430,68 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildSeatAssignModeToggle() {
+    final isDeferred = _seatAssignMode == 'deferred';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDeferred
+            ? Colors.orange.withValues(alpha: 0.08)
+            : AdminTheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDeferred
+              ? Colors.orange.withValues(alpha: 0.4)
+              : AdminTheme.border,
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isDeferred ? Icons.schedule_rounded : Icons.bolt_rounded,
+            color: isDeferred ? Colors.orange : AdminTheme.textSecondary,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '좌석 사후 배정 (놀티켓 연동)',
+                  style: TextStyle(
+                    color: AdminTheme.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isDeferred
+                      ? '주문 시 좌석 미확정 → 미판매 엑셀 업로드 후 일괄 배정'
+                      : '주문 즉시 연석 우선 자동 배정 (기본)',
+                  style: TextStyle(
+                    color: AdminTheme.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: isDeferred,
+            onChanged: (v) => setState(() {
+              _seatAssignMode = v ? 'deferred' : 'immediate';
+            }),
+            activeColor: Colors.orange,
+            activeTrackColor: Colors.orange.withValues(alpha: 0.3),
+          ),
+        ],
+      ),
     );
   }
 
@@ -4436,6 +4510,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
               : null,
           'showRemainingSeats': _showRemainingSeats,
           'isStanding': _isStanding,
+          'seatAssignMode': _seatAssignMode,
           'tags': _selectedTags.isNotEmpty ? _selectedTags.toList() : [],
           if (_hallId != null) 'hallId': _hallId,
         };
@@ -4599,6 +4674,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           sessionNumber: si + 1,
           totalSessions: sessionCount,
           isStanding: _isStanding,
+          seatAssignMode: _seatAssignMode,
           hallId: _hallId,
         );
 

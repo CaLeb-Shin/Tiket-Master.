@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -2242,67 +2242,113 @@ async function createNaverOrderInternal(raw, options = {}) {
     if (!eventDoc.exists) {
         throw new functions.https.HttpsError("not-found", "이벤트를 찾을 수 없습니다");
     }
-    const allSeatsSnap = await db.collection("seats")
-        .where("eventId", "==", input.eventId)
-        .where("grade", "==", input.seatGrade)
-        .where("status", "==", "available")
-        .get();
-    if (allSeatsSnap.size < input.quantity) {
-        throw new functions.https.HttpsError("resource-exhausted", `${input.seatGrade} 등급 잔여 좌석이 부족합니다 (잔여: ${allSeatsSnap.size}, 요청: ${input.quantity})`);
-    }
-    const selectedSeatDocs = findAdjacentSeats(allSeatsSnap.docs, input.quantity);
-    if (!selectedSeatDocs) {
-        throw new functions.https.HttpsError("resource-exhausted", `${input.seatGrade} 등급에 연석 ${input.quantity}매를 찾을 수 없습니다 (잔여 ${allSeatsSnap.size}석이지만 인접 좌석 부족)`);
-    }
-    const activeTicketsSnap = await db.collection("mobileTickets")
-        .where("eventId", "==", input.eventId)
-        .where("seatGrade", "==", input.seatGrade)
-        .where("status", "==", "active")
-        .get();
-    const nextEntryNumber = activeTicketsSnap.size + 1;
+    const eventData = eventDoc.data();
+    const seatAssignMode = eventData.seatAssignMode || "immediate";
+    const isDeferred = seatAssignMode === "deferred";
     const now = admin.firestore.Timestamp.now();
     const ticketIds = [];
     const ticketUrls = [];
     const batch = db.batch();
-    selectedSeatDocs.forEach((seatDoc, index) => {
-        const seat = seatDoc.data();
-        const ticketRef = db.collection("mobileTickets").doc();
-        const accessToken = (0, uuid_1.v4)();
-        const entryNumber = nextEntryNumber + index;
-        const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
-            .filter(Boolean)
-            .join(" ");
-        batch.set(ticketRef, {
-            naverOrderId: "",
-            eventId: input.eventId,
-            seatGrade: input.seatGrade,
-            seatId: seatDoc.id,
-            seatNumber: `${seat.number}`,
-            seatInfo,
-            buyerName: input.buyerName,
-            buyerPhone: input.buyerPhone,
-            status: "active",
-            issuedAt: now,
-            usedAt: null,
-            cancelledAt: null,
-            qrVersion: 1,
-            accessToken,
-            entryNumber,
-            entryCheckedInAt: null,
-            lastCheckInStage: null,
+    if (isDeferred) {
+        // ── deferred 모드: 좌석 미배정, 티켓만 생성 ──
+        const activeTicketsSnap = await db.collection("mobileTickets")
+            .where("eventId", "==", input.eventId)
+            .where("seatGrade", "==", input.seatGrade)
+            .where("status", "==", "active")
+            .get();
+        const nextEntryNumber = activeTicketsSnap.size + 1;
+        for (let i = 0; i < input.quantity; i++) {
+            const ticketRef = db.collection("mobileTickets").doc();
+            const accessToken = (0, uuid_1.v4)();
+            const entryNumber = nextEntryNumber + i;
+            batch.set(ticketRef, {
+                naverOrderId: "",
+                eventId: input.eventId,
+                seatGrade: input.seatGrade,
+                seatId: null,
+                seatNumber: null,
+                seatInfo: "좌석 미확정",
+                buyerName: input.buyerName,
+                buyerPhone: input.buyerPhone,
+                status: "active",
+                issuedAt: now,
+                usedAt: null,
+                cancelledAt: null,
+                qrVersion: 1,
+                accessToken,
+                entryNumber,
+                entryCheckedInAt: null,
+                lastCheckInStage: null,
+            });
+            ticketIds.push(ticketRef.id);
+            ticketUrls.push({
+                ticketId: ticketRef.id,
+                accessToken,
+                entryNumber,
+                url: `${MOBILE_TICKET_PUBLIC_URL}${accessToken}`,
+            });
+        }
+    }
+    else {
+        // ── immediate 모드: 기존처럼 즉시 좌석 배정 ──
+        const allSeatsSnap = await db.collection("seats")
+            .where("eventId", "==", input.eventId)
+            .where("grade", "==", input.seatGrade)
+            .where("status", "==", "available")
+            .get();
+        if (allSeatsSnap.size < input.quantity) {
+            throw new functions.https.HttpsError("resource-exhausted", `${input.seatGrade} 등급 잔여 좌석이 부족합니다 (잔여: ${allSeatsSnap.size}, 요청: ${input.quantity})`);
+        }
+        const selectedSeatDocs = findAdjacentSeats(allSeatsSnap.docs, input.quantity);
+        if (!selectedSeatDocs) {
+            throw new functions.https.HttpsError("resource-exhausted", `${input.seatGrade} 등급에 연석 ${input.quantity}매를 찾을 수 없습니다 (잔여 ${allSeatsSnap.size}석이지만 인접 좌석 부족)`);
+        }
+        const activeTicketsSnap = await db.collection("mobileTickets")
+            .where("eventId", "==", input.eventId)
+            .where("seatGrade", "==", input.seatGrade)
+            .where("status", "==", "active")
+            .get();
+        const nextEntryNumber = activeTicketsSnap.size + 1;
+        selectedSeatDocs.forEach((seatDoc, index) => {
+            const seat = seatDoc.data();
+            const ticketRef = db.collection("mobileTickets").doc();
+            const accessToken = (0, uuid_1.v4)();
+            const entryNumber = nextEntryNumber + index;
+            const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
+                .filter(Boolean)
+                .join(" ");
+            batch.set(ticketRef, {
+                naverOrderId: "",
+                eventId: input.eventId,
+                seatGrade: input.seatGrade,
+                seatId: seatDoc.id,
+                seatNumber: `${seat.number}`,
+                seatInfo,
+                buyerName: input.buyerName,
+                buyerPhone: input.buyerPhone,
+                status: "active",
+                issuedAt: now,
+                usedAt: null,
+                cancelledAt: null,
+                qrVersion: 1,
+                accessToken,
+                entryNumber,
+                entryCheckedInAt: null,
+                lastCheckInStage: null,
+            });
+            batch.update(seatDoc.ref, {
+                status: "reserved",
+                updatedAt: now,
+            });
+            ticketIds.push(ticketRef.id);
+            ticketUrls.push({
+                ticketId: ticketRef.id,
+                accessToken,
+                entryNumber,
+                url: `${MOBILE_TICKET_PUBLIC_URL}${accessToken}`,
+            });
         });
-        batch.update(seatDoc.ref, {
-            status: "reserved",
-            updatedAt: now,
-        });
-        ticketIds.push(ticketRef.id);
-        ticketUrls.push({
-            ticketId: ticketRef.id,
-            accessToken,
-            entryNumber,
-            url: `${MOBILE_TICKET_PUBLIC_URL}${accessToken}`,
-        });
-    });
+    }
     const orderRef = db.collection("naverOrders").doc();
     batch.set(orderRef, {
         naverOrderId: input.naverOrderId,
@@ -2326,7 +2372,6 @@ async function createNaverOrderInternal(raw, options = {}) {
         });
     });
     await batch.commit();
-    const eventData = eventDoc.data();
     await enqueueNaverOrderSmsTask({
         eventId: input.eventId,
         orderId: orderRef.id,
@@ -2347,6 +2392,71 @@ async function createNaverOrderInternal(raw, options = {}) {
         tickets: ticketUrls,
     };
 }
+// ============================================================
+// assignDeferredSeats - 미확정 티켓에 좌석 일괄 배정 (놀티켓 연동)
+// ============================================================
+// 미판매 엑셀 업로드 후 available 좌석이 세팅된 상태에서 호출.
+// eventId + seatGrade 기준으로 seatId가 null인 active 티켓을 찾아 연석 우선 배정.
+exports.assignDeferredSeats = functions.https.onCall(async (data, context) => {
+    await assertAdmin(context?.auth?.uid);
+    const eventId = (data.eventId || "").trim();
+    const seatGrade = (data.seatGrade || "").trim();
+    if (!eventId || !seatGrade) {
+        throw new functions.https.HttpsError("invalid-argument", "eventId와 seatGrade가 필요합니다");
+    }
+    // 미확정(seatId == null) 티켓 조회
+    const unassignedSnap = await db.collection("mobileTickets")
+        .where("eventId", "==", eventId)
+        .where("seatGrade", "==", seatGrade)
+        .where("status", "==", "active")
+        .where("seatId", "==", null)
+        .get();
+    if (unassignedSnap.empty) {
+        return { success: true, assigned: 0, message: "배정할 미확정 티켓이 없습니다" };
+    }
+    // available 좌석 조회
+    const availableSnap = await db.collection("seats")
+        .where("eventId", "==", eventId)
+        .where("grade", "==", seatGrade)
+        .where("status", "==", "available")
+        .get();
+    if (availableSnap.size < unassignedSnap.size) {
+        throw new functions.https.HttpsError("resource-exhausted", `잔여 좌석 부족 (미확정 ${unassignedSnap.size}매, 잔여 ${availableSnap.size}석)`);
+    }
+    // 연석 우선으로 좌석 배정
+    const selectedSeats = findAdjacentSeats(availableSnap.docs, unassignedSnap.size);
+    if (!selectedSeats) {
+        throw new functions.https.HttpsError("resource-exhausted", `연석 ${unassignedSnap.size}매를 찾을 수 없습니다 (잔여 ${availableSnap.size}석)`);
+    }
+    const now = admin.firestore.Timestamp.now();
+    const batch = db.batch();
+    const assignments = [];
+    unassignedSnap.docs.forEach((ticketDoc, index) => {
+        const seatDoc = selectedSeats[index];
+        const seat = seatDoc.data();
+        const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
+            .filter(Boolean)
+            .join(" ");
+        batch.update(ticketDoc.ref, {
+            seatId: seatDoc.id,
+            seatNumber: `${seat.number}`,
+            seatInfo,
+            updatedAt: now,
+        });
+        batch.update(seatDoc.ref, {
+            status: "reserved",
+            updatedAt: now,
+        });
+        assignments.push({ ticketId: ticketDoc.id, seatInfo });
+    });
+    await batch.commit();
+    functions.logger.info(`좌석 사후 배정 완료: ${eventId}, ${seatGrade} x${assignments.length}매`);
+    return {
+        success: true,
+        assigned: assignments.length,
+        assignments,
+    };
+});
 async function getNaverOrderDocById(orderId) {
     const orderRef = db.collection("naverOrders").doc(orderId);
     const orderDoc = await orderRef.get();
@@ -2612,14 +2722,29 @@ exports.getMobileTicketByToken = functions.https.onCall(async (data) => {
     // 이벤트 정보 로드
     const eventDoc = await db.collection("events").doc(ticket.eventId).get();
     const event = eventDoc.exists ? eventDoc.data() : null;
+    // 그룹 티켓: 같은 주문의 sibling 조회
     const siblingDocs = [];
+    let isGroupOwner = false;
     if (ticket.naverOrderId) {
         const siblingSnap = await db.collection("mobileTickets")
             .where("naverOrderId", "==", ticket.naverOrderId)
             .get();
+        // 주문 내 가장 작은 entryNumber = 구매자(owner)
+        let minEntry = Infinity;
         for (const doc of siblingSnap.docs) {
-            siblingDocs.push({ id: doc.id, data: doc.data() });
+            const d = doc.data();
+            const en = d.entryNumber || Infinity;
+            if (en < minEntry)
+                minEntry = en;
         }
+        isGroupOwner = (ticket.entryNumber || Infinity) === minEntry;
+        if (isGroupOwner) {
+            // 구매자: 전체 sibling 반환
+            for (const doc of siblingSnap.docs) {
+                siblingDocs.push({ id: doc.id, data: doc.data() });
+            }
+        }
+        // 공유받은 사람: siblingDocs 비어있음 → 자기 티켓만
     }
     return (0, naver_ticket_logic_1.buildMobileTicketPublicPayload)({
         ticketId: ticketDoc.id,
@@ -3124,6 +3249,120 @@ exports.convertXlsToXlsxHttp = functions
     catch (err) {
         functions.logger.error("Excel 변환 에러:", err);
         res.status(500).json({ error: `변환 실패: ${err.message}` });
+    }
+});
+// ============================================================
+// 봇 좌석 배정 결과 → mobileTickets 반영
+// ============================================================
+/**
+ * POST /updateTicketSeatsHttp
+ * Header: Authorization: Bearer {BOT_API_KEY}
+ * Body: {
+ *   eventId: string,
+ *   assignments: [
+ *     {
+ *       naverOrderId?: string,
+ *       buyerName: string,
+ *       buyerPhone?: string,
+ *       seatGrade: string,        // "VIP", "R", "S", "A"
+ *       seats: [
+ *         { floor: "1층", section: "B구역", row: 3, number: 15 },
+ *         ...
+ *       ]
+ *     }
+ *   ]
+ * }
+ */
+exports.updateTicketSeatsHttp = functions.https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return;
+    }
+    if (req.method !== "POST") {
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+    }
+    if (!requireBotRequestAuth(req, res))
+        return;
+    const { eventId, assignments } = req.body;
+    if (!eventId || !Array.isArray(assignments) || assignments.length === 0) {
+        res.status(400).json({ error: "eventId와 assignments 배열이 필요합니다" });
+        return;
+    }
+    try {
+        let updated = 0;
+        let skipped = 0;
+        const errors = [];
+        for (const assign of assignments) {
+            const { naverOrderId, buyerName, seatGrade, seats } = assign;
+            if (!buyerName || !seatGrade || !Array.isArray(seats) || seats.length === 0) {
+                errors.push(`${buyerName || "?"}: 필수 필드 누락`);
+                skipped++;
+                continue;
+            }
+            // 1. naverOrderId로 먼저 찾기
+            let ticketDocs = [];
+            if (naverOrderId) {
+                const orderSnap = await db.collection("naverOrders")
+                    .where("naverOrderId", "==", naverOrderId)
+                    .where("eventId", "==", eventId)
+                    .limit(1).get();
+                if (!orderSnap.empty) {
+                    const orderData = orderSnap.docs[0].data();
+                    const ticketIds = orderData.ticketIds || [];
+                    for (const tid of ticketIds) {
+                        const tDoc = await db.collection("mobileTickets").doc(tid).get();
+                        if (tDoc.exists && tDoc.data()?.status === "active") {
+                            ticketDocs.push(tDoc);
+                        }
+                    }
+                }
+            }
+            // 2. naverOrderId 매칭 실패 시 buyerName + seatGrade로 검색
+            if (ticketDocs.length === 0) {
+                const ticketSnap = await db.collection("mobileTickets")
+                    .where("eventId", "==", eventId)
+                    .where("buyerName", "==", buyerName)
+                    .where("seatGrade", "==", seatGrade)
+                    .where("status", "==", "active")
+                    .get();
+                ticketDocs = ticketSnap.docs;
+            }
+            if (ticketDocs.length === 0) {
+                errors.push(`${buyerName}(${seatGrade}): 티켓 없음`);
+                skipped++;
+                continue;
+            }
+            // 3. 좌석 배정 — 티켓 수와 좌석 수 매칭
+            const batch = db.batch();
+            const now = admin.firestore.Timestamp.now();
+            const seatsToAssign = seats.slice(0, ticketDocs.length);
+            for (let i = 0; i < Math.min(ticketDocs.length, seatsToAssign.length); i++) {
+                const tDoc = ticketDocs[i];
+                const s = seatsToAssign[i];
+                const seatInfo = [
+                    s.floor || "",
+                    s.section || "",
+                    s.row ? `${s.row}열` : "",
+                    s.number ? `${s.number}번` : "",
+                ].filter(Boolean).join(" ");
+                batch.update(tDoc.ref, {
+                    seatInfo,
+                    seatNumber: s.number ? `${s.number}` : "",
+                    seatAssignedAt: now,
+                    seatAssignedBy: "bot",
+                });
+            }
+            await batch.commit();
+            updated += seatsToAssign.length;
+        }
+        functions.logger.info(`좌석 배정 완료: ${updated}매 업데이트, ${skipped}건 스킵`);
+        res.status(200).json({ success: true, updated, skipped, errors });
+    }
+    catch (err) {
+        sendHttpError(res, err, "updateTicketSeatsHttp 오류:");
     }
 });
 //# sourceMappingURL=index.js.map
