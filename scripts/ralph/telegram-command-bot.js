@@ -272,35 +272,47 @@ async function fetchEvents() {
 
 /**
  * 파싱된 공연명으로 이벤트 매칭
- * 지역명 매칭 우선 + naverProductKeyword + title 순서
+ * 1. 지난 공연 제외
+ * 2. 지역명이 있으면 해당 지역 공연만 후보로 좁힘
+ * 3. naverProductKeyword → title 순 매칭
  */
 function matchEvent(events, productName) {
   if (!productName || events.length === 0) return null;
 
   const name = productName.toLowerCase();
 
-  // 지난 공연 제외 (공연일이 지난 이벤트 필터링)
+  // ── 지난 공연 제외 ──
   const now = new Date();
-  events = events.filter(e => {
-    if (!e.date) return true; // 날짜 없으면 일단 포함
-    const eventDate = new Date(e.date);
-    return eventDate >= now;
+  let candidates = events.filter(e => {
+    if (!e.date) return true;
+    return new Date(e.date) >= now;
   });
+  if (candidates.length === 0) return null;
 
-  if (events.length === 0) return null;
-
-  // 지역명 추출 (공연명에서 [창원], [대구] 등 또는 끝에 붙는 "창원", "대구")
+  // ── 지역명 추출 → 해당 지역 공연으로 후보 좁히기 ──
   const regions = ['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종',
     '수원', '창원', '고양', '용인', '성남', '청주', '전주', '천안', '안산',
     '제주', '김해', '포항', '진주', '춘천', '원주', '강릉', '목포', '여수',
     '순천', '구미', '경주', '거제', '양산', '의정부', '파주', '안양'];
   const nameRegion = regions.find(r => name.includes(r));
 
-  // 1차: naverProductKeyword 매칭 (지역 일치 가중치 부여)
+  if (nameRegion) {
+    // 지역이 일치하는 공연만 남김
+    const regionMatched = candidates.filter(e => {
+      const text = `${e.title || ''} ${e.venueName || ''}`.toLowerCase();
+      return text.includes(nameRegion);
+    });
+    // 지역 매칭된 게 있으면 그것만 후보로 사용
+    if (regionMatched.length > 0) {
+      candidates = regionMatched;
+    }
+  }
+
+  // ── 1차: naverProductKeyword 매칭 ──
   let bestMatch = null;
   let bestScore = 0;
 
-  for (const event of events) {
+  for (const event of candidates) {
     const keyword = (event.naverProductKeyword || '').toLowerCase();
     if (!keyword) continue;
 
@@ -308,12 +320,6 @@ function matchEvent(events, productName) {
     let score = 0;
     for (const kw of keywords) {
       if (name.includes(kw)) score++;
-    }
-
-    // 지역명이 일치하면 가중치 +10
-    if (nameRegion && score > 0) {
-      const venue = (event.venueName || event.title || '').toLowerCase();
-      if (venue.includes(nameRegion)) score += 10;
     }
 
     if (score > bestScore) {
@@ -324,18 +330,11 @@ function matchEvent(events, productName) {
 
   if (bestMatch && bestScore > 0) return bestMatch;
 
-  // 2차: title + venueName 매칭 (지역 불일치 시 제외)
+  // ── 2차: title 부분 매칭 ──
   bestScore = 0;
-  for (const event of events) {
+  for (const event of candidates) {
     const title = (event.title || '').toLowerCase();
-    const venue = (event.venueName || '').toLowerCase();
     if (!title) continue;
-
-    // 지역명 불일치 검사: 공연명에 지역명이 있는데 이벤트에 없으면 스킵
-    if (nameRegion) {
-      const eventHasRegion = title.includes(nameRegion) || venue.includes(nameRegion);
-      if (!eventHasRegion) continue; // 지역 불일치 → 후보에서 제외
-    }
 
     const titleWords = title.split(/\s+/).filter((w) => w.length >= 2);
     let matched = 0;
