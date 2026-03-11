@@ -2652,19 +2652,8 @@ async function enqueueNaverOrderSmsTask(params: {
   };
 
   try {
-    // 1번: 주문 확인 문자 (먼저 발송)
-    await db.collection("smsTasks").add({
-      ...baseFields,
-      type: "orderConfirm",
-      productName: params.productName,
-      seatGrade: params.seatGrade,
-      quantity: params.quantity,
-      status: "pending",
-      priority: 1,
-      createdAt: now,
-    });
-
-    // 2번: 모바일 티켓 링크 문자 (나중에 발송)
+    // 주문 확인 문자는 oprncllclcl 봇이 뿌리오로 직접 발송
+    // 여기서는 모바일 티켓 링크 문자만 큐잉
     await db.collection("smsTasks").add({
       ...baseFields,
       type: "mobileTicket",
@@ -2673,8 +2662,8 @@ async function enqueueNaverOrderSmsTask(params: {
       quantity: params.quantity,
       ticketUrls: params.ticketUrls.map((ticket) => ticket.url),
       status: "pending",
-      priority: 2,
-      createdAt: admin.firestore.Timestamp.fromMillis(now.toMillis() + 5000),
+      priority: 1,
+      createdAt: now,
     });
   } catch (smsErr: any) {
     functions.logger.warn(
