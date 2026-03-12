@@ -4,6 +4,10 @@
   "outputDirectory": "melon_ticket_app/build/web",
   "rewrites": [
     {
+      "source": "/m/:token",
+      "destination": "/api/m/:token"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
