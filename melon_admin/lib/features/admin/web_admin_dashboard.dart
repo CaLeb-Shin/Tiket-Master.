@@ -1481,29 +1481,15 @@ class _EventRowState extends ConsumerState<_EventRow> {
                         children: [
                           shad.MenuButton(
                             child: Text(
-                              event.naverOnly ? '네이버 티켓 수정' : '공연 수정',
+                              '공연 수정',
                               style: AdminTheme.sans(
                                 fontSize: 13,
-                                color: event.naverOnly ? const Color(0xFF03C75A) : null,
+                                color: const Color(0xFF03C75A),
                               ),
                             ),
-                            onPressed: (_) => event.naverOnly
-                                ? context.go('/naver-ticket?eventId=${event.id}')
-                                : context.go('/events/${event.id}/edit'),
+                            onPressed: (_) =>
+                                context.go('/naver-ticket?eventId=${event.id}'),
                           ),
-                          // 놀티켓 연계 공연: 네이버 티켓 관리 바로가기
-                          if (!event.naverOnly && event.naverProductUrl != null)
-                            shad.MenuButton(
-                              child: Text(
-                                '네이버 티켓 관리',
-                                style: AdminTheme.sans(
-                                  fontSize: 13,
-                                  color: const Color(0xFF03C75A),
-                                ),
-                              ),
-                              onPressed: (_) =>
-                                  context.go('/naver-ticket?eventId=${event.id}'),
-                            ),
                           shad.MenuButton(
                             child: Text(
                               '좌석 관리',
@@ -1588,28 +1574,15 @@ class _EventRowState extends ConsumerState<_EventRow> {
         children: [
           shad.MenuButton(
             child: Text(
-              event.naverOnly ? '네이버 티켓 수정' : '공연 수정',
+              '공연 수정',
               style: AdminTheme.sans(
                 fontSize: 13,
-                color: event.naverOnly ? const Color(0xFF03C75A) : null,
+                color: const Color(0xFF03C75A),
               ),
             ),
-            onPressed: (_) => event.naverOnly
-                ? context.go('/naver-ticket?eventId=${event.id}')
-                : context.go('/events/${event.id}/edit'),
+            onPressed: (_) =>
+                context.go('/naver-ticket?eventId=${event.id}'),
           ),
-          if (!event.naverOnly && event.naverProductUrl != null)
-            shad.MenuButton(
-              child: Text(
-                '네이버 티켓 관리',
-                style: AdminTheme.sans(
-                  fontSize: 13,
-                  color: const Color(0xFF03C75A),
-                ),
-              ),
-              onPressed: (_) =>
-                  context.go('/naver-ticket?eventId=${event.id}'),
-            ),
           shad.MenuButton(
             child: Text('좌석 관리', style: AdminTheme.sans(fontSize: 13)),
             onPressed: (_) => context.go('/events/${event.id}/seats'),
