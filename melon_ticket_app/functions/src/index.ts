@@ -2740,6 +2740,8 @@ async function createNaverOrderInternal(
         qrVersion: 1,
         accessToken,
         entryNumber,
+        orderIndex: i + 1,
+        totalInOrder: input.quantity,
         entryCheckedInAt: null,
         lastCheckInStage: null,
       });
@@ -2807,6 +2809,8 @@ async function createNaverOrderInternal(
         qrVersion: 1,
         accessToken,
         entryNumber,
+        orderIndex: index + 1,
+        totalInOrder: input.quantity,
         entryCheckedInAt: null,
         lastCheckInStage: null,
       });

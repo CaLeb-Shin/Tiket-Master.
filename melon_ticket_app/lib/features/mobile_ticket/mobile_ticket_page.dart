@@ -850,7 +850,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
             buyerName: buyerName,
             recipientName: recipientName,
             seatGrade: seatGrade,
-            entryNumber: entryNumber,
+            entryNumber: orderIndex,
             stateInfo: stateInfo,
           ),
         ),
@@ -951,6 +951,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
                               seatGrade: seatGrade,
                               seatInfo: seatInfo,
                               entryNumber: entryNumber,
+                              orderIndex: orderIndex,
                               startAt: startAt,
                               revealAt: revealAt,
                               ticketId: ticketId,
@@ -1455,6 +1456,7 @@ class _GroupTicketSummaryCard extends StatelessWidget {
     final seatGrade = sibling['seatGrade'] as String? ?? '';
     final seatInfo = sibling['seatInfo'] as String?;
     final entryNumber = sibling['entryNumber'] as int? ?? index + 1;
+    final sibOrderIndex = sibling['orderIndex'] as int? ?? index + 1;
     final accessToken = sibling['accessToken'] as String? ?? '';
     final canTransfer =
         accessToken.isNotEmpty && status == 'active' && !isCheckedIn;
@@ -1462,8 +1464,8 @@ class _GroupTicketSummaryCard extends StatelessWidget {
         ? (seatInfo != null && seatInfo.isNotEmpty
               ? seatInfo
               : seatGrade.isNotEmpty
-              ? '$seatGrade석 · #$entryNumber'
-              : '#$entryNumber')
+              ? '$seatGrade석 · #$sibOrderIndex'
+              : '#$sibOrderIndex')
         : '공연 시작 2시간 전에 좌석 공개';
 
     return Container(
@@ -1615,7 +1617,7 @@ class _GroupTicketSummaryCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        '#$entryNumber',
+                        '#$sibOrderIndex',
                         style: AppTheme.nanum(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -2284,7 +2286,7 @@ class _FrontCard extends StatelessWidget {
                               child: _InfoFieldCentered(
                                 label: 'No.',
                                 child: Text(
-                                  '#$entryNumber',
+                                  '#$orderIndex',
                                   style: AppTheme.nanum(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w900,
@@ -2541,6 +2543,7 @@ class _BackCard extends StatefulWidget {
   final String seatGrade;
   final String? seatInfo;
   final int entryNumber;
+  final int orderIndex;
   final DateTime? startAt;
   final DateTime? revealAt;
   final String ticketId;
@@ -2562,6 +2565,7 @@ class _BackCard extends StatefulWidget {
     this.seatGrade = '',
     this.seatInfo,
     required this.entryNumber,
+    required this.orderIndex,
     this.startAt,
     this.revealAt,
     required this.ticketId,
@@ -2672,7 +2676,7 @@ class _BackCardState extends State<_BackCard>
                               widget.seatInfo!.isNotEmpty &&
                               widget.seatInfo != '좌석 미확정'
                           ? '${widget.seatGrade}석 · ${widget.seatInfo}'
-                          : '${widget.seatGrade}석 · #${widget.entryNumber}',
+                          : '${widget.seatGrade}석 · #${widget.orderIndex}',
                       style: AppTheme.nanum(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -2889,7 +2893,7 @@ class _BackCardState extends State<_BackCard>
                                   Expanded(
                                     child: _InfoField(
                                       label: '티켓번호',
-                                      value: '#${widget.entryNumber}',
+                                      value: '#${widget.orderIndex}',
                                       valueStyle: AppTheme.nanum(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w800,

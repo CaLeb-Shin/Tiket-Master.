@@ -47,10 +47,25 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>멜론티켓 - 공연 예매</title>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script>
+    // 카카오톡 인앱브라우저 → 외부 브라우저로 자동 전환
+    (function() {
+      var ua = navigator.userAgent || '';
+      if (/KAKAOTALK/i.test(ua)) {
+        var url = location.href;
+        if (/android/i.test(ua)) {
+          location.href = 'intent://' + url.replace(/https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+        } else {
+          location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url);
+        }
+      }
+    })();
+  </script>
   <script>
     (function () {
       const host = window.location.hostname;
