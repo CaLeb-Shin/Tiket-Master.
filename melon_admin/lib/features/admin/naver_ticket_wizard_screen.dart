@@ -54,6 +54,7 @@ class _NaverTicketWizardScreenState
     'A': TextEditingController(text: '44000'),
   };
   Uint8List? _posterBytes;
+  String? _existingImageUrl; // 이미 업로드된 포스터 URL
   final _naverUrlCtrl = TextEditingController(); // 네이버 판매 URL
   String? _venueAddress; // 공연장 주소
   bool _naverOnly = true; // 네이버 전용 (새 봇) vs 놀티켓 연계 (기존 봇)
@@ -100,6 +101,8 @@ class _NaverTicketWizardScreenState
       if (d['naverProductUrl'] != null) {
         _naverUrlCtrl.text = d['naverProductUrl'];
       }
+      _naverOnly = d['naverOnly'] ?? false;
+      _existingImageUrl = d['imageUrl'];
       if (d['priceByGrade'] != null) {
         final prices = Map<String, dynamic>.from(d['priceByGrade']);
         _enabledGrades.clear();
@@ -108,8 +111,8 @@ class _NaverTicketWizardScreenState
           _gradePriceControllers[e.key]?.text = e.value.toString();
         }
       }
-      // 좌석이 있으면 Step 2로, 없으면 Step 1
-      _currentStep = 1;
+      // 편집 모드: Step 0 (공연 정보)부터 시작
+      _currentStep = 0;
     });
   }
 
@@ -217,10 +220,15 @@ class _NaverTicketWizardScreenState
                 style: AdminTheme.label(fontSize: 10, color: AdminTheme.gold),
               ),
               const SizedBox(height: 4),
-              Text('공연 등록', style: AdminTheme.serif(fontSize: 22)),
+              Text(
+                widget.editEventId != null ? '공연 수정' : '공연 등록',
+                style: AdminTheme.serif(fontSize: 22),
+              ),
               const SizedBox(height: 4),
               Text(
-                '공연 기본 정보를 입력하세요',
+                widget.editEventId != null
+                    ? '공연 정보를 수정하세요'
+                    : '공연 기본 정보를 입력하세요',
                 style: AdminTheme.sans(
                   fontSize: 13,
                   color: AdminTheme.textTertiary,
@@ -228,11 +236,13 @@ class _NaverTicketWizardScreenState
               ),
               const SizedBox(height: 32),
 
-              // 기존 공연 선택
-              _buildExistingEventSelector(),
-              const SizedBox(height: 16),
+              // 기존 공연 선택 (새로 만들 때만)
+              if (widget.editEventId == null) ...[
+                _buildExistingEventSelector(),
+                const SizedBox(height: 16),
+              ],
 
-              // 또는 새로 만들기
+              // 공연 정보 폼
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -243,13 +253,14 @@ class _NaverTicketWizardScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '새 공연 등록',
-                      style: AdminTheme.sans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                    if (widget.editEventId == null)
+                      Text(
+                        '새 공연 등록',
+                        style: AdminTheme.sans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 20),
 
                     // 공연명
@@ -441,6 +452,16 @@ class _NaverTicketWizardScreenState
                               fit: BoxFit.cover,
                             ),
                           )
+                        else if (_existingImageUrl != null)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: Image.network(
+                              _existingImageUrl!,
+                              width: 48,
+                              height: 64,
+                              fit: BoxFit.cover,
+                            ),
+                          )
                         else
                           TextButton.icon(
                             onPressed: _pickPoster,
@@ -450,13 +471,12 @@ class _NaverTicketWizardScreenState
                               foregroundColor: AdminTheme.gold,
                             ),
                           ),
-                        if (_posterBytes != null) ...[
+                        if (_posterBytes != null || _existingImageUrl != null) ...[
                           const SizedBox(width: 8),
                           IconButton(
-                            onPressed: () =>
-                                setState(() => _posterBytes = null),
+                            onPressed: _pickPoster,
                             icon: const Icon(
-                              Icons.close,
+                              Icons.edit,
                               size: 16,
                               color: AdminTheme.textTertiary,
                             ),
@@ -660,11 +680,15 @@ class _NaverTicketWizardScreenState
                     ),
                     const SizedBox(height: 24),
 
-                    // 등록 버튼
+                    // 등록/수정 버튼
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _isCreatingEvent ? null : _createEvent,
+                        onPressed: _isCreatingEvent
+                            ? null
+                            : (widget.editEventId != null
+                                ? _updateEvent
+                                : _createEvent),
                         child: _isCreatingEvent
                             ? const SizedBox(
                                 width: 18,
@@ -674,7 +698,9 @@ class _NaverTicketWizardScreenState
                                   color: AdminTheme.onAccent,
                                 ),
                               )
-                            : const Text('공연 등록'),
+                            : Text(widget.editEventId != null
+                                ? '공연 수정'
+                                : '공연 등록'),
                       ),
                     ),
                   ],
@@ -970,6 +996,78 @@ class _NaverTicketWizardScreenState
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('오류: $e')));
+    }
+  }
+
+  Future<void> _updateEvent() async {
+    if (_titleCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('공연명을 입력하세요')));
+      return;
+    }
+
+    setState(() => _isCreatingEvent = true);
+
+    try {
+      final eventId = _createdEventId!;
+
+      // 가격 맵
+      final priceByGrade = <String, int>{};
+      for (final grade in _enabledGrades) {
+        final price =
+            int.tryParse(_gradePriceControllers[grade]?.text ?? '0') ?? 0;
+        priceByGrade[grade] = price;
+      }
+      final basePrice = priceByGrade.values.isEmpty
+          ? 0
+          : priceByGrade.values.reduce((a, b) => a < b ? a : b);
+
+      // 포스터 업로드 (새로 선택한 경우만)
+      String? imageUrl = _existingImageUrl;
+      if (_posterBytes != null) {
+        final storageRef = FirebaseStorage.instance.ref().child(
+          'events/posters/${DateTime.now().millisecondsSinceEpoch}.jpg',
+        );
+        await storageRef.putData(
+          _posterBytes!,
+          SettableMetadata(contentType: 'image/jpeg'),
+        );
+        imageUrl = await storageRef.getDownloadURL();
+      }
+
+      // 이벤트 업데이트
+      final updates = <String, dynamic>{
+        'title': _titleCtrl.text.trim(),
+        'venueName': _venueNameCtrl.text.trim(),
+        'startAt': Timestamp.fromDate(_startAt),
+        'price': basePrice,
+        'priceByGrade': priceByGrade,
+        'naverOnly': _naverOnly,
+      };
+      if (_venueAddress != null) updates['venueAddress'] = _venueAddress;
+      if (imageUrl != null) updates['imageUrl'] = imageUrl;
+      if (_naverUrlCtrl.text.trim().isNotEmpty) {
+        updates['naverProductUrl'] = _naverUrlCtrl.text.trim();
+      }
+
+      await FirebaseFirestore.instance
+          .collection('events')
+          .doc(eventId)
+          .update(updates);
+
+      if (!mounted) return;
+      setState(() {
+        _isCreatingEvent = false;
+        _currentStep = 1;
+      });
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('공연이 수정되었습니다')));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isCreatingEvent = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('오류: $e')));
     }
   }
 
