@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as jwt from "jsonwebtoken";
+import sharp from "sharp";
 import Anthropic from "@anthropic-ai/sdk";
 import {
   buildMobileTicketPublicPayload,
@@ -3296,12 +3297,14 @@ export const getTicketOgMeta = functions.https.onRequest(async (req, res) => {
 <meta property="og:type" content="website">
 <meta property="og:title" content="${e(ogTitle)}">
 <meta property="og:description" content="${e(ogDesc)}">
-<meta property="og:image" content="${e(imageUrl)}">
+<meta property="og:image" content="https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net/ogImage?url=${encodeURIComponent(imageUrl)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta property="og:url" content="${e(pageUrl)}">
 <meta property="og:site_name" content="멜론티켓">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${e(ogTitle)}">
-<meta name="twitter:image" content="${e(imageUrl)}">
+<meta name="twitter:image" content="https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net/ogImage?url=${encodeURIComponent(imageUrl)}">
 <title>${e(ogTitle)}</title>
 <meta http-equiv="refresh" content="0;url=${e(pageUrl)}">
 </head><body></body></html>`;
@@ -3319,6 +3322,68 @@ export const getTicketOgMeta = functions.https.onRequest(async (req, res) => {
     seatGrade,
     siteName: "멜론티켓",
   });
+});
+
+// ============================================================
+// OG 이미지 생성 (포스터를 1200x630 가로형 캔버스에 배치)
+// ============================================================
+export const ogImage = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+
+  const imageUrl = req.query.url as string;
+  if (!imageUrl) {
+    res.status(400).send("url 필요");
+    return;
+  }
+
+  try {
+    // 포스터 다운로드
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      res.status(404).send("이미지 없음");
+      return;
+    }
+    const posterBuffer = Buffer.from(await response.arrayBuffer());
+
+    // 포스터를 1200x630 캔버스에 배치 (어두운 배경 + 포스터 중앙)
+    const W = 1200;
+    const H = 630;
+
+    // 포스터 리사이즈 (높이에 맞추고 좌측 배치)
+    const poster = await sharp(posterBuffer)
+      .resize({ height: H, fit: "inside" })
+      .toBuffer();
+
+    const posterMeta = await sharp(poster).metadata();
+    const pw = posterMeta.width || 400;
+    const ph = posterMeta.height || H;
+
+    // 어두운 배경 캔버스 생성
+    const canvas = sharp({
+      create: {
+        width: W,
+        height: H,
+        channels: 4,
+        background: { r: 11, g: 11, b: 15, alpha: 1 }, // #0B0B0F 다크 테마
+      },
+    }).png();
+
+    // 포스터를 캔버스 중앙에 합성
+    const left = Math.round((W - pw) / 2);
+    const top = Math.round((H - ph) / 2);
+
+    const result = await canvas
+      .composite([{ input: poster, left, top }])
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
+    res.set("Content-Type", "image/jpeg");
+    res.set("Cache-Control", "public, max-age=86400, s-maxage=86400");
+    res.status(200).send(result);
+  } catch (err: any) {
+    functions.logger.error("ogImage error:", err.message);
+    res.status(500).send("이미지 생성 실패");
+  }
 });
 
 /**
