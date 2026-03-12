@@ -67,6 +67,7 @@ class _NaverTicketWizardScreenState
   ExcelParseResult? _parseResult;
   bool _isParsingSeat = false;
   bool _isUploadingSeats = false;
+  bool _seatsUploaded = false;
   String? _seatError;
   bool _isDragging = false;
 
@@ -1449,11 +1450,45 @@ class _NaverTicketWizardScreenState
                       ),
                     ),
                     const Spacer(),
-                    TextButton(
-                      onPressed: () => setState(() => _currentStep = 2),
-                      child: const Text('건너뛰기 →'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AdminTheme.textTertiary,
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('공연 등록이 완료되었습니다. 좌석은 나중에 추가할 수 있습니다.'),
+                            backgroundColor: AdminTheme.success,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                        if (Navigator.of(context).canPop()) {
+                          Navigator.of(context).pop();
+                        } else {
+                          context.go('/');
+                        }
+                      },
+                      icon: const Icon(Icons.check_rounded, size: 18),
+                      label: Text(
+                        '좌석 없이 등록 완료',
+                        style: AdminTheme.sans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AdminTheme.gold,
+                        foregroundColor: Colors.black,
+                        minimumSize: Size.zero,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                       ),
                     ),
                   ],
@@ -1464,6 +1499,91 @@ class _NaverTicketWizardScreenState
               if (_seatData != null && _seatData!.seats.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 _buildSeatDetailSection(),
+              ],
+
+              // 편집 모드 + 좌석 등록 완료 → 좌석 배정 섹션
+              if (widget.editEventId != null && _seatsUploaded && _createdEventId != null) ...[
+                const SizedBox(height: 24),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AdminTheme.success.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AdminTheme.success.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.check_circle, size: 18, color: AdminTheme.success),
+                          const SizedBox(width: 8),
+                          Text(
+                            '좌석 등록 완료 — 미확정 티켓에 좌석을 배정할 수 있습니다',
+                            style: AdminTheme.sans(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AdminTheme.success,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // 등급별 배정 버튼
+                      if (_seatData != null)
+                        ..._getGradesFromSeatData().map((grade) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: _SeatAssignButton(
+                              eventId: _createdEventId!,
+                              grade: grade,
+                              availableSeats: _seatData!.seats
+                                  .where((s) => s['grade'] == grade)
+                                  .length,
+                            ),
+                          )),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('좌석 배정이 완료되었습니다'),
+                              backgroundColor: AdminTheme.success,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          );
+                          if (Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                          } else {
+                            context.go('/');
+                          }
+                        },
+                        icon: const Icon(Icons.check_rounded, size: 18),
+                        label: Text(
+                          '완료',
+                          style: AdminTheme.sans(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AdminTheme.gold,
+                          foregroundColor: Colors.black,
+                          minimumSize: const Size(double.infinity, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
 
               // 좌석 수 적으면 경고
@@ -1965,6 +2085,22 @@ class _NaverTicketWizardScreenState
     }
   }
 
+  List<String> _getGradesFromSeatData() {
+    if (_seatData == null) return [];
+    final grades = <String>{};
+    for (final seat in _seatData!.seats) {
+      final g = seat['grade'] as String?;
+      if (g != null) grades.add(g);
+    }
+    final sorted = grades.toList()
+      ..sort((a, b) {
+        final ai = _gradeOrder.indexOf(a);
+        final bi = _gradeOrder.indexOf(b);
+        return (ai == -1 ? 99 : ai).compareTo(bi == -1 ? 99 : bi);
+      });
+    return sorted;
+  }
+
   Future<void> _uploadSeats() async {
     if (_seatData == null) return;
     if (_createdEventId == null) {
@@ -1990,7 +2126,12 @@ class _NaverTicketWizardScreenState
       if (!mounted) return;
       setState(() {
         _isUploadingSeats = false;
-        _currentStep = 2;
+        _seatsUploaded = true;
+        if (widget.editEventId == null) {
+          // 신규 등록 모드: 다음 스텝으로 이동
+          _currentStep = 2;
+        }
+        // 편집 모드: 같은 스텝에 머무르며 배정 버튼 표시
       });
       ScaffoldMessenger.of(
         context,
