@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -174,6 +175,9 @@ class _NaverTicketWizardScreenState
                 _StepIndicator(
                   currentStep: _currentStep,
                   labels: const ['공연', '좌석', '주문', '현황'],
+                  onStepTap: widget.editEventId != null
+                      ? (step) => setState(() => _currentStep = step)
+                      : null,
                 ),
               ],
             ),
@@ -2701,6 +2705,13 @@ class _NaverTicketWizardScreenState
                         minHeight: 4,
                       ),
                     ),
+                    // 좌석 배정 버튼
+                    if (available > 0)
+                      _SeatAssignButton(
+                        eventId: _createdEventId!,
+                        grade: grade,
+                        availableSeats: available,
+                      ),
                   ],
                 ),
               );
@@ -2824,7 +2835,12 @@ class _NaverTicketWizardScreenState
 class _StepIndicator extends StatelessWidget {
   final int currentStep;
   final List<String> labels;
-  const _StepIndicator({required this.currentStep, required this.labels});
+  final void Function(int)? onStepTap;
+  const _StepIndicator({
+    required this.currentStep,
+    required this.labels,
+    this.onStepTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2833,6 +2849,7 @@ class _StepIndicator extends StatelessWidget {
       children: List.generate(labels.length, (i) {
         final isActive = i == currentStep;
         final isDone = i < currentStep;
+        final canTap = onStepTap != null && i != currentStep;
         return Row(
           children: [
             if (i > 0)
@@ -2841,42 +2858,168 @@ class _StepIndicator extends StatelessWidget {
                 height: 1,
                 color: isDone ? AdminTheme.gold : AdminTheme.border,
               ),
-            Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isActive
-                    ? AdminTheme.gold
-                    : isDone
-                    ? AdminTheme.gold.withValues(alpha: 0.3)
-                    : AdminTheme.surface,
-                border: Border.all(
-                  color: isActive || isDone
-                      ? AdminTheme.gold
-                      : AdminTheme.border,
-                  width: 1,
+            GestureDetector(
+              onTap: canTap ? () => onStepTap!(i) : null,
+              child: MouseRegion(
+                cursor: canTap
+                    ? SystemMouseCursors.click
+                    : SystemMouseCursors.basic,
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isActive
+                        ? AdminTheme.gold
+                        : isDone
+                        ? AdminTheme.gold.withValues(alpha: 0.3)
+                        : AdminTheme.surface,
+                    border: Border.all(
+                      color: isActive || isDone
+                          ? AdminTheme.gold
+                          : AdminTheme.border,
+                      width: 1,
+                    ),
+                  ),
+                  child: Center(
+                    child: isDone
+                        ? const Icon(Icons.check, size: 12, color: AdminTheme.gold)
+                        : Text(
+                            '${i + 1}',
+                            style: GoogleFonts.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: isActive
+                                  ? AdminTheme.onAccent
+                                  : AdminTheme.textTertiary,
+                            ),
+                          ),
+                  ),
                 ),
-              ),
-              child: Center(
-                child: isDone
-                    ? const Icon(Icons.check, size: 12, color: AdminTheme.gold)
-                    : Text(
-                        '${i + 1}',
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: isActive
-                              ? AdminTheme.onAccent
-                              : AdminTheme.textTertiary,
-                        ),
-                      ),
               ),
             ),
           ],
         );
       }),
     );
+  }
+}
+
+// ─── Seat Assign Button (등급별 좌석 배정) ───
+
+class _SeatAssignButton extends StatefulWidget {
+  final String eventId;
+  final String grade;
+  final int availableSeats;
+  const _SeatAssignButton({
+    required this.eventId,
+    required this.grade,
+    required this.availableSeats,
+  });
+
+  @override
+  State<_SeatAssignButton> createState() => _SeatAssignButtonState();
+}
+
+class _SeatAssignButtonState extends State<_SeatAssignButton> {
+  bool _isAssigning = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('mobileTickets')
+          .where('eventId', isEqualTo: widget.eventId)
+          .where('seatGrade', isEqualTo: widget.grade)
+          .where('status', isEqualTo: 'active')
+          .where('seatId', isNull: true)
+          .snapshots(),
+      builder: (context, snap) {
+        final unassigned = snap.data?.docs.length ?? 0;
+        if (unassigned == 0) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded,
+                  size: 14, color: AdminTheme.warning),
+              const SizedBox(width: 6),
+              Text(
+                '미확정 $unassigned매',
+                style: AdminTheme.sans(
+                  fontSize: 11,
+                  color: AdminTheme.warning,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              SizedBox(
+                height: 28,
+                child: ElevatedButton(
+                  onPressed: _isAssigning
+                      ? null
+                      : () => _assignSeats(unassigned),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    textStyle: AdminTheme.sans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  child: _isAssigning
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AdminTheme.onAccent,
+                          ),
+                        )
+                      : Text('좌석 배정 ($unassigned매)'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _assignSeats(int count) async {
+    setState(() => _isAssigning = true);
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'assignDeferredSeats',
+      );
+      final result = await callable.call({
+        'eventId': widget.eventId,
+        'seatGrade': widget.grade,
+      });
+      if (!mounted) return;
+      final assigned = result.data['assigned'] ?? 0;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${widget.grade}석 $assigned매 배정 완료'),
+          backgroundColor: AdminTheme.success,
+        ),
+      );
+    } on FirebaseFunctionsException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('배정 실패: ${e.message}'),
+          backgroundColor: AdminTheme.error,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('오류: $e'), backgroundColor: AdminTheme.error),
+      );
+    } finally {
+      if (mounted) setState(() => _isAssigning = false);
+    }
   }
 }
 

@@ -2212,7 +2212,7 @@ function sendHttpError(res, error, logLabel) {
     res.status(500).json({ error: error?.message || "Internal server error" });
 }
 async function enqueueNaverOrderSmsTask(params) {
-    if (params.dryRun) {
+    if (params.dryRun || params.skipSms) {
         return;
     }
     const now = admin.firestore.Timestamp.now();
@@ -2225,18 +2225,8 @@ async function enqueueNaverOrderSmsTask(params) {
         error: null,
     };
     try {
-        // 1번: 주문 확인 문자 (먼저 발송)
-        await db.collection("smsTasks").add({
-            ...baseFields,
-            type: "orderConfirm",
-            productName: params.productName,
-            seatGrade: params.seatGrade,
-            quantity: params.quantity,
-            status: "pending",
-            priority: 1,
-            createdAt: now,
-        });
-        // 2번: 모바일 티켓 링크 문자 (나중에 발송)
+        // 주문 확인 문자는 oprncllclcl 봇이 뿌리오로 직접 발송
+        // 여기서는 모바일 티켓 링크 문자만 큐잉
         await db.collection("smsTasks").add({
             ...baseFields,
             type: "mobileTicket",
@@ -2245,8 +2235,8 @@ async function enqueueNaverOrderSmsTask(params) {
             quantity: params.quantity,
             ticketUrls: params.ticketUrls.map((ticket) => ticket.url),
             status: "pending",
-            priority: 2,
-            createdAt: admin.firestore.Timestamp.fromMillis(now.toMillis() + 5000),
+            priority: 1,
+            createdAt: now,
         });
     }
     catch (smsErr) {
@@ -2416,6 +2406,7 @@ async function createNaverOrderInternal(raw, options = {}) {
         quantity: input.quantity,
         ticketUrls,
         dryRun: input.dryRun,
+        skipSms: input.skipSms,
         logPrefix: options.logPrefix,
     });
     functions.logger.info(`${options.logPrefix || ""}네이버 주문 생성${input.dryRun ? " (테스트)" : ""}: ${input.naverOrderId}, ${input.buyerName}, ${input.seatGrade} x${input.quantity}, 티켓 ${ticketIds.length}장`);
@@ -2665,6 +2656,9 @@ exports.issueMobileQrToken = functions.https.onCall(async (data) => {
         eventId: ticket.eventId,
         qrVersion: ticket.qrVersion || 1,
         type: "mobile",
+        seatGrade: ticket.seatGrade || null,
+        seatInfo: ticket.seatInfo || null,
+        entryNumber: ticket.entryNumber || null,
     }, JWT_SECRET, { expiresIn: QR_TOKEN_EXPIRY });
     // QR 데이터: mt_{ticketId}:{jwt} 형식 (스캐너가 mt_ 접두어로 모바일 티켓 구분)
     const qrData = `mt_${ticketId}:${token}`;

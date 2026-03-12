@@ -751,6 +751,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
     final buyerPhoneMasked = _maskPhoneNumber(buyerPhone);
     final recipientName = ticket['recipientName'] as String?;
     final seatGrade = ticket['seatGrade'] as String? ?? '';
+    final seatInfo = ticket['seatInfo'] as String?;
     final entryNumber = ticket['entryNumber'] as int? ?? 0;
     final status = _normalizeTicketStatus(ticket['status'] as String?);
     final ticketId = ticket['id'] as String? ?? '';
@@ -947,6 +948,8 @@ class _TicketViewState extends ConsumerState<_TicketView>
                               buyerPhoneMasked: buyerPhoneMasked,
                               recipientName: recipientName,
                               naverOrderId: naverOrderId,
+                              seatGrade: seatGrade,
+                              seatInfo: seatInfo,
                               entryNumber: entryNumber,
                               startAt: startAt,
                               revealAt: revealAt,
@@ -2535,6 +2538,8 @@ class _BackCard extends StatefulWidget {
   final String? buyerPhoneMasked;
   final String? recipientName;
   final String? naverOrderId;
+  final String seatGrade;
+  final String? seatInfo;
   final int entryNumber;
   final DateTime? startAt;
   final DateTime? revealAt;
@@ -2554,6 +2559,8 @@ class _BackCard extends StatefulWidget {
     this.buyerPhoneMasked,
     this.recipientName,
     this.naverOrderId,
+    this.seatGrade = '',
+    this.seatInfo,
     required this.entryNumber,
     this.startAt,
     this.revealAt,
@@ -2656,7 +2663,24 @@ class _BackCardState extends State<_BackCard>
                       noShadow: true,
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 8),
+
+                  // ── 좌석 정보 ──
+                  if (widget.seatGrade.isNotEmpty)
+                    Text(
+                      widget.seatInfo != null &&
+                              widget.seatInfo!.isNotEmpty &&
+                              widget.seatInfo != '좌석 미확정'
+                          ? '${widget.seatGrade}석 · ${widget.seatInfo}'
+                          : '${widget.seatGrade}석 · #${widget.entryNumber}',
+                      style: AppTheme.nanum(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: _burgundy,
+                        noShadow: true,
+                      ),
+                    ),
+                  const SizedBox(height: 16),
 
                   // ── QR 코드 영역 ──
                   Padding(

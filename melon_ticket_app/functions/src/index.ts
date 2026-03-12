@@ -3187,6 +3187,9 @@ export const issueMobileQrToken = functions.https.onCall(async (data: any) => {
       eventId: ticket.eventId,
       qrVersion: ticket.qrVersion || 1,
       type: "mobile",
+      seatGrade: ticket.seatGrade || null,
+      seatInfo: ticket.seatInfo || null,
+      entryNumber: ticket.entryNumber || null,
     },
     JWT_SECRET,
     { expiresIn: QR_TOKEN_EXPIRY }
