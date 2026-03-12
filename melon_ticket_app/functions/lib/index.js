@@ -2301,6 +2301,8 @@ async function createNaverOrderInternal(raw, options = {}) {
                 qrVersion: 1,
                 accessToken,
                 entryNumber,
+                orderIndex: i + 1,
+                totalInOrder: input.quantity,
                 entryCheckedInAt: null,
                 lastCheckInStage: null,
             });
@@ -2357,6 +2359,8 @@ async function createNaverOrderInternal(raw, options = {}) {
                 qrVersion: 1,
                 accessToken,
                 entryNumber,
+                orderIndex: index + 1,
+                totalInOrder: input.quantity,
                 entryCheckedInAt: null,
                 lastCheckInStage: null,
             });
@@ -2719,14 +2723,42 @@ exports.getTicketOgMeta = functions.https.onRequest(async (req, res) => {
         event?.venueName || "",
         "모바일 스마트 티켓",
     ].filter(Boolean).join(" | ");
+    const title = event?.title || "공연";
+    const imageUrl = event?.imageUrl || "";
+    const imageAlt = event?.title ? `${event.title} 포스터` : "공연 포스터";
+    const seatGrade = ticket.seatGrade || "";
+    // format=html → 크롤러용 OG HTML 반환
+    if (req.query.format === "html") {
+        const pageUrl = `https://melonticket-web-20260216.vercel.app/m/${token}`;
+        const ogTitle = `🎫 ${title}`;
+        const ogDesc = [seatGrade ? `${seatGrade}석` : "", event?.venueName || "", dateLabel].filter(Boolean).join(" · ");
+        const e = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const html = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta property="og:type" content="website">
+<meta property="og:title" content="${e(ogTitle)}">
+<meta property="og:description" content="${e(ogDesc)}">
+<meta property="og:image" content="${e(imageUrl)}">
+<meta property="og:url" content="${e(pageUrl)}">
+<meta property="og:site_name" content="멜론티켓">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${e(ogTitle)}">
+<meta name="twitter:image" content="${e(imageUrl)}">
+<title>${e(ogTitle)}</title>
+<meta http-equiv="refresh" content="0;url=${e(pageUrl)}">
+</head><body></body></html>`;
+        res.status(200).set("Content-Type", "text/html; charset=utf-8").send(html);
+        return;
+    }
     res.json({
-        title: event?.title || "공연",
+        title,
         description,
-        imageUrl: event?.imageUrl || null,
-        imageAlt: event?.title ? `${event.title} 포스터` : "공연 포스터",
+        imageUrl: imageUrl || null,
+        imageAlt,
         venueName: event?.venueName || "",
         startAt: event?.startAt || null,
-        seatGrade: ticket.seatGrade || "",
+        seatGrade,
         siteName: "멜론티켓",
     });
 });

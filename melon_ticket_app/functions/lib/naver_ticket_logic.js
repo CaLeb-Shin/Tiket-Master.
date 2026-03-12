@@ -74,6 +74,7 @@ function parseNaverOrderCreateInput(raw) {
         orderDate: typeof raw?.orderDate === "string" ? raw.orderDate : undefined,
         memo: typeof raw?.memo === "string" && raw.memo.trim() !== "" ? raw.memo.trim() : null,
         dryRun: raw?.dryRun === true,
+        skipSms: raw?.skipSms === true,
     };
 }
 function evaluateCancelOrderStatus(status, allowAlreadyCancelled = false) {
@@ -111,6 +112,8 @@ function buildPublicTicketDto(params) {
         recipientName: params.ticket.recipientName || null,
         status: ticketStatus,
         entryNumber: params.ticket.entryNumber,
+        orderIndex: params.ticket.orderIndex || null,
+        totalInOrder: params.ticket.totalInOrder || null,
         qrVersion: params.ticket.qrVersion || 1,
         isCheckedIn: ticketIsCheckedIn,
         displayStatus: ticketDisplayState.code,
@@ -125,7 +128,7 @@ function buildMobileTicketPublicPayload(params) {
         ticket: sibling.data,
         isRevealed,
     }))
-        .sort((a, b) => (a.entryNumber || 0) - (b.entryNumber || 0));
+        .sort((a, b) => (a.orderIndex || a.entryNumber || 0) - (b.orderIndex || b.entryNumber || 0));
     return {
         success: true,
         ticket: buildPublicTicketDto({

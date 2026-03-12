@@ -5,7 +5,14 @@
   "rewrites": [
     {
       "source": "/m/:token",
-      "destination": "/api/m/:token"
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(kakaotalk|facebookexternalhit|Twitterbot|Slackbot|LinkedInBot|Googlebot|bot|crawler|spider).*"
+        }
+      ],
+      "destination": "https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net/getTicketOgMeta?token=:token&format=html"
     },
     {
       "source": "/(.*)",
