@@ -2757,14 +2757,12 @@ exports.getTicketOgMeta = functions.https.onRequest(async (req, res) => {
 <meta property="og:type" content="website">
 <meta property="og:title" content="${e(ogTitle)}">
 <meta property="og:description" content="${e(ogDesc)}">
-<meta property="og:image" content="https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net/ogImage?url=${encodeURIComponent(imageUrl)}">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
+<meta property="og:image" content="${e(imageUrl)}">
 <meta property="og:url" content="${e(pageUrl)}">
 <meta property="og:site_name" content="멜론티켓">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${e(ogTitle)}">
-<meta name="twitter:image" content="https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net/ogImage?url=${encodeURIComponent(imageUrl)}">
+<meta name="twitter:image" content="${e(imageUrl)}">
 <title>${e(ogTitle)}</title>
 <meta http-equiv="refresh" content="0;url=${e(pageUrl)}">
 </head><body></body></html>`;

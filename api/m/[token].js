@@ -114,10 +114,6 @@ module.exports = async (req, res) => {
     // 조회 실패 시 기본값 사용
   }
 
-  const ogImageUrl = imageUrl
-    ? `https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net/ogImage?url=${encodeURIComponent(imageUrl)}`
-    : imageUrl;
-
   const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -125,15 +121,13 @@ module.exports = async (req, res) => {
   <meta property="og:type" content="website">
   <meta property="og:title" content="${escapeHtml(title)}">
   <meta property="og:description" content="${escapeHtml(description)}">
-  <meta property="og:image" content="${escapeHtml(ogImageUrl)}">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="1200">
+  <meta property="og:image" content="${escapeHtml(imageUrl)}">
   <meta property="og:url" content="${escapeHtml(pageUrl)}">
   <meta property="og:site_name" content="멜론티켓">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="${escapeHtml(title)}">
   <meta name="twitter:description" content="${escapeHtml(description)}">
-  <meta name="twitter:image" content="${escapeHtml(ogImageUrl)}">
+  <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
   <title>${escapeHtml(title)}</title>
 </head>
 <body></body>
