@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -2742,7 +2742,7 @@ exports.getTicketOgMeta = functions.https.onRequest(async (req, res) => {
         "모바일 스마트 티켓",
     ].filter(Boolean).join(" | ");
     const title = event?.title || "공연";
-    const imageUrl = event?.imageUrl || "";
+    const imageUrl = event?.ogImageUrl || event?.imageUrl || "";
     const imageAlt = event?.title ? `${event.title} 포스터` : "공연 포스터";
     const seatGrade = ticket.seatGrade || "";
     // format=html → 크롤러용 OG HTML 반환
@@ -2813,6 +2813,51 @@ exports.ogImage = functions.https.onRequest(async (req, res) => {
     catch (err) {
         functions.logger.error("ogImage error:", err.message);
         res.status(500).send("이미지 생성 실패");
+    }
+});
+// ============================================================
+// OG 이미지 사전 생성 (이벤트 생성/수정 시 자동)
+// ============================================================
+exports.generateOgImage = functions.firestore
+    .document("events/{eventId}")
+    .onWrite(async (change, context) => {
+    const eventId = context.params.eventId;
+    const after = change.after.exists ? change.after.data() : null;
+    if (!after)
+        return; // 삭제 시 무시
+    const imageUrl = after.imageUrl;
+    if (!imageUrl)
+        return;
+    // imageUrl이 변경되지 않았으면 스킵
+    const before = change.before.exists ? change.before.data() : null;
+    if (before?.imageUrl === imageUrl && after.ogImageUrl)
+        return;
+    try {
+        // 포스터 다운로드
+        const response = await fetch(imageUrl);
+        if (!response.ok)
+            return;
+        const posterBuffer = Buffer.from(await response.arrayBuffer());
+        // 1200x630 상단 크롭
+        const ogBuffer = await (0, sharp_1.default)(posterBuffer)
+            .resize(1200, 630, { fit: "cover", position: "top" })
+            .jpeg({ quality: 85 })
+            .toBuffer();
+        // Firebase Storage에 저장
+        const bucket = admin.storage().bucket();
+        const filePath = `events/og/${eventId}.jpg`;
+        const file = bucket.file(filePath);
+        await file.save(ogBuffer, {
+            metadata: { contentType: "image/jpeg", cacheControl: "public, max-age=86400" },
+        });
+        await file.makePublic();
+        const ogImageUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+        // event 문서에 ogImageUrl 저장
+        await db.collection("events").doc(eventId).update({ ogImageUrl });
+        functions.logger.info(`OG image generated for event ${eventId}: ${ogImageUrl}`);
+    }
+    catch (err) {
+        functions.logger.error(`OG image generation failed for ${eventId}:`, err.message);
     }
 });
 /**

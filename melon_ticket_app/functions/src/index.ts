@@ -3281,7 +3281,7 @@ export const getTicketOgMeta = functions.https.onRequest(async (req, res) => {
   ].filter(Boolean).join(" | ");
 
   const title = event?.title || "공연";
-  const imageUrl = event?.imageUrl || "";
+  const imageUrl = event?.ogImageUrl || event?.imageUrl || "";
   const imageAlt = event?.title ? `${event.title} 포스터` : "공연 포스터";
   const seatGrade = ticket.seatGrade || "";
 
@@ -3361,6 +3361,55 @@ export const ogImage = functions.https.onRequest(async (req, res) => {
     res.status(500).send("이미지 생성 실패");
   }
 });
+
+// ============================================================
+// OG 이미지 사전 생성 (이벤트 생성/수정 시 자동)
+// ============================================================
+export const generateOgImage = functions.firestore
+  .document("events/{eventId}")
+  .onWrite(async (change, context) => {
+    const eventId = context.params.eventId;
+    const after = change.after.exists ? change.after.data() : null;
+    if (!after) return; // 삭제 시 무시
+
+    const imageUrl = after.imageUrl as string | undefined;
+    if (!imageUrl) return;
+
+    // imageUrl이 변경되지 않았으면 스킵
+    const before = change.before.exists ? change.before.data() : null;
+    if (before?.imageUrl === imageUrl && after.ogImageUrl) return;
+
+    try {
+      // 포스터 다운로드
+      const response = await fetch(imageUrl);
+      if (!response.ok) return;
+      const posterBuffer = Buffer.from(await response.arrayBuffer());
+
+      // 1200x630 상단 크롭
+      const ogBuffer = await sharp(posterBuffer)
+        .resize(1200, 630, { fit: "cover", position: "top" })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+
+      // Firebase Storage에 저장
+      const bucket = admin.storage().bucket();
+      const filePath = `events/og/${eventId}.jpg`;
+      const file = bucket.file(filePath);
+      await file.save(ogBuffer, {
+        metadata: { contentType: "image/jpeg", cacheControl: "public, max-age=86400" },
+      });
+      await file.makePublic();
+
+      const ogImageUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+
+      // event 문서에 ogImageUrl 저장
+      await db.collection("events").doc(eventId).update({ ogImageUrl });
+
+      functions.logger.info(`OG image generated for event ${eventId}: ${ogImageUrl}`);
+    } catch (err: any) {
+      functions.logger.error(`OG image generation failed for ${eventId}:`, err.message);
+    }
+  });
 
 /**
  * 모바일 티켓 공개 조회 (비로그인 — accessToken으로 조회)
