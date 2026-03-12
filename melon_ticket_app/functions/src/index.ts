@@ -3247,7 +3247,27 @@ export const getTicketOgMeta = functions.https.onRequest(async (req, res) => {
     .limit(1)
     .get();
 
-  if (ticketSnap.empty) { res.status(404).json({ error: "not found" }); return; }
+  if (ticketSnap.empty) {
+    // format=html일 때 기본 OG HTML 반환
+    if (req.query.format === "html") {
+      const pageUrl = `https://melonticket-web-20260216.vercel.app/m/${token}`;
+      const fallbackHtml = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta property="og:title" content="🎫 멜론티켓">
+<meta property="og:description" content="AI 좌석 추천 · 360° 시야 보기 · 모바일 스마트 티켓">
+<meta property="og:image" content="https://melonticket-web-20260216.vercel.app/icons/Icon-512.png">
+<meta property="og:url" content="${pageUrl}">
+<meta property="og:site_name" content="멜론티켓">
+<title>멜론티켓</title>
+<meta http-equiv="refresh" content="0;url=${pageUrl}">
+</head><body></body></html>`;
+      res.status(200).set("Content-Type", "text/html; charset=utf-8").send(fallbackHtml);
+      return;
+    }
+    res.status(404).json({ error: "not found" });
+    return;
+  }
 
   const ticket = ticketSnap.docs[0].data();
   const eventDoc = await db.collection("events").doc(ticket.eventId).get();

@@ -30,7 +30,8 @@ export default async function middleware(request: Request): Promise<Response> {
     const res = await fetch(
       `${CF_BASE}/getTicketOgMeta?token=${encodeURIComponent(token)}&format=html`
     );
-    if (res.ok) {
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("text/html")) {
       return new Response(await res.text(), {
         status: 200,
         headers: {
