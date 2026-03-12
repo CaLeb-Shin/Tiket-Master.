@@ -2803,27 +2803,9 @@ exports.ogImage = functions.https.onRequest(async (req, res) => {
         // 포스터를 1200x630 캔버스에 배치 (어두운 배경 + 포스터 중앙)
         const W = 1200;
         const H = 630;
-        // 포스터 리사이즈 (높이에 맞추고 좌측 배치)
-        const poster = await (0, sharp_1.default)(posterBuffer)
-            .resize({ height: H, fit: "inside" })
-            .toBuffer();
-        const posterMeta = await (0, sharp_1.default)(poster).metadata();
-        const pw = posterMeta.width || 400;
-        const ph = posterMeta.height || H;
-        // 어두운 배경 캔버스 생성
-        const canvas = (0, sharp_1.default)({
-            create: {
-                width: W,
-                height: H,
-                channels: 4,
-                background: { r: 11, g: 11, b: 15, alpha: 1 }, // #0B0B0F 다크 테마
-            },
-        }).png();
-        // 포스터를 캔버스 중앙에 합성
-        const left = Math.round((W - pw) / 2);
-        const top = Math.round((H - ph) / 2);
-        const result = await canvas
-            .composite([{ input: poster, left, top }])
+        // 포스터를 1200x630에 꽉 채우고 상단부터 크롭
+        const result = await (0, sharp_1.default)(posterBuffer)
+            .resize(W, H, { fit: "cover", position: "top" })
             .jpeg({ quality: 85 })
             .toBuffer();
         res.set("Content-Type", "image/jpeg");
