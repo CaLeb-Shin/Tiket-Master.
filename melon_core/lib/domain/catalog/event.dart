@@ -45,6 +45,7 @@ class Event {
   final String? hallId; // Hall 커뮤니티 채널 ID (같은 공연 그룹화)
   final String seatAssignMode; // 좌석 배정 모드: "immediate" (즉시) or "deferred" (사후 — 놀티켓 연동)
   final bool naverOnly; // 네이버 티켓으로 등록된 공연
+  final String? naverProductUrl; // 네이버 상품 URL (놀티켓 연계 판별용)
 
   Event({
     required this.id,
@@ -87,6 +88,7 @@ class Event {
     this.hallId,
     this.seatAssignMode = 'immediate',
     this.naverOnly = false,
+    this.naverProductUrl,
   });
 
   /// 좌석 공개 여부
@@ -153,6 +155,7 @@ class Event {
       hallId: data['hallId'],
       seatAssignMode: data['seatAssignMode'] ?? 'immediate',
       naverOnly: data['naverOnly'] ?? false,
+      naverProductUrl: data['naverProductUrl'],
     );
   }
 
@@ -197,6 +200,7 @@ class Event {
       if (hallId != null) 'hallId': hallId,
       'seatAssignMode': seatAssignMode,
       if (naverOnly) 'naverOnly': naverOnly,
+      if (naverProductUrl != null) 'naverProductUrl': naverProductUrl,
     };
   }
 
