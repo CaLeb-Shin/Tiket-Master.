@@ -575,11 +575,55 @@ class _EventStartDialogState extends State<EventStartDialog> {
     );
   }
 
+  // ── 강제 시작 확인 ──
+  Future<void> _confirmForceStart() async {
+    // 공연 시간 체크
+    final eventDate = widget.event.startAt;
+    if (eventDate.isAfter(DateTime.now())) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AdminTheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: AdminTheme.border, width: 0.5),
+          ),
+          title: Text('강제 시작',
+              style: AdminTheme.serif(fontSize: 16, fontWeight: FontWeight.w700)),
+          content: Text(
+            '아직 공연 시간이 아닙니다.\n(${_formatTime(eventDate)})\n\n강제로 시작할까요?',
+            style: AdminTheme.sans(fontSize: 13, color: AdminTheme.textSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text('취소',
+                  style: AdminTheme.sans(fontSize: 13, color: AdminTheme.textTertiary)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AdminTheme.gold,
+                foregroundColor: AdminTheme.onAccent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              child: const Text('강제로 시작'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    _runAll();
+  }
+
   Widget _buildActions() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        spacing: 8,
+        runSpacing: 8,
         children: [
           if (!_isProcessing && _currentStep != _Step.done)
             TextButton(
@@ -588,7 +632,6 @@ class _EventStartDialogState extends State<EventStartDialog> {
                   style: AdminTheme.sans(
                       fontSize: 13, color: AdminTheme.textTertiary)),
             ),
-          const SizedBox(width: 8),
           ..._buildActionButtons(),
         ],
       ),
@@ -635,20 +678,13 @@ class _EventStartDialogState extends State<EventStartDialog> {
                   borderRadius: BorderRadius.circular(6)),
             ),
           ),
-          const SizedBox(width: 8),
           ElevatedButton.icon(
-            onPressed: _availableCount > 0 ? _runAll : null,
+            onPressed: _confirmForceStart,
             icon: const Icon(Icons.rocket_launch_rounded, size: 18),
-            label: Text(_availableCount > 0
-                ? '배정 + QR 공개'
-                : '빈자리 업로드 필요'),
+            label: const Text('공연 시작'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: _availableCount > 0
-                  ? AdminTheme.gold
-                  : AdminTheme.surface,
-              foregroundColor: _availableCount > 0
-                  ? AdminTheme.onAccent
-                  : AdminTheme.textTertiary,
+              backgroundColor: AdminTheme.gold,
+              foregroundColor: AdminTheme.onAccent,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6)),
             ),
