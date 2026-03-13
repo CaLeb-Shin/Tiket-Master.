@@ -262,8 +262,12 @@ class _SidebarState extends ConsumerState<_Sidebar> {
       ),
       child: Column(
         children: [
-          // Logo
-          Padding(
+          // Logo — 클릭 시 대시보드로 이동
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => context.go('/'),
+              child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
             child: Row(
               children: [
@@ -309,6 +313,8 @@ class _SidebarState extends ConsumerState<_Sidebar> {
                 ),
               ],
             ),
+          ),
+          ),
           ),
 
           Container(
