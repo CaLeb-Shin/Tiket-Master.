@@ -390,6 +390,15 @@ class _SidebarState extends ConsumerState<_Sidebar> {
                     routePath: '/sales-stats',
                     onTap: () => context.go('/sales-stats'),
                   ),
+                  const SizedBox(height: 2),
+                  _buildMenuItem(
+                    -1,
+                    'QR',
+                    '실시간 체크인',
+                    selectable: false,
+                    routePath: '/checkin',
+                    onTap: () => context.go('/checkin'),
+                  ),
                   if (widget.isSuperAdmin) ...[
                     const SizedBox(height: 2),
                     _buildMenuItem(

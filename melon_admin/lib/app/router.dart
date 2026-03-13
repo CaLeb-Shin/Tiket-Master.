@@ -23,6 +23,7 @@ import '../features/admin/event_seat_manager_screen.dart';
 import '../features/admin/sales_stats_screen.dart';
 import '../features/admin/naver_order_screen.dart';
 import '../features/admin/naver_ticket_wizard_screen.dart';
+import '../features/admin/checkin_dashboard_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -147,6 +148,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/sales-stats',
             name: 'adminSalesStats',
             builder: (context, state) => const SalesStatsScreen(),
+          ),
+          GoRoute(
+            path: '/checkin',
+            name: 'checkinDashboard',
+            builder: (context, state) {
+              final eventId = state.uri.queryParameters['eventId'];
+              return CheckinDashboardScreen(eventId: eventId);
+            },
           ),
           GoRoute(
             path: '/super-admin',
