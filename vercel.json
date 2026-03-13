@@ -4,6 +4,16 @@
   "outputDirectory": "melon_ticket_app/build/web",
   "rewrites": [
     {
+      "source": "/staff/scanner",
+      "missing": [
+        {
+          "type": "query",
+          "key": "_skip"
+        }
+      ],
+      "destination": "/api/staff/scanner"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
