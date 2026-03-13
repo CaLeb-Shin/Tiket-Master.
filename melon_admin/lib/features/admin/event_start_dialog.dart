@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/admin_theme.dart';
 import 'package:melon_core/data/models/event.dart';
+import 'excel_seat_upload_helper.dart';
 
 /// "공연 시작" 원클릭 다이얼로그
 /// Step 1: 좌석 확인 (없으면 좌석 관리로 이동)
@@ -63,11 +65,10 @@ class _EventStartDialogState extends State<EventStartDialog> {
     });
 
     try {
-      // 좌석 수 확인
+      // 좌석 수 확인 (최상위 seats 컬렉션)
       final seatSnap = await FirebaseFirestore.instance
-          .collection('events')
-          .doc(widget.event.id)
           .collection('seats')
+          .where('eventId', isEqualTo: widget.event.id)
           .get();
       _seatCount = seatSnap.docs.length;
       _hasSeats = _seatCount > 0;
@@ -224,6 +225,103 @@ class _EventStartDialogState extends State<EventStartDialog> {
   void _goToSeatManager() {
     Navigator.of(context).pop();
     context.go('/events/${widget.event.id}/seats');
+  }
+
+  // ── 인라인 엑셀 좌석 업로드 ──
+  Future<void> _uploadSeatsInline() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xlsx', 'xls'],
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final bytes = result.files.first.bytes;
+    if (bytes == null) {
+      _addLog('✗ 파일을 읽을 수 없습니다');
+      return;
+    }
+
+    setState(() {
+      _isProcessing = true;
+      _statusText = '엑셀 파싱 중...';
+    });
+
+    try {
+      final parseResult = EnhancedExcelParser.parse(bytes.toList());
+
+      if (parseResult.hasErrors) {
+        for (final error in parseResult.errors) {
+          _addLog('✗ $error');
+        }
+        setState(() => _isProcessing = false);
+        return;
+      }
+
+      if (parseResult.totalSeats == 0) {
+        _addLog('⚠ 파싱된 좌석이 없습니다');
+        setState(() => _isProcessing = false);
+        return;
+      }
+
+      setState(() => _statusText = '${parseResult.totalSeats}석 업로드 중...');
+
+      // Firestore batch write — 기존 좌석은 유지하고 추가만
+      final db = FirebaseFirestore.instance;
+      var batch = db.batch();
+      var pending = 0;
+      int count = 0;
+
+      for (final seat in parseResult.seats) {
+        final seatKey = seat.row.isNotEmpty
+            ? '${seat.zone}-${seat.floor}-${seat.row}-${seat.number}'
+            : '${seat.zone}-${seat.floor}-${seat.number}';
+
+        final docRef = db.collection('seats').doc();
+        batch.set(docRef, {
+          'eventId': widget.event.id,
+          'block': seat.zone,
+          'floor': seat.floor,
+          'row': seat.row,
+          'number': seat.number,
+          'seatKey': seatKey,
+          'grade': seat.grade,
+          'status': 'available',
+        });
+        count++;
+        pending++;
+
+        if (pending >= 400) {
+          await batch.commit();
+          batch = db.batch();
+          pending = 0;
+        }
+      }
+      if (pending > 0) await batch.commit();
+
+      // totalSeats 업데이트 (기존 + 새로 추가)
+      final newTotal = _seatCount + count;
+      await db.collection('events').doc(widget.event.id).update({
+        'totalSeats': newTotal,
+        'availableSeats': newTotal,
+      });
+
+      _seatCount = newTotal;
+      _hasSeats = true;
+
+      // 등급별 요약
+      final summary = parseResult.gradeCounts.entries
+          .map((e) => '${e.key} ${e.value}석')
+          .join(', ');
+      _addLog('✓ $count석 업로드 완료 ($summary)');
+
+      for (final w in parseResult.warnings) {
+        _addLog('⚠ $w');
+      }
+    } catch (e) {
+      _addLog('✗ 업로드 오류: ${_shortenError(e)}');
+    }
+
+    setState(() => _isProcessing = false);
   }
 
   @override
@@ -439,15 +537,22 @@ class _EventStartDialogState extends State<EventStartDialog> {
         if (!_hasSeats) {
           return [
             ElevatedButton.icon(
-              onPressed: _goToSeatManager,
+              onPressed: _uploadSeatsInline,
               icon: const Icon(Icons.upload_file_rounded, size: 18),
-              label: const Text('좌석 관리로 이동'),
+              label: const Text('엑셀 좌석 업로드'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AdminTheme.warning,
-                foregroundColor: Colors.white,
+                backgroundColor: AdminTheme.gold,
+                foregroundColor: AdminTheme.onAccent,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6)),
               ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: _goToSeatManager,
+              child: Text('좌석 관리',
+                  style: AdminTheme.sans(
+                      fontSize: 13, color: AdminTheme.textTertiary)),
             ),
           ];
         }
