@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../app/admin_theme.dart';
 import 'package:melon_core/data/models/event.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
+import 'scanner_device_approval_screen.dart';
 
 // ─────────────────────────────────────────────
 // 실시간 체크인 대시보드
@@ -129,13 +130,47 @@ class _CheckinDashboardScreenState
             ],
           ),
         ),
+        const Spacer(),
+        GestureDetector(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const ScannerDeviceApprovalScreen(),
+            ),
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: AdminTheme.card,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: AdminTheme.border),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.devices_other,
+                    size: 14, color: AdminTheme.textSecondary),
+                const SizedBox(width: 6),
+                Text(
+                  '스캐너 기기 관리',
+                  style: AdminTheme.sans(
+                    fontSize: 12,
+                    color: AdminTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildEventSelector(List<Event> events) {
-    // 최근 공연 우선 (startAt 내림차순), 상위 20개
-    final sorted = List<Event>.from(events)
+    // 종료/취소 공연 제외, 최근 공연 우선 (startAt 내림차순), 상위 20개
+    final active = events.where((e) =>
+        e.status != EventStatus.completed &&
+        e.status != EventStatus.canceled).toList();
+    final sorted = active
       ..sort((a, b) => (b.startAt ?? DateTime(2000))
           .compareTo(a.startAt ?? DateTime(2000)));
     final recent = sorted.take(20).toList();
