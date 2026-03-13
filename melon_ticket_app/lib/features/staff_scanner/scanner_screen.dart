@@ -86,7 +86,16 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     setState(() => _isDeviceLoading = true);
 
     try {
-      final authUser = ref.read(authStateProvider).valueOrNull;
+      // Firebase Auth가 아직 로드 안 됐을 수 있으므로 잠시 대기
+      var authUser = ref.read(authStateProvider).valueOrNull;
+      if (authUser == null) {
+        // 최대 3초 대기 (100ms × 30)
+        for (int i = 0; i < 30 && authUser == null; i++) {
+          await Future.delayed(const Duration(milliseconds: 100));
+          if (!mounted) return;
+          authUser = ref.read(authStateProvider).valueOrNull;
+        }
+      }
       if (authUser == null) {
         throw const FormatException('스캐너 사용 전 로그인이 필요합니다');
       }

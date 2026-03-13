@@ -49,6 +49,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   String? _lastLoginProvider;
 
+  /// 로그인 후 이동할 경로 (returnTo 파라미터)
+  void _navigateAfterLogin() {
+    if (!mounted) return;
+    final returnTo = GoRouterState.of(context).uri.queryParameters['returnTo'];
+    if (returnTo != null && returnTo.isNotEmpty) {
+      context.go(Uri.decodeComponent(returnTo));
+    } else {
+      context.go('/');
+    }
+  }
+
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
 
@@ -133,7 +144,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       }
 
       if (mounted) {
-        context.go('/');
+        _navigateAfterLogin();
       }
     } catch (e) {
       if (mounted) {
@@ -153,7 +164,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       final result = await authService.signInWithKakao();
       if (result != null && mounted) {
         await _saveLastLoginProvider('kakao');
-        context.go('/');
+        _navigateAfterLogin();
       }
     } catch (e) {
       if (mounted) {
@@ -171,7 +182,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       final result = await authService.signInWithNaver();
       if (result != null && mounted) {
         await _saveLastLoginProvider('naver');
-        context.go('/');
+        _navigateAfterLogin();
       }
     } catch (e) {
       if (mounted) {
@@ -191,7 +202,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
       if (result != null && mounted) {
         await _saveLastLoginProvider('google');
-        context.go('/');
+        _navigateAfterLogin();
       }
     } catch (e) {
       if (mounted) {
@@ -210,7 +221,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       final authService = ref.read(authServiceProvider);
       await authService.signInAnonymously();
       if (mounted) {
-        context.go('/');
+        _navigateAfterLogin();
       }
     } catch (e) {
       if (mounted) {
