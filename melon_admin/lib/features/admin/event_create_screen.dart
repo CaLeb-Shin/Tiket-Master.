@@ -818,6 +818,18 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           ],
         ],
 
+        // ── Section 4: 포스터 ──
+        const SizedBox(height: 48),
+        _sectionHeader('포스터', guide: '메인 화면 카드 + 상세 페이지 대표 이미지'),
+        const SizedBox(height: 24),
+        _buildPosterPicker(),
+
+        // ── Section 5: 팜플렛 ──
+        const SizedBox(height: 48),
+        _sectionHeader('팜플렛', guide: '상세 페이지 하단 갤러리 (최대 8장)'),
+        const SizedBox(height: 24),
+        _buildPamphletPicker(),
+
         const SizedBox(height: 60),
       ],
     );
