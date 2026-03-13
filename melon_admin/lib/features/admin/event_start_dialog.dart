@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:excel/excel.dart' hide Border, TextSpan;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -231,9 +232,120 @@ class _EventStartDialogState extends State<EventStartDialog> {
     context.go('/events/${widget.event.id}/seats');
   }
 
+  // ── TADMIN 잔여석 Excel 파서 (telegram-bot.js parseUnsoldSeats 포팅) ──
+  // 반환: Set<seatKey> (예: "G구역-1층-3-12")
+  Set<String>? _parseTadminUnsoldExcel(List<int> bytes) {
+    final excel = Excel.decodeBytes(bytes);
+    final sheetName = excel.tables.keys.first;
+    final sheet = excel.tables[sheetName];
+    if (sheet == null) return null;
+
+    // 헤더 행 찾기
+    int headerIdx = -1;
+    for (int r = 0; r < sheet.maxRows && r < 10; r++) {
+      final row = sheet.row(r);
+      final cells = row.map((c) => (c?.value?.toString().trim() ?? '')).toList();
+      if (cells.any((c) => c.contains('좌석등급') || c.contains('등급'))) {
+        headerIdx = r;
+        break;
+      }
+    }
+    if (headerIdx < 0) return null; // TADMIN 형식 아님
+
+    // 컬럼 인덱스 자동 감지
+    final headerRow = sheet.row(headerIdx)
+        .map((c) => (c?.value?.toString().trim() ?? ''))
+        .toList();
+
+    int findCol(bool Function(String) test) {
+      for (int i = 0; i < headerRow.length; i++) {
+        if (test(headerRow[i])) return i;
+      }
+      return -1;
+    }
+
+    final gradeIdx = findCol((c) => c.contains('좌석등급') || c == '등급');
+    final floorIdx = findCol((c) => c == '층' || c.contains('층'));
+    final sectionRowIdx = findCol((c) => c == '열' || c.contains('열'));
+    final seatsIdx = findCol((c) => c.contains('좌석번호'));
+
+    // TADMIN 형식 검증: 좌석번호 컬럼이 없으면 TADMIN이 아님
+    if (seatsIdx < 0) return null;
+
+    final colGrade = gradeIdx >= 0 ? gradeIdx : 3;
+    final colFloor = floorIdx >= 0 ? floorIdx : 4;
+    final colSR = sectionRowIdx >= 0 ? sectionRowIdx : 5;
+    final colSeats = seatsIdx >= 0 ? seatsIdx : 7;
+
+    final seatKeys = <String>{};
+    String lastGrade = '';
+    String lastFloor = '';
+    final gradeCounts = <String, int>{};
+
+    // "G구역 3열", "BL5구역 1열", "A열 5행", "C열 3" 패턴
+    final srPattern = RegExp(r'^(.+?(?:구역|열))\s*(\d+)(?:열|행)?$');
+
+    for (int r = headerIdx + 1; r < sheet.maxRows; r++) {
+      final row = sheet.row(r);
+      if (row.length < 3) continue;
+
+      String cell(int idx) =>
+          idx < row.length ? (row[idx]?.value?.toString().trim() ?? '') : '';
+
+      // 등급 (병합셀 → 이전 값 유지)
+      final gradeRaw = cell(colGrade);
+      if (gradeRaw.isNotEmpty && gradeRaw.contains('석')) lastGrade = gradeRaw;
+      if (lastGrade.isEmpty) continue;
+
+      // 층 (병합셀 → 이전 값 유지)
+      final floorRaw = cell(colFloor);
+      if (floorRaw.isNotEmpty) lastFloor = floorRaw;
+
+      // 열 컬럼: "G구역 3열" → section + rowNum
+      final sectionRowRaw = cell(colSR);
+      if (sectionRowRaw.isEmpty) continue;
+
+      final srMatch = srPattern.firstMatch(sectionRowRaw);
+      if (srMatch == null) continue;
+      final section = srMatch.group(1)!;
+      final rowNum = int.tryParse(srMatch.group(2)!);
+      if (rowNum == null) continue;
+
+      // 층 정규화: "1층", "2층" 등
+      final floorMatch = RegExp(r'(\d+)층').firstMatch(lastFloor);
+      final floor = floorMatch != null ? '${floorMatch.group(1)}층' : lastFloor;
+
+      // 좌석번호 파싱: "1 2 3 4" or "1,2,3,4"
+      final seatsRaw = cell(colSeats);
+      if (seatsRaw.isEmpty) continue;
+
+      final seatNums = seatsRaw.split(RegExp(r'[\s,]+'))
+          .map((s) => int.tryParse(s.trim()))
+          .where((n) => n != null && n > 0)
+          .cast<int>()
+          .toList();
+
+      for (final num in seatNums) {
+        // seatKey: {section}-{floor}-{row}-{number}
+        // 예: G구역-1층-3-12
+        seatKeys.add('$section-$floor-$rowNum-$num');
+      }
+      gradeCounts[lastGrade] = (gradeCounts[lastGrade] ?? 0) + seatNums.length;
+    }
+
+    if (seatKeys.isNotEmpty) {
+      final summary = gradeCounts.entries
+          .map((e) => '${e.key} ${e.value}석')
+          .join(', ');
+      _addLog('📋 TADMIN 파싱: ${seatKeys.length}석 ($summary)');
+    }
+
+    return seatKeys.isEmpty ? null : seatKeys;
+  }
+
   // ── 빈자리 엑셀 업로드 ──
-  // 좌석이 없을 때: 새 좌석 생성
-  // 좌석이 있을 때: seatKey 매칭 → 매칭된 좌석만 available, 나머지 sold
+  // TADMIN 잔여석 Excel 감지 → 전용 파서 사용
+  // 일반 Excel → EnhancedExcelParser 사용
   Future<void> _uploadSeatsInline() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -253,30 +365,44 @@ class _EventStartDialogState extends State<EventStartDialog> {
     });
 
     try {
-      final parseResult = EnhancedExcelParser.parse(bytes.toList());
+      final byteList = bytes.toList();
 
-      if (parseResult.hasErrors) {
-        for (final error in parseResult.errors) {
-          _addLog('✗ $error');
+      // 1. TADMIN 형식 시도
+      final tadminKeys = _parseTadminUnsoldExcel(byteList);
+
+      // 2. 업로드된 seatKey 세트 결정
+      Set<String> uploadedKeys;
+
+      if (tadminKeys != null) {
+        // TADMIN 형식으로 파싱 성공
+        uploadedKeys = tadminKeys;
+      } else {
+        // 일반 형식 → EnhancedExcelParser
+        final parseResult = EnhancedExcelParser.parse(byteList);
+
+        if (parseResult.hasErrors) {
+          for (final error in parseResult.errors) {
+            _addLog('✗ $error');
+          }
+          setState(() => _isProcessing = false);
+          return;
         }
-        setState(() => _isProcessing = false);
-        return;
-      }
 
-      if (parseResult.totalSeats == 0) {
-        _addLog('⚠ 파싱된 좌석이 없습니다');
-        setState(() => _isProcessing = false);
-        return;
-      }
+        if (parseResult.totalSeats == 0) {
+          _addLog('⚠ 파싱된 좌석이 없습니다');
+          setState(() => _isProcessing = false);
+          return;
+        }
 
-      final db = FirebaseFirestore.instance;
+        if (!_hasSeats) {
+          // ── 좌석 없음: 새로 생성 (기존 로직) ──
+          await _createNewSeats(parseResult);
+          setState(() => _isProcessing = false);
+          return;
+        }
 
-      if (_hasSeats) {
-        // ── 기존 좌석 있음: seatKey 매칭으로 빈자리 표시 ──
-        setState(() => _statusText = '빈자리 ${parseResult.totalSeats}석 매칭 중...');
-
-        // 업로드된 좌석의 seatKey 세트
-        final uploadedKeys = <String>{};
+        // 일반 형식에서 seatKey 추출
+        uploadedKeys = {};
         for (final seat in parseResult.seats) {
           final key = seat.row.isNotEmpty
               ? '${seat.zone}-${seat.floor}-${seat.row}-${seat.number}'
@@ -284,110 +410,147 @@ class _EventStartDialogState extends State<EventStartDialog> {
           uploadedKeys.add(key);
         }
 
-        // 기존 좌석 조회
-        final existingSnap = await db
-            .collection('seats')
-            .where('eventId', isEqualTo: widget.event.id)
-            .get();
-
-        var batch = db.batch();
-        var pending = 0;
-        int matched = 0;
-        int markedSold = 0;
-
-        for (final doc in existingSnap.docs) {
-          final data = doc.data();
-          final seatKey = data['seatKey'] as String? ?? '';
-          final currentStatus = data['status'] as String? ?? '';
-
-          if (uploadedKeys.contains(seatKey)) {
-            // 매칭됨 → available로 설정
-            if (currentStatus != 'available') {
-              batch.update(doc.reference, {'status': 'available'});
-              pending++;
-            }
-            matched++;
-          } else {
-            // 매칭 안됨 → sold로 설정 (이미 reserved인 것은 건드리지 않음)
-            if (currentStatus == 'available') {
-              batch.update(doc.reference, {'status': 'sold'});
-              pending++;
-              markedSold++;
-            }
-          }
-
-          if (pending >= 400) {
-            await batch.commit();
-            batch = db.batch();
-            pending = 0;
-          }
+        for (final w in parseResult.warnings) {
+          _addLog('⚠ $w');
         }
-        if (pending > 0) await batch.commit();
-
-        _availableCount = matched;
-        final notFound = uploadedKeys.length - matched;
-        _addLog('✓ 빈자리 ${matched}석 설정 완료');
-        if (markedSold > 0) _addLog('— 판매석 ${markedSold}석 → sold 처리');
-        if (notFound > 0) _addLog('⚠ 매칭 안됨 ${notFound}석 (seatKey 불일치)');
-      } else {
-        // ── 좌석 없음: 새로 생성 ──
-        setState(() => _statusText = '${parseResult.totalSeats}석 업로드 중...');
-
-        var batch = db.batch();
-        var pending = 0;
-        int count = 0;
-
-        for (final seat in parseResult.seats) {
-          final seatKey = seat.row.isNotEmpty
-              ? '${seat.zone}-${seat.floor}-${seat.row}-${seat.number}'
-              : '${seat.zone}-${seat.floor}-${seat.number}';
-
-          final docRef = db.collection('seats').doc();
-          batch.set(docRef, {
-            'eventId': widget.event.id,
-            'block': seat.zone,
-            'floor': seat.floor,
-            'row': seat.row,
-            'number': seat.number,
-            'seatKey': seatKey,
-            'grade': seat.grade,
-            'status': 'available',
-          });
-          count++;
-          pending++;
-
-          if (pending >= 400) {
-            await batch.commit();
-            batch = db.batch();
-            pending = 0;
-          }
-        }
-        if (pending > 0) await batch.commit();
-
-        final newTotal = _seatCount + count;
-        await db.collection('events').doc(widget.event.id).update({
-          'totalSeats': newTotal,
-          'availableSeats': newTotal,
-        });
-
-        _seatCount = newTotal;
-        _availableCount = count;
-        _hasSeats = true;
-
-        final summary = parseResult.gradeCounts.entries
-            .map((e) => '${e.key} ${e.value}석')
-            .join(', ');
-        _addLog('✓ $count석 업로드 완료 ($summary)');
       }
 
-      for (final w in parseResult.warnings) {
-        _addLog('⚠ $w');
+      if (!_hasSeats) {
+        _addLog('⚠ 기존 좌석이 없습니다. 좌석 관리에서 먼저 등록하세요.');
+        setState(() => _isProcessing = false);
+        return;
       }
+
+      // ── 기존 좌석 있음: seatKey 매칭으로 빈자리 표시 ──
+      await _matchSeatsWithKeys(uploadedKeys);
     } catch (e) {
       _addLog('✗ 업로드 오류: ${_shortenError(e)}');
     }
 
     setState(() => _isProcessing = false);
+  }
+
+  // ── seatKey 매칭으로 빈자리 설정 ──
+  Future<void> _matchSeatsWithKeys(Set<String> uploadedKeys) async {
+    setState(() => _statusText = '빈자리 ${uploadedKeys.length}석 매칭 중...');
+
+    final db = FirebaseFirestore.instance;
+    final existingSnap = await db
+        .collection('seats')
+        .where('eventId', isEqualTo: widget.event.id)
+        .get();
+
+    var batch = db.batch();
+    var pending = 0;
+    int matched = 0;
+    int markedSold = 0;
+
+    // 디버깅: seatKey 샘플 수집
+    final dbKeySamples = <String>[];
+    final uploadKeySamples = uploadedKeys.take(3).toList();
+
+    for (final doc in existingSnap.docs) {
+      final data = doc.data();
+      final seatKey = data['seatKey'] as String? ?? '';
+      final currentStatus = data['status'] as String? ?? '';
+
+      // 디버깅용 샘플
+      if (dbKeySamples.length < 3 && seatKey.isNotEmpty) {
+        dbKeySamples.add(seatKey);
+      }
+
+      if (uploadedKeys.contains(seatKey)) {
+        if (currentStatus != 'available') {
+          batch.update(doc.reference, {'status': 'available'});
+          pending++;
+        }
+        matched++;
+      } else {
+        if (currentStatus == 'available') {
+          batch.update(doc.reference, {'status': 'sold'});
+          pending++;
+          markedSold++;
+        }
+      }
+
+      if (pending >= 400) {
+        await batch.commit();
+        batch = db.batch();
+        pending = 0;
+      }
+    }
+    if (pending > 0) await batch.commit();
+
+    _availableCount = matched;
+    final notFound = uploadedKeys.length - matched;
+    _addLog('✓ 빈자리 ${matched}석 설정 완료');
+    if (markedSold > 0) _addLog('— 판매석 ${markedSold}석 → sold 처리');
+    if (notFound > 0) {
+      _addLog('⚠ 매칭 안됨 ${notFound}석 (seatKey 불일치)');
+      // 디버깅: seatKey 형식 비교 표시
+      if (dbKeySamples.isNotEmpty) {
+        _addLog('  DB: ${dbKeySamples.join(", ")}');
+      }
+      if (uploadKeySamples.isNotEmpty) {
+        _addLog('  업로드: ${uploadKeySamples.join(", ")}');
+      }
+    }
+  }
+
+  // ── 새 좌석 생성 (좌석 없을 때) ──
+  Future<void> _createNewSeats(ExcelParseResult parseResult) async {
+    setState(() => _statusText = '${parseResult.totalSeats}석 업로드 중...');
+
+    final db = FirebaseFirestore.instance;
+    var batch = db.batch();
+    var pending = 0;
+    int count = 0;
+
+    for (final seat in parseResult.seats) {
+      final seatKey = seat.row.isNotEmpty
+          ? '${seat.zone}-${seat.floor}-${seat.row}-${seat.number}'
+          : '${seat.zone}-${seat.floor}-${seat.number}';
+
+      final docRef = db.collection('seats').doc();
+      batch.set(docRef, {
+        'eventId': widget.event.id,
+        'block': seat.zone,
+        'floor': seat.floor,
+        'row': seat.row,
+        'number': seat.number,
+        'seatKey': seatKey,
+        'grade': seat.grade,
+        'status': 'available',
+      });
+      count++;
+      pending++;
+
+      if (pending >= 400) {
+        await batch.commit();
+        batch = db.batch();
+        pending = 0;
+      }
+    }
+    if (pending > 0) await batch.commit();
+
+    final newTotal = _seatCount + count;
+    await db.collection('events').doc(widget.event.id).update({
+      'totalSeats': newTotal,
+      'availableSeats': newTotal,
+    });
+
+    _seatCount = newTotal;
+    _availableCount = count;
+    _hasSeats = true;
+
+    final summary = parseResult.gradeCounts.entries
+        .map((e) => '${e.key} ${e.value}석')
+        .join(', ');
+    _addLog('✓ $count석 업로드 완료 ($summary)');
+
+    for (final w in parseResult.warnings) {
+      _addLog('⚠ $w');
+    }
   }
 
   @override
