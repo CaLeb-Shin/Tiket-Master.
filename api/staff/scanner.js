@@ -1,15 +1,20 @@
 // Vercel Serverless Function: /api/staff/scanner
 // 크롤러 → 스캐너 전용 OG 메타
-// 일반 브라우저 → JS로 index.html 기반 Flutter SPA로 이동
+// 일반 브라우저 → _skip 파라미터 추가로 catch-all rewrite로 넘김
 
 module.exports = (req, res) => {
   const ua = (req.headers['user-agent'] || '');
   const isCrawler =
     /kakaotalk-scrap|facebookexternalhit|twitterbot|telegrambot|slackbot|linkedinbot|whatsapp|line-poker|discord|googlebot/i.test(ua);
 
-  // 쿼리 파라미터 보존
-  const qs = req.url && req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
-  const fullUrl = `https://melonticket-web-20260216.vercel.app/staff/scanner${qs}`;
+  // 쿼리 파라미터 보존 (req.query 사용)
+  const query = req.query || {};
+  const qsParts = Object.entries(query)
+    .filter(([k]) => k !== '_skip')
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+  const fullQs = qsParts ? `?${qsParts}` : '';
+  const fullUrl = `https://melonticket-web-20260216.vercel.app/staff/scanner${fullQs}`;
 
   if (isCrawler) {
     const html = `<!DOCTYPE html>
@@ -34,9 +39,8 @@ module.exports = (req, res) => {
     return res.status(200).send(html);
   }
 
-  // 일반 브라우저 → _skip=1 파라미터로 rewrite 건너뛰기
-  // vercel.json에서 _skip=1이면 index.html로 직접 보냄
-  const sep = qs ? '&' : '?';
-  res.writeHead(302, { Location: `/staff/scanner${qs}${sep}_skip=1` });
+  // 일반 브라우저 → _skip=1 추가해서 catch-all rewrite로 보냄
+  const redirectQs = qsParts ? `${qsParts}&_skip=1` : '_skip=1';
+  res.writeHead(302, { Location: `/staff/scanner?${redirectQs}` });
   res.end();
 };

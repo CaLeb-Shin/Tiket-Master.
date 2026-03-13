@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -29,6 +30,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   String? _scannerDeviceId;
   String _scannerDeviceLabel = '';
   String? _deviceStatusMessage;
+  bool _cameraStarted = false;
 
   bool get _isIntermissionStage => _checkinStage == 'intermission';
 
@@ -123,7 +125,17 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       if (!approved || blocked) {
         _controller.stop();
       } else {
-        _controller.start();
+        // 웹에서는 약간의 딜레이 후 카메라 시작 (렌더링 안정화)
+        if (kIsWeb) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (!mounted) return;
+        }
+        try {
+          await _controller.start();
+          if (mounted) setState(() => _cameraStarted = true);
+        } catch (e) {
+          debugPrint('카메라 시작 실패: $e');
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -508,22 +520,25 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   // ──────────────────────────────────────────────
 
   Widget _buildCameraView() {
-    return ClipRRect(
-      child: MobileScanner(
-        controller: _controller,
-        errorBuilder: (context, error, child) {
-          return _buildCameraError(error);
-        },
-        onDetect: (capture) {
-          final barcode = capture.barcodes.firstOrNull;
-          if (barcode?.rawValue != null &&
-              !_isProcessing &&
-              _isDeviceApproved &&
-              !_isDeviceBlocked) {
-            _controller.stop();
-            _processQrCode(barcode!.rawValue!);
-          }
-        },
+    return Container(
+      color: AppTheme.background,
+      child: ClipRRect(
+        child: MobileScanner(
+          controller: _controller,
+          errorBuilder: (context, error, child) {
+            return _buildCameraError(error);
+          },
+          onDetect: (capture) {
+            final barcode = capture.barcodes.firstOrNull;
+            if (barcode?.rawValue != null &&
+                !_isProcessing &&
+                _isDeviceApproved &&
+                !_isDeviceBlocked) {
+              _controller.stop();
+              _processQrCode(barcode!.rawValue!);
+            }
+          },
+        ),
       ),
     );
   }
