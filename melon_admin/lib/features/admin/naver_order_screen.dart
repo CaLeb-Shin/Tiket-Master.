@@ -326,7 +326,8 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
           .toList();
     }
 
-    return Column(
+    return SingleChildScrollView(
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── Summary Cards ──
@@ -506,8 +507,9 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
         const SizedBox(height: 12),
 
         // ── Order List ──
-        Expanded(
-          child: ListView.separated(
+        ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
             itemCount: filtered.length,
             separatorBuilder: (_, __) => Divider(
@@ -530,8 +532,8 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
               );
             },
           ),
-        ),
       ],
+      ),
     );
   }
 
