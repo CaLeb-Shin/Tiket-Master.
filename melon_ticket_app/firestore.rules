@@ -169,6 +169,18 @@ service cloud.firestore {
       allow write: if false; // CF에서만
     }
 
+    // 스캐너 기기 (어드민만 읽기/쓰기, 등록은 CF에서)
+    match /scannerDevices/{deviceId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // 스캐너 초대 토큰 (어드민만)
+    match /scannerInvites/{inviteId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
     // SMS 태스크 (어드민 읽기)
     match /smsTasks/{taskId} {
       allow read: if isAdmin();
