@@ -210,6 +210,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       final message =
           result['message'] as String? ?? (success ? '입장 성공' : '입장 실패');
       final seatInfo = result['seatInfo'] as String?;
+      final buyerName = result['buyerName'] as String?;
+      final phoneLast4 = result['phoneLast4'] as String?;
 
       setState(() {
         _lastResult = _ScanResultData(
@@ -217,6 +219,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
           title: _resultTitleForResponse(success, result),
           message: message,
           seatInfo: seatInfo,
+          buyerName: buyerName,
+          phoneLast4: phoneLast4,
         );
       });
     } on FormatException catch (e) {
@@ -856,9 +860,55 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                   textAlign: TextAlign.center,
                 ),
 
+                // Buyer info (이름 + 전화번호 뒷4자리)
+                if (result.isSuccess && (result.buyerName ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardElevated,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.border, width: 0.5),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.person_rounded,
+                          color: AppTheme.gold,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          result.buyerName!,
+                          style: AppTheme.nanum(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
+                            shadows: AppTheme.textShadow,
+                          ),
+                        ),
+                        if ((result.phoneLast4 ?? '').isNotEmpty) ...[
+                          const SizedBox(width: 10),
+                          Text(
+                            '(${result.phoneLast4})',
+                            style: AppTheme.nanum(
+                              fontSize: 15,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+
                 // Seat info
                 if (result.seatInfo != null) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
@@ -1162,12 +1212,16 @@ class _ScanResultData {
   final String title;
   final String message;
   final String? seatInfo;
+  final String? buyerName;
+  final String? phoneLast4;
 
   const _ScanResultData({
     required this.isSuccess,
     required this.title,
     required this.message,
     this.seatInfo,
+    this.buyerName,
+    this.phoneLast4,
   });
 }
 
