@@ -1517,11 +1517,14 @@ class _EventRowState extends ConsumerState<_EventRow> {
                               '공연 수정',
                               style: AdminTheme.sans(
                                 fontSize: 13,
-                                color: const Color(0xFF03C75A),
+                                color: (event.naverOnly || event.naverProductUrl != null)
+                                    ? const Color(0xFF03C75A)
+                                    : AdminTheme.gold,
                               ),
                             ),
-                            onPressed: (_) =>
-                                context.go('/naver-ticket?eventId=${event.id}'),
+                            onPressed: (_) => (event.naverOnly || event.naverProductUrl != null)
+                                ? context.go('/naver-ticket?eventId=${event.id}')
+                                : context.go('/events/${event.id}/edit'),
                           ),
                           shad.MenuButton(
                             child: Text(
@@ -1610,11 +1613,14 @@ class _EventRowState extends ConsumerState<_EventRow> {
               '공연 수정',
               style: AdminTheme.sans(
                 fontSize: 13,
-                color: const Color(0xFF03C75A),
+                color: (event.naverOnly || event.naverProductUrl != null)
+                    ? const Color(0xFF03C75A)
+                    : AdminTheme.gold,
               ),
             ),
-            onPressed: (_) =>
-                context.go('/naver-ticket?eventId=${event.id}'),
+            onPressed: (_) => (event.naverOnly || event.naverProductUrl != null)
+                ? context.go('/naver-ticket?eventId=${event.id}')
+                : context.go('/events/${event.id}/edit'),
           ),
           shad.MenuButton(
             child: Text('좌석 관리', style: AdminTheme.sans(fontSize: 13)),
