@@ -38,6 +38,7 @@ class _EventStartDialogState extends State<EventStartDialog> {
   final List<String> _logs = [];
   bool _hasSeats = false;
   int _seatCount = 0;
+  int _availableCount = 0;
   int _unassignedCount = 0;
 
   static const _gradeOrder = ['VIP', 'R', 'S', 'A'];
@@ -71,10 +72,13 @@ class _EventStartDialogState extends State<EventStartDialog> {
           .where('eventId', isEqualTo: widget.event.id)
           .get();
       _seatCount = seatSnap.docs.length;
+      _availableCount = seatSnap.docs
+          .where((d) => (d.data()['status'] ?? '') == 'available')
+          .length;
       _hasSeats = _seatCount > 0;
 
       if (_hasSeats) {
-        _addLog('✓ 좌석 ${_seatCount}석 등록됨');
+        _addLog('✓ 좌석 ${_seatCount}석 등록됨 (빈자리 ${_availableCount}석)');
       } else {
         _addLog('⚠ 좌석 데이터 없음 — 좌석 관리에서 먼저 등록하세요');
       }
@@ -227,7 +231,9 @@ class _EventStartDialogState extends State<EventStartDialog> {
     context.go('/events/${widget.event.id}/seats');
   }
 
-  // ── 인라인 엑셀 좌석 업로드 ──
+  // ── 빈자리 엑셀 업로드 ──
+  // 좌석이 없을 때: 새 좌석 생성
+  // 좌석이 있을 때: seatKey 매칭 → 매칭된 좌석만 available, 나머지 sold
   Future<void> _uploadSeatsInline() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -263,56 +269,116 @@ class _EventStartDialogState extends State<EventStartDialog> {
         return;
       }
 
-      setState(() => _statusText = '${parseResult.totalSeats}석 업로드 중...');
-
-      // Firestore batch write — 기존 좌석은 유지하고 추가만
       final db = FirebaseFirestore.instance;
-      var batch = db.batch();
-      var pending = 0;
-      int count = 0;
 
-      for (final seat in parseResult.seats) {
-        final seatKey = seat.row.isNotEmpty
-            ? '${seat.zone}-${seat.floor}-${seat.row}-${seat.number}'
-            : '${seat.zone}-${seat.floor}-${seat.number}';
+      if (_hasSeats) {
+        // ── 기존 좌석 있음: seatKey 매칭으로 빈자리 표시 ──
+        setState(() => _statusText = '빈자리 ${parseResult.totalSeats}석 매칭 중...');
 
-        final docRef = db.collection('seats').doc();
-        batch.set(docRef, {
-          'eventId': widget.event.id,
-          'block': seat.zone,
-          'floor': seat.floor,
-          'row': seat.row,
-          'number': seat.number,
-          'seatKey': seatKey,
-          'grade': seat.grade,
-          'status': 'available',
-        });
-        count++;
-        pending++;
-
-        if (pending >= 400) {
-          await batch.commit();
-          batch = db.batch();
-          pending = 0;
+        // 업로드된 좌석의 seatKey 세트
+        final uploadedKeys = <String>{};
+        for (final seat in parseResult.seats) {
+          final key = seat.row.isNotEmpty
+              ? '${seat.zone}-${seat.floor}-${seat.row}-${seat.number}'
+              : '${seat.zone}-${seat.floor}-${seat.number}';
+          uploadedKeys.add(key);
         }
+
+        // 기존 좌석 조회
+        final existingSnap = await db
+            .collection('seats')
+            .where('eventId', isEqualTo: widget.event.id)
+            .get();
+
+        var batch = db.batch();
+        var pending = 0;
+        int matched = 0;
+        int markedSold = 0;
+
+        for (final doc in existingSnap.docs) {
+          final data = doc.data();
+          final seatKey = data['seatKey'] as String? ?? '';
+          final currentStatus = data['status'] as String? ?? '';
+
+          if (uploadedKeys.contains(seatKey)) {
+            // 매칭됨 → available로 설정
+            if (currentStatus != 'available') {
+              batch.update(doc.reference, {'status': 'available'});
+              pending++;
+            }
+            matched++;
+          } else {
+            // 매칭 안됨 → sold로 설정 (이미 reserved인 것은 건드리지 않음)
+            if (currentStatus == 'available') {
+              batch.update(doc.reference, {'status': 'sold'});
+              pending++;
+              markedSold++;
+            }
+          }
+
+          if (pending >= 400) {
+            await batch.commit();
+            batch = db.batch();
+            pending = 0;
+          }
+        }
+        if (pending > 0) await batch.commit();
+
+        _availableCount = matched;
+        final notFound = uploadedKeys.length - matched;
+        _addLog('✓ 빈자리 ${matched}석 설정 완료');
+        if (markedSold > 0) _addLog('— 판매석 ${markedSold}석 → sold 처리');
+        if (notFound > 0) _addLog('⚠ 매칭 안됨 ${notFound}석 (seatKey 불일치)');
+      } else {
+        // ── 좌석 없음: 새로 생성 ──
+        setState(() => _statusText = '${parseResult.totalSeats}석 업로드 중...');
+
+        var batch = db.batch();
+        var pending = 0;
+        int count = 0;
+
+        for (final seat in parseResult.seats) {
+          final seatKey = seat.row.isNotEmpty
+              ? '${seat.zone}-${seat.floor}-${seat.row}-${seat.number}'
+              : '${seat.zone}-${seat.floor}-${seat.number}';
+
+          final docRef = db.collection('seats').doc();
+          batch.set(docRef, {
+            'eventId': widget.event.id,
+            'block': seat.zone,
+            'floor': seat.floor,
+            'row': seat.row,
+            'number': seat.number,
+            'seatKey': seatKey,
+            'grade': seat.grade,
+            'status': 'available',
+          });
+          count++;
+          pending++;
+
+          if (pending >= 400) {
+            await batch.commit();
+            batch = db.batch();
+            pending = 0;
+          }
+        }
+        if (pending > 0) await batch.commit();
+
+        final newTotal = _seatCount + count;
+        await db.collection('events').doc(widget.event.id).update({
+          'totalSeats': newTotal,
+          'availableSeats': newTotal,
+        });
+
+        _seatCount = newTotal;
+        _availableCount = count;
+        _hasSeats = true;
+
+        final summary = parseResult.gradeCounts.entries
+            .map((e) => '${e.key} ${e.value}석')
+            .join(', ');
+        _addLog('✓ $count석 업로드 완료 ($summary)');
       }
-      if (pending > 0) await batch.commit();
-
-      // totalSeats 업데이트 (기존 + 새로 추가)
-      final newTotal = _seatCount + count;
-      await db.collection('events').doc(widget.event.id).update({
-        'totalSeats': newTotal,
-        'availableSeats': newTotal,
-      });
-
-      _seatCount = newTotal;
-      _hasSeats = true;
-
-      // 등급별 요약
-      final summary = parseResult.gradeCounts.entries
-          .map((e) => '${e.key} ${e.value}석')
-          .join(', ');
-      _addLog('✓ $count석 업로드 완료 ($summary)');
 
       for (final w in parseResult.warnings) {
         _addLog('⚠ $w');
@@ -558,12 +624,31 @@ class _EventStartDialogState extends State<EventStartDialog> {
         }
         return [
           ElevatedButton.icon(
-            onPressed: _runAll,
-            icon: const Icon(Icons.rocket_launch_rounded, size: 18),
-            label: const Text('배정 + QR 공개'),
+            onPressed: _uploadSeatsInline,
+            icon: const Icon(Icons.upload_file_rounded, size: 18),
+            label: const Text('빈자리 업로드'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AdminTheme.gold,
-              foregroundColor: AdminTheme.onAccent,
+              backgroundColor: AdminTheme.surface,
+              foregroundColor: AdminTheme.textSecondary,
+              side: const BorderSide(color: AdminTheme.border, width: 0.5),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            onPressed: _availableCount > 0 ? _runAll : null,
+            icon: const Icon(Icons.rocket_launch_rounded, size: 18),
+            label: Text(_availableCount > 0
+                ? '배정 + QR 공개'
+                : '빈자리 업로드 필요'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _availableCount > 0
+                  ? AdminTheme.gold
+                  : AdminTheme.surface,
+              foregroundColor: _availableCount > 0
+                  ? AdminTheme.onAccent
+                  : AdminTheme.textTertiary,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6)),
             ),
