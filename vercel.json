@@ -5,10 +5,11 @@
   "rewrites": [
     {
       "source": "/staff/scanner",
-      "missing": [
+      "has": [
         {
-          "type": "query",
-          "key": "_skip"
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(kakaotalk-scrap|facebookexternalhit|twitterbot|telegrambot|slackbot|linkedinbot|whatsapp|googlebot).*"
         }
       ],
       "destination": "/api/staff/scanner"

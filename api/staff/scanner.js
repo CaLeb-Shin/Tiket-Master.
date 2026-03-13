@@ -1,23 +1,13 @@
 // Vercel Serverless Function: /api/staff/scanner
-// 크롤러 → 스캐너 전용 OG 메타
-// 일반 브라우저 → _skip 파라미터 추가로 catch-all rewrite로 넘김
+// 크롤러 전용 OG 메타 반환 (vercel.json에서 UA 기반 라우팅)
 
 module.exports = (req, res) => {
-  const ua = (req.headers['user-agent'] || '');
-  const isCrawler =
-    /kakaotalk-scrap|facebookexternalhit|twitterbot|telegrambot|slackbot|linkedinbot|whatsapp|line-poker|discord|googlebot/i.test(ua);
-
-  // 쿼리 파라미터 보존 (req.query 사용)
   const query = req.query || {};
-  const qsParts = Object.entries(query)
-    .filter(([k]) => k !== '_skip')
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join('&');
-  const fullQs = qsParts ? `?${qsParts}` : '';
-  const fullUrl = `https://melonticket-web-20260216.vercel.app/staff/scanner${fullQs}`;
+  const invite = query.invite || '';
+  const qs = invite ? `?invite=${encodeURIComponent(invite)}` : '';
+  const fullUrl = `https://melonticket-web-20260216.vercel.app/staff/scanner${qs}`;
 
-  if (isCrawler) {
-    const html = `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -34,13 +24,8 @@ module.exports = (req, res) => {
 </head>
 <body></body>
 </html>`;
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache');
-    return res.status(200).send(html);
-  }
 
-  // 일반 브라우저 → _skip=1 추가해서 catch-all rewrite로 보냄
-  const redirectQs = qsParts ? `${qsParts}&_skip=1` : '_skip=1';
-  res.writeHead(302, { Location: `/staff/scanner?${redirectQs}` });
-  res.end();
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.status(200).send(html);
 };
