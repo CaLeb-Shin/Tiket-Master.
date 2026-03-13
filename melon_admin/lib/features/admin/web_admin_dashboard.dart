@@ -1312,8 +1312,26 @@ class _EventRowState extends ConsumerState<_EventRow> {
   @override
   Widget build(BuildContext context) {
     final event = widget.event;
-    final soldSeats = event.totalSeats - event.availableSeats;
-    final ratio = event.totalSeats > 0 ? soldSeats / event.totalSeats : 0.0;
+
+    // mobileTickets 발권 수를 실시간으로 가져옴
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('mobileTickets')
+          .where('eventId', isEqualTo: event.id)
+          .snapshots(),
+      builder: (context, ticketSnap) {
+        final issuedCount = ticketSnap.hasData ? ticketSnap.data!.docs.length : 0;
+        // seats 컬렉션 기반 판매 수 vs mobileTickets 발권 수 중 큰 값 사용
+        final seatsSold = event.totalSeats - event.availableSeats;
+        final soldSeats = issuedCount > seatsSold ? issuedCount : seatsSold;
+        final ratio = event.totalSeats > 0 ? soldSeats / event.totalSeats : 0.0;
+
+        return _buildRow(event, soldSeats, ratio);
+      },
+    );
+  }
+
+  Widget _buildRow(Event event, int soldSeats, double ratio) {
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
