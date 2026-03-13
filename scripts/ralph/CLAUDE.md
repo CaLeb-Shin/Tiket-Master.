@@ -47,6 +47,11 @@ You are an autonomous coding agent working on the Melon Ticket (멜론티켓) pr
   2. Append `scripts/ralph/progress.txt`
   3. Send a short Telegram summary by running:
      `node scripts/ralph/send-telegram-summary.js [Story ID]`
+  4. If code changed and verification passed, deploy by default unless the
+     user explicitly asked for local-only changes
+- If you update a human-readable summary/design markdown for the user,
+  also send that file in Telegram-friendly form with:
+  `node scripts/ralph/send-telegram-summary.js --file [path-to-md]`
 - Telegram summary sending is best-effort:
   - Use `RALPH_TELEGRAM_BOT_TOKEN` / `RALPH_TELEGRAM_CHAT_ID` first
   - Fallback to `NAVER_SEAT_BOT_TOKEN` / `NAVER_SEAT_CHAT_ID`
@@ -118,4 +123,6 @@ If there are still stories with `passes: false`, end your response normally (ano
 - Always push after commit (Vercel auto-deploys)
 - Deploy admin separately if admin files changed
 - Deploy functions separately if functions changed
+- Default to deploying verified code changes even when the user does not
+  repeat the deployment request each turn
 - Read the Codebase Patterns section in progress.txt before starting

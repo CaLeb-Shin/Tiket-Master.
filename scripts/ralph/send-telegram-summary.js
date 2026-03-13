@@ -61,6 +61,19 @@ function readCustomFile(filePath) {
   };
 }
 
+function extractDocumentTitle(filePath, body) {
+  const lines = body.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (/^#{1,3}\s+/.test(trimmed)) {
+      return trimmed.replace(/^#{1,3}\s+/, '').trim();
+    }
+  }
+
+  return path.basename(filePath);
+}
+
 function parseSections(markdown) {
   const lines = markdown.split(/\r?\n/);
   const sections = [];
@@ -127,9 +140,70 @@ function buildMessage(section) {
   ].join('\n').trim();
 }
 
+function normalizeMarkdownDocument(body) {
+  const lines = body.split(/\r?\n/);
+  const normalized = [];
+  let titleSkipped = false;
+
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) {
+      if (normalized.at(-1) !== '') {
+        normalized.push('');
+      }
+      continue;
+    }
+
+    if (!titleSkipped && /^#\s+/.test(trimmed)) {
+      titleSkipped = true;
+      continue;
+    }
+
+    if (/^###\s+/.test(trimmed)) {
+      normalized.push(`■ ${trimmed.replace(/^###\s+/, '').trim()}`);
+      normalized.push('');
+      continue;
+    }
+
+    if (/^##\s+/.test(trimmed)) {
+      normalized.push(`● ${trimmed.replace(/^##\s+/, '').trim()}`);
+      normalized.push('');
+      continue;
+    }
+
+    if (/^#\s+/.test(trimmed)) {
+      normalized.push(trimmed.replace(/^#\s+/, '').trim());
+      normalized.push('');
+      continue;
+    }
+
+    if (/^\*\*(.+)\*\*$/.test(trimmed)) {
+      normalized.push(trimmed.replace(/^\*\*(.+)\*\*$/, '$1'));
+      continue;
+    }
+
+    normalized.push(
+      trimmed
+        .replace(/^- \[x\]\s*/i, '✅ ')
+        .replace(/^- \[\]\s*/i, '⬜ ')
+        .replace(/^- ✅\s*/u, '✅ ')
+        .replace(/^- ❌\s*/u, '❌ ')
+        .replace(/^- /, '• ')
+        .replace(/\*\*/g, '')
+        .replace(/`/g, "'"),
+    );
+  }
+
+  while (normalized.at(-1) === '') {
+    normalized.pop();
+  }
+
+  return normalized.join('\n');
+}
+
 function buildFileMessage(filePath, body) {
-  const heading = path.basename(filePath);
-  const normalized = body.trim();
+  const heading = extractDocumentTitle(filePath, body);
+  const normalized = normalizeMarkdownDocument(body);
 
   return [
     '[Codex Ralph Summary]',

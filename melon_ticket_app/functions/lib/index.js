@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.cleanupExpiredTickets = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -1236,6 +1236,10 @@ exports.verifyAndCheckIn = functions.https.onCall(async (data, context) => {
                 ? `${seat.block}구역 ${seat.floor} ${seat.row || ""}열 ${seat.number}번`
                 : "좌석 정보 없음";
         }
+        // 예매자 정보
+        const buyerName = ticket.buyerName || "";
+        const rawPhone = ticket.buyerPhone || "";
+        const phoneLast4 = rawPhone.length >= 4 ? rawPhone.slice(-4) : "";
         if (checkinStage === "entry") {
             transaction.update(ticketRef, {
                 entryCheckedInAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1271,9 +1275,11 @@ exports.verifyAndCheckIn = functions.https.onCall(async (data, context) => {
             stage: checkinStage,
             result: "success",
             seatInfo,
+            buyerName,
+            phoneLast4,
             scannedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        functions.logger.info(`체크인 성공: 티켓 ${ticketId}, 단계=${checkinStage}, 좌석=${seatInfo}, device=${scannerDeviceId}`);
+        functions.logger.info(`체크인 성공: 티켓 ${ticketId}, 단계=${checkinStage}, 좌석=${seatInfo}, 예매자=${buyerName}, device=${scannerDeviceId}`);
         return {
             success: true,
             result: "success",
@@ -1282,6 +1288,8 @@ exports.verifyAndCheckIn = functions.https.onCall(async (data, context) => {
                 ? "1차 입장 처리가 완료되었습니다"
                 : "인터미션 재입장 처리가 완료되었습니다",
             seatInfo,
+            buyerName,
+            phoneLast4,
             stage: checkinStage,
             ticketStatus: checkinStage === "entry" ? "entryCheckedIn" : "used",
             ticketStatusLabel: checkinStage === "entry" ? "입장 완료" : "사용 완료",
@@ -2814,6 +2822,44 @@ exports.ogImage = functions.https.onRequest(async (req, res) => {
         functions.logger.error("ogImage error:", err.message);
         res.status(500).send("이미지 생성 실패");
     }
+});
+// ============================================================
+// 티켓 데이터 자동 정리 (매일 03:00 KST 실행)
+// 공연 종료 30일 후 mobileTickets + checkInLogs 삭제
+// ============================================================
+exports.cleanupExpiredTickets = functions.pubsub
+    .schedule("0 18 * * *") // UTC 18:00 = KST 03:00
+    .timeZone("Asia/Seoul")
+    .onRun(async () => {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30일 전
+    // 종료된 이벤트 조회
+    const eventsSnap = await db.collection("events")
+        .where("startAt", "<", cutoff)
+        .get();
+    if (eventsSnap.empty) {
+        functions.logger.info("cleanupExpiredTickets: 정리할 이벤트 없음");
+        return;
+    }
+    let totalDeleted = 0;
+    for (const eventDoc of eventsSnap.docs) {
+        const eventId = eventDoc.id;
+        const event = eventDoc.data();
+        const title = event.title || eventId;
+        // 해당 이벤트의 mobileTickets 삭제
+        const ticketsSnap = await db.collection("mobileTickets")
+            .where("eventId", "==", eventId)
+            .limit(500)
+            .get();
+        if (ticketsSnap.empty)
+            continue;
+        const batch = db.batch();
+        ticketsSnap.docs.forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+        totalDeleted += ticketsSnap.size;
+        functions.logger.info(`cleanupExpiredTickets: ${title} — ${ticketsSnap.size}건 삭제`);
+    }
+    functions.logger.info(`cleanupExpiredTickets: 총 ${totalDeleted}건 삭제 완료`);
 });
 // ============================================================
 // OG 이미지 사전 생성 (이벤트 생성/수정 시 자동)
