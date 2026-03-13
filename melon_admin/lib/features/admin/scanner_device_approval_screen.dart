@@ -437,7 +437,7 @@ class _ScannerDeviceApprovalScreenState
 // DEVICE CARD — Editorial white card with thin borders
 // =============================================================================
 
-class _DeviceCard extends StatelessWidget {
+class _DeviceCard extends StatefulWidget {
   final ScannerDevice device;
   final VoidCallback onApprove;
   final VoidCallback onRevoke;
@@ -451,6 +451,27 @@ class _DeviceCard extends StatelessWidget {
     required this.onBlock,
     required this.onUnblock,
   });
+
+  @override
+  State<_DeviceCard> createState() => _DeviceCardState();
+}
+
+class _DeviceCardState extends State<_DeviceCard> {
+  String? _loadingAction; // 현재 로딩 중인 액션 이름
+
+  Future<void> _handleAction(String action, VoidCallback callback) async {
+    if (_loadingAction != null) return; // 중복 클릭 방지
+    setState(() => _loadingAction = action);
+    try {
+      callback();
+      // 스트림이 업데이트되면 카드가 rebuild되므로 짧은 딜레이 후 해제
+      await Future.delayed(const Duration(milliseconds: 1500));
+    } finally {
+      if (mounted) setState(() => _loadingAction = null);
+    }
+  }
+
+  ScannerDevice get device => widget.device;
 
   @override
   Widget build(BuildContext context) {
@@ -573,30 +594,34 @@ class _DeviceCard extends StatelessWidget {
               if (!device.approved && !device.blocked)
                 _actionButton(
                   label: 'APPROVE',
-                  onPressed: onApprove,
+                  onPressed: () => _handleAction('approve', widget.onApprove),
                   color: AdminTheme.success,
                   filled: true,
+                  loading: _loadingAction == 'approve',
                 ),
               if (device.approved)
                 _actionButton(
                   label: 'REVOKE',
-                  onPressed: onRevoke,
+                  onPressed: () => _handleAction('revoke', widget.onRevoke),
                   color: AdminTheme.warning,
                   filled: false,
+                  loading: _loadingAction == 'revoke',
                 ),
               if (!device.blocked)
                 _actionButton(
                   label: 'BLOCK',
-                  onPressed: onBlock,
+                  onPressed: () => _handleAction('block', widget.onBlock),
                   color: AdminTheme.error,
                   filled: false,
+                  loading: _loadingAction == 'block',
                 ),
               if (device.blocked)
                 _actionButton(
                   label: 'UNBLOCK',
-                  onPressed: onUnblock,
+                  onPressed: () => _handleAction('unblock', widget.onUnblock),
                   color: AdminTheme.warning,
                   filled: true,
+                  loading: _loadingAction == 'unblock',
                 ),
             ],
           ),
@@ -636,27 +661,42 @@ class _DeviceCard extends StatelessWidget {
     required VoidCallback onPressed,
     required Color color,
     required bool filled,
+    bool loading = false,
   }) {
+    final disabled = _loadingAction != null;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: GestureDetector(
-        onTap: onPressed,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: filled ? color : Colors.transparent,
-            borderRadius: BorderRadius.circular(2),
-            border: Border.all(
-              color: filled ? color : color.withValues(alpha: 0.3),
-              width: 0.5,
+        onTap: disabled ? null : onPressed,
+        child: AnimatedOpacity(
+          opacity: disabled && !loading ? 0.4 : 1.0,
+          duration: const Duration(milliseconds: 200),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: filled ? color : Colors.transparent,
+              borderRadius: BorderRadius.circular(2),
+              border: Border.all(
+                color: filled ? color : color.withValues(alpha: 0.3),
+                width: 0.5,
+              ),
             ),
-          ),
-          child: Text(
-            label,
-            style: AdminTheme.label(
-              fontSize: 9,
-              color: filled ? Colors.white : color,
-            ),
+            child: loading
+                ? SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: filled ? Colors.white : color,
+                    ),
+                  )
+                : Text(
+                    label,
+                    style: AdminTheme.label(
+                      fontSize: 9,
+                      color: filled ? Colors.white : color,
+                    ),
+                  ),
           ),
         ),
       ),
