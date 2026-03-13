@@ -912,64 +912,58 @@ class _DashboardContent extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 24),
-                      // 진행중 / 종료 분리
+                      // 진행중(네이버/일반) / 종료 분리
                       Builder(builder: (context) {
+                        bool isNaver(Event e) =>
+                          e.naverOnly || (e.naverProductUrl ?? '').isNotEmpty;
+
                         final activeEvents = events.where((e) =>
                           e.status != EventStatus.completed &&
                           e.status != EventStatus.canceled).toList();
+                        final naverActive = activeEvents.where(isNaver).toList();
+                        final generalActive = activeEvents.where((e) => !isNaver(e)).toList();
                         final endedEvents = events.where((e) =>
                           e.status == EventStatus.completed ||
                           e.status == EventStatus.canceled).toList();
 
                         return Column(
                           children: [
-                            // 진행중 공연
-                            _LightCard(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          '진행중 공연',
-                                          style: AdminTheme.serif(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w700,
-                                            color: AdminTheme.textPrimary,
-                                          ),
-                                        ),
-                                        Text(
-                                          '${activeEvents.length}건',
-                                          style: AdminTheme.label(
-                                            fontSize: 10,
-                                            color: AdminTheme.textTertiary,
-                                          ),
-                                        ),
-                                      ],
+                            // 네이버/놀티켓 공연
+                            if (naverActive.isNotEmpty)
+                              _EventGroupCard(
+                                title: '네이버/놀티켓 공연',
+                                count: naverActive.length,
+                                accentColor: const Color(0xFF03C75A),
+                                events: naverActive,
+                              ),
+
+                            // 일반 공연
+                            if (generalActive.isNotEmpty) ...[
+                              if (naverActive.isNotEmpty) const SizedBox(height: 16),
+                              _EventGroupCard(
+                                title: '일반 공연',
+                                count: generalActive.length,
+                                accentColor: AdminTheme.gold,
+                                events: generalActive,
+                              ),
+                            ],
+
+                            // 진행중 공연 없음
+                            if (activeEvents.isEmpty)
+                              _LightCard(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(40),
+                                  child: Center(
+                                    child: Text(
+                                      '진행중인 공연이 없습니다',
+                                      style: AdminTheme.sans(
+                                        fontSize: 13,
+                                        color: AdminTheme.textTertiary,
+                                      ),
                                     ),
                                   ),
-                                  Container(height: 0.5, color: AdminTheme.border),
-                                  if (activeEvents.isEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.all(40),
-                                      child: Center(
-                                        child: Text(
-                                          '진행중인 공연이 없습니다',
-                                          style: AdminTheme.sans(
-                                            fontSize: 13,
-                                            color: AdminTheme.textTertiary,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                  else
-                                    _EventsTable(events: activeEvents),
-                                ],
+                                ),
                               ),
-                            ),
 
                             // 종료된 공연 (접이식)
                             if (endedEvents.isNotEmpty) ...[
@@ -1175,6 +1169,70 @@ class _LightCard extends StatelessWidget {
 }
 
 // ─── Collapsible Ended Events ───
+// ─── Event Group Card ───
+class _EventGroupCard extends StatelessWidget {
+  final String title;
+  final int count;
+  final Color accentColor;
+  final List<Event> events;
+
+  const _EventGroupCard({
+    required this.title,
+    required this.count,
+    required this.accentColor,
+    required this.events,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _LightCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      title,
+                      style: AdminTheme.serif(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AdminTheme.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  '$count건',
+                  style: AdminTheme.label(
+                    fontSize: 10,
+                    color: AdminTheme.textTertiary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(height: 0.5, color: AdminTheme.border),
+          _EventsTable(events: events),
+        ],
+      ),
+    );
+  }
+}
+
 class _CollapsibleEndedEvents extends StatefulWidget {
   final List<Event> events;
   const _CollapsibleEndedEvents({required this.events});
