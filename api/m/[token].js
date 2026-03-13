@@ -3,8 +3,6 @@
 // 일반 사용자에게는 Flutter SPA(index.html)를 제공
 
 const https = require('https');
-const fs = require('fs');
-const path = require('path');
 
 const FIRESTORE_BASE = 'https://firestore.googleapis.com/v1/projects/melon-ticket-mvp-2026/databases/(default)/documents';
 
@@ -68,14 +66,22 @@ module.exports = async (req, res) => {
   const isCrawler = /kakaotalk|facebookexternalhit|Twitterbot|Slackbot|LinkedInBot|Googlebot|bot|crawler|spider|preview/i.test(ua);
 
   // 일반 사용자: Flutter SPA 제공
+  // Vercel 서버리스에서는 빌드 출력에 직접 접근 불가 → 자체 CDN에서 index.html fetch
   if (!isCrawler) {
     try {
-      const indexPath = path.join(process.cwd(), 'melon_ticket_app', 'build', 'web', 'index.html');
-      const html = fs.readFileSync(indexPath, 'utf8');
+      const origin = `https://${req.headers.host}`;
+      const indexHtml = await new Promise((resolve, reject) => {
+        https.get(`${origin}/index.html`, (resp) => {
+          let d = '';
+          resp.on('data', c => d += c);
+          resp.on('end', () => resolve(d));
+        }).on('error', reject);
+      });
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.send(html);
+      res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+      return res.send(indexHtml);
     } catch {
-      // fallback: redirect
+      // fallback: 302 redirect — URL 유지를 위해 같은 경로로 direct 파라미터 추가
       return res.redirect(302, `/`);
     }
   }
