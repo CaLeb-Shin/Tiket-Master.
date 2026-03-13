@@ -1,5 +1,5 @@
 // Vercel Edge Middleware — 카카오톡/SNS 크롤러에게 동적 OG 태그 제공
-// 일반 사용자는 Flutter SPA 그대로 제공
+// 일반 사용자는 Flutter SPA 그대로 제공 (fetch(request) → origin 정적 파일)
 
 const CRAWLER_UA =
   /kakaotalk|kakao|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|WhatsApp|Discordbot|Googlebot|bingbot|bot|crawler|spider|preview/i;
@@ -13,7 +13,7 @@ export const config = {
 export default async function middleware(request: Request): Promise<Response> {
   const ua = request.headers.get("user-agent") || "";
 
-  // 일반 사용자 → 패스스루
+  // 일반 사용자 → Flutter SPA 정적 파일로 패스스루 (origin fetch)
   if (!CRAWLER_UA.test(ua)) {
     return fetch(request);
   }
