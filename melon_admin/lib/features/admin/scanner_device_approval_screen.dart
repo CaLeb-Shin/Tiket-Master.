@@ -694,7 +694,12 @@ class _ScannerInviteDialogState extends State<_ScannerInviteDialog> {
       final token = result['token'] as String;
       final link =
           'https://melonticket-web-20260216.vercel.app/staff/scanner?invite=$token';
-      await Clipboard.setData(ClipboardData(text: link));
+      final copyText =
+          '[멜론티켓 스캐너 초대]\n'
+          '아래 링크를 눌러 스캐너에 접속하세요.\n'
+          '로그인 후 자동으로 기기가 승인됩니다.\n\n'
+          '$link';
+      await Clipboard.setData(ClipboardData(text: copyText));
       if (!mounted) return;
       setState(() {
         _generatedLink = link;
@@ -834,8 +839,12 @@ class _ScannerInviteDialogState extends State<_ScannerInviteDialog> {
                     Expanded(
                       child: GestureDetector(
                         onTap: () {
-                          Clipboard.setData(
-                              ClipboardData(text: _generatedLink!));
+                          final copyText =
+                              '[멜론티켓 스캐너 초대]\n'
+                              '아래 링크를 눌러 스캐너에 접속하세요.\n'
+                              '로그인 후 자동으로 기기가 승인됩니다.\n\n'
+                              '${_generatedLink!}';
+                          Clipboard.setData(ClipboardData(text: copyText));
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('복사됨')),
                           );

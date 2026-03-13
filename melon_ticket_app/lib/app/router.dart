@@ -38,9 +38,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           path.startsWith('/mileage');
 
       if (!isLoggedIn && requiresAuth) {
-        return '/login';
+        // 로그인 후 원래 경로로 돌아가도록 returnTo 파라미터 전달
+        final fullUri = state.uri.toString();
+        return '/login?returnTo=${Uri.encodeComponent(fullUri)}';
       }
       if (isLoggedIn && path == '/login') {
+        // returnTo가 있으면 해당 경로로, 없으면 홈으로
+        final returnTo = state.uri.queryParameters['returnTo'];
+        if (returnTo != null && returnTo.isNotEmpty) {
+          return Uri.decodeComponent(returnTo);
+        }
         return '/';
       }
       return null;
