@@ -912,40 +912,73 @@ class _DashboardContent extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 24),
-                      _LightCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      // 진행중 / 종료 분리
+                      Builder(builder: (context) {
+                        final activeEvents = events.where((e) =>
+                          e.status != EventStatus.completed &&
+                          e.status != EventStatus.canceled).toList();
+                        final endedEvents = events.where((e) =>
+                          e.status == EventStatus.completed ||
+                          e.status == EventStatus.canceled).toList();
+
+                        return Column(
                           children: [
-                            Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(24, 20, 24, 16),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                            // 진행중 공연
+                            _LightCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    '전체 공연',
-                                    style: AdminTheme.serif(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                      color: AdminTheme.textPrimary,
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          '진행중 공연',
+                                          style: AdminTheme.serif(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w700,
+                                            color: AdminTheme.textPrimary,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${activeEvents.length}건',
+                                          style: AdminTheme.label(
+                                            fontSize: 10,
+                                            color: AdminTheme.textTertiary,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  Text(
-                                    '총 ${events.length}건',
-                                    style: AdminTheme.label(
-                                      fontSize: 10,
-                                      color: AdminTheme.textTertiary,
-                                    ),
-                                  ),
+                                  Container(height: 0.5, color: AdminTheme.border),
+                                  if (activeEvents.isEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.all(40),
+                                      child: Center(
+                                        child: Text(
+                                          '진행중인 공연이 없습니다',
+                                          style: AdminTheme.sans(
+                                            fontSize: 13,
+                                            color: AdminTheme.textTertiary,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    _EventsTable(events: activeEvents),
                                 ],
                               ),
                             ),
-                            Container(height: 0.5, color: AdminTheme.border),
-                            _EventsTable(events: events),
+
+                            // 종료된 공연 (접이식)
+                            if (endedEvents.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              _CollapsibleEndedEvents(events: endedEvents),
+                            ],
                           ],
-                        ),
-                      ),
+                        );
+                      }),
                     ],
                   );
                 },
@@ -1137,6 +1170,66 @@ class _LightCard extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: child,
+    );
+  }
+}
+
+// ─── Collapsible Ended Events ───
+class _CollapsibleEndedEvents extends StatefulWidget {
+  final List<Event> events;
+  const _CollapsibleEndedEvents({required this.events});
+
+  @override
+  State<_CollapsibleEndedEvents> createState() => _CollapsibleEndedEventsState();
+}
+
+class _CollapsibleEndedEventsState extends State<_CollapsibleEndedEvents> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return _LightCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+              child: Row(
+                children: [
+                  Icon(
+                    _expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                    size: 20,
+                    color: AdminTheme.textTertiary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '종료된 공연',
+                    style: AdminTheme.serif(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AdminTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${widget.events.length}건',
+                    style: AdminTheme.label(
+                      fontSize: 10,
+                      color: AdminTheme.textTertiary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded) ...[
+            Container(height: 0.5, color: AdminTheme.border),
+            _EventsTable(events: widget.events),
+          ],
+        ],
+      ),
     );
   }
 }
