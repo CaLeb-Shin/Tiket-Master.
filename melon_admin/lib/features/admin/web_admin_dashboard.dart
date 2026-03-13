@@ -734,7 +734,7 @@ class _DashboardContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final eventsAsync = ref.watch(eventsStreamProvider);
+    final eventsAsync = ref.watch(allEventsStreamProvider);
 
     return Align(
       alignment: Alignment.topCenter,
@@ -924,7 +924,7 @@ class _DashboardContent extends ConsumerWidget {
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    '최근 공연',
+                                    '전체 공연',
                                     style: AdminTheme.serif(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w700,
@@ -932,7 +932,7 @@ class _DashboardContent extends ConsumerWidget {
                                     ),
                                   ),
                                   Text(
-                                    '최신 5건',
+                                    '총 ${events.length}건',
                                     style: AdminTheme.label(
                                       fontSize: 10,
                                       color: AdminTheme.textTertiary,
@@ -942,7 +942,7 @@ class _DashboardContent extends ConsumerWidget {
                               ),
                             ),
                             Container(height: 0.5, color: AdminTheme.border),
-                            _EventsTable(events: events.take(5).toList()),
+                            _EventsTable(events: events),
                           ],
                         ),
                       ),
