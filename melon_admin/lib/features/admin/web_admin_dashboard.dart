@@ -11,6 +11,7 @@ import 'package:melon_core/data/models/app_user.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/services/firestore_service.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
+import 'event_start_dialog.dart';
 import 'widgets/role_switcher_widget.dart';
 
 class WebAdminDashboard extends ConsumerStatefulWidget {
@@ -1713,6 +1714,19 @@ class _EventRowState extends ConsumerState<_EventRow> {
                           const shad.MenuDivider(),
                           shad.MenuButton(
                             child: Text(
+                              '공연 시작',
+                              style: AdminTheme.sans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AdminTheme.gold,
+                              ),
+                            ),
+                            onPressed: (_) =>
+                                EventStartDialog.show(context, event),
+                          ),
+                          const shad.MenuDivider(),
+                          shad.MenuButton(
+                            child: Text(
                               '공연 복제',
                               style: AdminTheme.sans(fontSize: 13),
                             ),
@@ -1790,6 +1804,13 @@ class _EventRowState extends ConsumerState<_EventRow> {
               child: Text('네이버 주문', style: AdminTheme.sans(fontSize: 13)),
               onPressed: (_) => context.go('/events/${event.id}/naver-orders'),
             ),
+          const shad.MenuDivider(),
+          shad.MenuButton(
+            child: Text('공연 시작',
+                style: AdminTheme.sans(
+                    fontSize: 13, fontWeight: FontWeight.w700, color: AdminTheme.gold)),
+            onPressed: (_) => EventStartDialog.show(context, event),
+          ),
           const shad.MenuDivider(),
           shad.MenuButton(
             child: Text('공연 복제', style: AdminTheme.sans(fontSize: 13)),
