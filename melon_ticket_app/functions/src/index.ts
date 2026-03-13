@@ -1051,7 +1051,7 @@ export const requestTicketCancellation = functions.https.onCall(async (data: any
 // ============================================================
 export const registerScannerDevice = functions.https.onCall(async (data: any, context) => {
   const scannerUid = await assertStaffOrAdmin(context?.auth?.uid);
-  const { deviceId, label, platform } = data ?? {};
+  const { deviceId, label, platform, inviteToken } = data ?? {};
 
   if (!deviceId || typeof deviceId !== "string") {
     throw new functions.https.HttpsError("invalid-argument", "기기 ID가 필요합니다");
@@ -1060,6 +1060,25 @@ export const registerScannerDevice = functions.https.onCall(async (data: any, co
   const trimmedId = deviceId.trim();
   if (trimmedId.length < 8 || trimmedId.length > 128) {
     throw new functions.https.HttpsError("invalid-argument", "유효하지 않은 기기 ID입니다");
+  }
+
+  // 초대 토큰 검증
+  let inviteApproved = false;
+  if (typeof inviteToken === "string" && inviteToken.trim().length > 0) {
+    const inviteRef = db.collection("scannerInvites").doc(inviteToken.trim());
+    const inviteDoc = await inviteRef.get();
+    if (inviteDoc.exists) {
+      const inv = inviteDoc.data()!;
+      const now = new Date();
+      const expires = inv.expiresAt?.toDate?.() ?? new Date(0);
+      if (inv.active !== false && expires > now) {
+        inviteApproved = true;
+        await inviteRef.update({
+          usedCount: admin.firestore.FieldValue.increment(1),
+          lastUsedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    }
   }
 
   const userDoc = await db.collection("users").doc(scannerUid).get();
@@ -1079,11 +1098,11 @@ export const registerScannerDevice = functions.https.onCall(async (data: any, co
     throw new functions.https.HttpsError("permission-denied", "다른 계정에 등록된 기기입니다");
   }
 
-  // admin 역할이면 신규 등록 시 자동 승인
+  // admin 역할이거나 초대 토큰 사용 시 자동 승인
   const userRole = await getUserRole(scannerUid);
   const approved = existingDoc.exists
     ? existing.approved === true
-    : userRole === "admin";
+    : (userRole === "admin" || inviteApproved);
   const blocked = existingDoc.exists ? existing.blocked === true : false;
 
   const payload: Record<string, unknown> = {
@@ -1116,6 +1135,42 @@ export const registerScannerDevice = functions.https.onCall(async (data: any, co
       : approved
           ? "승인된 기기입니다"
           : "승인 대기 중입니다",
+  };
+});
+
+// ============================================================
+// 5-b. createScannerInvite - 스캐너 초대링크 생성 (관리자)
+// ============================================================
+export const createScannerInvite = functions.https.onCall(async (data: any, context) => {
+  const adminUid = await assertAdmin(context?.auth?.uid);
+  const { eventId, expiresInHours } = data ?? {};
+
+  const adminDoc = await db.collection("users").doc(adminUid).get();
+  const adminEmail =
+    (context?.auth?.token?.email as string | undefined) ||
+    (adminDoc.data()?.email as string | undefined) ||
+    "";
+
+  const token = require("crypto").randomBytes(24).toString("hex"); // 48-char hex
+  const hours = typeof expiresInHours === "number" && expiresInHours > 0 ? expiresInHours : 24;
+  const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
+
+  const inviteRef = db.collection("scannerInvites").doc(token);
+  await inviteRef.set({
+    token,
+    eventId: typeof eventId === "string" && eventId.trim().length > 0 ? eventId.trim() : null,
+    createdByUid: adminUid,
+    createdByEmail: adminEmail,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
+    usedCount: 0,
+    active: true,
+  });
+
+  return {
+    success: true,
+    token,
+    expiresAt: expiresAt.toISOString(),
   };
 });
 

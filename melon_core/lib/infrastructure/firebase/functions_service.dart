@@ -81,12 +81,28 @@ class FunctionsService {
     required String deviceId,
     required String label,
     required String platform,
+    String? inviteToken,
   }) async {
     final callable = _functions.httpsCallable('registerScannerDevice');
     final result = await callable.call({
       'deviceId': deviceId,
       'label': label,
       'platform': platform,
+      if (inviteToken != null && inviteToken.isNotEmpty)
+        'inviteToken': inviteToken,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 스캐너 초대링크 생성 (관리자)
+  Future<Map<String, dynamic>> createScannerInvite({
+    String? eventId,
+    int expiresInHours = 24,
+  }) async {
+    final callable = _functions.httpsCallable('createScannerInvite');
+    final result = await callable.call({
+      if (eventId != null && eventId.isNotEmpty) 'eventId': eventId,
+      'expiresInHours': expiresInHours,
     });
     return Map<String, dynamic>.from(result.data);
   }

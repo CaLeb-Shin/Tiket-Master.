@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../app/admin_theme.dart';
@@ -92,19 +93,57 @@ class _ScannerDeviceApprovalScreenState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // ── Page Title ──
-                          Text(
-                            '스캐너 기기 승인',
-                            style: AdminTheme.serif(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w300,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            width: 12,
-                            height: 1,
-                            color: AdminTheme.gold,
+                          // ── Page Title + Invite Button ──
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '스캐너 기기 승인',
+                                      style: AdminTheme.serif(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w300,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      width: 12,
+                                      height: 1,
+                                      color: AdminTheme.gold,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => _showInviteDialog(),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: AdminTheme.gold,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.link,
+                                          size: 14, color: AdminTheme.onAccent),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '초대링크 생성',
+                                        style: AdminTheme.label(
+                                          fontSize: 10,
+                                          color: AdminTheme.onAccent,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 40),
 
@@ -341,6 +380,21 @@ class _ScannerDeviceApprovalScreenState
         return device.blocked;
       case _DeviceFilter.all:
         return true;
+    }
+  }
+
+  Future<void> _showInviteDialog() async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => _ScannerInviteDialog(ref: ref),
+    );
+    if (result != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('초대링크가 클립보드에 복사되었습니다'),
+          backgroundColor: AdminTheme.success,
+        ),
+      );
     }
   }
 
@@ -603,6 +657,302 @@ class _DeviceCard extends StatelessWidget {
               fontSize: 9,
               color: filled ? Colors.white : color,
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// SCANNER INVITE DIALOG
+// =============================================================================
+
+class _ScannerInviteDialog extends StatefulWidget {
+  final WidgetRef ref;
+  const _ScannerInviteDialog({required this.ref});
+
+  @override
+  State<_ScannerInviteDialog> createState() => _ScannerInviteDialogState();
+}
+
+class _ScannerInviteDialogState extends State<_ScannerInviteDialog> {
+  bool _loading = false;
+  String? _generatedLink;
+  String? _error;
+  int _expiresInHours = 24;
+
+  Future<void> _generate() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final result = await widget.ref
+          .read(functionsServiceProvider)
+          .createScannerInvite(expiresInHours: _expiresInHours);
+      final token = result['token'] as String;
+      final link =
+          'https://melonticket-web-20260216.vercel.app/staff/scanner?invite=$token';
+      await Clipboard.setData(ClipboardData(text: link));
+      if (!mounted) return;
+      setState(() {
+        _generatedLink = link;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = '$e';
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AdminTheme.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Title ──
+              Text(
+                '스캐너 초대링크',
+                style: AdminTheme.serif(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '링크를 받은 스태프가 접속하면 자동으로 기기 승인됩니다',
+                style: AdminTheme.sans(
+                  fontSize: 12,
+                  color: AdminTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // ── Expires selector ──
+              Row(
+                children: [
+                  Text(
+                    'EXPIRES',
+                    style: AdminTheme.label(
+                      fontSize: 9,
+                      color: AdminTheme.sage,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ...[6, 12, 24, 48].map((h) => Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: GestureDetector(
+                          onTap: () => setState(() => _expiresInHours = h),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: _expiresInHours == h
+                                  ? AdminTheme.gold
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(2),
+                              border: Border.all(
+                                color: _expiresInHours == h
+                                    ? AdminTheme.gold
+                                    : AdminTheme.sage.withValues(alpha: 0.25),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              '${h}h',
+                              style: AdminTheme.label(
+                                fontSize: 9,
+                                color: _expiresInHours == h
+                                    ? AdminTheme.onAccent
+                                    : AdminTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // ── Generated link ──
+              if (_generatedLink != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AdminTheme.background,
+                    borderRadius: BorderRadius.circular(2),
+                    border: Border.all(
+                      color: AdminTheme.success.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.check_circle,
+                              size: 14, color: AdminTheme.success),
+                          const SizedBox(width: 6),
+                          Text(
+                            '링크 생성 + 복사 완료',
+                            style: AdminTheme.sans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AdminTheme.success,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      SelectableText(
+                        _generatedLink!,
+                        style: AdminTheme.sans(
+                          fontSize: 10,
+                          color: AdminTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(
+                              ClipboardData(text: _generatedLink!));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('복사됨')),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: AdminTheme.sage.withValues(alpha: 0.25),
+                              width: 0.5,
+                            ),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '다시 복사',
+                            style: AdminTheme.label(
+                              fontSize: 10,
+                              color: AdminTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () =>
+                            Navigator.of(context).pop(_generatedLink),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AdminTheme.gold,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '닫기',
+                            style: AdminTheme.label(
+                              fontSize: 10,
+                              color: AdminTheme.onAccent,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                // ── Generate button ──
+                if (_error != null) ...[
+                  Text(
+                    _error!,
+                    style: AdminTheme.sans(
+                        fontSize: 11, color: AdminTheme.error),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: AdminTheme.sage.withValues(alpha: 0.25),
+                              width: 0.5,
+                            ),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '취소',
+                            style: AdminTheme.label(
+                              fontSize: 10,
+                              color: AdminTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: _loading ? null : _generate,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AdminTheme.gold,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          alignment: Alignment.center,
+                          child: _loading
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AdminTheme.onAccent,
+                                  ),
+                                )
+                              : Text(
+                                  '생성 + 복사',
+                                  style: AdminTheme.label(
+                                    fontSize: 10,
+                                    color: AdminTheme.onAccent,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
           ),
         ),
       ),

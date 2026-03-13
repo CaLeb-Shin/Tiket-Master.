@@ -211,7 +211,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/staff/scanner',
             name: 'staffScanner',
-            builder: (context, state) => const ScannerScreen(),
+            builder: (context, state) => ScannerScreen(
+              inviteToken: state.uri.queryParameters['invite'],
+            ),
           ),
 
           // 네이버 모바일 티켓 (비로그인, 공개 URL)

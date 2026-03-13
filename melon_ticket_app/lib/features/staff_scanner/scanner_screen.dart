@@ -10,7 +10,8 @@ import 'package:melon_core/services/functions_service.dart';
 import 'package:melon_core/services/scanner_device_service.dart';
 
 class ScannerScreen extends ConsumerStatefulWidget {
-  const ScannerScreen({super.key});
+  final String? inviteToken;
+  const ScannerScreen({super.key, this.inviteToken});
 
   @override
   ConsumerState<ScannerScreen> createState() => _ScannerScreenState();
@@ -99,6 +100,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             deviceId: deviceId,
             label: label,
             platform: platform,
+            inviteToken: widget.inviteToken,
           );
 
       if (!mounted) return;
