@@ -50,6 +50,12 @@ service cloud.firestore {
     match /events/{eventId} {
       allow read: if true;
       allow write: if isAdmin();
+
+      // 이벤트 하위 좌석 (공개 읽기, 어드민 쓰기)
+      match /seats/{seatId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
     }
 
     // 공연장 시점 이미지 (공개 읽기, 관리자 쓰기)
