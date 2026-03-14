@@ -543,13 +543,13 @@ class _EventStartDialogState extends State<EventStartDialog> {
   Future<void> _createNewSeats(ExcelParseResult parseResult) async {
     final db = FirebaseFirestore.instance;
 
-    // 기존 좌석 삭제
-    if (_seatCount > 0) {
-      setState(() => _statusText = '기존 ${_seatCount}석 삭제 중...');
-      final oldSnap = await db
-          .collection('seats')
-          .where('eventId', isEqualTo: widget.event.id)
-          .get();
+    // 기존 좌석 항상 삭제 (중복 방지)
+    setState(() => _statusText = '기존 좌석 삭제 중...');
+    final oldSnap = await db
+        .collection('seats')
+        .where('eventId', isEqualTo: widget.event.id)
+        .get();
+    if (oldSnap.docs.isNotEmpty) {
       var delBatch = db.batch();
       var delPending = 0;
       for (final doc in oldSnap.docs) {
