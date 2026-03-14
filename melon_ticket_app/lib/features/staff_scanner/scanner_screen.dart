@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -68,8 +69,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   void initState() {
     super.initState();
     _controller = MobileScannerController(
-      detectionSpeed: DetectionSpeed.normal,
+      detectionSpeed: DetectionSpeed.noDuplicates,
       facing: CameraFacing.back,
+      formats: [BarcodeFormat.qrCode],
     );
     unawaited(_registerCurrentDevice());
   }
@@ -236,6 +238,15 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       final buyerName = result['buyerName'] as String?;
       final phoneLast4 = result['phoneLast4'] as String?;
 
+      // 햅틱 피드백
+      if (!kIsWeb) {
+        if (success) {
+          HapticFeedback.heavyImpact();
+        } else {
+          HapticFeedback.vibrate();
+        }
+      }
+
       setState(() {
         _lastResult = _ScanResultData(
           isSuccess: success,
@@ -247,6 +258,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         );
       });
     } on FormatException catch (e) {
+      if (!kIsWeb) HapticFeedback.vibrate();
       setState(() {
         _lastResult = _ScanResultData(
           isSuccess: false,
@@ -255,6 +267,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         );
       });
     } catch (e) {
+      if (!kIsWeb) HapticFeedback.vibrate();
       setState(() {
         _lastResult = _ScanResultData(
           isSuccess: false,
@@ -266,9 +279,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       if (mounted) {
         setState(() => _isProcessing = false);
 
-        // Auto-dismiss result after 3 seconds and resume scanning
+        // Auto-dismiss result after 5 seconds and resume scanning
         _resultDismissTimer?.cancel();
-        _resultDismissTimer = Timer(const Duration(seconds: 3), () {
+        _resultDismissTimer = Timer(const Duration(seconds: 5), () {
           if (mounted) {
             setState(() => _lastResult = null);
             if (_isDeviceApproved && !_isDeviceBlocked) {

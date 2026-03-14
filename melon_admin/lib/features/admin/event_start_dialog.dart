@@ -235,27 +235,39 @@ class _EventStartDialogState extends State<EventStartDialog> {
   // ── TADMIN 잔여석 Excel 파서 (telegram-bot.js parseUnsoldSeats 포팅) ──
   // 반환: Set<seatKey> (예: "G구역-1층-3-12")
   Set<String>? _parseTadminUnsoldExcel(List<int> bytes) {
-    final excel = Excel.decodeBytes(bytes);
+    Excel excel;
+    try {
+      excel = Excel.decodeBytes(bytes);
+    } catch (e) {
+      _addLog('⚠ TADMIN 파서: Excel 디코딩 실패 (${e.toString().length > 50 ? e.toString().substring(0, 50) : e})');
+      return null;
+    }
     final sheetName = excel.tables.keys.first;
     final sheet = excel.tables[sheetName];
     if (sheet == null) return null;
 
-    // 헤더 행 찾기
+    // 헤더 행 찾기 (더 유연한 매칭)
     int headerIdx = -1;
     for (int r = 0; r < sheet.maxRows && r < 10; r++) {
       final row = sheet.row(r);
       final cells = row.map((c) => (c?.value?.toString().trim() ?? '')).toList();
-      if (cells.any((c) => c.contains('좌석등급') || c.contains('등급'))) {
+      if (cells.any((c) =>
+          c.contains('좌석등급') || c.contains('등급') ||
+          c.contains('좌석번호') || c == '열')) {
         headerIdx = r;
         break;
       }
     }
-    if (headerIdx < 0) return null; // TADMIN 형식 아님
+    if (headerIdx < 0) {
+      _addLog('⚠ TADMIN 파서: 헤더 행 없음');
+      return null;
+    }
 
     // 컬럼 인덱스 자동 감지
     final headerRow = sheet.row(headerIdx)
         .map((c) => (c?.value?.toString().trim() ?? ''))
         .toList();
+    _addLog('📋 TADMIN 헤더: ${headerRow.where((h) => h.isNotEmpty).join(", ")}');
 
     int findCol(bool Function(String) test) {
       for (int i = 0; i < headerRow.length; i++) {
@@ -267,10 +279,13 @@ class _EventStartDialogState extends State<EventStartDialog> {
     final gradeIdx = findCol((c) => c.contains('좌석등급') || c == '등급');
     final floorIdx = findCol((c) => c == '층' || c.contains('층'));
     final sectionRowIdx = findCol((c) => c == '열' || c.contains('열'));
-    final seatsIdx = findCol((c) => c.contains('좌석번호'));
+    final seatsIdx = findCol((c) => c.contains('좌석번호') || c.contains('번호'));
 
     // TADMIN 형식 검증: 좌석번호 컬럼이 없으면 TADMIN이 아님
-    if (seatsIdx < 0) return null;
+    if (seatsIdx < 0) {
+      _addLog('⚠ TADMIN 파서: 좌석번호 컬럼 없음');
+      return null;
+    }
 
     final colGrade = gradeIdx >= 0 ? gradeIdx : 3;
     final colFloor = floorIdx >= 0 ? floorIdx : 4;
@@ -282,8 +297,14 @@ class _EventStartDialogState extends State<EventStartDialog> {
     String lastFloor = '';
     final gradeCounts = <String, int>{};
 
-    // "G구역 3열", "BL5구역 1열", "A열 5행", "C열 3" 패턴
-    final srPattern = RegExp(r'^(.+?(?:구역|열))\s*(\d+)(?:열|행)?$');
+    // 열 컬럼 패턴들:
+    // 1. "G구역 3열", "BL5구역 1열" → section=G구역, row=3
+    // 2. "A10열", "B9열" → block=A, row=10
+    // 3. "합창F1열" → block=합창F, row=1
+    // 4. "합창H열" → block=합창H, row=1 (행번호 없음)
+    final srPatternSection = RegExp(r'^(.+?구역)\s*(\d+)(?:열|행)?$');
+    final srPatternBlock = RegExp(r'^([A-Za-z가-힣]+?)(\d+)열$');
+    final srPatternNoRow = RegExp(r'^([A-Za-z가-힣]+)열$');
 
     for (int r = headerIdx + 1; r < sheet.maxRows; r++) {
       final row = sheet.row(r);
@@ -301,15 +322,36 @@ class _EventStartDialogState extends State<EventStartDialog> {
       final floorRaw = cell(colFloor);
       if (floorRaw.isNotEmpty) lastFloor = floorRaw;
 
-      // 열 컬럼: "G구역 3열" → section + rowNum
+      // 열 컬럼 파싱
       final sectionRowRaw = cell(colSR);
       if (sectionRowRaw.isEmpty) continue;
 
-      final srMatch = srPattern.firstMatch(sectionRowRaw);
-      if (srMatch == null) continue;
-      final section = srMatch.group(1)!;
-      final rowNum = int.tryParse(srMatch.group(2)!);
-      if (rowNum == null) continue;
+      String? section;
+      int? rowNum;
+
+      // 패턴1: "G구역 3열" (구역 포함)
+      var srMatch = srPatternSection.firstMatch(sectionRowRaw);
+      if (srMatch != null) {
+        section = srMatch.group(1)!;
+        rowNum = int.tryParse(srMatch.group(2)!);
+      }
+      // 패턴2: "A10열" (블록+숫자+열)
+      if (section == null) {
+        srMatch = srPatternBlock.firstMatch(sectionRowRaw);
+        if (srMatch != null) {
+          section = srMatch.group(1)!;
+          rowNum = int.tryParse(srMatch.group(2)!);
+        }
+      }
+      // 패턴3: "합창H열" (행번호 없음)
+      if (section == null) {
+        srMatch = srPatternNoRow.firstMatch(sectionRowRaw);
+        if (srMatch != null) {
+          section = srMatch.group(1)!;
+          rowNum = 1;
+        }
+      }
+      if (section == null || rowNum == null) continue;
 
       // 층 정규화: "1층", "2층" 등
       final floorMatch = RegExp(r'(\d+)층').firstMatch(lastFloor);
@@ -497,11 +539,34 @@ class _EventStartDialogState extends State<EventStartDialog> {
     }
   }
 
-  // ── 새 좌석 생성 (좌석 없을 때) ──
+  // ── 새 좌석 생성 (기존 좌석 삭제 후 새로 생성) ──
   Future<void> _createNewSeats(ExcelParseResult parseResult) async {
+    final db = FirebaseFirestore.instance;
+
+    // 기존 좌석 삭제
+    if (_seatCount > 0) {
+      setState(() => _statusText = '기존 ${_seatCount}석 삭제 중...');
+      final oldSnap = await db
+          .collection('seats')
+          .where('eventId', isEqualTo: widget.event.id)
+          .get();
+      var delBatch = db.batch();
+      var delPending = 0;
+      for (final doc in oldSnap.docs) {
+        delBatch.delete(doc.reference);
+        delPending++;
+        if (delPending >= 400) {
+          await delBatch.commit();
+          delBatch = db.batch();
+          delPending = 0;
+        }
+      }
+      if (delPending > 0) await delBatch.commit();
+      _addLog('✓ 기존 ${oldSnap.docs.length}석 삭제');
+    }
+
     setState(() => _statusText = '${parseResult.totalSeats}석 업로드 중...');
 
-    final db = FirebaseFirestore.instance;
     var batch = db.batch();
     var pending = 0;
     int count = 0;
@@ -533,13 +598,12 @@ class _EventStartDialogState extends State<EventStartDialog> {
     }
     if (pending > 0) await batch.commit();
 
-    final newTotal = _seatCount + count;
     await db.collection('events').doc(widget.event.id).update({
-      'totalSeats': newTotal,
-      'availableSeats': newTotal,
+      'totalSeats': count,
+      'availableSeats': count,
     });
 
-    _seatCount = newTotal;
+    _seatCount = count;
     _availableCount = count;
     _hasSeats = true;
 

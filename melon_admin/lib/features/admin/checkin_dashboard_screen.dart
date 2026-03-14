@@ -25,6 +25,7 @@ class CheckinDashboardScreen extends ConsumerStatefulWidget {
 class _CheckinDashboardScreenState
     extends ConsumerState<CheckinDashboardScreen> {
   String? _selectedEventId;
+  int _viewMode = 0; // 0=현황+로그, 1=명단
   final _timeFmt = DateFormat('HH:mm:ss');
   final _dateFmt = DateFormat('MM.dd HH:mm');
 
@@ -58,8 +59,14 @@ class _CheckinDashboardScreenState
             // 실시간 대시보드
             if (_selectedEventId != null) ...[
               _buildStatsRow(),
-              const SizedBox(height: 24),
-              Expanded(child: _buildCheckinFeed()),
+              const SizedBox(height: 16),
+              _buildViewToggle(),
+              const SizedBox(height: 16),
+              Expanded(
+                child: _viewMode == 0
+                    ? _buildCheckinFeed()
+                    : _buildCheckinList(),
+              ),
             ] else
               Expanded(
                 child: Center(
@@ -353,6 +360,295 @@ class _CheckinDashboardScreenState
             style: TextStyle(
               fontSize: 11,
               color: AdminTheme.textTertiary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildViewToggle() {
+    return Row(
+      children: [
+        _toggleButton('체크인 로그', 0, Icons.receipt_long_rounded),
+        const SizedBox(width: 8),
+        _toggleButton('전체 명단', 1, Icons.people_rounded),
+      ],
+    );
+  }
+
+  Widget _toggleButton(String label, int mode, IconData icon) {
+    final isActive = _viewMode == mode;
+    return GestureDetector(
+      onTap: () => setState(() => _viewMode = mode),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive
+              ? AdminTheme.gold.withValues(alpha: 0.15)
+              : AdminTheme.card,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isActive
+                ? AdminTheme.gold.withValues(alpha: 0.5)
+                : AdminTheme.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 14,
+                color: isActive ? AdminTheme.gold : AdminTheme.textTertiary),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: AdminTheme.sans(
+                fontSize: 12,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                color: isActive ? AdminTheme.gold : AdminTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── 전체 명단 (티켓 기반, 입장 여부 표시) ──
+  Widget _buildCheckinList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('mobileTickets')
+          .where('eventId', isEqualTo: _selectedEventId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: AdminTheme.gold),
+          );
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Text('티켓이 없습니다',
+                style: TextStyle(color: AdminTheme.textSecondary)),
+          );
+        }
+
+        final docs = snapshot.data!.docs;
+        // 입장한 사람 먼저, 그 안에서 입장 시간 최신순
+        final sorted = List<QueryDocumentSnapshot>.from(docs)
+          ..sort((a, b) {
+            final aData = a.data() as Map<String, dynamic>;
+            final bData = b.data() as Map<String, dynamic>;
+            final aChecked = aData['entryCheckedInAt'] as Timestamp?;
+            final bChecked = bData['entryCheckedInAt'] as Timestamp?;
+            // 입장한 사람 먼저
+            if (aChecked != null && bChecked == null) return -1;
+            if (aChecked == null && bChecked != null) return 1;
+            // 둘 다 입장 → 최신 먼저
+            if (aChecked != null && bChecked != null) {
+              return bChecked.compareTo(aChecked);
+            }
+            // 둘 다 미입장 → 이름순
+            final aName = (aData['buyerName'] as String?) ?? '';
+            final bName = (bData['buyerName'] as String?) ?? '';
+            return aName.compareTo(bName);
+          });
+
+        final checkedCount =
+            sorted.where((d) => (d.data() as Map)['entryCheckedInAt'] != null).length;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  '전체 명단',
+                  style: AdminTheme.sans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AdminTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AdminTheme.success.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '$checkedCount / ${sorted.length}',
+                    style: AdminTheme.label(
+                        fontSize: 10, color: AdminTheme.success),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // 테이블 헤더
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: AdminTheme.surface,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                      width: 40,
+                      child: Text('상태',
+                          style: _headerStyle())),
+                  SizedBox(
+                      width: 80,
+                      child: Text('이름',
+                          style: _headerStyle())),
+                  SizedBox(
+                      width: 100,
+                      child: Text('연락처',
+                          style: _headerStyle())),
+                  SizedBox(
+                      width: 50,
+                      child: Text('등급',
+                          style: _headerStyle())),
+                  Expanded(
+                      child: Text('좌석',
+                          style: _headerStyle())),
+                  SizedBox(
+                      width: 70,
+                      child: Text('입장시각',
+                          style: _headerStyle())),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Expanded(
+              child: ListView.builder(
+                itemCount: sorted.length,
+                itemBuilder: (context, index) {
+                  final data =
+                      sorted[index].data() as Map<String, dynamic>;
+                  return _buildListItem(data);
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  TextStyle _headerStyle() {
+    return AdminTheme.label(fontSize: 10, color: AdminTheme.textTertiary);
+  }
+
+  Widget _buildListItem(Map<String, dynamic> data) {
+    final name = (data['buyerName'] as String?) ?? '';
+    final phone = (data['buyerPhone'] as String?) ?? '';
+    final grade = (data['seatGrade'] as String?) ?? '';
+    final seatInfo = (data['seatInfo'] as String?) ?? '';
+    final checkedAt = data['entryCheckedInAt'] as Timestamp?;
+    final isChecked = checkedAt != null;
+    final timeStr = isChecked ? _timeFmt.format(checkedAt.toDate()) : '';
+    // 연락처 마스킹: 010-1234-5678 → 010-****-5678
+    final maskedPhone = phone.length >= 8
+        ? '${phone.substring(0, 3)}-****-${phone.substring(phone.length - 4)}'
+        : phone;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: isChecked
+            ? AdminTheme.success.withValues(alpha: 0.04)
+            : AdminTheme.card,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        children: [
+          // 상태 아이콘
+          SizedBox(
+            width: 40,
+            child: Icon(
+              isChecked
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked,
+              size: 16,
+              color: isChecked ? AdminTheme.success : AdminTheme.textTertiary,
+            ),
+          ),
+          // 이름
+          SizedBox(
+            width: 80,
+            child: Text(
+              name,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AdminTheme.textPrimary,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // 연락처
+          SizedBox(
+            width: 100,
+            child: Text(
+              maskedPhone,
+              style: TextStyle(
+                fontSize: 12,
+                color: AdminTheme.textSecondary,
+              ),
+            ),
+          ),
+          // 등급
+          SizedBox(
+            width: 50,
+            child: grade.isNotEmpty
+                ? Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _gradeColor(grade).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      grade,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _gradeColor(grade),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          // 좌석
+          Expanded(
+            child: Text(
+              seatInfo,
+              style: TextStyle(
+                fontSize: 12,
+                color: AdminTheme.textSecondary,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // 입장 시각
+          SizedBox(
+            width: 70,
+            child: Text(
+              timeStr,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isChecked ? FontWeight.w500 : FontWeight.w400,
+                color: isChecked ? AdminTheme.success : AdminTheme.textTertiary,
+              ),
             ),
           ),
         ],
