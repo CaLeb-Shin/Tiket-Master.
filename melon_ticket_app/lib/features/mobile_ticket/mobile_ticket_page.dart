@@ -4348,171 +4348,22 @@ class _LiveStatusSectionState extends ConsumerState<_LiveStatusSection> {
   }
 
   Widget _buildEntryStamp() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFF58C27D).withValues(alpha: 0.08),
-            const Color(0xFF58C27D).withValues(alpha: 0.03),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF58C27D).withValues(alpha: 0.25),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFF58C27D).withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.check_circle_rounded,
-              color: Color(0xFF58C27D),
-              size: 26,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '1부 입장완료',
-                  style: AppTheme.nanum(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF58C27D),
-                    noShadow: true,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '공연을 즐겨주세요!',
-                  style: AppTheme.nanum(
-                    fontSize: 12,
-                    color: _textMid,
-                    noShadow: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // 스탬프 아이콘
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0xFF58C27D).withValues(alpha: 0.4),
-                width: 2.5,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                '1부',
-                style: AppTheme.nanum(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF58C27D),
-                  noShadow: true,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return _RubberStamp(
+      label: '1부',
+      subLabel: '입장완료',
+      color: const Color(0xFFC0392B),
+      angle: -0.21,
+      message: '공연을 즐겨주세요!',
     );
   }
 
   Widget _buildIntermissionStamp() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppTheme.gold.withValues(alpha: 0.08),
-            AppTheme.gold.withValues(alpha: 0.03),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppTheme.gold.withValues(alpha: 0.25),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppTheme.gold.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.check_circle_rounded,
-              color: AppTheme.gold,
-              size: 26,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '인터미션 입장완료',
-                  style: AppTheme.nanum(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.gold,
-                    noShadow: true,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '2부 공연을 즐겨주세요!',
-                  style: AppTheme.nanum(
-                    fontSize: 12,
-                    color: _textMid,
-                    noShadow: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppTheme.gold.withValues(alpha: 0.4),
-                width: 2.5,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                '2부',
-                style: AppTheme.nanum(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  color: AppTheme.gold,
-                  noShadow: true,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return _RubberStamp(
+      label: '2부',
+      subLabel: '입장완료',
+      color: AppTheme.gold,
+      angle: 0.15,
+      message: '2부 공연을 즐겨주세요!',
     );
   }
 
@@ -4689,6 +4540,128 @@ class _LiveStatusSectionState extends ConsumerState<_LiveStatusSection> {
       ),
     );
   }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ── 빈티지 도장 스탬프 위젯 ──
+// ══════════════════════════════════════════════════════════════════
+
+class _RubberStamp extends StatelessWidget {
+  final String label;
+  final String subLabel;
+  final Color color;
+  final double angle; // radians
+  final String message;
+
+  const _RubberStamp({
+    required this.label,
+    required this.subLabel,
+    required this.color,
+    required this.angle,
+    required this.message,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // 안내 메시지
+        Expanded(
+          child: Text(
+            message,
+            style: AppTheme.nanum(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: _textMid,
+              noShadow: true,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // 도장
+        Transform.rotate(
+          angle: angle,
+          child: CustomPaint(
+            painter: _StampPainter(color: color),
+            child: Container(
+              width: 88,
+              height: 88,
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    style: AppTheme.nanum(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: color.withValues(alpha: 0.85),
+                      letterSpacing: 2,
+                      noShadow: true,
+                    ),
+                  ),
+                  Text(
+                    subLabel,
+                    style: AppTheme.nanum(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: color.withValues(alpha: 0.7),
+                      letterSpacing: 1,
+                      noShadow: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StampPainter extends CustomPainter {
+  final Color color;
+  const _StampPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final outerR = size.width / 2 - 2;
+    final innerR = outerR - 4;
+
+    // 외부 원 (두꺼운 잉크)
+    final outerPaint = Paint()
+      ..color = color.withValues(alpha: 0.75)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+    canvas.drawCircle(center, outerR, outerPaint);
+
+    // 내부 원 (얇은 선)
+    final innerPaint = Paint()
+      ..color = color.withValues(alpha: 0.55)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawCircle(center, innerR, innerPaint);
+
+    // 잉크 얼룩 효과 (불규칙 점들)
+    final dotPaint = Paint()
+      ..color = color.withValues(alpha: 0.15)
+      ..style = PaintingStyle.fill;
+    final rng = [
+      Offset(center.dx - 18, center.dy - 22),
+      Offset(center.dx + 20, center.dy + 18),
+      Offset(center.dx - 25, center.dy + 10),
+      Offset(center.dx + 12, center.dy - 26),
+      Offset(center.dx + 28, center.dy - 5),
+    ];
+    for (final p in rng) {
+      canvas.drawCircle(p, 3, dotPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _StampPainter old) => color != old.color;
 }
 
 // ── Boarding Pass Clipper ──
