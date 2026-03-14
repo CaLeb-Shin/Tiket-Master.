@@ -993,6 +993,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
                 qrVersion: qrVersion,
                 qrRevealed: qrRevealed,
                 isCancelled: isCancelled,
+                naverProductUrl: naverProductUrl,
               ),
 
             // ── 그룹 티켓: 이 티켓 전달하기 버튼 ──
@@ -4289,6 +4290,7 @@ class _LiveStatusSection extends ConsumerStatefulWidget {
   final int qrVersion;
   final bool qrRevealed;
   final bool isCancelled;
+  final String? naverProductUrl;
 
   const _LiveStatusSection({
     required this.stateCode,
@@ -4299,6 +4301,7 @@ class _LiveStatusSection extends ConsumerStatefulWidget {
     required this.qrVersion,
     required this.qrRevealed,
     required this.isCancelled,
+    this.naverProductUrl,
   });
 
   @override
@@ -4605,21 +4608,23 @@ class _LiveStatusSectionState extends ConsumerState<_LiveStatusSection> {
   }
 
   Widget _buildReviewCard() {
+    final hasNaverUrl = widget.naverProductUrl != null && widget.naverProductUrl!.isNotEmpty;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppTheme.gold.withValues(alpha: 0.10),
-            AppTheme.gold.withValues(alpha: 0.04),
+            _naverGreen.withValues(alpha: 0.08),
+            _naverGreen.withValues(alpha: 0.03),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppTheme.gold.withValues(alpha: 0.3),
+          color: _naverGreen.withValues(alpha: 0.25),
         ),
       ),
       child: Column(
@@ -4641,7 +4646,7 @@ class _LiveStatusSectionState extends ConsumerState<_LiveStatusSection> {
           ),
           const SizedBox(height: 4),
           Text(
-            '소중한 후기를 남겨주세요',
+            '네이버 스토어에서 리뷰를 남겨주세요',
             style: AppTheme.nanum(
               fontSize: 13,
               color: _textMid,
@@ -4649,168 +4654,39 @@ class _LiveStatusSectionState extends ConsumerState<_LiveStatusSection> {
             ),
           ),
           const SizedBox(height: 16),
-          _ReviewStars(
-            ticketId: widget.ticketId,
-            accessToken: widget.accessToken,
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: hasNaverUrl
+                  ? () => launchUrl(
+                        Uri.parse(widget.naverProductUrl!),
+                        mode: LaunchMode.externalApplication,
+                      )
+                  : null,
+              icon: const Icon(Icons.rate_review_rounded, size: 20),
+              label: Text(
+                '네이버 리뷰 작성하기',
+                style: AppTheme.nanum(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  noShadow: true,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _naverGreen,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: _creamDark,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+            ),
           ),
         ],
       ),
-    );
-  }
-}
-
-// ── 리뷰 별점 위젯 ──
-class _ReviewStars extends ConsumerStatefulWidget {
-  final String ticketId;
-  final String accessToken;
-
-  const _ReviewStars({required this.ticketId, required this.accessToken});
-
-  @override
-  ConsumerState<_ReviewStars> createState() => _ReviewStarsState();
-}
-
-class _ReviewStarsState extends ConsumerState<_ReviewStars> {
-  int _rating = 0;
-  final _commentController = TextEditingController();
-  bool _submitted = false;
-  bool _isSubmitting = false;
-
-  @override
-  void dispose() {
-    _commentController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submitReview() async {
-    if (_rating == 0 || _isSubmitting) return;
-    setState(() => _isSubmitting = true);
-    try {
-      await ref.read(functionsServiceProvider).submitReview(
-        ticketId: widget.ticketId,
-        accessToken: widget.accessToken,
-        rating: _rating,
-        comment: _commentController.text.trim(),
-      );
-      if (mounted) setState(() => _submitted = true);
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '리뷰 제출에 실패했습니다',
-              style: AppTheme.nanum(fontSize: 13, color: _cream),
-            ),
-            backgroundColor: _burgundy,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_submitted) {
-      return Column(
-        children: [
-          const Icon(Icons.check_circle_rounded, color: Color(0xFF58C27D), size: 32),
-          const SizedBox(height: 8),
-          Text(
-            '리뷰가 등록되었습니다. 감사합니다!',
-            style: AppTheme.nanum(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF58C27D),
-              noShadow: true,
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      children: [
-        // 별점
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(5, (i) {
-            return GestureDetector(
-              onTap: () => setState(() => _rating = i + 1),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Icon(
-                  i < _rating ? Icons.star_rounded : Icons.star_border_rounded,
-                  color: AppTheme.gold,
-                  size: 36,
-                ),
-              ),
-            );
-          }),
-        ),
-        const SizedBox(height: 12),
-        // 한줄평
-        TextField(
-          controller: _commentController,
-          maxLength: 100,
-          style: AppTheme.nanum(fontSize: 14, color: _textDark, noShadow: true),
-          decoration: InputDecoration(
-            hintText: '한줄평을 남겨주세요 (선택)',
-            hintStyle: AppTheme.nanum(fontSize: 13, color: _textLight, noShadow: true),
-            counterStyle: AppTheme.nanum(fontSize: 10, color: _textLight, noShadow: true),
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: _divider),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: _divider),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppTheme.gold),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          height: 44,
-          child: ElevatedButton(
-            onPressed: _rating > 0 ? _submitReview : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.gold,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: _creamDark,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: _isSubmitting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : Text(
-                    '리뷰 등록',
-                    style: AppTheme.nanum(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      noShadow: true,
-                    ),
-                  ),
-          ),
-        ),
-      ],
     );
   }
 }
