@@ -295,4 +295,30 @@ class FunctionsService {
     });
     return Map<String, dynamic>.from(result.data);
   }
+
+  /// 공연 종료 (어드민 전용)
+  Future<Map<String, dynamic>> completeEvent({
+    required String eventId,
+  }) async {
+    final callable = _functions.httpsCallable('completeEvent');
+    final result = await callable.call({'eventId': eventId});
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 리뷰 제출 (공연종료 후 모바일 티켓에서)
+  Future<Map<String, dynamic>> submitReview({
+    required String ticketId,
+    required String accessToken,
+    required int rating,
+    String comment = '',
+  }) async {
+    final callable = _functions.httpsCallable('submitReview');
+    final result = await callable.call({
+      'ticketId': ticketId,
+      'accessToken': accessToken,
+      'rating': rating,
+      'comment': comment,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
 }

@@ -19,6 +19,7 @@ class MobileTicket {
   final String accessToken; // UUID v4 — URL 접근용
   final int entryNumber; // 등급 내 선착순 번호
   final DateTime? entryCheckedInAt;
+  final DateTime? intermissionCheckedInAt;
   final String? lastCheckInStage;
   final String? recipientName; // 전달받은 사람 이름
 
@@ -40,6 +41,7 @@ class MobileTicket {
     required this.accessToken,
     required this.entryNumber,
     this.entryCheckedInAt,
+    this.intermissionCheckedInAt,
     this.lastCheckInStage,
     this.recipientName,
   });
@@ -66,6 +68,8 @@ class MobileTicket {
       entryNumber: data['entryNumber'] ?? 0,
       entryCheckedInAt:
           (data['entryCheckedInAt'] as Timestamp?)?.toDate(),
+      intermissionCheckedInAt:
+          (data['intermissionCheckedInAt'] as Timestamp?)?.toDate(),
       lastCheckInStage: data['lastCheckInStage'],
       recipientName: data['recipientName'],
     );
@@ -92,12 +96,16 @@ class MobileTicket {
       'entryCheckedInAt': entryCheckedInAt != null
           ? Timestamp.fromDate(entryCheckedInAt!)
           : null,
+      'intermissionCheckedInAt': intermissionCheckedInAt != null
+          ? Timestamp.fromDate(intermissionCheckedInAt!)
+          : null,
       'lastCheckInStage': lastCheckInStage,
       if (recipientName != null) 'recipientName': recipientName,
     };
   }
 
   bool get isCheckedIn => entryCheckedInAt != null;
+  bool get isIntermissionCheckedIn => intermissionCheckedInAt != null;
 }
 
 enum MobileTicketStatus {

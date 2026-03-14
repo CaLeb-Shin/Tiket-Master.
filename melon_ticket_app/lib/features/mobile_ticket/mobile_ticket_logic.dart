@@ -13,23 +13,37 @@ String normalizeTicketStatus(String? raw) => switch (raw) {
   _ => 'active',
 };
 
+/// 티켓 상태 해석 (다단계 체크인 지원)
+/// codes: beforeReveal, active, entryCheckedIn, intermissionCheckedIn, eventCompleted, used, cancelled
 TicketStateInfo resolveTicketState({
   required String? status,
   required bool isCheckedIn,
   required bool isRevealed,
+  bool isIntermissionCheckedIn = false,
+  String? eventStatus,
 }) {
   final normalizedStatus = normalizeTicketStatus(status);
   if (normalizedStatus == 'cancelled') {
     return (code: 'cancelled', label: '취소됨', color: _ticketCancelledColor);
   }
   if (normalizedStatus == 'used') {
+    // 공연종료 상태 체크
+    if (eventStatus == 'completed') {
+      return (code: 'eventCompleted', label: '공연 종료', color: _ticketSuccessColor);
+    }
     return (code: 'used', label: '사용 완료', color: _ticketSuccessColor);
   }
   if (!isRevealed) {
     return (code: 'beforeReveal', label: '공개 전', color: AppTheme.gold);
   }
+  if (isIntermissionCheckedIn) {
+    if (eventStatus == 'completed') {
+      return (code: 'eventCompleted', label: '공연 종료', color: _ticketSuccessColor);
+    }
+    return (code: 'intermissionCheckedIn', label: '관람 중', color: _ticketSuccessColor);
+  }
   if (isCheckedIn) {
-    return (code: 'entryCheckedIn', label: '입장 완료', color: _ticketSuccessColor);
+    return (code: 'entryCheckedIn', label: '1부 입장완료', color: _ticketSuccessColor);
   }
   return (code: 'active', label: '사용 가능', color: AppTheme.gold);
 }

@@ -4258,3 +4258,72 @@ export const updateTicketSeatsHttp = functions.https.onRequest(async (req, res) 
     sendHttpError(res, err, "updateTicketSeatsHttp 오류:");
   }
 });
+
+// ============================================================
+// 공연종료 (어드민 → 이벤트 상태를 completed로 변경)
+// ============================================================
+export const completeEvent = functions.https.onCall(async (data: any, context) => {
+  await assertAdmin(context?.auth?.uid);
+  const { eventId } = data;
+  if (!eventId) {
+    throw new functions.https.HttpsError("invalid-argument", "eventId가 필요합니다");
+  }
+
+  await db.collection("events").doc(eventId).update({
+    eventStatus: "completed",
+    completedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  return { success: true };
+});
+
+// ============================================================
+// 리뷰 제출 (모바일 티켓 → accessToken 인증)
+// ============================================================
+export const submitReview = functions.https.onCall(async (data: any) => {
+  const { ticketId, accessToken, rating, comment } = data;
+
+  if (!ticketId || !accessToken || !rating) {
+    throw new functions.https.HttpsError("invalid-argument", "ticketId, accessToken, rating이 필요합니다");
+  }
+
+  if (typeof rating !== "number" || rating < 1 || rating > 5) {
+    throw new functions.https.HttpsError("invalid-argument", "rating은 1~5 사이여야 합니다");
+  }
+
+  // accessToken으로 티켓 소유 확인
+  const ticketRef = db.collection("mobileTickets").doc(ticketId);
+  const ticketDoc = await ticketRef.get();
+
+  if (!ticketDoc.exists) {
+    throw new functions.https.HttpsError("not-found", "티켓을 찾을 수 없습니다");
+  }
+
+  const ticket = ticketDoc.data()!;
+  if (ticket.accessToken !== accessToken) {
+    throw new functions.https.HttpsError("permission-denied", "접근 권한이 없습니다");
+  }
+
+  // 중복 리뷰 체크
+  const existingReview = await db.collection("reviews")
+    .where("ticketId", "==", ticketId)
+    .limit(1)
+    .get();
+
+  if (!existingReview.empty) {
+    throw new functions.https.HttpsError("already-exists", "이미 리뷰를 작성하셨습니다");
+  }
+
+  // 리뷰 저장
+  await db.collection("reviews").add({
+    ticketId,
+    eventId: ticket.eventId,
+    buyerName: ticket.buyerName || "",
+    recipientName: ticket.recipientName || null,
+    rating,
+    comment: typeof comment === "string" ? comment.trim().slice(0, 200) : "",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  return { success: true };
+});

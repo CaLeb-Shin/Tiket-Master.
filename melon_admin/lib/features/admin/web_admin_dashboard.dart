@@ -10,6 +10,7 @@ import 'package:melon_core/data/models/event.dart';
 import 'package:melon_core/data/models/app_user.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/services/firestore_service.dart';
+import 'package:melon_core/infrastructure/firebase/functions_service.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
 import 'event_start_dialog.dart';
 import 'widgets/role_switcher_widget.dart';
@@ -1724,6 +1725,17 @@ class _EventRowState extends ConsumerState<_EventRow> {
                             onPressed: (_) =>
                                 EventStartDialog.show(context, event),
                           ),
+                          shad.MenuButton(
+                            child: Text(
+                              '공연 종료',
+                              style: AdminTheme.sans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AdminTheme.error,
+                              ),
+                            ),
+                            onPressed: (_) => _completeEvent(event),
+                          ),
                           const shad.MenuDivider(),
                           shad.MenuButton(
                             child: Text(
@@ -1811,6 +1823,12 @@ class _EventRowState extends ConsumerState<_EventRow> {
                     fontSize: 13, fontWeight: FontWeight.w700, color: AdminTheme.gold)),
             onPressed: (_) => EventStartDialog.show(context, event),
           ),
+          shad.MenuButton(
+            child: Text('공연 종료',
+                style: AdminTheme.sans(
+                    fontSize: 13, fontWeight: FontWeight.w700, color: AdminTheme.error)),
+            onPressed: (_) => _completeEvent(event),
+          ),
           const shad.MenuDivider(),
           shad.MenuButton(
             child: Text('공연 복제', style: AdminTheme.sans(fontSize: 13)),
@@ -1828,6 +1846,81 @@ class _EventRowState extends ConsumerState<_EventRow> {
   // ═══════════════════════════════════════════════════════════════════════════
   // 공연 삭제 — 3단계 확인 + 비밀번호 재인증
   // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> _completeEvent(Event event) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AdminTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.event_available_rounded, size: 36, color: AdminTheme.gold),
+                const SizedBox(height: 16),
+                Text(
+                  '공연을 종료하시겠습니까?',
+                  style: AdminTheme.sans(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '종료하면 관객에게 리뷰 안내가 표시됩니다.',
+                  style: AdminTheme.sans(fontSize: 13, color: AdminTheme.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: shad.OutlineButton(
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: const Text('취소'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: shad.PrimaryButton(
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                        child: const Text('공연 종료'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final functions = ref.read(functionsServiceProvider);
+      await functions.completeEvent(eventId: event.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('공연이 종료되었습니다. 관객에게 리뷰 안내가 표시됩니다.'),
+          backgroundColor: AdminTheme.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('공연 종료 실패: $e'),
+          backgroundColor: AdminTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
 
   void _cloneEvent(Event event) {
     // 공연 복제: 기존 공연 데이터를 기반으로 새 공연 등록 폼 열기

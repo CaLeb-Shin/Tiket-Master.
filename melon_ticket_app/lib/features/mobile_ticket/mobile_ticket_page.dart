@@ -192,10 +192,14 @@ _TicketStateInfo _resolveTicketState({
   required String? status,
   required bool isCheckedIn,
   required bool isRevealed,
+  bool isIntermissionCheckedIn = false,
+  String? eventStatus,
 }) => resolveTicketState(
   status: status,
   isCheckedIn: isCheckedIn,
   isRevealed: isRevealed,
+  isIntermissionCheckedIn: isIntermissionCheckedIn,
+  eventStatus: eventStatus,
 );
 
 class MobileTicketPage extends ConsumerStatefulWidget {
@@ -759,6 +763,8 @@ class _TicketViewState extends ConsumerState<_TicketView>
     final orderIndex = ticket['orderIndex'] as int? ?? 1;
     final totalInOrder = ticket['totalInOrder'] as int? ?? 1;
     final isCheckedIn = ticket['isCheckedIn'] == true;
+    final isIntermissionCheckedIn = ticket['isIntermissionCheckedIn'] == true;
+    final lastCheckInStage = ticket['lastCheckInStage'] as String?;
 
     final eventTitle = event['title'] as String? ?? '공연';
     final imageUrl = event['imageUrl'] as String?;
@@ -767,6 +773,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
         (event['pamphletUrls'] as List?)?.cast<String>() ?? <String>[];
     final venueName = event['venueName'] as String? ?? '';
     final venueAddress = event['venueAddress'] as String? ?? '';
+    final eventStatus = event['eventStatus'] as String? ?? 'active';
     final startAt = _parseEventDateTime(event['startAt']);
     final revealAt =
         _parseEventDateTime(event['revealAt']) ??
@@ -780,9 +787,11 @@ class _TicketViewState extends ConsumerState<_TicketView>
       status: status,
       isCheckedIn: isCheckedIn,
       isRevealed: qrRevealed,
+      isIntermissionCheckedIn: isIntermissionCheckedIn,
+      eventStatus: eventStatus,
     );
     final isCancelled = stateInfo.code == 'cancelled';
-    final isUsed = stateInfo.code == 'used';
+    final isUsed = stateInfo.code == 'used' || stateInfo.code == 'eventCompleted';
     final shareMessage = _buildTicketShareMessage(
       eventTitle: eventTitle,
       startAt: startAt,
@@ -970,6 +979,21 @@ class _TicketViewState extends ConsumerState<_TicketView>
             ),
 
             const SizedBox(height: 20),
+
+            // ══════════════════════════════════════════
+            // ── 라이브 상태: 스탬프 + 인터미션 + 리뷰 ──
+            // ══════════════════════════════════════════
+            if (isCheckedIn || isIntermissionCheckedIn || stateInfo.code == 'eventCompleted')
+              _LiveStatusSection(
+                stateCode: stateInfo.code,
+                isCheckedIn: isCheckedIn,
+                isIntermissionCheckedIn: isIntermissionCheckedIn,
+                ticketId: ticketId,
+                accessToken: widget.accessToken,
+                qrVersion: qrVersion,
+                qrRevealed: qrRevealed,
+                isCancelled: isCancelled,
+              ),
 
             // ── 그룹 티켓: 이 티켓 전달하기 버튼 ──
             if (widget.isGroupTicket)
@@ -1448,10 +1472,12 @@ class _GroupTicketSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = _normalizeTicketStatus(sibling['status'] as String?);
     final isCheckedIn = sibling['isCheckedIn'] == true;
+    final isIntermissionCheckedIn = sibling['isIntermissionCheckedIn'] == true;
     final stateInfo = _resolveTicketState(
       status: status,
       isCheckedIn: isCheckedIn,
       isRevealed: isRevealed,
+      isIntermissionCheckedIn: isIntermissionCheckedIn,
     );
     final recipientName = sibling['recipientName'] as String?;
     final buyerName = sibling['buyerName'] as String? ?? '예매자';
@@ -3952,7 +3978,8 @@ class _QrSectionState extends ConsumerState<_QrSection> {
       child: QrImageView(
         data: _qrData!,
         version: QrVersions.auto,
-        size: 200,
+        errorCorrectionLevel: QrErrorCorrectLevel.L,
+        size: 220,
         eyeStyle: const QrEyeStyle(
           eyeShape: QrEyeShape.square,
           color: _textDark,
@@ -4245,6 +4272,545 @@ class _PamphletFullscreenState extends State<_PamphletFullscreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ── 라이브 상태 섹션: 스탬프 + 인터미션 QR + 리뷰 카드 ──
+// ══════════════════════════════════════════════════════════════════
+
+class _LiveStatusSection extends ConsumerStatefulWidget {
+  final String stateCode;
+  final bool isCheckedIn;
+  final bool isIntermissionCheckedIn;
+  final String ticketId;
+  final String accessToken;
+  final int qrVersion;
+  final bool qrRevealed;
+  final bool isCancelled;
+
+  const _LiveStatusSection({
+    required this.stateCode,
+    required this.isCheckedIn,
+    required this.isIntermissionCheckedIn,
+    required this.ticketId,
+    required this.accessToken,
+    required this.qrVersion,
+    required this.qrRevealed,
+    required this.isCancelled,
+  });
+
+  @override
+  ConsumerState<_LiveStatusSection> createState() => _LiveStatusSectionState();
+}
+
+class _LiveStatusSectionState extends ConsumerState<_LiveStatusSection> {
+  bool _showIntermissionQr = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        children: [
+          // ── 1부 입장완료 스탬프 ──
+          if (widget.isCheckedIn) _buildEntryStamp(),
+
+          // ── 인터미션 완료 스탬프 ──
+          if (widget.isIntermissionCheckedIn) ...[
+            const SizedBox(height: 8),
+            _buildIntermissionStamp(),
+          ],
+
+          // ── 인터미션 입장하기 버튼 (1부 완료 + 인터미션 미완료) ──
+          if (widget.isCheckedIn &&
+              !widget.isIntermissionCheckedIn &&
+              widget.stateCode == 'entryCheckedIn') ...[
+            const SizedBox(height: 12),
+            if (!_showIntermissionQr)
+              _buildIntermissionButton()
+            else
+              _buildIntermissionQrCard(),
+          ],
+
+          // ── 공연종료 → 리뷰 카드 ──
+          if (widget.stateCode == 'eventCompleted') ...[
+            const SizedBox(height: 12),
+            _buildReviewCard(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEntryStamp() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF58C27D).withValues(alpha: 0.08),
+            const Color(0xFF58C27D).withValues(alpha: 0.03),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF58C27D).withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFF58C27D).withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_circle_rounded,
+              color: Color(0xFF58C27D),
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '1부 입장완료',
+                  style: AppTheme.nanum(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF58C27D),
+                    noShadow: true,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '공연을 즐겨주세요!',
+                  style: AppTheme.nanum(
+                    fontSize: 12,
+                    color: _textMid,
+                    noShadow: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // 스탬프 아이콘
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: const Color(0xFF58C27D).withValues(alpha: 0.4),
+                width: 2.5,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                '1부',
+                style: AppTheme.nanum(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF58C27D),
+                  noShadow: true,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIntermissionStamp() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppTheme.gold.withValues(alpha: 0.08),
+            AppTheme.gold.withValues(alpha: 0.03),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.gold.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppTheme.gold.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_circle_rounded,
+              color: AppTheme.gold,
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '인터미션 입장완료',
+                  style: AppTheme.nanum(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.gold,
+                    noShadow: true,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '2부 공연을 즐겨주세요!',
+                  style: AppTheme.nanum(
+                    fontSize: 12,
+                    color: _textMid,
+                    noShadow: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppTheme.gold.withValues(alpha: 0.4),
+                width: 2.5,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                '2부',
+                style: AppTheme.nanum(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  color: AppTheme.gold,
+                  noShadow: true,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIntermissionButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton.icon(
+        onPressed: () => setState(() => _showIntermissionQr = true),
+        icon: const Icon(Icons.qr_code_2_rounded, size: 22),
+        label: Text(
+          '인터미션 입장하기',
+          style: AppTheme.nanum(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+            noShadow: true,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _burgundy,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          elevation: 2,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIntermissionQrCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _burgundy.withValues(alpha: 0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: _burgundy.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '인터미션 입장 QR',
+                style: AppTheme.nanum(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: _burgundy,
+                  noShadow: true,
+                ),
+              ),
+              GestureDetector(
+                onTap: () => setState(() => _showIntermissionQr = false),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: _creamDark,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close_rounded, size: 16, color: _textMid),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '스태프에게 이 QR을 보여주세요',
+            style: AppTheme.nanum(
+              fontSize: 12,
+              color: _textMid,
+              noShadow: true,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _QrSection(
+            ticketId: widget.ticketId,
+            accessToken: widget.accessToken,
+            qrVersion: widget.qrVersion,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReviewCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppTheme.gold.withValues(alpha: 0.10),
+            AppTheme.gold.withValues(alpha: 0.04),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.gold.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.star_rounded,
+            color: AppTheme.gold,
+            size: 36,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '공연은 어떠셨나요?',
+            style: AppTheme.nanum(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: _burgundy,
+              noShadow: true,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '소중한 후기를 남겨주세요',
+            style: AppTheme.nanum(
+              fontSize: 13,
+              color: _textMid,
+              noShadow: true,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _ReviewStars(
+            ticketId: widget.ticketId,
+            accessToken: widget.accessToken,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 리뷰 별점 위젯 ──
+class _ReviewStars extends ConsumerStatefulWidget {
+  final String ticketId;
+  final String accessToken;
+
+  const _ReviewStars({required this.ticketId, required this.accessToken});
+
+  @override
+  ConsumerState<_ReviewStars> createState() => _ReviewStarsState();
+}
+
+class _ReviewStarsState extends ConsumerState<_ReviewStars> {
+  int _rating = 0;
+  final _commentController = TextEditingController();
+  bool _submitted = false;
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitReview() async {
+    if (_rating == 0 || _isSubmitting) return;
+    setState(() => _isSubmitting = true);
+    try {
+      await ref.read(functionsServiceProvider).submitReview(
+        ticketId: widget.ticketId,
+        accessToken: widget.accessToken,
+        rating: _rating,
+        comment: _commentController.text.trim(),
+      );
+      if (mounted) setState(() => _submitted = true);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '리뷰 제출에 실패했습니다',
+              style: AppTheme.nanum(fontSize: 13, color: _cream),
+            ),
+            backgroundColor: _burgundy,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_submitted) {
+      return Column(
+        children: [
+          const Icon(Icons.check_circle_rounded, color: Color(0xFF58C27D), size: 32),
+          const SizedBox(height: 8),
+          Text(
+            '리뷰가 등록되었습니다. 감사합니다!',
+            style: AppTheme.nanum(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF58C27D),
+              noShadow: true,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        // 별점
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(5, (i) {
+            return GestureDetector(
+              onTap: () => setState(() => _rating = i + 1),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Icon(
+                  i < _rating ? Icons.star_rounded : Icons.star_border_rounded,
+                  color: AppTheme.gold,
+                  size: 36,
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 12),
+        // 한줄평
+        TextField(
+          controller: _commentController,
+          maxLength: 100,
+          style: AppTheme.nanum(fontSize: 14, color: _textDark, noShadow: true),
+          decoration: InputDecoration(
+            hintText: '한줄평을 남겨주세요 (선택)',
+            hintStyle: AppTheme.nanum(fontSize: 13, color: _textLight, noShadow: true),
+            counterStyle: AppTheme.nanum(fontSize: 10, color: _textLight, noShadow: true),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: _divider),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: _divider),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppTheme.gold),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 44,
+          child: ElevatedButton(
+            onPressed: _rating > 0 ? _submitReview : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.gold,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: _creamDark,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: _isSubmitting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Text(
+                    '리뷰 등록',
+                    style: AppTheme.nanum(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      noShadow: true,
+                    ),
+                  ),
+          ),
+        ),
+      ],
     );
   }
 }
