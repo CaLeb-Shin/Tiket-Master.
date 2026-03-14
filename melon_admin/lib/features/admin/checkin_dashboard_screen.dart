@@ -562,9 +562,9 @@ class _CheckinDashboardScreenState
               child: ListView.builder(
                 itemCount: sorted.length,
                 itemBuilder: (context, index) {
-                  final data =
-                      sorted[index].data() as Map<String, dynamic>;
-                  return _buildListItem(data);
+                  final doc = sorted[index];
+                  final data = doc.data() as Map<String, dynamic>;
+                  return _buildListItem(data, docId: doc.id);
                 },
               ),
             ),
@@ -578,7 +578,7 @@ class _CheckinDashboardScreenState
     return AdminTheme.label(fontSize: 9, color: AdminTheme.textTertiary);
   }
 
-  Widget _buildListItem(Map<String, dynamic> data) {
+  Widget _buildListItem(Map<String, dynamic> data, {required String docId}) {
     final name = (data['buyerName'] as String?) ?? '';
     final phone = (data['buyerPhone'] as String?) ?? '';
     final grade = (data['seatGrade'] as String?) ?? '';
@@ -590,89 +590,209 @@ class _CheckinDashboardScreenState
         ? '${phone.substring(0, 3)}-****-${phone.substring(phone.length - 4)}'
         : phone;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 1),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isChecked
-            ? AdminTheme.success.withValues(alpha: 0.04)
-            : AdminTheme.card,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 32,
-            child: Icon(
-              isChecked
-                  ? Icons.check_circle_rounded
-                  : Icons.radio_button_unchecked,
-              size: 14,
-              color: isChecked ? AdminTheme.success : AdminTheme.textTertiary,
-            ),
-          ),
-          SizedBox(
-            width: 80,
-            child: Text(
-              name,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AdminTheme.textPrimary,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          SizedBox(
-            width: 100,
-            child: Text(
-              maskedPhone,
-              style: TextStyle(fontSize: 11, color: AdminTheme.textSecondary),
-            ),
-          ),
-          SizedBox(
-            width: 44,
-            child: grade.isNotEmpty
-                ? Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 5, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: _gradeColor(grade).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    child: Text(
-                      grade,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: _gradeColor(grade),
-                      ),
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-          Expanded(
-            child: Text(
-              seatInfo,
-              style: TextStyle(fontSize: 11, color: AdminTheme.textSecondary),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          SizedBox(
-            width: 65,
-            child: Text(
-              timeStr,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isChecked ? FontWeight.w500 : FontWeight.w400,
+    return GestureDetector(
+      onTap: () => _showCheckinActions(docId, name, seatInfo, isChecked),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isChecked
+              ? AdminTheme.success.withValues(alpha: 0.04)
+              : AdminTheme.card,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 32,
+              child: Icon(
+                isChecked
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked,
+                size: 14,
                 color: isChecked ? AdminTheme.success : AdminTheme.textTertiary,
               ),
             ),
+            SizedBox(
+              width: 80,
+              child: Text(
+                name,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AdminTheme.textPrimary,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            SizedBox(
+              width: 100,
+              child: Text(
+                maskedPhone,
+                style: TextStyle(fontSize: 11, color: AdminTheme.textSecondary),
+              ),
+            ),
+            SizedBox(
+              width: 44,
+              child: grade.isNotEmpty
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: _gradeColor(grade).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        grade,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: _gradeColor(grade),
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+            Expanded(
+              child: Text(
+                seatInfo,
+                style: TextStyle(fontSize: 11, color: AdminTheme.textSecondary),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            SizedBox(
+              width: 65,
+              child: Text(
+                timeStr,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isChecked ? FontWeight.w500 : FontWeight.w400,
+                  color: isChecked ? AdminTheme.success : AdminTheme.textTertiary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── 강제 체크인 / 체크인 취소 액션 ──
+  void _showCheckinActions(
+      String docId, String name, String seatInfo, bool isChecked) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AdminTheme.cardElevated,
+        title: Text(
+          name.isNotEmpty ? name : '알 수 없음',
+          style: AdminTheme.sans(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AdminTheme.textPrimary,
           ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(seatInfo,
+                style: TextStyle(
+                    fontSize: 12, color: AdminTheme.textSecondary)),
+            const SizedBox(height: 4),
+            Text(
+              isChecked ? '상태: 입장 완료' : '상태: 미입장',
+              style: TextStyle(
+                fontSize: 12,
+                color: isChecked ? AdminTheme.success : AdminTheme.textTertiary,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('닫기',
+                style: TextStyle(color: AdminTheme.textSecondary)),
+          ),
+          if (isChecked)
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _cancelCheckin(docId, name);
+              },
+              child: Text('체크인 취소',
+                  style: TextStyle(color: AdminTheme.error)),
+            )
+          else
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _forceCheckin(docId, name);
+              },
+              child: Text('강제 체크인',
+                  style: TextStyle(color: AdminTheme.success)),
+            ),
         ],
       ),
     );
+  }
+
+  Future<void> _forceCheckin(String docId, String name) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('mobileTickets')
+          .doc(docId)
+          .update({
+        'entryCheckedInAt': FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$name 강제 체크인 완료'),
+            backgroundColor: AdminTheme.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('오류: $e'),
+            backgroundColor: AdminTheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _cancelCheckin(String docId, String name) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('mobileTickets')
+          .doc(docId)
+          .update({
+        'entryCheckedInAt': FieldValue.delete(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$name 체크인 취소됨'),
+            backgroundColor: AdminTheme.warning,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('오류: $e'),
+            backgroundColor: AdminTheme.error,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildCheckinFeed() {
