@@ -1315,66 +1315,71 @@ class _GroupTicketOverview extends StatelessWidget {
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            eventTitle,
-                            style: AppTheme.nanum(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              color: _burgundy,
-                              noShadow: true,
-                            ),
-                            maxLines: 1,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        if (startAt != null)
-                          Text(
-                            DateFormat(
-                              'yyyy.MM.dd (E) HH:mm',
-                              'ko_KR',
-                            ).format(startAt!),
-                            style: AppTheme.nanum(
-                              fontSize: 13,
-                              color: _burgundy.withValues(alpha: 0.78),
-                              noShadow: true,
+                    child: SizedBox(
+                      height: 150,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              eventTitle,
+                              style: AppTheme.nanum(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: _burgundy,
+                                noShadow: true,
+                              ),
+                              maxLines: 1,
                             ),
                           ),
-                        if (venueName.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            venueName,
-                            style: AppTheme.nanum(
-                              fontSize: 13,
-                              color: _burgundy.withValues(alpha: 0.78),
-                              noShadow: true,
+                          const SizedBox(height: 8),
+                          if (startAt != null)
+                            Text(
+                              DateFormat(
+                                'yyyy.MM.dd (E) HH:mm',
+                                'ko_KR',
+                              ).format(startAt!),
+                              style: AppTheme.nanum(
+                                fontSize: 13,
+                                color: _burgundy.withValues(alpha: 0.78),
+                                noShadow: true,
+                              ),
                             ),
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _OverviewMetaChip(
-                              icon: Icons.confirmation_number_outlined,
-                              label: '${siblings.length}매',
-                            ),
-                            _OverviewMetaChip(
-                              icon: isRevealed
-                                  ? Icons.qr_code_2_rounded
-                                  : Icons.lock_clock_rounded,
-                              label: revealLabel,
-                              accent: isRevealed ? AppTheme.gold : null,
+                          if (venueName.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              venueName,
+                              style: AppTheme.nanum(
+                                fontSize: 13,
+                                color: _burgundy.withValues(alpha: 0.78),
+                                noShadow: true,
+                              ),
                             ),
                           ],
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _OverviewMetaChip(
+                                icon: Icons.confirmation_number_outlined,
+                                label: '${siblings.length}매',
+                              ),
+                              _OverviewMetaChip(
+                                icon: isRevealed
+                                    ? Icons.qr_code_2_rounded
+                                    : Icons.lock_clock_rounded,
+                                label: revealLabel,
+                                accent: isRevealed ? AppTheme.gold : null,
+                                showLive: isRevealed,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -1711,34 +1716,94 @@ class _GroupTicketSummaryCard extends StatelessWidget {
   }
 }
 
-class _OverviewMetaChip extends StatelessWidget {
+class _OverviewMetaChip extends StatefulWidget {
   final IconData icon;
   final String label;
   final Color? accent;
+  final bool showLive;
 
   const _OverviewMetaChip({
     required this.icon,
     required this.label,
     this.accent,
+    this.showLive = false,
   });
 
   @override
+  State<_OverviewMetaChip> createState() => _OverviewMetaChipState();
+}
+
+class _OverviewMetaChipState extends State<_OverviewMetaChip>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+  late Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _pulseAnim = Tween(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+    if (widget.showLive) _pulseCtrl.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _OverviewMetaChip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.showLive && !_pulseCtrl.isAnimating) {
+      _pulseCtrl.repeat(reverse: true);
+    } else if (!widget.showLive && _pulseCtrl.isAnimating) {
+      _pulseCtrl.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final color = accent ?? _burgundy;
+    final color = widget.accent ?? _burgundy;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: accent == null ? 0.08 : 0.12),
+        color: color.withValues(alpha: widget.accent == null ? 0.08 : 0.12),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: color),
+          if (widget.showLive) ...[
+            AnimatedBuilder(
+              animation: _pulseAnim,
+              builder: (_, __) => Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4ADE80).withValues(alpha: _pulseAnim.value),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF4ADE80).withValues(alpha: _pulseAnim.value * 0.5),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 5),
+          ],
+          Icon(widget.icon, size: 14, color: color),
           const SizedBox(width: 6),
           Text(
-            label,
+            widget.label,
             style: AppTheme.nanum(
               fontSize: 11,
               fontWeight: FontWeight.w700,
