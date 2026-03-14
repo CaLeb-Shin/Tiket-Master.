@@ -1513,12 +1513,16 @@ export const verifyAndCheckIn = functions.https.onCall(async (data: any, context
       }
     }
 
-    // 좌석 정보 조회
+    // 좌석 정보 조회 (트랜잭션 읽기는 쓰기 전에 모두 완료해야 함)
     let seatInfo = "좌석 정보 없음";
+    let seatRef: FirebaseFirestore.DocumentReference | null = null;
+    let seatExists = false;
     if (isMobileTicket) {
       seatInfo = ticket.seatInfo || `${ticket.seatGrade} #${ticket.entryNumber}`;
     } else if (ticket.seatId) {
-      const seatDoc = await transaction.get(db.collection("seats").doc(ticket.seatId));
+      seatRef = db.collection("seats").doc(ticket.seatId);
+      const seatDoc = await transaction.get(seatRef);
+      seatExists = seatDoc.exists;
       const seat = seatDoc.data();
       seatInfo = seat
         ? `${seat.block}구역 ${seat.floor} ${seat.row || ""}열 ${seat.number}번`
@@ -1530,6 +1534,7 @@ export const verifyAndCheckIn = functions.https.onCall(async (data: any, context
     const rawPhone = (ticket.buyerPhone as string) || "";
     const phoneLast4 = rawPhone.length >= 4 ? rawPhone.slice(-4) : "";
 
+    // --- 여기서부터 쓰기 ---
     if (checkinStage === "entry") {
       transaction.update(ticketRef, {
         entryCheckedInAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1548,12 +1553,8 @@ export const verifyAndCheckIn = functions.https.onCall(async (data: any, context
       });
     }
 
-    if (ticket.seatId) {
-      const seatRef = db.collection("seats").doc(ticket.seatId);
-      const seatDoc2 = await transaction.get(seatRef);
-      if (seatDoc2.exists) {
-        transaction.update(seatRef, { status: "used" });
-      }
+    if (seatRef && seatExists) {
+      transaction.update(seatRef, { status: "used" });
     }
 
     const checkinRef = db.collection("checkins").doc();
