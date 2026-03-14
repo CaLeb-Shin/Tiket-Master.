@@ -88,9 +88,9 @@ module.exports = async (req, res) => {
 
   // 크롤러: 티켓 정보 조회 → OG 메타 태그 반환
   const token = req.query.token;
-  let title = '멜론티켓 - 모바일 티켓';
-  let description = 'AI 좌석 추천 · 360° 시야 보기 · 모바일 스마트 티켓';
-  let imageUrl = 'https://melonticket-web-20260216.vercel.app/icons/Icon-512.png';
+  let title = '멜팅 - No.1 모바일티켓';
+  let description = 'AI 좌석추천, 직접보고 예매, 스마트 티켓';
+  let imageUrl = 'https://melonticket-web-20260216.vercel.app/icons/melon-og.png';
   let pageUrl = `https://melonticket-web-20260216.vercel.app/m/${token}`;
 
   try {
