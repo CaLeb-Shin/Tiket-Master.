@@ -15,6 +15,17 @@
       "destination": "/api/staff/scanner"
     },
     {
+      "source": "/m/:token",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(kakaotalk-scrap|facebookexternalhit|twitterbot|telegrambot|slackbot|linkedinbot|whatsapp|googlebot).*"
+        }
+      ],
+      "destination": "/api/m/:token"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
