@@ -1548,12 +1548,12 @@ export const verifyAndCheckIn = functions.https.onCall(async (data: any, context
       });
     }
 
-    if (!isMobileTicket && ticket.seatId) {
+    if (ticket.seatId) {
       const seatRef = db.collection("seats").doc(ticket.seatId);
-      transaction.update(seatRef, { status: "used" });
-    } else if (isMobileTicket && ticket.seatId) {
-      const seatRef = db.collection("seats").doc(ticket.seatId);
-      transaction.update(seatRef, { status: "used" });
+      const seatDoc2 = await transaction.get(seatRef);
+      if (seatDoc2.exists) {
+        transaction.update(seatRef, { status: "used" });
+      }
     }
 
     const checkinRef = db.collection("checkins").doc();

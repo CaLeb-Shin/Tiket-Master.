@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.cleanupExpiredTickets = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.cleanupExpiredTickets = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.createScannerInvite = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -876,14 +876,42 @@ exports.requestTicketCancellation = functions.https.onCall(async (data, context)
 // 5. registerScannerDevice - 스캐너 기기 등록/승인 상태 조회
 // ============================================================
 exports.registerScannerDevice = functions.https.onCall(async (data, context) => {
-    const scannerUid = await assertStaffOrAdmin(context?.auth?.uid);
-    const { deviceId, label, platform } = data ?? {};
+    const { deviceId, label, platform, inviteToken } = data ?? {};
+    // 초대 토큰이 있으면 로그인만 확인, 없으면 staff/admin 권한 필요
+    let scannerUid;
+    if (typeof inviteToken === "string" && inviteToken.trim().length > 0) {
+        if (!context?.auth?.uid) {
+            throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
+        }
+        scannerUid = context.auth.uid;
+    }
+    else {
+        scannerUid = await assertStaffOrAdmin(context?.auth?.uid);
+    }
     if (!deviceId || typeof deviceId !== "string") {
         throw new functions.https.HttpsError("invalid-argument", "기기 ID가 필요합니다");
     }
     const trimmedId = deviceId.trim();
     if (trimmedId.length < 8 || trimmedId.length > 128) {
         throw new functions.https.HttpsError("invalid-argument", "유효하지 않은 기기 ID입니다");
+    }
+    // 초대 토큰 검증
+    let inviteApproved = false;
+    if (typeof inviteToken === "string" && inviteToken.trim().length > 0) {
+        const inviteRef = db.collection("scannerInvites").doc(inviteToken.trim());
+        const inviteDoc = await inviteRef.get();
+        if (inviteDoc.exists) {
+            const inv = inviteDoc.data();
+            const now = new Date();
+            const expires = inv.expiresAt?.toDate?.() ?? new Date(0);
+            if (inv.active !== false && expires > now) {
+                inviteApproved = true;
+                await inviteRef.update({
+                    usedCount: admin.firestore.FieldValue.increment(1),
+                    lastUsedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            }
+        }
     }
     const userDoc = await db.collection("users").doc(scannerUid).get();
     const user = userDoc.data() ?? {};
@@ -898,11 +926,11 @@ exports.registerScannerDevice = functions.https.onCall(async (data, context) => 
     if (existingDoc.exists && existing.ownerUid && existing.ownerUid !== scannerUid) {
         throw new functions.https.HttpsError("permission-denied", "다른 계정에 등록된 기기입니다");
     }
-    // admin 역할이면 신규 등록 시 자동 승인
+    // admin 역할이거나 초대 토큰 사용 시 자동 승인
     const userRole = await getUserRole(scannerUid);
     const approved = existingDoc.exists
         ? existing.approved === true
-        : userRole === "admin";
+        : (userRole === "admin" || inviteApproved);
     const blocked = existingDoc.exists ? existing.blocked === true : false;
     const payload = {
         ownerUid: scannerUid,
@@ -929,6 +957,36 @@ exports.registerScannerDevice = functions.https.onCall(async (data, context) => 
             : approved
                 ? "승인된 기기입니다"
                 : "승인 대기 중입니다",
+    };
+});
+// ============================================================
+// 5-b. createScannerInvite - 스캐너 초대링크 생성 (관리자)
+// ============================================================
+exports.createScannerInvite = functions.https.onCall(async (data, context) => {
+    const adminUid = await assertAdmin(context?.auth?.uid);
+    const { eventId, expiresInHours } = data ?? {};
+    const adminDoc = await db.collection("users").doc(adminUid).get();
+    const adminEmail = context?.auth?.token?.email ||
+        adminDoc.data()?.email ||
+        "";
+    const token = require("crypto").randomBytes(24).toString("hex"); // 48-char hex
+    const hours = typeof expiresInHours === "number" && expiresInHours > 0 ? expiresInHours : 24;
+    const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
+    const inviteRef = db.collection("scannerInvites").doc(token);
+    await inviteRef.set({
+        token,
+        eventId: typeof eventId === "string" && eventId.trim().length > 0 ? eventId.trim() : null,
+        createdByUid: adminUid,
+        createdByEmail: adminEmail,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
+        usedCount: 0,
+        active: true,
+    });
+    return {
+        success: true,
+        token,
+        expiresAt: expiresAt.toISOString(),
     };
 });
 // ============================================================
@@ -1258,13 +1316,12 @@ exports.verifyAndCheckIn = functions.https.onCall(async (data, context) => {
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
         }
-        if (!isMobileTicket && ticket.seatId) {
+        if (ticket.seatId) {
             const seatRef = db.collection("seats").doc(ticket.seatId);
-            transaction.update(seatRef, { status: "used" });
-        }
-        else if (isMobileTicket && ticket.seatId) {
-            const seatRef = db.collection("seats").doc(ticket.seatId);
-            transaction.update(seatRef, { status: "used" });
+            const seatDoc2 = await transaction.get(seatRef);
+            if (seatDoc2.exists) {
+                transaction.update(seatRef, { status: "used" });
+            }
         }
         const checkinRef = db.collection("checkins").doc();
         transaction.set(checkinRef, {
