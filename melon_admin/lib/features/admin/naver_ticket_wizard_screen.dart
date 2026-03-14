@@ -2113,6 +2113,8 @@ class _NaverTicketWizardScreenState
 
     try {
       final seatRepo = ref.read(seatRepositoryProvider);
+      // 기존 좌석 삭제 (중복 방지)
+      await seatRepo.deleteAllSeats(_createdEventId!);
       final seatList = _seatData!.toSeatDataList();
       await seatRepo.createSeatsFromCsv(_createdEventId!, seatList);
 
