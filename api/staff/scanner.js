@@ -14,7 +14,7 @@ module.exports = (req, res) => {
   <meta property="og:type" content="website">
   <meta property="og:title" content="멜론티켓 스캐너 초대">
   <meta property="og:description" content="이 링크를 눌러 스캐너에 접속하세요. 로그인 후 자동으로 기기가 승인됩니다.">
-  <meta property="og:image" content="https://melonticket-web-20260216.vercel.app/icons/Icon-512.png">
+  <meta property="og:image" content="https://melonticket-web-20260216.vercel.app/icons/scanner-og.svg">
   <meta property="og:url" content="${fullUrl}">
   <meta property="og:site_name" content="멜론티켓">
   <meta name="twitter:card" content="summary">
