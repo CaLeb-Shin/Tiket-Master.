@@ -2418,7 +2418,7 @@ class _FrontCard extends StatelessWidget {
                               child: _InfoField(
                                 label: 'Venue  ·  공연장',
                                 value: venueName,
-                                maxLines: 2,
+                                shrinkToFit: true,
                                 onTap: venueName.isNotEmpty
                                     ? () {
                                         final query = venueAddress.isNotEmpty
@@ -3531,7 +3531,7 @@ class _InfoField extends StatelessWidget {
   final Widget? child;
   final TextStyle? valueStyle;
   final VoidCallback? onTap;
-  final int maxLines;
+  final bool shrinkToFit;
 
   const _InfoField({
     required this.label,
@@ -3539,7 +3539,7 @@ class _InfoField extends StatelessWidget {
     this.child,
     this.valueStyle,
     this.onTap,
-    this.maxLines = 1,
+    this.shrinkToFit = false,
   });
 
   @override
@@ -3562,6 +3562,23 @@ class _InfoField extends StatelessWidget {
           const SizedBox(height: 4),
           if (child != null)
             child!
+          else if (shrinkToFit)
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value ?? '-',
+                style:
+                    valueStyle ??
+                    AppTheme.nanum(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: _textDark,
+                      noShadow: true,
+                    ),
+                maxLines: 1,
+              ),
+            )
           else
             Text(
               value ?? '-',
@@ -3573,7 +3590,7 @@ class _InfoField extends StatelessWidget {
                     color: _textDark,
                     noShadow: true,
                   ),
-              maxLines: maxLines,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
         ],
