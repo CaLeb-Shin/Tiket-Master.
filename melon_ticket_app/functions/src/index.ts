@@ -3565,7 +3565,6 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
     ticket.naverOrderId
       ? db.collection("mobileTickets")
           .where("naverOrderId", "==", ticket.naverOrderId)
-          .orderBy("entryNumber", "asc")
           .get()
       : Promise.resolve(null),
   ]);
@@ -3575,8 +3574,11 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
   // 그룹 티켓: sibling 처리
   const siblingDocs: Array<{ id: string; data: any }> = [];
   if (siblingSnap && !siblingSnap.empty) {
-    // orderBy entryNumber asc → 첫 번째 = owner
-    const minEntry = siblingSnap.docs[0].data().entryNumber || Infinity;
+    let minEntry = Infinity;
+    for (const doc of siblingSnap.docs) {
+      const en = doc.data().entryNumber || Infinity;
+      if (en < minEntry) minEntry = en;
+    }
     const isGroupOwner = (ticket.entryNumber || Infinity) === minEntry;
 
     if (isGroupOwner) {
