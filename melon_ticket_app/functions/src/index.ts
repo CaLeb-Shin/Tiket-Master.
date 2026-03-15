@@ -3784,6 +3784,53 @@ export const listEventsHttp = functions.https.onRequest(async (req, res) => {
 });
 
 /**
+ * 봇에서 특정 이벤트의 네이버 주문 목록 조회
+ * POST /listNaverOrdersHttp
+ * Body: { eventId } or {} (전체)
+ */
+export const listNaverOrdersHttp = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  if (!requireBotRequestAuth(req, res)) {
+    return;
+  }
+
+  try {
+    const { eventId } = req.body || {};
+    let query: FirebaseFirestore.Query = db.collection("naverOrders");
+
+    if (eventId) {
+      query = query.where("eventId", "==", eventId);
+    }
+
+    query = query.orderBy("createdAt", "desc").limit(500);
+    const snap = await query.get();
+
+    const orders = snap.docs.map((doc) => {
+      const d = doc.data();
+      return {
+        id: doc.id,
+        naverOrderId: d.naverOrderId || "",
+        eventId: d.eventId || "",
+        buyerName: d.buyerName || "",
+        buyerPhone: d.buyerPhone || "",
+        productName: d.productName || "",
+        seatGrade: d.seatGrade || "",
+        quantity: d.quantity || 1,
+        status: d.status || "",
+        createdAt: toDate(d.createdAt)?.toISOString() || "",
+        ticketCount: d.ticketIds?.length || 0,
+      };
+    });
+
+    res.status(200).json({ orders });
+  } catch (err: any) {
+    sendHttpError(res, err, "listNaverOrdersHttp 오류:");
+  }
+});
+
+/**
  * 봇 SMS 폴링 — 대기중 SMS 태스크 가져오기
  * GET /getPendingSmsHttp
  */
