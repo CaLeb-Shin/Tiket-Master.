@@ -2763,23 +2763,6 @@ class _BackCardState extends State<_BackCard>
                   ),
                   const SizedBox(height: 8),
 
-                  // ── 좌석 정보 ──
-                  if (widget.seatGrade.isNotEmpty)
-                    Text(
-                      widget.seatInfo != null &&
-                              widget.seatInfo!.isNotEmpty &&
-                              widget.seatInfo != '좌석 미확정'
-                          ? '${widget.seatGrade}석 · ${widget.seatInfo}'
-                          : '${widget.seatGrade}석 · #${widget.orderIndex}',
-                      style: AppTheme.nanum(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: _burgundy,
-                        noShadow: true,
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-
                   // ── QR 코드 영역 ──
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -2940,25 +2923,14 @@ class _BackCardState extends State<_BackCard>
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: _InfoField(
-                                      label: '받는 사람',
-                                      value:
-                                          widget.recipientName != null &&
-                                              widget.recipientName!.isNotEmpty
-                                          ? widget.recipientName!
-                                          : '미설정',
-                                      valueStyle:
-                                          widget.recipientName != null &&
-                                              widget.recipientName!.isNotEmpty
-                                          ? AppTheme.serif(
-                                              fontSize: 18,
-                                              color: _textDark,
-                                            )
-                                          : AppTheme.nanum(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                              color: _textMid,
-                                              noShadow: true,
-                                            ),
+                                      label: '좌석등급',
+                                      value: widget.seatGrade.isNotEmpty
+                                          ? '${widget.seatGrade}석'
+                                          : '-',
+                                      valueStyle: AppTheme.serif(
+                                        fontSize: 18,
+                                        color: _textDark,
+                                      ),
                                     ),
                                   ),
                                 ],
