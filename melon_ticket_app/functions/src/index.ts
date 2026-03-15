@@ -3252,6 +3252,7 @@ export const issueMobileQrToken = functions.https.onCall(async (data: any) => {
     throw new functions.https.HttpsError("failed-precondition", "이미 사용 완료된 티켓입니다");
   }
 
+  // 이벤트 조회 병렬화 (티켓 검증 후)
   const eventDoc = await db.collection("events").doc(ticket.eventId).get();
   const event = eventDoc.exists ? eventDoc.data() : null;
   if (!isEventRevealed(event)) {
@@ -3558,34 +3559,31 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
   const ticketDoc = ticketSnap.docs[0];
   const ticket = ticketDoc.data();
 
-  // 이벤트 정보 로드
-  const eventDoc = await db.collection("events").doc(ticket.eventId).get();
+  // 이벤트 + 그룹 티켓 조회를 병렬로 실행 (성능 최적화)
+  const [eventDoc, siblingSnap] = await Promise.all([
+    db.collection("events").doc(ticket.eventId).get(),
+    ticket.naverOrderId
+      ? db.collection("mobileTickets")
+          .where("naverOrderId", "==", ticket.naverOrderId)
+          .orderBy("entryNumber", "asc")
+          .get()
+      : Promise.resolve(null),
+  ]);
+
   const event = eventDoc.exists ? eventDoc.data() : null;
 
-  // 그룹 티켓: 같은 주문의 sibling 조회
+  // 그룹 티켓: sibling 처리
   const siblingDocs: Array<{ id: string; data: any }> = [];
-  let isGroupOwner = false;
-  if (ticket.naverOrderId) {
-    const siblingSnap = await db.collection("mobileTickets")
-      .where("naverOrderId", "==", ticket.naverOrderId)
-      .get();
-
-    // 주문 내 가장 작은 entryNumber = 구매자(owner)
-    let minEntry = Infinity;
-    for (const doc of siblingSnap.docs) {
-      const d = doc.data();
-      const en = d.entryNumber || Infinity;
-      if (en < minEntry) minEntry = en;
-    }
-    isGroupOwner = (ticket.entryNumber || Infinity) === minEntry;
+  if (siblingSnap && !siblingSnap.empty) {
+    // orderBy entryNumber asc → 첫 번째 = owner
+    const minEntry = siblingSnap.docs[0].data().entryNumber || Infinity;
+    const isGroupOwner = (ticket.entryNumber || Infinity) === minEntry;
 
     if (isGroupOwner) {
-      // 구매자: 전체 sibling 반환
       for (const doc of siblingSnap.docs) {
         siblingDocs.push({ id: doc.id, data: doc.data() });
       }
     }
-    // 공유받은 사람: siblingDocs 비어있음 → 자기 티켓만
   }
 
   return buildMobileTicketPublicPayload({

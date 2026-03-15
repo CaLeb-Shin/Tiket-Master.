@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:melon_core/melon_core.dart';
 import 'mobile_ticket_logic.dart';
@@ -713,7 +714,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
               as RenderRepaintBoundary?;
       if (boundary == null) return;
 
-      final image = await boundary.toImage(pixelRatio: 3.0);
+      final image = await boundary.toImage(pixelRatio: 2.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return;
 
@@ -1322,10 +1323,10 @@ class _GroupTicketOverview extends StatelessWidget {
                       height: 150,
                       color: _creamDark,
                       child: imageUrl != null && imageUrl!.isNotEmpty
-                          ? Image.network(
-                              imageUrl!,
+                          ? CachedNetworkImage(
+                              imageUrl: imageUrl!,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
+                              errorWidget: (_, __, ___) => const Icon(
                                 Icons.music_note_rounded,
                                 color: _burgundy,
                                 size: 28,
@@ -1998,10 +1999,10 @@ class _SharePosterImage extends StatelessWidget {
                               width: double.infinity,
                               color: _creamDark,
                               child: imageUrl != null && imageUrl!.isNotEmpty
-                                  ? Image.network(
-                                      imageUrl!,
+                                  ? CachedNetworkImage(
+                                      imageUrl: imageUrl!,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
+                                      errorWidget: (_, __, ___) =>
                                           const _SharePosterPlaceholder(),
                                     )
                                   : const _SharePosterPlaceholder(),
@@ -3146,23 +3147,20 @@ class _PosterWithQr extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 200),
           color: _creamDark,
           child: imageUrl != null && imageUrl!.isNotEmpty
-              ? Image.network(
-                  imageUrl!,
+              ? CachedNetworkImage(
+                  imageUrl: imageUrl!,
                   fit: BoxFit.fitWidth,
                   width: double.infinity,
-                  loadingBuilder: (context, child, progress) {
-                    if (progress == null) return child;
-                    return const SizedBox(
-                      height: 280,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: _burgundy,
-                        ),
+                  placeholder: (_, __) => const SizedBox(
+                    height: 280,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: _burgundy,
                       ),
-                    );
-                  },
-                  errorBuilder: (_, __, ___) => const SizedBox(
+                    ),
+                  ),
+                  errorWidget: (_, __, ___) => const SizedBox(
                     height: 280,
                     child: Center(
                       child: Icon(
@@ -3299,8 +3297,8 @@ class _LiveStatusInCardState extends State<_LiveStatusInCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseCtrl;
   Timer? _tickTimer;
-  Duration _remaining = Duration.zero;
-  _LiveTicketState _status = _LiveTicketState.beforeReveal;
+  final _remaining = ValueNotifier<Duration>(Duration.zero);
+  final _status = ValueNotifier<_LiveTicketState>(_LiveTicketState.beforeReveal);
 
   @override
   void initState() {
@@ -3322,25 +3320,17 @@ class _LiveStatusInCardState extends State<_LiveStatusInCard>
     final endAt = widget.startAt!.add(const Duration(hours: 2, minutes: 10));
 
     if (revealAt != null && now.isBefore(revealAt)) {
-      setState(() {
-        _remaining = revealAt.difference(now);
-        _status = _LiveTicketState.beforeReveal;
-      });
+      _remaining.value = revealAt.difference(now);
+      _status.value = _LiveTicketState.beforeReveal;
     } else if (now.isBefore(widget.startAt!)) {
-      setState(() {
-        _remaining = widget.startAt!.difference(now);
-        _status = _LiveTicketState.beforeStart;
-      });
+      _remaining.value = widget.startAt!.difference(now);
+      _status.value = _LiveTicketState.beforeStart;
     } else if (now.isBefore(endAt)) {
-      setState(() {
-        _remaining = endAt.difference(now);
-        _status = _LiveTicketState.playing;
-      });
+      _remaining.value = endAt.difference(now);
+      _status.value = _LiveTicketState.playing;
     } else {
-      setState(() {
-        _remaining = Duration.zero;
-        _status = _LiveTicketState.ended;
-      });
+      _remaining.value = Duration.zero;
+      _status.value = _LiveTicketState.ended;
     }
   }
 
@@ -3348,20 +3338,9 @@ class _LiveStatusInCardState extends State<_LiveStatusInCard>
   void dispose() {
     _pulseCtrl.dispose();
     _tickTimer?.cancel();
+    _remaining.dispose();
+    _status.dispose();
     super.dispose();
-  }
-
-  String _fmt(Duration d) {
-    if (d.inDays > 0) {
-      final h = d.inHours % 24;
-      final m = d.inMinutes % 60;
-      final s = d.inSeconds % 60;
-      return 'D-${d.inDays} ${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-    }
-    final h = d.inHours;
-    final m = d.inMinutes % 60;
-    final s = d.inSeconds % 60;
-    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -3389,105 +3368,119 @@ class _LiveStatusInCardState extends State<_LiveStatusInCard>
       );
     }
 
-    final Color dotColor;
+    return ValueListenableBuilder<_LiveTicketState>(
+      valueListenable: _status,
+      builder: (context, status, _) {
+        final Color dotColor;
+        switch (status) {
+          case _LiveTicketState.beforeReveal:
+            dotColor = const Color(0xFF22C55E);
+          case _LiveTicketState.beforeStart:
+            dotColor = AppTheme.gold;
+          case _LiveTicketState.playing:
+            dotColor = const Color(0xFFFF4444);
+          case _LiveTicketState.ended:
+            dotColor = _textLight;
+        }
 
-    switch (_status) {
-      case _LiveTicketState.beforeReveal:
-        dotColor = const Color(0xFF22C55E);
-      case _LiveTicketState.beforeStart:
-        dotColor = AppTheme.gold;
-      case _LiveTicketState.playing:
-        dotColor = const Color(0xFFFF4444);
-      case _LiveTicketState.ended:
-        dotColor = _textLight;
-    }
-
-    // D-day와 시간 분리
-    final dDay = _remaining.inDays > 0 ? 'D-${_remaining.inDays}' : '';
-    final hms = _remaining > Duration.zero
-        ? () {
-            final h = (_remaining.inHours % 24);
-            final m = _remaining.inMinutes % 60;
-            final s = _remaining.inSeconds % 60;
-            return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-          }()
-        : '';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ● dot + D-day (가로)
-        Row(
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedBuilder(
-              animation: _pulseCtrl,
-              builder: (_, __) => Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _status == _LiveTicketState.ended
-                      ? dotColor
-                      : Color.lerp(
-                          dotColor,
-                          dotColor.withValues(alpha: 0.2),
-                          _pulseCtrl.value,
-                        ),
-                  boxShadow: _status != _LiveTicketState.ended
-                      ? [
-                          BoxShadow(
-                            color: dotColor.withValues(
-                              alpha: 0.6 * (1 - _pulseCtrl.value),
+            // ● dot + D-day (가로)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedBuilder(
+                  animation: _pulseCtrl,
+                  builder: (_, __) => Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: status == _LiveTicketState.ended
+                          ? dotColor
+                          : Color.lerp(
+                              dotColor,
+                              dotColor.withValues(alpha: 0.2),
+                              _pulseCtrl.value,
                             ),
-                            blurRadius: 10,
-                            spreadRadius: 2,
+                      boxShadow: status != _LiveTicketState.ended
+                          ? [
+                              BoxShadow(
+                                color: dotColor.withValues(
+                                  alpha: 0.6 * (1 - _pulseCtrl.value),
+                                ),
+                                blurRadius: 10,
+                                spreadRadius: 2,
+                              ),
+                            ]
+                          : null,
+                    ),
+                  ),
+                ),
+                // D-day
+                ValueListenableBuilder<Duration>(
+                  valueListenable: _remaining,
+                  builder: (_, remaining, __) {
+                    final dDay = remaining.inDays > 0 ? 'D-${remaining.inDays}' : '';
+                    if (dDay.isEmpty) return const SizedBox.shrink();
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(width: 6),
+                        Text(
+                          dDay,
+                          style: AppTheme.nanum(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: _textDark,
+                            noShadow: true,
                           ),
-                        ]
-                      : null,
+                        ),
+                      ],
+                    );
+                  },
                 ),
-              ),
+                if (status == _LiveTicketState.ended) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    '종료',
+                    style: AppTheme.nanum(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: _textLight,
+                      noShadow: true,
+                    ),
+                  ),
+                ],
+              ],
             ),
-            if (dDay.isNotEmpty) ...[
-              const SizedBox(width: 6),
-              Text(
-                dDay,
-                style: AppTheme.nanum(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  color: _textDark,
-                  noShadow: true,
-                ),
-              ),
-            ],
-            if (_status == _LiveTicketState.ended) ...[
-              const SizedBox(width: 6),
-              Text(
-                '종료',
-                style: AppTheme.nanum(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: _textLight,
-                  noShadow: true,
-                ),
-              ),
-            ],
+            // 시간 (아래) — 매초 이 부분만 리빌드
+            ValueListenableBuilder<Duration>(
+              valueListenable: _remaining,
+              builder: (_, remaining, __) {
+                if (remaining <= Duration.zero) return const SizedBox.shrink();
+                final h = remaining.inHours % 24;
+                final m = remaining.inMinutes % 60;
+                final s = remaining.inSeconds % 60;
+                final hms = '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+                return Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    hms,
+                    style: GoogleFonts.robotoMono(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _textMid,
+                    ),
+                  ),
+                );
+              },
+            ),
           ],
-        ),
-        // 시간 (아래)
-        if (hms.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text(
-            hms,
-            style: GoogleFonts.robotoMono(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: _textMid,
-            ),
-          ),
-        ],
-      ],
+        );
+      },
     );
   }
 }
@@ -3860,7 +3853,7 @@ class _QrSectionState extends ConsumerState<_QrSection> {
 
   Timer? _countdownTimer;
   String? _qrData;
-  int _remainingSeconds = _refreshIntervalSeconds;
+  final _remainingSeconds = ValueNotifier<int>(_refreshIntervalSeconds);
   bool _isLoading = true;
   bool _isRefreshingToken = false;
   String? _errorText;
@@ -3875,12 +3868,10 @@ class _QrSectionState extends ConsumerState<_QrSection> {
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      setState(() {
-        _remainingSeconds--;
-        if (_remainingSeconds <= 0) {
-          _refreshQrToken();
-        }
-      });
+      _remainingSeconds.value--;
+      if (_remainingSeconds.value <= 0) {
+        _refreshQrToken();
+      }
     });
   }
 
@@ -3914,9 +3905,9 @@ class _QrSectionState extends ConsumerState<_QrSection> {
       if (!mounted) return;
       setState(() {
         _qrData = token;
-        _remainingSeconds = secondsLeft;
         _isLoading = false;
       });
+      _remainingSeconds.value = secondsLeft;
       _startCountdown();
     } catch (e) {
       if (!mounted) return;
@@ -3932,6 +3923,7 @@ class _QrSectionState extends ConsumerState<_QrSection> {
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _remainingSeconds.dispose();
     super.dispose();
   }
 
@@ -4015,38 +4007,43 @@ class _QrSectionState extends ConsumerState<_QrSection> {
   }
 
   Widget _buildTimerBadge() {
-    final isLow = _remainingSeconds <= 30;
-    final min = _remainingSeconds ~/ 60;
-    final sec = _remainingSeconds % 60;
-    final timeStr =
-        '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
+    return ValueListenableBuilder<int>(
+      valueListenable: _remainingSeconds,
+      builder: (_, seconds, __) {
+        final isLow = seconds <= 30;
+        final min = seconds ~/ 60;
+        final sec = seconds % 60;
+        final timeStr =
+            '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: isLow ? const Color(0x1AFF9500) : _creamDark,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: isLow ? const Color(0x4DFF9500) : _divider),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.timer_outlined,
-            size: 12,
-            color: isLow ? const Color(0xFFFF9500) : _textMid,
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: isLow ? const Color(0x1AFF9500) : _creamDark,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: isLow ? const Color(0x4DFF9500) : _divider),
           ),
-          const SizedBox(width: 4),
-          Text(
-            timeStr,
-            style: GoogleFonts.robotoMono(
-              fontSize: 12,
-              color: isLow ? const Color(0xFFFF9500) : _textMid,
-              fontWeight: FontWeight.w700,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.timer_outlined,
+                size: 12,
+                color: isLow ? const Color(0xFFFF9500) : _textMid,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                timeStr,
+                style: GoogleFonts.robotoMono(
+                  fontSize: 12,
+                  color: isLow ? const Color(0xFFFF9500) : _textMid,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -4137,10 +4134,10 @@ class _PamphletGallery extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(7),
-              child: Image.network(
-                urls[index],
+              child: CachedNetworkImage(
+                imageUrl: urls[index],
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorWidget: (_, __, ___) => Container(
                   color: _creamDark,
                   child: const Center(
                     child: Icon(
@@ -4219,8 +4216,8 @@ class _PamphletFullscreenState extends State<_PamphletFullscreen> {
                   child: Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Image.network(
-                        widget.urls[index],
+                      child: CachedNetworkImage(
+                        imageUrl: widget.urls[index],
                         fit: BoxFit.contain,
                       ),
                     ),
