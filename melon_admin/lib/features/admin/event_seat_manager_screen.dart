@@ -11,6 +11,7 @@ import 'package:melon_core/data/models/mobile_ticket.dart';
 import 'package:melon_core/data/models/app_user.dart';
 import 'package:melon_core/services/firestore_service.dart';
 import 'package:melon_core/data/models/seat_block.dart';
+import 'package:melon_core/infrastructure/firebase/functions_service.dart';
 
 // =============================================================================
 // 좌석 배정 현황 관리 (Seat Manager — Dot Map + Table View)
@@ -69,6 +70,10 @@ class _EventSeatManagerScreenState
   final _searchController = TextEditingController();
   String _searchQuery = '';
   _SeatInfo? _selectedSeat;
+
+  // ── Reassign mode ──
+  bool _reassignMode = false;
+  _SeatInfo? _reassignSource;
 
   // ── Summary counts ──
   int _totalSeats = 0;
@@ -333,6 +338,8 @@ class _EventSeatManagerScreenState
       body: Column(
         children: [
           _buildAppBar(),
+          if (_reassignMode && _reassignSource != null)
+            _buildReassignBanner(),
           if (_isLoading)
             const Expanded(
               child: Center(
@@ -404,6 +411,64 @@ class _EventSeatManagerScreenState
             icon: const Icon(Icons.refresh,
                 color: AdminTheme.textSecondary, size: 20),
             tooltip: '새로고침',
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REASSIGN BANNER
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildReassignBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: AdminTheme.gold.withValues(alpha: 0.15),
+        border: const Border(
+          bottom: BorderSide(color: AdminTheme.gold, width: 1),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.swap_horiz, color: AdminTheme.gold, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '재배정할 좌석을 선택하세요 — ${_reassignSource!.seat.displayName} → ?',
+              style: AdminTheme.sans(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AdminTheme.gold,
+              ),
+            ),
+          ),
+          SizedBox(
+            height: 32,
+            child: OutlinedButton(
+              onPressed: () => setState(() {
+                _reassignMode = false;
+                _reassignSource = null;
+              }),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AdminTheme.gold,
+                side: const BorderSide(color: AdminTheme.gold, width: 1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+              ),
+              child: Text(
+                '취소',
+                style: AdminTheme.sans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AdminTheme.gold,
+                  noShadow: true,
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -684,8 +749,15 @@ class _EventSeatManagerScreenState
                         .toSet(),
                     statusColorFn: _statusColor,
                     isHighlightedFn: _isHighlighted,
-                    onSeatTap: (info) =>
-                        setState(() => _selectedSeat = info),
+                    isReassignMode: _reassignMode,
+                    reassignSourceId: _reassignSource?.seat.id,
+                    onSeatTap: (info) {
+                      if (_reassignMode) {
+                        _handleReassignTarget(info);
+                      } else {
+                        setState(() => _selectedSeat = info);
+                      }
+                    },
                     canvasSize: Size(
                       constraints.maxWidth - 40,
                       constraints.maxHeight - 60,
@@ -963,6 +1035,17 @@ class _EventSeatManagerScreenState
                       AdminTheme.gold,
                       () => _revealSeatBlock(info.seatBlock!.id),
                     ),
+                  if (info.mobileTicket != null)
+                    _actionButton(
+                      '좌석 재배정',
+                      Icons.swap_horiz,
+                      AdminTheme.info,
+                      () => setState(() {
+                        _reassignMode = true;
+                        _reassignSource = info;
+                        _selectedSeat = null;
+                      }),
+                    ),
                 ],
               ),
             ),
@@ -1227,6 +1310,269 @@ class _EventSeatManagerScreenState
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // REASSIGN SEAT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _handleReassignTarget(_SeatInfo target) {
+    if (target.seat.status != SeatStatus.available) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('예매가능 좌석만 선택할 수 있습니다',
+              style: AdminTheme.sans(
+                  fontSize: 13, color: Colors.white, noShadow: true)),
+          backgroundColor: AdminTheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4)),
+        ),
+      );
+      return;
+    }
+
+    _showReassignConfirmDialog(target);
+  }
+
+  Future<void> _showReassignConfirmDialog(_SeatInfo target) async {
+    final source = _reassignSource!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AdminTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: Container(
+          width: 400,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '좌석 재배정 확인',
+                style: AdminTheme.serif(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Source seat info
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AdminTheme.background,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: AdminTheme.border,
+                    width: 0.5,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '현재 좌석',
+                      style: AdminTheme.label(
+                        fontSize: 9,
+                        color: AdminTheme.sage,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      source.seat.displayName,
+                      style: AdminTheme.sans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${source.buyerName}  ${source.mobileTicket?.buyerPhone ?? ''}',
+                      style: AdminTheme.sans(
+                        fontSize: 12,
+                        color: AdminTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Arrow
+              Center(
+                child: Icon(
+                  Icons.arrow_downward_rounded,
+                  color: AdminTheme.gold,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Target seat info
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AdminTheme.gold.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: AdminTheme.gold.withValues(alpha: 0.3),
+                    width: 0.5,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '변경 좌석',
+                      style: AdminTheme.label(
+                        fontSize: 9,
+                        color: AdminTheme.gold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      target.seat.displayName,
+                      style: AdminTheme.sans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AdminTheme.gold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '${source.seat.displayName} → ${target.seat.displayName} 재배정하시겠습니까?',
+                style: AdminTheme.sans(
+                  fontSize: 12,
+                  color: AdminTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AdminTheme.textSecondary,
+                      side: BorderSide(
+                        color: AdminTheme.sage.withValues(alpha: 0.3),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 10),
+                    ),
+                    child: Text(
+                      '취소',
+                      style: AdminTheme.sans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AdminTheme.textSecondary,
+                        noShadow: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AdminTheme.gold,
+                      foregroundColor: Colors.black,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 10),
+                    ),
+                    child: Text(
+                      '재배정',
+                      style: AdminTheme.sans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
+                        noShadow: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // Determine ticketId: mobileTicket or regular ticket
+    final ticketId = source.mobileTicket?.id ?? source.ticket?.id;
+    if (ticketId == null || ticketId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('티켓 ID를 찾을 수 없습니다',
+                style: AdminTheme.sans(
+                    fontSize: 13, color: Colors.white, noShadow: true)),
+            backgroundColor: AdminTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      await ref.read(functionsServiceProvider).reassignTicketSeat(
+            ticketId: ticketId,
+            newSeatId: target.seat.id,
+          );
+
+      setState(() {
+        _reassignMode = false;
+        _reassignSource = null;
+        _selectedSeat = null;
+      });
+
+      _loadAllData();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '좌석이 재배정되었습니다: ${source.seat.displayName} → ${target.seat.displayName}',
+                style: AdminTheme.sans(
+                    fontSize: 13, color: Colors.white, noShadow: true)),
+            backgroundColor: AdminTheme.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('재배정 오류: $e',
+                style: AdminTheme.sans(
+                    fontSize: 13, color: Colors.white, noShadow: true)),
+            backgroundColor: AdminTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // TABLE VIEW
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1440,6 +1786,8 @@ class _SeatDotMapPainter extends CustomPainter {
   final Set<String> hiddenSeatIds;
   final Color Function(SeatStatus) statusColorFn;
   final bool Function(_SeatInfo) isHighlightedFn;
+  final bool isReassignMode;
+  final String? reassignSourceId;
 
   _SeatDotMapPainter({
     required this.seatInfos,
@@ -1448,6 +1796,8 @@ class _SeatDotMapPainter extends CustomPainter {
     required this.hiddenSeatIds,
     required this.statusColorFn,
     required this.isHighlightedFn,
+    this.isReassignMode = false,
+    this.reassignSourceId,
   });
 
   @override
@@ -1564,9 +1914,15 @@ class _SeatDotMapPainter extends CustomPainter {
     final isHighlighted =
         searchQuery.isNotEmpty && isHighlightedFn(info);
 
-    // Dim non-matching seats if search is active
-    final alpha =
-        searchQuery.isNotEmpty && !isHighlighted ? 0.15 : 1.0;
+    // Dim non-matching seats if search is active, or non-target seats in reassign mode
+    double alpha;
+    if (isReassignMode) {
+      final isSource = info.seat.id == reassignSourceId;
+      final isAvailableTarget = info.seat.status == SeatStatus.available;
+      alpha = (isSource || isAvailableTarget) ? 1.0 : 0.25;
+    } else {
+      alpha = searchQuery.isNotEmpty && !isHighlighted ? 0.15 : 1.0;
+    }
 
     final paint = Paint()
       ..color = color.withValues(alpha: alpha)
@@ -1590,8 +1946,39 @@ class _SeatDotMapPainter extends CustomPainter {
       canvas.drawCircle(Offset(cx, cy), radius * 0.35, innerDotPaint);
     }
 
+    // ── Reassign mode visuals ──
+    if (isReassignMode) {
+      final isSource = info.seat.id == reassignSourceId;
+      final isAvailableTarget = info.seat.status == SeatStatus.available;
+
+      // Source seat: pulsing gold ring
+      if (isSource) {
+        final goldRingPaint = Paint()
+          ..color = const Color(0xFFC9A84C)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5;
+        canvas.drawCircle(Offset(cx, cy), radius + 3, goldRingPaint);
+
+        // Outer glow
+        final glowPaint = Paint()
+          ..color = const Color(0xFFC9A84C).withValues(alpha: 0.25)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5;
+        canvas.drawCircle(Offset(cx, cy), radius + 5.5, glowPaint);
+      }
+
+      // Available target seats: subtle glow
+      if (isAvailableTarget && !isSource) {
+        final targetGlowPaint = Paint()
+          ..color = const Color(0xFF43A047).withValues(alpha: 0.35)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5;
+        canvas.drawCircle(Offset(cx, cy), radius + 2, targetGlowPaint);
+      }
+    }
+
     // Selection ring
-    if (isSelected) {
+    if (isSelected && !isReassignMode) {
       final ringPaint = Paint()
         ..color = Colors.white
         ..style = PaintingStyle.stroke
@@ -1600,7 +1987,7 @@ class _SeatDotMapPainter extends CustomPainter {
     }
 
     // Search highlight ring
-    if (isHighlighted && !isSelected) {
+    if (isHighlighted && !isSelected && !isReassignMode) {
       final highlightPaint = Paint()
         ..color = const Color(0xFFFFCF99)
         ..style = PaintingStyle.stroke
@@ -1614,7 +2001,9 @@ class _SeatDotMapPainter extends CustomPainter {
     return oldDelegate.seatInfos != seatInfos ||
         oldDelegate.searchQuery != searchQuery ||
         oldDelegate.selectedSeatId != selectedSeatId ||
-        oldDelegate.hiddenSeatIds != hiddenSeatIds;
+        oldDelegate.hiddenSeatIds != hiddenSeatIds ||
+        oldDelegate.isReassignMode != isReassignMode ||
+        oldDelegate.reassignSourceId != reassignSourceId;
   }
 
   @override
@@ -1636,6 +2025,8 @@ class _DotMapInteractive extends StatelessWidget {
   final bool Function(_SeatInfo) isHighlightedFn;
   final void Function(_SeatInfo) onSeatTap;
   final Size canvasSize;
+  final bool isReassignMode;
+  final String? reassignSourceId;
 
   const _DotMapInteractive({
     required this.seatInfos,
@@ -1646,6 +2037,8 @@ class _DotMapInteractive extends StatelessWidget {
     required this.isHighlightedFn,
     required this.onSeatTap,
     required this.canvasSize,
+    this.isReassignMode = false,
+    this.reassignSourceId,
   });
 
   @override
@@ -1666,6 +2059,8 @@ class _DotMapInteractive extends StatelessWidget {
           hiddenSeatIds: hiddenSeatIds,
           statusColorFn: statusColorFn,
           isHighlightedFn: isHighlightedFn,
+          isReassignMode: isReassignMode,
+          reassignSourceId: reassignSourceId,
         ),
       ),
     );
