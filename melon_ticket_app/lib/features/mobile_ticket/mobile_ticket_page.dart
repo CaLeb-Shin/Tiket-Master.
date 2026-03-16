@@ -2784,6 +2784,46 @@ class _BackCardState extends State<_BackCard>
                           ),
                   ),
 
+                  // ── 입장번호 백업 (QR 리더 고장 시) ──
+                  if (_localQrRevealed && widget.entryNumber > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A1A22),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF2A2A35), width: 0.5),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.confirmation_number_rounded, size: 14, color: Color(0xFF8A8A9A)),
+                            const SizedBox(width: 6),
+                            Text(
+                              '입장번호',
+                              style: AppTheme.nanum(
+                                fontSize: 11,
+                                color: const Color(0xFF8A8A9A),
+                                noShadow: true,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${widget.seatGrade}-${widget.entryNumber.toString().padLeft(3, '0')}',
+                              style: AppTheme.nanum(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFFC9A84C),
+                                letterSpacing: 1.5,
+                                noShadow: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
                   const SizedBox(height: 24),
 
                   // ── 구분선 ──
