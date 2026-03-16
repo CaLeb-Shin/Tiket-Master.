@@ -4538,3 +4538,86 @@ export const syncOfflineCheckins = functions.https.onCall(async (data: any, cont
     errors: errors.slice(0, 10), // 최대 10개 에러만 반환
   };
 });
+
+// ============================================================
+// 모바일티켓 Health Check (5분 주기)
+// 실패 시 smsTasks에 긴급 알림 큐잉
+// ============================================================
+export const healthCheckMobileTicket = functions.pubsub
+  .schedule("every 5 minutes")
+  .timeZone("Asia/Seoul")
+  .onRun(async () => {
+    try {
+      // 현재 활성 이벤트 중 가장 가까운 공연의 모바일티켓 1개를 테스트
+      const eventsSnap = await db.collection("events")
+        .where("eventStatus", "==", "active")
+        .orderBy("startAt", "asc")
+        .limit(3)
+        .get();
+
+      if (eventsSnap.empty) {
+        functions.logger.info("[HealthCheck] 활성 이벤트 없음, 스킵");
+        return null;
+      }
+
+      // 각 이벤트의 모바일티켓 1개씩 테스트
+      let allOk = true;
+      const errors: string[] = [];
+
+      for (const eventDoc of eventsSnap.docs) {
+        const eventId = eventDoc.id;
+        const eventTitle = eventDoc.data().title || eventId;
+
+        const ticketSnap = await db.collection("mobileTickets")
+          .where("eventId", "==", eventId)
+          .where("status", "==", "active")
+          .limit(1)
+          .get();
+
+        if (ticketSnap.empty) continue;
+
+        const testTicket = ticketSnap.docs[0].data();
+        const accessToken = testTicket.accessToken;
+
+        if (!accessToken) continue;
+
+        try {
+          // getMobileTicketByToken 내부 로직 직접 실행 (CF 호출 대신)
+          const ticketDoc = await db.collection("mobileTickets")
+            .where("accessToken", "==", accessToken)
+            .limit(1)
+            .get();
+
+          if (ticketDoc.empty) {
+            allOk = false;
+            errors.push(`[${eventTitle}] accessToken으로 조회 실패`);
+          }
+        } catch (err: any) {
+          allOk = false;
+          errors.push(`[${eventTitle}] ${err.message}`);
+        }
+      }
+
+      if (!allOk) {
+        // 긴급 알림: smsTasks에 관리자 알림 큐잉
+        await db.collection("smsTasks").add({
+          type: "healthCheckAlert",
+          buyerName: "SYSTEM",
+          buyerPhone: "",
+          productName: "모바일티켓 Health Check 실패",
+          message: `모바일티켓 장애 감지: ${errors.join(", ")}`,
+          status: "pending",
+          priority: 0, // 최우선
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        functions.logger.error(`[HealthCheck] 실패: ${errors.join(", ")}`);
+      } else {
+        functions.logger.info("[HealthCheck] 정상");
+      }
+
+      return null;
+    } catch (err: any) {
+      functions.logger.error(`[HealthCheck] 치명적 오류: ${err.message}`);
+      return null;
+    }
+  });

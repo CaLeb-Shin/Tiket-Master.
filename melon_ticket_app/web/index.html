@@ -196,6 +196,18 @@
       });
     }
   </script>
+  <script>
+    // 모바일티켓 전용 서비스 워커 등록 (프로덕션만)
+    if ('serviceWorker' in navigator && location.hostname !== 'localhost') {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/ticket-sw.js').then(function(reg) {
+          console.log('[SW] 등록 완료:', reg.scope);
+        }).catch(function(err) {
+          console.warn('[SW] 등록 실패:', err);
+        });
+      });
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

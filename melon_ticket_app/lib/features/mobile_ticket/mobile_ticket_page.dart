@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:melon_core/melon_core.dart';
 import 'mobile_ticket_logic.dart';
 
@@ -225,6 +227,8 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
     _loadTicket();
   }
 
+  bool _isFromCache = false;
+
   Future<void> _loadTicket({bool preserveGroupContext = false}) async {
     final previousPage = _currentPage;
     final previousOverview = _showGroupOverview;
@@ -232,6 +236,7 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
     setState(() {
       _isLoading = true;
       _errorText = null;
+      _isFromCache = false;
     });
 
     try {
@@ -240,33 +245,73 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
           .getMobileTicketByToken(accessToken: widget.accessToken);
       if (!mounted) return;
 
-      // 그룹 티켓: 현재 티켓 위치 찾기
-      final siblings =
-          (result['siblings'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-      final groupViewState = deriveGroupTicketViewState(
-        siblings: siblings,
-        currentAccessToken: widget.accessToken,
-        preserveGroupContext: preserveGroupContext,
-        previousPage: previousPage,
-        previousOverview: previousOverview,
-      );
+      // 성공 시 로컬 캐시에 저장 (오프라인 폴백용)
+      _saveTicketCache(widget.accessToken, result);
 
-      _pageController?.dispose();
-      setState(() {
-        _ticketData = result;
-        _isLoading = false;
-        _currentPage = groupViewState.currentPage;
-        _pageController = PageController(
-          initialPage: groupViewState.currentPage,
-        );
-        _showGroupOverview = groupViewState.showGroupOverview;
-      });
+      _applyTicketData(result, preserveGroupContext, previousPage, previousOverview);
     } catch (e) {
+      if (!mounted) return;
+      // 네트워크 실패 시 로컬 캐시에서 로드
+      final cached = await _loadTicketCache(widget.accessToken);
+      if (cached != null && mounted) {
+        _applyTicketData(cached, preserveGroupContext, previousPage, previousOverview);
+        setState(() => _isFromCache = true);
+        return;
+      }
       if (!mounted) return;
       setState(() {
         _isLoading = false;
         _errorText = '티켓을 찾을 수 없습니다';
       });
+    }
+  }
+
+  void _applyTicketData(
+    Map<String, dynamic> result,
+    bool preserveGroupContext,
+    int previousPage,
+    bool previousOverview,
+  ) {
+    final siblings =
+        (result['siblings'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final groupViewState = deriveGroupTicketViewState(
+      siblings: siblings,
+      currentAccessToken: widget.accessToken,
+      preserveGroupContext: preserveGroupContext,
+      previousPage: previousPage,
+      previousOverview: previousOverview,
+    );
+
+    _pageController?.dispose();
+    setState(() {
+      _ticketData = result;
+      _isLoading = false;
+      _currentPage = groupViewState.currentPage;
+      _pageController = PageController(
+        initialPage: groupViewState.currentPage,
+      );
+      _showGroupOverview = groupViewState.showGroupOverview;
+    });
+  }
+
+  // ─── 로컬 캐시 (오프라인 폴백용) ───
+  static const _cacheKeyPrefix = 'ticket_cache_';
+
+  Future<void> _saveTicketCache(String token, Map<String, dynamic> data) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('$_cacheKeyPrefix$token', jsonEncode(data));
+    } catch (_) {}
+  }
+
+  Future<Map<String, dynamic>?> _loadTicketCache(String token) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('$_cacheKeyPrefix$token');
+      if (raw == null) return null;
+      return Map<String, dynamic>.from(jsonDecode(raw));
+    } catch (_) {
+      return null;
     }
   }
 
@@ -546,12 +591,50 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
       backgroundColor: _cream,
       body: _desktopShowcase(
         SafeArea(
-          child: _TicketView(
-            data: _ticketData!,
-            accessToken: widget.accessToken,
-            onRefresh: _refreshTicketState,
+          child: Column(
+            children: [
+              if (_isFromCache) _buildCacheBanner(),
+              Expanded(
+                child: _TicketView(
+                  data: _ticketData!,
+                  accessToken: widget.accessToken,
+                  onRefresh: _refreshTicketState,
+                ),
+              ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCacheBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: const Color(0xFFFFF3CD),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_rounded, size: 14, color: Color(0xFF856404)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '오프라인 — 마지막 저장 데이터 표시 중',
+              style: AppTheme.nanum(
+                fontSize: 12,
+                color: const Color(0xFF856404),
+                noShadow: true,
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: _loadTicket,
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(Icons.refresh_rounded, size: 16, color: Color(0xFF856404)),
+            ),
+          ),
+        ],
       ),
     );
   }
