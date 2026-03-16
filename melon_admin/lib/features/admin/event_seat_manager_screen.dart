@@ -7,6 +7,7 @@ import '../../app/admin_theme.dart';
 import 'package:melon_core/data/models/seat.dart';
 import 'package:melon_core/data/models/order.dart' as order_model;
 import 'package:melon_core/data/models/ticket.dart';
+import 'package:melon_core/data/models/mobile_ticket.dart';
 import 'package:melon_core/data/models/app_user.dart';
 import 'package:melon_core/services/firestore_service.dart';
 import 'package:melon_core/data/models/seat_block.dart';
@@ -21,6 +22,7 @@ class _SeatInfo {
   final order_model.Order? order;
   final AppUser? user;
   final Ticket? ticket;
+  final MobileTicket? mobileTicket;
   final SeatBlock? seatBlock;
 
   _SeatInfo({
@@ -28,8 +30,26 @@ class _SeatInfo {
     this.order,
     this.user,
     this.ticket,
+    this.mobileTicket,
     this.seatBlock,
   });
+
+  /// 입장 완료 여부 (일반 티켓 또는 모바일 티켓)
+  bool get isCheckedIn =>
+      ticket?.entryCheckedInAt != null ||
+      mobileTicket?.entryCheckedInAt != null;
+
+  /// 예매자 이름
+  String get buyerName =>
+      mobileTicket?.buyerName ??
+      user?.displayName ??
+      '';
+
+  /// 전화번호 뒷4자리
+  String get phoneLast4 =>
+      mobileTicket?.buyerPhone.length == 11
+          ? mobileTicket!.buyerPhone.substring(7)
+          : '';
 }
 
 class EventSeatManagerScreen extends ConsumerStatefulWidget {
@@ -141,6 +161,18 @@ class _EventSeatManagerScreenState
         }
       }
 
+      // 6b) Fetch mobileTickets for this event
+      final mobileTicketSnapshot = await fs.mobileTickets
+          .where('eventId', isEqualTo: widget.eventId)
+          .get();
+      final mobileTicketBySeatId = <String, MobileTicket>{};
+      for (final doc in mobileTicketSnapshot.docs) {
+        final mt = MobileTicket.fromFirestore(doc);
+        if (mt.seatId != null && mt.seatId!.isNotEmpty) {
+          mobileTicketBySeatId[mt.seatId!] = mt;
+        }
+      }
+
       // 7) Fetch seat blocks for this event
       final seatBlockSnapshot = await fs.seatBlocks
           .where('eventId', isEqualTo: widget.eventId)
@@ -169,6 +201,7 @@ class _EventSeatManagerScreenState
           order: order,
           user: user,
           ticket: ticket,
+          mobileTicket: mobileTicketBySeatId[seat.id],
           seatBlock: seatBlock,
         );
       }).toList();
@@ -254,6 +287,8 @@ class _EventSeatManagerScreenState
     if (info.seat.shortName.toLowerCase().contains(q)) return true;
     if (info.user?.displayName?.toLowerCase().contains(q) == true) return true;
     if (info.order?.id.toLowerCase().contains(q) == true) return true;
+    if (info.mobileTicket?.buyerName.toLowerCase().contains(q) == true) return true;
+    if (info.mobileTicket?.buyerPhone.contains(q) == true) return true;
     return false;
   }
 
@@ -819,7 +854,27 @@ class _EventSeatManagerScreenState
                     _detailRow(
                         '그리드', '(${seat.dotX!.toStringAsFixed(0)}, ${seat.dotY!.toStringAsFixed(0)})'),
 
-                  if (order != null || user != null) ...[
+                  if (info.mobileTicket != null) ...[
+                    const SizedBox(height: 24),
+                    _detailSection('네이버 예매자'),
+                    const SizedBox(height: 12),
+                    _detailRow('이름', info.mobileTicket!.buyerName),
+                    _detailRow('전화번호', info.mobileTicket!.buyerPhone),
+                    _detailRow('등급', info.mobileTicket!.seatGrade),
+                    _detailRow('입장번호', '${info.mobileTicket!.entryNumber}'),
+                    _detailRow('상태', info.mobileTicket!.status.name),
+                    _detailRow(
+                      '1차 입장',
+                      info.mobileTicket!.entryCheckedInAt != null
+                          ? DateFormat('HH:mm:ss').format(info.mobileTicket!.entryCheckedInAt!)
+                          : '미입장',
+                    ),
+                    if (info.mobileTicket!.intermissionCheckedInAt != null)
+                      _detailRow(
+                        '인터미션',
+                        DateFormat('HH:mm:ss').format(info.mobileTicket!.intermissionCheckedInAt!),
+                      ),
+                  ] else if (order != null || user != null) ...[
                     const SizedBox(height: 24),
                     _detailSection('예매자 정보'),
                     const SizedBox(height: 12),
@@ -1500,7 +1555,10 @@ class _SeatDotMapPainter extends CustomPainter {
     double radius,
     _SeatInfo info,
   ) {
-    final color = statusColorFn(info.seat.status);
+    // 입장 완료 시 파란색으로 오버라이드
+    final color = info.isCheckedIn
+        ? const Color(0xFF42A5F5)
+        : statusColorFn(info.seat.status);
     final isSelected = info.seat.id == selectedSeatId;
     final isHidden = hiddenSeatIds.contains(info.seat.id);
     final isHighlighted =
