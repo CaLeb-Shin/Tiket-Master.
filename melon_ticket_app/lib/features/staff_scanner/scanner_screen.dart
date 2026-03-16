@@ -525,6 +525,169 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   }
 
   // ──────────────────────────────────────────────
+  //  긴급 수동모드 — 이름/전화번호로 검색 입장
+  // ──────────────────────────────────────────────
+
+  Future<void> _showManualSearchDialog() async {
+    if (_selectedEventId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('먼저 캐시를 다운로드하세요.', style: AppTheme.nanum(fontSize: 13)),
+          backgroundColor: AppTheme.warning,
+        ),
+      );
+      return;
+    }
+
+    final textController = TextEditingController();
+    final cache = ref.read(offlineCheckinCacheProvider);
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            backgroundColor: AppTheme.card,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                const Icon(Icons.search_rounded, color: AppTheme.warning, size: 22),
+                const SizedBox(width: 8),
+                Text(
+                  '긴급 수동 입장',
+                  style: AppTheme.nanum(
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                    shadows: AppTheme.textShadow,
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: textController,
+                    autofocus: true,
+                    style: AppTheme.nanum(color: AppTheme.textPrimary, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: '이름 또는 전화번호 뒷자리',
+                      hintStyle: AppTheme.nanum(color: AppTheme.textTertiary, fontSize: 13),
+                      filled: true,
+                      fillColor: AppTheme.background,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppTheme.border),
+                      ),
+                      suffixIcon: IconButton(
+                        onPressed: () => setDialogState(() {}),
+                        icon: const Icon(Icons.search, color: AppTheme.gold, size: 20),
+                      ),
+                    ),
+                    onSubmitted: (_) => setDialogState(() {}),
+                  ),
+                  const SizedBox(height: 12),
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: textController.text.trim().length >= 2
+                        ? cache.searchByNameOrPhone(
+                            eventId: _selectedEventId!,
+                            query: textController.text.trim(),
+                          )
+                        : Future.value([]),
+                    builder: (_, snap) {
+                      final results = snap.data ?? [];
+                      if (textController.text.trim().length < 2) {
+                        return Text(
+                          '2글자 이상 입력하세요',
+                          style: AppTheme.nanum(color: AppTheme.textTertiary, fontSize: 12),
+                        );
+                      }
+                      if (results.isEmpty) {
+                        return Text(
+                          '검색 결과 없음',
+                          style: AppTheme.nanum(color: AppTheme.textSecondary, fontSize: 13),
+                        );
+                      }
+                      return SizedBox(
+                        height: 200,
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: results.length,
+                          separatorBuilder: (_, __) => const Divider(color: AppTheme.border, height: 1),
+                          itemBuilder: (_, i) {
+                            final t = results[i];
+                            final name = t['buyerName'] ?? '';
+                            final phone = t['phoneLast4'] ?? '';
+                            final seat = t['seatInfo'] ?? t['seatGrade'] ?? '';
+                            final cacheKey = t['_cacheKey'] as String? ?? '';
+                            return ListTile(
+                              dense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                              title: Text(
+                                '$name ($phone)',
+                                style: AppTheme.nanum(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimary,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              subtitle: Text(
+                                seat,
+                                style: AppTheme.nanum(color: AppTheme.textSecondary, fontSize: 12),
+                              ),
+                              trailing: FilledButton(
+                                onPressed: () async {
+                                  final result = await cache.offlineVerify(
+                                    ticketId: cacheKey,
+                                    eventId: _selectedEventId!,
+                                    checkinStage: _checkinStage,
+                                  );
+                                  if (context.mounted) {
+                                    Navigator.pop(ctx);
+                                    _handleResult(result);
+                                    await _updatePendingSyncCount();
+                                  }
+                                },
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppTheme.success,
+                                  minimumSize: const Size(60, 32),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: Text(
+                                  '입장',
+                                  style: AppTheme.nanum(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('닫기', style: AppTheme.nanum(color: AppTheme.textSecondary)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────
   //  Manual QR Input (for web testing)
   // ──────────────────────────────────────────────
 
@@ -739,6 +902,27 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             ),
             style: IconButton.styleFrom(
               backgroundColor: AppTheme.card,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              fixedSize: const Size(40, 40),
+            ),
+          ),
+          const SizedBox(width: 6),
+
+          // 긴급 수동 검색
+          IconButton(
+            onPressed: _showManualSearchDialog,
+            icon: const Icon(
+              Icons.person_search_rounded,
+              color: AppTheme.textSecondary,
+              size: 22,
+            ),
+            tooltip: '긴급 수동 입장',
+            style: IconButton.styleFrom(
+              backgroundColor: _selectedEventId != null
+                  ? AppTheme.warning.withAlpha(30)
+                  : AppTheme.card,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
