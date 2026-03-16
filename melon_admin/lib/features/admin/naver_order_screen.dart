@@ -2252,6 +2252,23 @@ class _NaverOrderRow extends ConsumerWidget {
                               color: AdminTheme.textTertiary,
                             ),
                           ),
+                          if (order.status == NaverOrderStatus.cancelled && order.cancelledAt != null) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AdminTheme.error.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                              child: Text(
+                                '취소 ${dateFormat.format(order.cancelledAt!)}',
+                                style: AdminTheme.label(
+                                  fontSize: 8,
+                                  color: AdminTheme.error,
+                                ),
+                              ),
+                            ),
+                          ],
                           const SizedBox(width: 8),
                           ticketsAsync.when(
                             data: (tickets) {

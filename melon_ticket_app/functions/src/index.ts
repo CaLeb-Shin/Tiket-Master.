@@ -3131,6 +3131,26 @@ async function cancelNaverOrderInternal(
 
   await batch.commit();
 
+  // 취소 안내 SMS 큐잉 (구매자에게)
+  if (order.buyerPhone && ticketIds.length > 0) {
+    try {
+      await db.collection("smsTasks").add({
+        type: "cancelNotification",
+        buyerName: order.buyerName || "",
+        buyerPhone: order.buyerPhone,
+        productName: order.productName || "공연 티켓",
+        seatGrade: order.seatGrade || "",
+        quantity: ticketIds.length,
+        message: `[멜팅] ${order.buyerName || "고객"}님, 주문이 취소되었습니다. (${order.seatGrade || ""} ${ticketIds.length}매)`,
+        status: "pending",
+        priority: 1,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (smsErr) {
+      functions.logger.warn("취소 SMS 큐잉 실패:", smsErr);
+    }
+  }
+
   functions.logger.info(
     `${options.logPrefix || ""}네이버 주문 취소: ${orderDoc.id}, 티켓 ${ticketIds.length}장 취소`,
   );
