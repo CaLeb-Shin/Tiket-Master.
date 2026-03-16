@@ -4374,3 +4374,78 @@ export const submitReview = functions.https.onCall(async (data: any) => {
 
   return { success: true };
 });
+
+// ============================================================
+// 스캐너 오프라인 캐시용 — 이벤트 전체 티켓 다운로드
+// ============================================================
+export const downloadEventTicketsForScanner = functions.https.onCall(async (data: any, context) => {
+  await assertStaffOrAdmin(context?.auth?.uid);
+  const { eventId } = data;
+  if (!eventId || typeof eventId !== "string") {
+    throw new functions.https.HttpsError("invalid-argument", "eventId가 필요합니다");
+  }
+
+  const eventDoc = await db.collection("events").doc(eventId).get();
+  if (!eventDoc.exists) {
+    throw new functions.https.HttpsError("not-found", "이벤트를 찾을 수 없습니다");
+  }
+  const event = eventDoc.data()!;
+
+  // 일반 티켓 (tickets 컬렉션)
+  const ticketSnaps = await db.collection("tickets")
+    .where("eventId", "==", eventId)
+    .get();
+
+  const tickets = ticketSnaps.docs.map(doc => {
+    const d = doc.data();
+    return {
+      id: doc.id,
+      type: "ticket" as const,
+      eventId: d.eventId,
+      status: d.status || "issued",
+      qrVersion: d.qrVersion || 1,
+      seatInfo: d.seatInfo || null,
+      seatGrade: d.seatGrade || null,
+      buyerName: d.buyerName || null,
+      phoneLast4: d.phoneLast4 || (d.buyerPhone ? d.buyerPhone.slice(-4) : null),
+      entryNumber: d.entryNumber || null,
+      entryCheckedInAt: d.entryCheckedInAt ? d.entryCheckedInAt.toDate().toISOString() : null,
+      intermissionCheckedInAt: d.intermissionCheckedInAt ? d.intermissionCheckedInAt.toDate().toISOString() : null,
+    };
+  });
+
+  // 모바일 티켓 (mobileTickets 컬렉션)
+  const mobileSnaps = await db.collection("mobileTickets")
+    .where("eventId", "==", eventId)
+    .get();
+
+  const mobileTickets = mobileSnaps.docs.map(doc => {
+    const d = doc.data();
+    return {
+      id: doc.id,
+      type: "mobile" as const,
+      eventId: d.eventId,
+      status: d.status || "active",
+      qrVersion: d.qrVersion || 1,
+      seatInfo: d.seatInfo || null,
+      seatGrade: d.seatGrade || null,
+      buyerName: d.buyerName || null,
+      phoneLast4: d.buyerPhone ? d.buyerPhone.slice(-4) : null,
+      entryNumber: d.entryNumber || null,
+      accessToken: d.accessToken || null,
+      entryCheckedInAt: d.entryCheckedInAt ? d.entryCheckedInAt.toDate().toISOString() : null,
+      intermissionCheckedInAt: d.intermissionCheckedInAt ? d.intermissionCheckedInAt.toDate().toISOString() : null,
+    };
+  });
+
+  return {
+    success: true,
+    eventId,
+    eventTitle: event.title || "",
+    totalTickets: tickets.length,
+    totalMobileTickets: mobileTickets.length,
+    tickets,
+    mobileTickets,
+    downloadedAt: new Date().toISOString(),
+  };
+});

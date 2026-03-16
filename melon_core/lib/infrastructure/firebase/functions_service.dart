@@ -305,6 +305,18 @@ class FunctionsService {
     return Map<String, dynamic>.from(result.data);
   }
 
+  /// 스캐너 오프라인 캐시용 전체 티켓 다운로드
+  Future<Map<String, dynamic>> downloadEventTicketsForScanner({
+    required String eventId,
+  }) async {
+    final callable = _functions.httpsCallable(
+      'downloadEventTicketsForScanner',
+      options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
+    );
+    final result = await callable.call({'eventId': eventId});
+    return Map<String, dynamic>.from(result.data);
+  }
+
   /// 리뷰 제출 (공연종료 후 모바일 티켓에서)
   Future<Map<String, dynamic>> submitReview({
     required String ticketId,

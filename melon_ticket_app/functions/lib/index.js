@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.cleanupExpiredTickets = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.createScannerInvite = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.downloadEventTicketsForScanner = exports.submitReview = exports.completeEvent = exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listNaverOrdersHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.cleanupExpiredTickets = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.createScannerInvite = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -2717,6 +2717,7 @@ exports.issueMobileQrToken = functions.https.onCall(async (data) => {
     if (ticketStatus === "used") {
         throw new functions.https.HttpsError("failed-precondition", "이미 사용 완료된 티켓입니다");
     }
+    // 이벤트 조회 병렬화 (티켓 검증 후)
     const eventDoc = await db.collection("events").doc(ticket.eventId).get();
     const event = eventDoc.exists ? eventDoc.data() : null;
     if (!isEventRevealed(event)) {
@@ -2981,32 +2982,31 @@ exports.getMobileTicketByToken = functions.https.onCall(async (data) => {
     }
     const ticketDoc = ticketSnap.docs[0];
     const ticket = ticketDoc.data();
-    // 이벤트 정보 로드
-    const eventDoc = await db.collection("events").doc(ticket.eventId).get();
+    // 이벤트 + 그룹 티켓 조회를 병렬로 실행 (성능 최적화)
+    const [eventDoc, siblingSnap] = await Promise.all([
+        db.collection("events").doc(ticket.eventId).get(),
+        ticket.naverOrderId
+            ? db.collection("mobileTickets")
+                .where("naverOrderId", "==", ticket.naverOrderId)
+                .get()
+            : Promise.resolve(null),
+    ]);
     const event = eventDoc.exists ? eventDoc.data() : null;
-    // 그룹 티켓: 같은 주문의 sibling 조회
+    // 그룹 티켓: sibling 처리
     const siblingDocs = [];
-    let isGroupOwner = false;
-    if (ticket.naverOrderId) {
-        const siblingSnap = await db.collection("mobileTickets")
-            .where("naverOrderId", "==", ticket.naverOrderId)
-            .get();
-        // 주문 내 가장 작은 entryNumber = 구매자(owner)
+    if (siblingSnap && !siblingSnap.empty) {
         let minEntry = Infinity;
         for (const doc of siblingSnap.docs) {
-            const d = doc.data();
-            const en = d.entryNumber || Infinity;
+            const en = doc.data().entryNumber || Infinity;
             if (en < minEntry)
                 minEntry = en;
         }
-        isGroupOwner = (ticket.entryNumber || Infinity) === minEntry;
+        const isGroupOwner = (ticket.entryNumber || Infinity) === minEntry;
         if (isGroupOwner) {
-            // 구매자: 전체 sibling 반환
             for (const doc of siblingSnap.docs) {
                 siblingDocs.push({ id: doc.id, data: doc.data() });
             }
         }
-        // 공유받은 사람: siblingDocs 비어있음 → 자기 티켓만
     }
     return (0, naver_ticket_logic_1.buildMobileTicketPublicPayload)({
         ticketId: ticketDoc.id,
@@ -3173,6 +3173,50 @@ exports.listEventsHttp = functions.https.onRequest(async (req, res) => {
         };
     });
     res.status(200).json({ events });
+});
+/**
+ * 봇에서 특정 이벤트의 네이버 주문 목록 조회
+ * POST /listNaverOrdersHttp
+ * Body: { eventId } or {} (전체)
+ */
+exports.listNaverOrdersHttp = functions.https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return;
+    }
+    if (!requireBotRequestAuth(req, res)) {
+        return;
+    }
+    try {
+        const { eventId } = req.body || {};
+        let query = db.collection("naverOrders");
+        if (eventId) {
+            query = query.where("eventId", "==", eventId);
+        }
+        query = query.orderBy("createdAt", "desc").limit(500);
+        const snap = await query.get();
+        const orders = snap.docs.map((doc) => {
+            const d = doc.data();
+            return {
+                id: doc.id,
+                naverOrderId: d.naverOrderId || "",
+                eventId: d.eventId || "",
+                buyerName: d.buyerName || "",
+                buyerPhone: d.buyerPhone || "",
+                productName: d.productName || "",
+                seatGrade: d.seatGrade || "",
+                quantity: d.quantity || 1,
+                status: d.status || "",
+                createdAt: toDate(d.createdAt)?.toISOString() || "",
+                ticketCount: d.ticketIds?.length || 0,
+            };
+        });
+        res.status(200).json({ orders });
+    }
+    catch (err) {
+        sendHttpError(res, err, "listNaverOrdersHttp 오류:");
+    }
 });
 /**
  * 봇 SMS 폴링 — 대기중 SMS 태스크 가져오기
@@ -3626,5 +3670,129 @@ exports.updateTicketSeatsHttp = functions.https.onRequest(async (req, res) => {
     catch (err) {
         sendHttpError(res, err, "updateTicketSeatsHttp 오류:");
     }
+});
+// ============================================================
+// 공연종료 (어드민 → 이벤트 상태를 completed로 변경)
+// ============================================================
+exports.completeEvent = functions.https.onCall(async (data, context) => {
+    await assertAdmin(context?.auth?.uid);
+    const { eventId } = data;
+    if (!eventId) {
+        throw new functions.https.HttpsError("invalid-argument", "eventId가 필요합니다");
+    }
+    await db.collection("events").doc(eventId).update({
+        eventStatus: "completed",
+        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return { success: true };
+});
+// ============================================================
+// 리뷰 제출 (모바일 티켓 → accessToken 인증)
+// ============================================================
+exports.submitReview = functions.https.onCall(async (data) => {
+    const { ticketId, accessToken, rating, comment } = data;
+    if (!ticketId || !accessToken || !rating) {
+        throw new functions.https.HttpsError("invalid-argument", "ticketId, accessToken, rating이 필요합니다");
+    }
+    if (typeof rating !== "number" || rating < 1 || rating > 5) {
+        throw new functions.https.HttpsError("invalid-argument", "rating은 1~5 사이여야 합니다");
+    }
+    // accessToken으로 티켓 소유 확인
+    const ticketRef = db.collection("mobileTickets").doc(ticketId);
+    const ticketDoc = await ticketRef.get();
+    if (!ticketDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "티켓을 찾을 수 없습니다");
+    }
+    const ticket = ticketDoc.data();
+    if (ticket.accessToken !== accessToken) {
+        throw new functions.https.HttpsError("permission-denied", "접근 권한이 없습니다");
+    }
+    // 중복 리뷰 체크
+    const existingReview = await db.collection("reviews")
+        .where("ticketId", "==", ticketId)
+        .limit(1)
+        .get();
+    if (!existingReview.empty) {
+        throw new functions.https.HttpsError("already-exists", "이미 리뷰를 작성하셨습니다");
+    }
+    // 리뷰 저장
+    await db.collection("reviews").add({
+        ticketId,
+        eventId: ticket.eventId,
+        buyerName: ticket.buyerName || "",
+        recipientName: ticket.recipientName || null,
+        rating,
+        comment: typeof comment === "string" ? comment.trim().slice(0, 200) : "",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return { success: true };
+});
+// ============================================================
+// 스캐너 오프라인 캐시용 — 이벤트 전체 티켓 다운로드
+// ============================================================
+exports.downloadEventTicketsForScanner = functions.https.onCall(async (data, context) => {
+    await assertStaffOrAdmin(context?.auth?.uid);
+    const { eventId } = data;
+    if (!eventId || typeof eventId !== "string") {
+        throw new functions.https.HttpsError("invalid-argument", "eventId가 필요합니다");
+    }
+    const eventDoc = await db.collection("events").doc(eventId).get();
+    if (!eventDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "이벤트를 찾을 수 없습니다");
+    }
+    const event = eventDoc.data();
+    // 일반 티켓 (tickets 컬렉션)
+    const ticketSnaps = await db.collection("tickets")
+        .where("eventId", "==", eventId)
+        .get();
+    const tickets = ticketSnaps.docs.map(doc => {
+        const d = doc.data();
+        return {
+            id: doc.id,
+            type: "ticket",
+            eventId: d.eventId,
+            status: d.status || "issued",
+            qrVersion: d.qrVersion || 1,
+            seatInfo: d.seatInfo || null,
+            seatGrade: d.seatGrade || null,
+            buyerName: d.buyerName || null,
+            phoneLast4: d.phoneLast4 || (d.buyerPhone ? d.buyerPhone.slice(-4) : null),
+            entryNumber: d.entryNumber || null,
+            entryCheckedInAt: d.entryCheckedInAt ? d.entryCheckedInAt.toDate().toISOString() : null,
+            intermissionCheckedInAt: d.intermissionCheckedInAt ? d.intermissionCheckedInAt.toDate().toISOString() : null,
+        };
+    });
+    // 모바일 티켓 (mobileTickets 컬렉션)
+    const mobileSnaps = await db.collection("mobileTickets")
+        .where("eventId", "==", eventId)
+        .get();
+    const mobileTickets = mobileSnaps.docs.map(doc => {
+        const d = doc.data();
+        return {
+            id: doc.id,
+            type: "mobile",
+            eventId: d.eventId,
+            status: d.status || "active",
+            qrVersion: d.qrVersion || 1,
+            seatInfo: d.seatInfo || null,
+            seatGrade: d.seatGrade || null,
+            buyerName: d.buyerName || null,
+            phoneLast4: d.buyerPhone ? d.buyerPhone.slice(-4) : null,
+            entryNumber: d.entryNumber || null,
+            accessToken: d.accessToken || null,
+            entryCheckedInAt: d.entryCheckedInAt ? d.entryCheckedInAt.toDate().toISOString() : null,
+            intermissionCheckedInAt: d.intermissionCheckedInAt ? d.intermissionCheckedInAt.toDate().toISOString() : null,
+        };
+    });
+    return {
+        success: true,
+        eventId,
+        eventTitle: event.title || "",
+        totalTickets: tickets.length,
+        totalMobileTickets: mobileTickets.length,
+        tickets,
+        mobileTickets,
+        downloadedAt: new Date().toISOString(),
+    };
 });
 //# sourceMappingURL=index.js.map

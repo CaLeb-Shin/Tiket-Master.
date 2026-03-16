@@ -48,8 +48,11 @@ function buildPublicTicketDisplayState(status, options) {
     if (!options.isRevealed) {
         return { code: "beforeReveal", label: "공개 전" };
     }
+    if (options.isIntermissionCheckedIn) {
+        return { code: "intermissionCheckedIn", label: "인터미션 완료" };
+    }
     if (options.isCheckedIn) {
-        return { code: "entryCheckedIn", label: "입장 완료" };
+        return { code: "entryCheckedIn", label: "1부 입장완료" };
     }
     return { code: "active", label: "사용 가능" };
 }
@@ -92,8 +95,10 @@ function evaluateCancelOrderStatus(status, allowAlreadyCancelled = false) {
 function buildPublicTicketDto(params) {
     const ticketStatus = normalizeMobileTicketStatus(params.ticket.status);
     const ticketIsCheckedIn = !!params.ticket.entryCheckedInAt;
+    const ticketIsIntermissionCheckedIn = !!params.ticket.intermissionCheckedInAt;
     const ticketDisplayState = buildPublicTicketDisplayState(ticketStatus, {
         isCheckedIn: ticketIsCheckedIn,
+        isIntermissionCheckedIn: ticketIsIntermissionCheckedIn,
         isRevealed: params.isRevealed,
     });
     return {
@@ -116,6 +121,8 @@ function buildPublicTicketDto(params) {
         totalInOrder: params.ticket.totalInOrder || null,
         qrVersion: params.ticket.qrVersion || 1,
         isCheckedIn: ticketIsCheckedIn,
+        isIntermissionCheckedIn: ticketIsIntermissionCheckedIn,
+        lastCheckInStage: params.ticket.lastCheckInStage || null,
         displayStatus: ticketDisplayState.code,
         displayStatusLabel: ticketDisplayState.label,
     };
@@ -146,6 +153,7 @@ function buildMobileTicketPublicPayload(params) {
                 revealAt: params.event.revealAt,
                 naverProductUrl: params.event.naverProductUrl || null,
                 pamphletUrls: params.event.pamphletUrls || [],
+                eventStatus: params.event.eventStatus || "active",
             }
             : null,
         isRevealed,

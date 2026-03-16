@@ -7,6 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:melon_core/app/theme.dart';
+import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/domain/catalog/event.dart';
+import 'package:melon_core/infrastructure/device/offline_checkin_cache.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/services/functions_service.dart';
 import 'package:melon_core/services/scanner_device_service.dart';
@@ -32,6 +35,15 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   String _scannerDeviceLabel = '';
   String? _deviceStatusMessage;
   bool _cameraStarted = false;
+
+  // ─── 오프라인 캐시 관련 ─────────────────────────────
+  bool _isOfflineMode = false;
+  String? _selectedEventId;
+  String? _selectedEventTitle;
+  bool _isCacheDownloading = false;
+  int _cachedTicketCount = 0;
+  int _pendingSyncCount = 0;
+  String? _cacheDownloadedAt;
 
   bool get _isIntermissionStage => _checkinStage == 'intermission';
 
@@ -168,6 +180,141 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   }
 
   // ──────────────────────────────────────────────
+  //  오프라인 캐시 관련
+  // ──────────────────────────────────────────────
+
+  Future<void> _showEventSelector() async {
+    final events = ref.read(allEventsStreamProvider).valueOrNull ?? [];
+    // 오늘~내일 공연만 필터 (캐시 대상)
+    final now = DateTime.now();
+    final relevantEvents = events.where((e) {
+      if (e.startAt == null) return false;
+      final diff = e.startAt!.difference(now).inHours;
+      return diff > -6 && diff < 48; // 6시간 전 ~ 48시간 후
+    }).toList()
+      ..sort((a, b) => (a.startAt ?? now).compareTo(b.startAt ?? now));
+
+    if (!mounted) return;
+    final selected = await showDialog<Event>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          '공연 선택 (오프라인 캐시)',
+          style: AppTheme.nanum(
+            fontWeight: FontWeight.w700,
+            color: AppTheme.textPrimary,
+            shadows: AppTheme.textShadow,
+          ),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: relevantEvents.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    '오늘~내일 예정된 공연이 없습니다.',
+                    style: AppTheme.nanum(color: AppTheme.textSecondary, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: relevantEvents.length,
+                  separatorBuilder: (_, __) => const Divider(color: AppTheme.border, height: 1),
+                  itemBuilder: (_, i) {
+                    final e = relevantEvents[i];
+                    final timeStr = e.startAt != null
+                        ? '${e.startAt!.month}/${e.startAt!.day} ${e.startAt!.hour}:${e.startAt!.minute.toString().padLeft(2, '0')}'
+                        : '';
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      title: Text(
+                        e.title,
+                        style: AppTheme.nanum(
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                          fontSize: 14,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        timeStr,
+                        style: AppTheme.nanum(color: AppTheme.textSecondary, fontSize: 12),
+                      ),
+                      trailing: const Icon(Icons.download_rounded, color: AppTheme.gold, size: 20),
+                      onTap: () => Navigator.pop(ctx, e),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('닫기', style: AppTheme.nanum(color: AppTheme.textSecondary)),
+          ),
+        ],
+      ),
+    );
+
+    if (selected != null) {
+      _downloadCache(selected.id, selected.title);
+    }
+  }
+
+  Future<void> _downloadCache(String eventId, String eventTitle) async {
+    if (_isCacheDownloading) return;
+    setState(() => _isCacheDownloading = true);
+
+    try {
+      final result = await ref
+          .read(functionsServiceProvider)
+          .downloadEventTicketsForScanner(eventId: eventId);
+
+      if (result['success'] == true) {
+        final cache = ref.read(offlineCheckinCacheProvider);
+        await cache.cacheEventTickets(result);
+        final total = (result['totalTickets'] as int? ?? 0) +
+            (result['totalMobileTickets'] as int? ?? 0);
+
+        if (mounted) {
+          setState(() {
+            _selectedEventId = eventId;
+            _selectedEventTitle = eventTitle;
+            _cachedTicketCount = total;
+            _cacheDownloadedAt = result['downloadedAt'] as String?;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$total장 티켓 캐시 완료', style: AppTheme.nanum(fontSize: 13)),
+              backgroundColor: AppTheme.success,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('캐시 다운로드 실패: $e', style: AppTheme.nanum(fontSize: 13)),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCacheDownloading = false);
+    }
+  }
+
+  Future<void> _updatePendingSyncCount() async {
+    final cache = ref.read(offlineCheckinCacheProvider);
+    final count = await cache.pendingSyncCount();
+    if (mounted) setState(() => _pendingSyncCount = count);
+  }
+
+  // ──────────────────────────────────────────────
   //  QR Processing
   // ──────────────────────────────────────────────
 
@@ -231,32 +378,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         );
       }
 
-      final success = result['success'] == true;
-      final message =
-          result['message'] as String? ?? (success ? '입장 성공' : '입장 실패');
-      final seatInfo = result['seatInfo'] as String?;
-      final buyerName = result['buyerName'] as String?;
-      final phoneLast4 = result['phoneLast4'] as String?;
-
-      // 햅틱 피드백
-      if (!kIsWeb) {
-        if (success) {
-          HapticFeedback.heavyImpact();
-        } else {
-          HapticFeedback.vibrate();
-        }
-      }
-
-      setState(() {
-        _lastResult = _ScanResultData(
-          isSuccess: success,
-          title: _resultTitleForResponse(success, result),
-          message: message,
-          seatInfo: seatInfo,
-          buyerName: buyerName,
-          phoneLast4: phoneLast4,
-        );
-      });
+      _handleResult(result);
     } on FormatException catch (e) {
       if (!kIsWeb) HapticFeedback.vibrate();
       setState(() {
@@ -267,6 +389,27 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         );
       });
     } catch (e) {
+      // 네트워크 오류 시 오프라인 캐시로 폴백
+      if (_selectedEventId != null) {
+        try {
+          final ticketId = _extractTicketId(qrData);
+          if (ticketId != null) {
+            final cache = ref.read(offlineCheckinCacheProvider);
+            final offlineResult = await cache.offlineVerify(
+              ticketId: ticketId,
+              eventId: _selectedEventId!,
+              checkinStage: _checkinStage,
+            );
+            _handleResult(offlineResult);
+            await _updatePendingSyncCount();
+            if (mounted) setState(() => _isOfflineMode = true);
+            return; // finally 블록은 아래에서 처리
+          }
+        } catch (_) {
+          // 오프라인 폴백도 실패하면 원래 에러 표시
+        }
+      }
+
       if (!kIsWeb) HapticFeedback.vibrate();
       setState(() {
         _lastResult = _ScanResultData(
@@ -291,6 +434,43 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         });
       }
     }
+  }
+
+  void _handleResult(Map<String, dynamic> result) {
+    final success = result['success'] == true;
+    final message =
+        result['message'] as String? ?? (success ? '입장 성공' : '입장 실패');
+    final seatInfo = result['seatInfo'] as String?;
+    final buyerName = result['buyerName'] as String?;
+    final phoneLast4 = result['phoneLast4'] as String?;
+
+    if (!kIsWeb) {
+      if (success) {
+        HapticFeedback.heavyImpact();
+      } else {
+        HapticFeedback.vibrate();
+      }
+    }
+
+    setState(() {
+      _lastResult = _ScanResultData(
+        isSuccess: success,
+        title: _resultTitleForResponse(success, result),
+        message: message,
+        seatInfo: seatInfo,
+        buyerName: buyerName,
+        phoneLast4: phoneLast4,
+      );
+    });
+  }
+
+  /// QR 데이터에서 ticketId 추출 (오프라인 폴백용)
+  String? _extractTicketId(String qrData) {
+    final raw = qrData.trim();
+    if (raw.startsWith('group:')) return null; // 그룹 QR은 오프라인 미지원
+    final sepIndex = raw.indexOf(':');
+    if (sepIndex <= 0) return null;
+    return raw.substring(0, sepIndex);
   }
 
   // ──────────────────────────────────────────────
@@ -1107,6 +1287,70 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             ],
           ),
           const SizedBox(height: 12),
+          // ─── 오프라인 캐시 상태 바 ───
+          if (_selectedEventId != null)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _isOfflineMode
+                    ? AppTheme.warning.withAlpha(26)
+                    : AppTheme.success.withAlpha(20),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _isOfflineMode ? AppTheme.warning : AppTheme.success,
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _isOfflineMode ? Icons.cloud_off_rounded : Icons.cloud_done_rounded,
+                    size: 16,
+                    color: _isOfflineMode ? AppTheme.warning : AppTheme.success,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isOfflineMode
+                              ? '오프라인 모드 · $_selectedEventTitle'
+                              : '캐시 준비 · $_selectedEventTitle',
+                          style: AppTheme.nanum(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _isOfflineMode ? AppTheme.warning : AppTheme.success,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          '$_cachedTicketCount장 캐시됨${_pendingSyncCount > 0 ? ' · 동기화 대기 ${_pendingSyncCount}건' : ''}',
+                          style: AppTheme.nanum(
+                            fontSize: 11,
+                            color: AppTheme.textTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => _downloadCache(_selectedEventId!, _selectedEventTitle ?? ''),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.refresh_rounded,
+                        size: 18,
+                        color: _isOfflineMode ? AppTheme.warning : AppTheme.success,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Row(
             children: [
               Expanded(
@@ -1161,23 +1405,47 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               ),
               const SizedBox(width: 8),
               FilledButton(
-                onPressed: () => _registerCurrentDevice(silent: true),
+                onPressed: _isCacheDownloading ? null : _showEventSelector,
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.cardElevated,
-                  foregroundColor: AppTheme.textPrimary,
+                  backgroundColor: _selectedEventId != null
+                      ? AppTheme.success.withAlpha(30)
+                      : AppTheme.cardElevated,
+                  foregroundColor: _selectedEventId != null
+                      ? AppTheme.success
+                      : AppTheme.textPrimary,
                   minimumSize: const Size(92, 40),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
-                    side: const BorderSide(color: AppTheme.border),
+                    side: BorderSide(
+                      color: _selectedEventId != null ? AppTheme.success : AppTheme.border,
+                    ),
                   ),
                 ),
-                child: Text(
-                  '기기 확인',
-                  style: AppTheme.nanum(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                child: _isCacheDownloading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.gold),
+                      )
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _selectedEventId != null
+                                ? Icons.cloud_done_rounded
+                                : Icons.cloud_download_rounded,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _selectedEventId != null ? '캐시됨' : '캐시',
+                            style: AppTheme.nanum(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ],
           ),

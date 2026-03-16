@@ -53,6 +53,7 @@ export 'infrastructure/firebase/fcm_service.dart';
 // ─── Infrastructure: Device ───
 export 'infrastructure/device/scanner_device.dart';
 export 'infrastructure/device/scanner_device_service.dart';
+export 'infrastructure/device/offline_checkin_cache.dart';
 
 // ─── Infrastructure: External ───
 export 'infrastructure/external/kakao_postcode_service.dart';
