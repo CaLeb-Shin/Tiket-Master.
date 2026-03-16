@@ -314,6 +314,57 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     if (mounted) setState(() => _pendingSyncCount = count);
   }
 
+  /// 오프라인 체크인 큐를 서버에 동기화
+  Future<void> _syncOfflineCheckins() async {
+    final cache = ref.read(offlineCheckinCacheProvider);
+    final queue = await cache.getSyncQueue();
+    if (queue.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('동기화할 항목이 없습니다.', style: AppTheme.nanum(fontSize: 13)),
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final result = await ref
+          .read(functionsServiceProvider)
+          .syncOfflineCheckins(checkins: queue);
+
+      final synced = result['synced'] ?? 0;
+      final skipped = result['skipped'] ?? 0;
+      await cache.clearSyncQueue();
+
+      if (mounted) {
+        setState(() {
+          _pendingSyncCount = 0;
+          _isOfflineMode = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '동기화 완료: $synced건 성공${skipped > 0 ? ', $skipped건 스킵' : ''}',
+              style: AppTheme.nanum(fontSize: 13),
+            ),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('동기화 실패: $e', style: AppTheme.nanum(fontSize: 13)),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   // ──────────────────────────────────────────────
   //  QR Processing
   // ──────────────────────────────────────────────
@@ -1337,6 +1388,23 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                       ],
                     ),
                   ),
+                  if (_pendingSyncCount > 0)
+                    InkWell(
+                      onTap: _syncOfflineCheckins,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        margin: const EdgeInsets.only(right: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.gold.withAlpha(30),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppTheme.gold, width: 0.5),
+                        ),
+                        child: Text(
+                          '동기화',
+                          style: AppTheme.nanum(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.gold),
+                        ),
+                      ),
+                    ),
                   InkWell(
                     onTap: () => _downloadCache(_selectedEventId!, _selectedEventTitle ?? ''),
                     child: Padding(

@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.downloadEventTicketsForScanner = exports.submitReview = exports.completeEvent = exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listNaverOrdersHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.cleanupExpiredTickets = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.createScannerInvite = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.syncOfflineCheckins = exports.downloadEventTicketsForScanner = exports.submitReview = exports.completeEvent = exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listNaverOrdersHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.cleanupExpiredTickets = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.createScannerInvite = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -3793,6 +3793,82 @@ exports.downloadEventTicketsForScanner = functions.https.onCall(async (data, con
         tickets,
         mobileTickets,
         downloadedAt: new Date().toISOString(),
+    };
+});
+// ============================================================
+// 오프라인 체크인 일괄 동기화
+// ============================================================
+exports.syncOfflineCheckins = functions.https.onCall(async (data, context) => {
+    await assertStaffOrAdmin(context?.auth?.uid);
+    const { checkins } = data;
+    if (!Array.isArray(checkins) || checkins.length === 0) {
+        throw new functions.https.HttpsError("invalid-argument", "체크인 배열이 필요합니다");
+    }
+    const batch = db.batch();
+    let synced = 0;
+    let skipped = 0;
+    const errors = [];
+    for (const entry of checkins) {
+        const { ticketId, eventId, checkinStage, checkedInAt } = entry;
+        if (!ticketId || !eventId || !checkinStage) {
+            skipped++;
+            continue;
+        }
+        try {
+            const isMobile = ticketId.startsWith("mt_");
+            const actualId = isMobile ? ticketId.replace("mt_", "") : ticketId;
+            const collection = isMobile ? "mobileTickets" : "tickets";
+            const ticketRef = db.collection(collection).doc(actualId);
+            const ticketDoc = await ticketRef.get();
+            if (!ticketDoc.exists) {
+                skipped++;
+                errors.push(`${ticketId}: 티켓 없음`);
+                continue;
+            }
+            const ticket = ticketDoc.data();
+            const fieldPrefix = checkinStage === "entry" ? "entry" : "intermission";
+            const checkinField = `${fieldPrefix}CheckedInAt`;
+            // 이미 체크인된 경우 스킵
+            if (ticket[checkinField]) {
+                skipped++;
+                continue;
+            }
+            const syncTime = checkedInAt ? new Date(checkedInAt) : new Date();
+            const updateData = {
+                [checkinField]: admin.firestore.Timestamp.fromDate(syncTime),
+                [`${fieldPrefix}CheckinStaffId`]: context?.auth?.uid || "offline-sync",
+            };
+            if (checkinStage === "intermission") {
+                updateData.status = isMobile ? "used" : "used";
+                updateData.usedAt = admin.firestore.Timestamp.fromDate(syncTime);
+            }
+            batch.update(ticketRef, updateData);
+            // 체크인 로그
+            const logRef = db.collection("checkins").doc();
+            batch.set(logRef, {
+                ticketId: actualId,
+                eventId,
+                staffId: context?.auth?.uid || "offline-sync",
+                scannerDeviceId: "offline-sync",
+                stage: checkinStage,
+                result: "success",
+                seatInfo: ticket.seatInfo || null,
+                scannedAt: admin.firestore.Timestamp.fromDate(syncTime),
+                isOfflineSync: true,
+            });
+            synced++;
+        }
+        catch (err) {
+            skipped++;
+            errors.push(`${ticketId}: ${err.message}`);
+        }
+    }
+    await batch.commit();
+    return {
+        success: true,
+        synced,
+        skipped,
+        errors: errors.slice(0, 10), // 최대 10개 에러만 반환
     };
 });
 //# sourceMappingURL=index.js.map

@@ -317,6 +317,18 @@ class FunctionsService {
     return Map<String, dynamic>.from(result.data);
   }
 
+  /// 오프라인 체크인 일괄 동기화
+  Future<Map<String, dynamic>> syncOfflineCheckins({
+    required List<Map<String, dynamic>> checkins,
+  }) async {
+    final callable = _functions.httpsCallable(
+      'syncOfflineCheckins',
+      options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
+    );
+    final result = await callable.call({'checkins': checkins});
+    return Map<String, dynamic>.from(result.data);
+  }
+
   /// 리뷰 제출 (공연종료 후 모바일 티켓에서)
   Future<Map<String, dynamic>> submitReview({
     required String ticketId,
