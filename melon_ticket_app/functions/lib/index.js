@@ -2830,7 +2830,11 @@ exports.getTicketOgMeta = functions.https.onRequest(async (req, res) => {
         "모바일 스마트 티켓",
     ].filter(Boolean).join(" | ");
     const title = event?.title || "공연";
-    const imageUrl = event?.ogImageUrl || event?.imageUrl || "";
+    const rawImageUrl = event?.ogImageUrl || event?.imageUrl || "";
+    // 포스터 상단 크롭 OG 이미지 URL (1200x630)
+    const imageUrl = rawImageUrl
+        ? `https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net/ogImage?url=${encodeURIComponent(rawImageUrl)}`
+        : "";
     const imageAlt = event?.title ? `${event.title} 포스터` : "공연 포스터";
     const seatGrade = ticket.seatGrade || "";
     // format=html → 크롤러용 OG HTML 반환
