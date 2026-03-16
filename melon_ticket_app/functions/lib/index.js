@@ -36,7 +36,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.healthCheckMobileTicket = exports.syncOfflineCheckins = exports.downloadEventTicketsForScanner = exports.submitReview = exports.completeEvent = exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listNaverOrdersHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.cleanupExpiredTickets = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.createScannerInvite = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.assignFromWaitlist = exports.addToWaitlist = exports.syncOfflineCheckins = exports.downloadEventTicketsForScanner = exports.submitReview = exports.completeEvent = exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listNaverOrdersHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.cleanupExpiredTickets = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.createScannerInvite = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.healthCheckMobileTicket = exports.cancelWaitlistEntry = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -3890,6 +3891,115 @@ exports.syncOfflineCheckins = functions.https.onCall(async (data, context) => {
         skipped,
         errors: errors.slice(0, 10), // 최대 10개 에러만 반환
     };
+});
+// ============================================================
+// 대기열 등록
+// ============================================================
+exports.addToWaitlist = functions.https.onCall(async (data, context) => {
+    await assertAdmin(context?.auth?.uid);
+    const { eventId, seatGrade, buyerName, buyerPhone, memo } = data;
+    if (!eventId || !seatGrade || !buyerName || !buyerPhone) {
+        throw new functions.https.HttpsError("invalid-argument", "eventId, seatGrade, buyerName, buyerPhone 필요");
+    }
+    // 중복 확인
+    const existing = await db.collection("waitlist")
+        .where("eventId", "==", eventId)
+        .where("buyerPhone", "==", buyerPhone)
+        .where("status", "==", "waiting")
+        .limit(1)
+        .get();
+    if (!existing.empty) {
+        throw new functions.https.HttpsError("already-exists", "이미 대기열에 등록된 전화번호입니다");
+    }
+    const doc = await db.collection("waitlist").add({
+        eventId,
+        seatGrade,
+        buyerName,
+        buyerPhone,
+        memo: memo || "",
+        status: "waiting", // waiting | assigned | expired | cancelled
+        requestedAt: admin.firestore.FieldValue.serverTimestamp(),
+        assignedAt: null,
+        naverOrderId: null,
+    });
+    return { success: true, waitlistId: doc.id };
+});
+// ============================================================
+// 대기열 자동 배정 (좌석 해제 시 트리거)
+// ============================================================
+exports.assignFromWaitlist = functions.https.onCall(async (data, context) => {
+    await assertAdmin(context?.auth?.uid);
+    const { eventId, seatGrade } = data;
+    if (!eventId) {
+        throw new functions.https.HttpsError("invalid-argument", "eventId 필요");
+    }
+    // 대기열에서 가장 먼저 등록한 사람 찾기
+    let query = db.collection("waitlist")
+        .where("eventId", "==", eventId)
+        .where("status", "==", "waiting")
+        .orderBy("requestedAt", "asc");
+    if (seatGrade) {
+        query = query.where("seatGrade", "==", seatGrade);
+    }
+    const waitlistSnap = await query.limit(1).get();
+    if (waitlistSnap.empty) {
+        return { success: true, assigned: false, message: "대기열이 비어있습니다" };
+    }
+    const waitlistDoc = waitlistSnap.docs[0];
+    const waitlistData = waitlistDoc.data();
+    // 빈 좌석 확인
+    const availableSeats = await db.collection("seats")
+        .where("eventId", "==", eventId)
+        .where("grade", "==", waitlistData.seatGrade)
+        .where("status", "==", "available")
+        .limit(1)
+        .get();
+    if (availableSeats.empty) {
+        return { success: true, assigned: false, message: "빈 좌석이 없습니다" };
+    }
+    // 대기열 상태 업데이트
+    await waitlistDoc.ref.update({
+        status: "assigned",
+        assignedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    // SMS 알림: "좌석이 배정되었습니다"
+    await db.collection("smsTasks").add({
+        type: "waitlistAssigned",
+        buyerName: waitlistData.buyerName,
+        buyerPhone: waitlistData.buyerPhone,
+        productName: `대기열 배정 (${waitlistData.seatGrade})`,
+        seatGrade: waitlistData.seatGrade,
+        message: `[멜팅] ${waitlistData.buyerName}님, ${waitlistData.seatGrade}석 대기열 배정이 완료되었습니다.`,
+        status: "pending",
+        priority: 1,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return {
+        success: true,
+        assigned: true,
+        waitlistId: waitlistDoc.id,
+        buyerName: waitlistData.buyerName,
+        seatGrade: waitlistData.seatGrade,
+    };
+});
+// ============================================================
+// 대기열 취소
+// ============================================================
+exports.cancelWaitlistEntry = functions.https.onCall(async (data, context) => {
+    await assertAdmin(context?.auth?.uid);
+    const { waitlistId } = data;
+    if (!waitlistId) {
+        throw new functions.https.HttpsError("invalid-argument", "waitlistId 필요");
+    }
+    const doc = await db.collection("waitlist").doc(waitlistId).get();
+    if (!doc.exists) {
+        throw new functions.https.HttpsError("not-found", "대기열 항목을 찾을 수 없습니다");
+    }
+    await doc.ref.update({
+        status: "cancelled",
+        cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return { success: true };
 });
 // ============================================================
 // 모바일티켓 Health Check (5분 주기)

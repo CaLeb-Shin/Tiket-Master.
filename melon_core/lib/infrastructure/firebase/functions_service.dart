@@ -317,6 +317,47 @@ class FunctionsService {
     return Map<String, dynamic>.from(result.data);
   }
 
+  /// 대기열 등록
+  Future<Map<String, dynamic>> addToWaitlist({
+    required String eventId,
+    required String seatGrade,
+    required String buyerName,
+    required String buyerPhone,
+    String? memo,
+  }) async {
+    final callable = _functions.httpsCallable('addToWaitlist');
+    final result = await callable.call({
+      'eventId': eventId,
+      'seatGrade': seatGrade,
+      'buyerName': buyerName,
+      'buyerPhone': buyerPhone,
+      if (memo != null) 'memo': memo,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 대기열 배정 실행
+  Future<Map<String, dynamic>> assignFromWaitlist({
+    required String eventId,
+    String? seatGrade,
+  }) async {
+    final callable = _functions.httpsCallable('assignFromWaitlist');
+    final result = await callable.call({
+      'eventId': eventId,
+      if (seatGrade != null) 'seatGrade': seatGrade,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 대기열 항목 취소
+  Future<Map<String, dynamic>> cancelWaitlistEntry({
+    required String waitlistId,
+  }) async {
+    final callable = _functions.httpsCallable('cancelWaitlistEntry');
+    final result = await callable.call({'waitlistId': waitlistId});
+    return Map<String, dynamic>.from(result.data);
+  }
+
   /// 오프라인 체크인 일괄 동기화
   Future<Map<String, dynamic>> syncOfflineCheckins({
     required List<Map<String, dynamic>> checkins,
