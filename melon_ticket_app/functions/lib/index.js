@@ -1482,10 +1482,12 @@ exports.signInWithKakao = functions.https.onCall(async (data, context) => {
  * 네이버 로그인: authorization code → 액세스 토큰 교환 → 사용자 정보 조회 → Firebase Custom Token 발급
  */
 exports.signInWithNaver = functions.https.onCall(async (data, context) => {
+    functions.logger.info("signInWithNaver 호출 - data keys:", Object.keys(data || {}), "data:", JSON.stringify(data));
     const code = data.code;
     const redirectUri = data.redirectUri;
     // 하위 호환: accessToken 직접 전달도 지원
     let accessToken = data.accessToken;
+    functions.logger.info("파싱 결과 - code:", code?.substring(0, 10), "redirectUri:", redirectUri, "accessToken:", accessToken?.substring(0, 10));
     if (!code && !accessToken) {
         throw new functions.https.HttpsError("invalid-argument", "네이버 인증 코드 또는 액세스 토큰이 필요합니다");
     }
@@ -1505,17 +1507,21 @@ exports.signInWithNaver = functions.https.onCall(async (data, context) => {
             }).toString(),
         });
         const tokenData = await tokenRes.json();
+        functions.logger.info("네이버 토큰 교환 응답:", JSON.stringify(tokenData));
         if (tokenData.error) {
-            throw new functions.https.HttpsError("unauthenticated", `네이버 토큰 교환 실패: ${tokenData.error_description}`);
+            throw new functions.https.HttpsError("unauthenticated", `네이버 토큰 교환 실패: ${tokenData.error} - ${tokenData.error_description}`);
         }
         accessToken = tokenData.access_token;
     }
+    functions.logger.info("네이버 API 호출 - accessToken 길이:", accessToken?.length);
     // 네이버 사용자 정보 조회
     const naverRes = await fetch("https://openapi.naver.com/v1/nid/me", {
         headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!naverRes.ok) {
-        throw new functions.https.HttpsError("unauthenticated", "네이버 인증 실패");
+        const errBody = await naverRes.text();
+        functions.logger.error("네이버 사용자 정보 조회 실패:", naverRes.status, errBody);
+        throw new functions.https.HttpsError("unauthenticated", `네이버 인증 실패 (${naverRes.status}): ${errBody}`);
     }
     const naverData = await naverRes.json();
     if (naverData.resultcode !== "00") {
