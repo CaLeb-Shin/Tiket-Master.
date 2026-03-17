@@ -11,11 +11,10 @@
   });
 
   if (params.code && window.opener) {
-    // code + redirectUri를 함께 전달 (Cloud Function에서 토큰 교환)
-    window.opener._naverLoginResolve({
-      code: params.code,
-      redirectUri: window.opener._naverCallbackUrl
-    });
+    // "code|redirectUri" 문자열로 전달 (Dart JSString 호환)
+    window.opener._naverLoginResolve(
+      params.code + '|' + window.opener._naverCallbackUrl
+    );
     window.opener._naverLoginResolve = null;
     window.opener._naverLoginReject = null;
   } else if (window.opener && window.opener._naverLoginReject) {

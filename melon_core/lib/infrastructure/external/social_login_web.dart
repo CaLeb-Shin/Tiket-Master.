@@ -4,7 +4,7 @@ import 'dart:js_interop';
 external JSPromise<JSString> _loginWithKakao();
 
 @JS('loginWithNaver')
-external JSPromise<JSAny> _loginWithNaver();
+external JSPromise<JSString> _loginWithNaver();
 
 /// 카카오 JS SDK 로그인 → 액세스 토큰 반환
 Future<String?> getKakaoAccessToken() async {
@@ -16,17 +16,15 @@ Future<String?> getKakaoAccessToken() async {
   }
 }
 
-/// 네이버 팝업 로그인 → {code, redirectUri} 반환
+/// 네이버 팝업 로그인 → "code|redirectUri" 형식 문자열 반환
 Future<Map<String, String>?> getNaverAuthCode() async {
   try {
-    final result = await _loginWithNaver().toDart;
-    // JS object → Dart Map
-    final jsObj = result as JSObject;
-    final code = (jsObj.getProperty('code'.toJS) as JSString).toDart;
-    final redirectUri =
-        (jsObj.getProperty('redirectUri'.toJS) as JSString).toDart;
-    if (code.isEmpty) return null;
-    return {'code': code, 'redirectUri': redirectUri};
+    final result = (await _loginWithNaver().toDart).toDart;
+    if (result.isEmpty) return null;
+    // JS에서 "code|redirectUri" 형식으로 전달
+    final parts = result.split('|');
+    if (parts.length < 2) return null;
+    return {'code': parts[0], 'redirectUri': parts[1]};
   } catch (_) {
     return null;
   }
