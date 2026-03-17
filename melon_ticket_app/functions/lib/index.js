@@ -1479,13 +1479,36 @@ exports.signInWithKakao = functions.https.onCall(async (data, context) => {
 // 소셜 로그인 - 네이버 (Custom Token 발급)
 // ============================================================
 /**
- * 네이버 액세스 토큰을 받아 사용자 정보 조회 후 Firebase Custom Token 발급
- * 클라이언트: 네이버 로그인 SDK → 액세스 토큰 → 이 함수 호출
+ * 네이버 로그인: authorization code → 액세스 토큰 교환 → 사용자 정보 조회 → Firebase Custom Token 발급
  */
 exports.signInWithNaver = functions.https.onCall(async (data, context) => {
-    const accessToken = data.accessToken;
-    if (!accessToken) {
-        throw new functions.https.HttpsError("invalid-argument", "네이버 액세스 토큰이 필요합니다");
+    const code = data.code;
+    const redirectUri = data.redirectUri;
+    // 하위 호환: accessToken 직접 전달도 지원
+    let accessToken = data.accessToken;
+    if (!code && !accessToken) {
+        throw new functions.https.HttpsError("invalid-argument", "네이버 인증 코드 또는 액세스 토큰이 필요합니다");
+    }
+    // code가 있으면 토큰 교환
+    if (code && !accessToken) {
+        const NAVER_CLIENT_ID = "xIJ0MGtBMIn4YQgtXchI";
+        const NAVER_CLIENT_SECRET = "9U5mLHM_CL";
+        const tokenRes = await fetch("https://nid.naver.com/oauth2.0/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+                grant_type: "authorization_code",
+                client_id: NAVER_CLIENT_ID,
+                client_secret: NAVER_CLIENT_SECRET,
+                code,
+                redirect_uri: redirectUri || "",
+            }).toString(),
+        });
+        const tokenData = await tokenRes.json();
+        if (tokenData.error) {
+            throw new functions.https.HttpsError("unauthenticated", `네이버 토큰 교환 실패: ${tokenData.error_description}`);
+        }
+        accessToken = tokenData.access_token;
     }
     // 네이버 사용자 정보 조회
     const naverRes = await fetch("https://openapi.naver.com/v1/nid/me", {

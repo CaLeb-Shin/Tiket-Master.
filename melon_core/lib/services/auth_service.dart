@@ -164,16 +164,16 @@ class AuthService {
     return credential;
   }
 
-  /// 네이버 로그인 (팝업 OAuth → Cloud Functions → Custom Token)
+  /// 네이버 로그인 (팝업 OAuth code → Cloud Functions 토큰교환 → Custom Token)
   Future<UserCredential?> signInWithNaver() async {
-    // 1. 네이버 팝업 로그인으로 액세스 토큰 획득
-    final accessToken = await getNaverAccessToken();
-    if (accessToken == null) return null;
+    // 1. 네이버 팝업 로그인으로 authorization code 획득
+    final authCode = await getNaverAuthCode();
+    if (authCode == null) return null;
 
-    // 2. Cloud Functions에서 Custom Token 발급
+    // 2. Cloud Functions에서 code→토큰 교환 + Custom Token 발급
     final callable = FirebaseFunctions.instance.httpsCallable('signInWithNaver');
     final result = await callable.call<Map<String, dynamic>>(
-      {'accessToken': accessToken},
+      {'code': authCode['code'], 'redirectUri': authCode['redirectUri']},
     );
     final customToken = result.data['customToken'] as String;
 

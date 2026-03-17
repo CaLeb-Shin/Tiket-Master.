@@ -3,20 +3,23 @@
 <head><title>네이버 로그인</title></head>
 <body>
 <script>
-  // URL 해시에서 액세스 토큰 추출
-  var hash = window.location.hash.substring(1);
+  // URL 쿼리 파라미터에서 code 추출 (response_type=code)
   var params = {};
-  hash.split('&').forEach(function(pair) {
+  window.location.search.substring(1).split('&').forEach(function(pair) {
     var kv = pair.split('=');
     params[kv[0]] = decodeURIComponent(kv[1] || '');
   });
 
-  if (params.access_token && window.opener) {
-    window.opener._naverLoginResolve(params.access_token);
+  if (params.code && window.opener) {
+    // code + redirectUri를 함께 전달 (Cloud Function에서 토큰 교환)
+    window.opener._naverLoginResolve({
+      code: params.code,
+      redirectUri: window.opener._naverCallbackUrl
+    });
     window.opener._naverLoginResolve = null;
     window.opener._naverLoginReject = null;
   } else if (window.opener && window.opener._naverLoginReject) {
-    window.opener._naverLoginReject('토큰을 받지 못했습니다');
+    window.opener._naverLoginReject(params.error_description || '인증 코드를 받지 못했습니다');
   }
   window.close();
 </script>
