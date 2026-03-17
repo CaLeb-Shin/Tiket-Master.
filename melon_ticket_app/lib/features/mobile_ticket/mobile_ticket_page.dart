@@ -4422,6 +4422,8 @@ class _LiveStatusSection extends ConsumerStatefulWidget {
 
 class _LiveStatusSectionState extends ConsumerState<_LiveStatusSection> {
   bool _showIntermissionQr = false;
+  bool _surveySubmitted = false;
+  bool _naverReviewConfirmed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -4436,6 +4438,12 @@ class _LiveStatusSectionState extends ConsumerState<_LiveStatusSection> {
           if (widget.isIntermissionCheckedIn) ...[
             const SizedBox(height: 8),
             _buildIntermissionStamp(),
+          ],
+
+          // ── 인터미션 설문 (인터미션 체크인 완료 후) ──
+          if (widget.isIntermissionCheckedIn && !_surveySubmitted) ...[
+            const SizedBox(height: 12),
+            _buildIntermissionSurveyCard(),
           ],
 
           // ── 인터미션 입장하기 버튼 (1부 완료 + 인터미션 미완료) ──
@@ -4453,6 +4461,10 @@ class _LiveStatusSectionState extends ConsumerState<_LiveStatusSection> {
           if (widget.stateCode == 'eventCompleted') ...[
             const SizedBox(height: 12),
             _buildReviewCard(),
+            if (!_naverReviewConfirmed && widget.naverProductUrl != null) ...[
+              const SizedBox(height: 12),
+              _buildNaverReviewConfirmCard(),
+            ],
           ],
         ],
       ),
@@ -4570,6 +4582,14 @@ class _LiveStatusSectionState extends ConsumerState<_LiveStatusSection> {
     );
   }
 
+  Widget _buildIntermissionSurveyCard() {
+    return _IntermissionSurveyCard(
+      ticketId: widget.ticketId,
+      accessToken: widget.accessToken,
+      onSubmitted: () => setState(() => _surveySubmitted = true),
+    );
+  }
+
   Widget _buildReviewCard() {
     final hasNaverUrl = widget.naverProductUrl != null && widget.naverProductUrl!.isNotEmpty;
 
@@ -4609,7 +4629,7 @@ class _LiveStatusSectionState extends ConsumerState<_LiveStatusSection> {
           ),
           const SizedBox(height: 4),
           Text(
-            '네이버 스토어에서 리뷰를 남겨주세요',
+            hasNaverUrl ? '리뷰 작성 시 1,000P 적립!' : '리뷰를 남겨주세요',
             style: AppTheme.nanum(
               fontSize: 13,
               color: _textMid,
@@ -4646,6 +4666,325 @@ class _LiveStatusSectionState extends ConsumerState<_LiveStatusSection> {
                 ),
                 elevation: 0,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNaverReviewConfirmCard() {
+    return _NaverReviewConfirmCard(
+      ticketId: widget.ticketId,
+      accessToken: widget.accessToken,
+      onConfirmed: () => setState(() => _naverReviewConfirmed = true),
+    );
+  }
+}
+
+// ── 인터미션 설문 카드 ──
+class _IntermissionSurveyCard extends ConsumerStatefulWidget {
+  final String ticketId;
+  final String accessToken;
+  final VoidCallback onSubmitted;
+
+  const _IntermissionSurveyCard({
+    required this.ticketId,
+    required this.accessToken,
+    required this.onSubmitted,
+  });
+
+  @override
+  ConsumerState<_IntermissionSurveyCard> createState() => _IntermissionSurveyCardState();
+}
+
+class _IntermissionSurveyCardState extends ConsumerState<_IntermissionSurveyCard> {
+  int _rating = 0;
+  String? _bestMoment;
+  final _commentCtrl = TextEditingController();
+  bool _isSubmitting = false;
+
+  static const _moments = [
+    ('performance', '연주/공연', '🎵'),
+    ('atmosphere', '분위기/무대', '✨'),
+    ('emotion', '감동적인 순간', '💫'),
+    ('overall', '전체적으로 좋았어요', '👏'),
+  ];
+
+  @override
+  void dispose() {
+    _commentCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_rating == 0 || _bestMoment == null) return;
+    setState(() => _isSubmitting = true);
+    try {
+      await ref.read(functionsServiceProvider).submitIntermissionSurvey(
+        ticketId: widget.ticketId,
+        accessToken: widget.accessToken,
+        rating: _rating,
+        bestMoment: _bestMoment!,
+        comment: _commentCtrl.text.trim().isEmpty ? null : _commentCtrl.text.trim(),
+      );
+      widget.onSubmitted();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('설문 제출 실패: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _burgundy.withValues(alpha: 0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: _burgundy.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 헤더
+          Row(
+            children: [
+              const Text('📝', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '1부는 어떠셨나요?',
+                  style: AppTheme.nanum(fontSize: 17, fontWeight: FontWeight.w800, color: _burgundy, noShadow: true),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.gold.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '+500P',
+                  style: AppTheme.nanum(fontSize: 12, fontWeight: FontWeight.w800, color: AppTheme.gold, noShadow: true),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // 별점
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(5, (i) {
+              return GestureDetector(
+                onTap: () => setState(() => _rating = i + 1),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(
+                    i < _rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                    size: 36,
+                    color: i < _rating ? const Color(0xFFE8B931) : _creamDark,
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 16),
+
+          // 가장 좋았던 순간
+          Text(
+            '가장 좋았던 순간은?',
+            style: AppTheme.nanum(fontSize: 13, fontWeight: FontWeight.w700, color: _textMid, noShadow: true),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _moments.map((m) {
+              final isSelected = _bestMoment == m.$1;
+              return GestureDetector(
+                onTap: () => setState(() => _bestMoment = m.$1),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? _burgundy : _cream,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected ? _burgundy : _creamDark,
+                      width: isSelected ? 1.5 : 0.5,
+                    ),
+                  ),
+                  child: Text(
+                    '${m.$3} ${m.$2}',
+                    style: AppTheme.nanum(
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? Colors.white : _textMid,
+                      noShadow: true,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+
+          // 한줄평 (선택)
+          TextField(
+            controller: _commentCtrl,
+            maxLength: 100,
+            decoration: InputDecoration(
+              hintText: '한줄평 (선택)',
+              hintStyle: AppTheme.nanum(fontSize: 13, color: _textMid.withValues(alpha: 0.5), noShadow: true),
+              filled: true,
+              fillColor: _cream,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: _creamDark, width: 0.5),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: _creamDark, width: 0.5),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: _burgundy, width: 1),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              counterText: '',
+            ),
+            style: AppTheme.nanum(fontSize: 14, color: _burgundy, noShadow: true),
+          ),
+          const SizedBox(height: 16),
+
+          // 제출 버튼
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: (_rating > 0 && _bestMoment != null && !_isSubmitting) ? _submit : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _burgundy,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: _creamDark,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: _isSubmitting
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(
+                      '설문 제출하고 500P 받기',
+                      style: AppTheme.nanum(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white, noShadow: true),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 네이버 리뷰 자기 신고 카드 ──
+class _NaverReviewConfirmCard extends ConsumerStatefulWidget {
+  final String ticketId;
+  final String accessToken;
+  final VoidCallback onConfirmed;
+
+  const _NaverReviewConfirmCard({
+    required this.ticketId,
+    required this.accessToken,
+    required this.onConfirmed,
+  });
+
+  @override
+  ConsumerState<_NaverReviewConfirmCard> createState() => _NaverReviewConfirmCardState();
+}
+
+class _NaverReviewConfirmCardState extends ConsumerState<_NaverReviewConfirmCard> {
+  bool _isSubmitting = false;
+
+  Future<void> _confirm() async {
+    setState(() => _isSubmitting = true);
+    try {
+      await ref.read(functionsServiceProvider).confirmNaverReview(
+        ticketId: widget.ticketId,
+        accessToken: widget.accessToken,
+      );
+      widget.onConfirmed();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('네이버 리뷰 확인 완료! 500P 적립'), backgroundColor: AppTheme.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'), backgroundColor: AppTheme.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _naverGreen.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _naverGreen.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          const Text('🎁', style: TextStyle(fontSize: 24)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '네이버 리뷰 작성하셨나요?',
+                  style: AppTheme.nanum(fontSize: 14, fontWeight: FontWeight.w700, color: _burgundy, noShadow: true),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '확인 버튼을 누르면 추가 500P!',
+                  style: AppTheme.nanum(fontSize: 12, color: _textMid, noShadow: true),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 36,
+            child: ElevatedButton(
+              onPressed: _isSubmitting ? null : _confirm,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _naverGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                elevation: 0,
+              ),
+              child: _isSubmitting
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text('확인', style: AppTheme.nanum(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white, noShadow: true)),
             ),
           ),
         ],

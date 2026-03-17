@@ -2217,7 +2217,7 @@ export const addReviewMileage = functions.https.onCall(async (data: any, context
     .where("userId", "==", userId)
     .get();
   const isFirstReview = allReviews.size === 1;
-  const amount = isFirstReview ? 500 : 200;
+  const amount = isFirstReview ? 1000 : 200;
 
   // 마일리지 적립
   const userRef = db.collection("users").doc(userId);
@@ -4853,6 +4853,137 @@ export const submitReview = functions.https.onCall(async (data: any) => {
   });
 
   return { success: true };
+});
+
+// ============================================================
+// 인터미션 설문 제출 (비로그인, accessToken 기반)
+// ============================================================
+export const submitIntermissionSurvey = functions.https.onCall(async (data: any) => {
+  const { ticketId, accessToken, rating, bestMoment, comment } = data;
+
+  if (!ticketId || !accessToken || !rating || !bestMoment) {
+    throw new functions.https.HttpsError("invalid-argument", "ticketId, accessToken, rating, bestMoment가 필요합니다");
+  }
+
+  if (typeof rating !== "number" || rating < 1 || rating > 5) {
+    throw new functions.https.HttpsError("invalid-argument", "rating은 1~5 사이여야 합니다");
+  }
+
+  // accessToken으로 티켓 소유 확인
+  const ticketRef = db.collection("mobileTickets").doc(ticketId);
+  const ticketDoc = await ticketRef.get();
+
+  if (!ticketDoc.exists) {
+    throw new functions.https.HttpsError("not-found", "티켓을 찾을 수 없습니다");
+  }
+
+  const ticket = ticketDoc.data()!;
+  if (ticket.accessToken !== accessToken) {
+    throw new functions.https.HttpsError("permission-denied", "접근 권한이 없습니다");
+  }
+
+  // 인터미션 체크인 여부 확인
+  if (!ticket.intermissionCheckedInAt) {
+    throw new functions.https.HttpsError("failed-precondition", "인터미션 체크인 후 설문 가능합니다");
+  }
+
+  // 중복 설문 체크
+  const existingSurvey = await db.collection("intermissionSurveys")
+    .where("ticketId", "==", ticketId)
+    .limit(1)
+    .get();
+
+  if (!existingSurvey.empty) {
+    throw new functions.https.HttpsError("already-exists", "이미 설문을 제출하셨습니다");
+  }
+
+  // 설문 저장
+  await db.collection("intermissionSurveys").add({
+    ticketId,
+    eventId: ticket.eventId,
+    buyerName: ticket.buyerName || "",
+    rating,
+    bestMoment,
+    comment: typeof comment === "string" ? comment.trim().slice(0, 100) : null,
+    mileageAwarded: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // 마일리지 적립 (로그인 유저인 경우)
+  if (ticket.claimedByUserId) {
+    await addMileageInternal(ticket.claimedByUserId, 500, "review", "인터미션 설문 적립 (500P)");
+    await db.collection("intermissionSurveys")
+      .where("ticketId", "==", ticketId)
+      .limit(1)
+      .get()
+      .then((snap) => {
+        if (!snap.empty) snap.docs[0].ref.update({ mileageAwarded: true });
+      });
+  }
+
+  // 알림
+  sendNotification({
+    phone: ticket.buyerPhone,
+    buyerName: ticket.buyerName || "",
+    type: "intermissionSurvey",
+    title: "설문 감사합니다!",
+    body: "인터미션 설문 완료! 500P가 적립되었습니다",
+    data: { type: "intermission_survey", eventId: ticket.eventId },
+    eventId: ticket.eventId,
+    skipDuplicateCheck: true,
+  }).catch(() => {});
+
+  return { success: true, mileageAwarded: !!ticket.claimedByUserId };
+});
+
+// ============================================================
+// 네이버 리뷰 자기 신고 + 500P 적립
+// ============================================================
+export const confirmNaverReview = functions.https.onCall(async (data: any) => {
+  const { ticketId, accessToken } = data;
+
+  if (!ticketId || !accessToken) {
+    throw new functions.https.HttpsError("invalid-argument", "ticketId, accessToken이 필요합니다");
+  }
+
+  const ticketRef = db.collection("mobileTickets").doc(ticketId);
+  const ticketDoc = await ticketRef.get();
+
+  if (!ticketDoc.exists) {
+    throw new functions.https.HttpsError("not-found", "티켓을 찾을 수 없습니다");
+  }
+
+  const ticket = ticketDoc.data()!;
+  if (ticket.accessToken !== accessToken) {
+    throw new functions.https.HttpsError("permission-denied", "접근 권한이 없습니다");
+  }
+
+  // 중복 확인
+  const existing = await db.collection("naverReviewConfirms")
+    .where("ticketId", "==", ticketId)
+    .limit(1)
+    .get();
+
+  if (!existing.empty) {
+    throw new functions.https.HttpsError("already-exists", "이미 네이버 리뷰 확인이 완료되었습니다");
+  }
+
+  // 기록 저장
+  await db.collection("naverReviewConfirms").add({
+    ticketId,
+    eventId: ticket.eventId,
+    buyerName: ticket.buyerName || "",
+    buyerPhone: ticket.buyerPhone || "",
+    mileageAwarded: !!ticket.claimedByUserId,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // 마일리지 적립 (로그인 유저인 경우)
+  if (ticket.claimedByUserId) {
+    await addMileageInternal(ticket.claimedByUserId, 500, "review", "네이버 리뷰 적립 (500P)");
+  }
+
+  return { success: true, mileageAwarded: !!ticket.claimedByUserId };
 });
 
 // ============================================================

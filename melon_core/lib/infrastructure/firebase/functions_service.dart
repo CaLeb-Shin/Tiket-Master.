@@ -399,6 +399,38 @@ class FunctionsService {
     return Map<String, dynamic>.from(result.data);
   }
 
+  /// 인터미션 설문 제출 (비로그인)
+  Future<Map<String, dynamic>> submitIntermissionSurvey({
+    required String ticketId,
+    required String accessToken,
+    required int rating,
+    required String bestMoment,
+    String? comment,
+  }) async {
+    final callable = _functions.httpsCallable('submitIntermissionSurvey');
+    final result = await callable.call({
+      'ticketId': ticketId,
+      'accessToken': accessToken,
+      'rating': rating,
+      'bestMoment': bestMoment,
+      if (comment != null && comment.isNotEmpty) 'comment': comment,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 네이버 리뷰 자기 신고 + 500P
+  Future<Map<String, dynamic>> confirmNaverReview({
+    required String ticketId,
+    required String accessToken,
+  }) async {
+    final callable = _functions.httpsCallable('confirmNaverReview');
+    final result = await callable.call({
+      'ticketId': ticketId,
+      'accessToken': accessToken,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
   /// 리뷰 제출 (공연종료 후 모바일 티켓에서)
   Future<Map<String, dynamic>> submitReview({
     required String ticketId,
