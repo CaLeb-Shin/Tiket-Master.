@@ -1767,7 +1767,7 @@ export const signInWithNaver = functions.https.onCall(async (data, context) => {
 
   // code가 있으면 토큰 교환
   if (code && !accessToken) {
-    const NAVER_CLIENT_ID = "xIJ0MGtBMIn4YQgtXchI";
+    const NAVER_CLIENT_ID = "xlJ0MGtBMIn4YQgtXchI";
     const NAVER_CLIENT_SECRET = "9U5mLHM_CL";
     const tokenRes = await fetch("https://nid.naver.com/oauth2.0/token", {
       method: "POST",
