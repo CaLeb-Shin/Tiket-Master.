@@ -275,26 +275,151 @@ async function sendPushToUser(
   }
 }
 
+// ============================================================
+// 통합 알림 발송 (FCM + SMS + 인앱 알림 저장)
+// ============================================================
+
+interface SendNotificationParams {
+  userId?: string;           // 로그인 유저 → FCM + 인앱
+  phone?: string;            // 비로그인/네이버 구매자 → SMS
+  buyerName?: string;        // SMS용 구매자명
+  type: string;              // NotificationType name
+  title: string;
+  body: string;
+  data?: Record<string, string>;
+  eventId?: string;          // 중복 방지 키
+  skipDuplicateCheck?: boolean;
+  smsPayload?: Record<string, any>; // SMS 추가 필드
+}
+
 /**
- * 이벤트의 모든 티켓 소유자에게 푸시 알림 발송
+ * 통합 알림 발송
+ * - userId 있으면 → FCM Push + 인앱 알림 저장
+ * - phone 있으면 → SMS 큐잉 + 인앱 알림 저장 (userId 있으면 userId 기준)
+ * - 중복 방지: 동일 userId/phone + type + eventId 조합 1시간 내 중복 차단
  */
-async function sendPushToEventUsers(
+async function sendNotification(params: SendNotificationParams): Promise<void> {
+  const { userId, phone, type, title, body, data, eventId } = params;
+
+  // ── 중복 방지 ──
+  if (!params.skipDuplicateCheck && eventId) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    let dupQuery = db.collection("notifications")
+      .where("type", "==", type)
+      .where("data.eventId", "==", eventId)
+      .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(oneHourAgo))
+      .limit(1);
+
+    if (userId) {
+      dupQuery = dupQuery.where("userId", "==", userId);
+    } else if (phone) {
+      dupQuery = dupQuery.where("phone", "==", phone);
+    }
+
+    const dupSnap = await dupQuery.get();
+    if (!dupSnap.empty) {
+      functions.logger.info(`알림 중복 차단: ${type} / ${eventId} / ${userId || phone}`);
+      return;
+    }
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const notifData: Record<string, any> = {
+    type,
+    title,
+    body,
+    data: { ...data, ...(eventId ? { eventId } : {}) },
+    read: false,
+    createdAt: now,
+  };
+  if (userId) notifData.userId = userId;
+  if (phone) notifData.phone = phone;
+
+  // ── 인앱 알림 저장 ──
+  try {
+    await db.collection("notifications").add(notifData);
+  } catch (e: any) {
+    functions.logger.warn(`인앱 알림 저장 실패: ${e.message}`);
+  }
+
+  // ── FCM Push (로그인 유저) ──
+  if (userId) {
+    sendPushToUser(userId, title, body, data).catch(() => {});
+  }
+
+  // ── SMS 큐잉 (전화번호) ──
+  if (phone && !userId) {
+    try {
+      await db.collection("smsTasks").add({
+        type: "notification",
+        notificationType: type,
+        buyerName: params.buyerName || "",
+        buyerPhone: phone,
+        message: `[멜팅] ${title}: ${body}`,
+        status: "pending",
+        priority: 2,
+        createdAt: now,
+        ...(params.smsPayload || {}),
+      });
+    } catch (e: any) {
+      functions.logger.warn(`SMS 큐잉 실패: ${e.message}`);
+    }
+  }
+}
+
+/**
+ * 이벤트의 모든 티켓 소유자에게 통합 알림 발송
+ */
+async function sendNotificationToEventUsers(
   eventId: string,
+  type: string,
   title: string,
   body: string,
-  data?: Record<string, string>
+  data?: Record<string, string>,
 ): Promise<number> {
-  const ticketsSnapshot = await db
+  // 로그인 유저 (tickets 컬렉션)
+  const ticketsSnap = await db
     .collection("tickets")
     .where("eventId", "==", eventId)
     .where("status", "==", "issued")
     .get();
+  const userIds = [...new Set(ticketsSnap.docs.map((d) => d.data().userId as string))];
 
-  const userIds = [...new Set(ticketsSnapshot.docs.map((d) => d.data().userId as string))];
+  // 네이버 구매자 (mobileTickets 컬렉션)
+  const mtSnap = await db
+    .collection("mobileTickets")
+    .where("eventId", "==", eventId)
+    .where("status", "==", "active")
+    .get();
+
+  // 네이버 구매자 중 로그인 유저가 아닌 사람 (전화번호 기준)
+  const phoneSet = new Set<string>();
+  for (const doc of mtSnap.docs) {
+    const mt = doc.data();
+    if (!mt.claimedByUserId) {
+      phoneSet.add(mt.buyerPhone);
+    }
+  }
+
   let sent = 0;
 
+  // 로그인 유저
   for (const uid of userIds) {
-    await sendPushToUser(uid, title, body, data);
+    await sendNotification({
+      userId: uid, type, title, body,
+      data: { ...data, eventId },
+      eventId,
+    });
+    sent++;
+  }
+
+  // 비로그인 네이버 구매자
+  for (const ph of phoneSet) {
+    await sendNotification({
+      phone: ph, type, title, body,
+      data: { ...data, eventId },
+      eventId,
+    });
     sent++;
   }
 
@@ -625,13 +750,15 @@ export const confirmPaymentAndAssignSeats = functions.https.onCall(async (data: 
     const eventDoc = await db.collection("events").doc(result.eventId).get();
     const eventTitle = eventDoc.data()?.title ?? "공연";
 
-    // 푸시 알림
-    sendPushToUser(
-      result.userId,
-      "예매가 확정되었습니다!",
-      `${eventTitle} - ${result.seatCount}매 예매 완료`,
-      { type: "booking_confirmed", orderId, eventId: result.eventId },
-    ).catch(() => {});
+    // 통합 알림 (FCM + 인앱)
+    sendNotification({
+      userId: result.userId,
+      type: "bookingConfirmed",
+      title: "예매가 확정되었습니다!",
+      body: `${eventTitle} - ${result.seatCount}매 예매 완료`,
+      data: { type: "booking_confirmed", orderId, eventId: result.eventId },
+      eventId: result.eventId,
+    }).catch(() => {});
 
     // 마일리지 적립 (트랜잭션 외부에서 처리)
     try {
@@ -904,11 +1031,12 @@ export const revealSeatsForEvent = functions.https.onCall(async (data: any, cont
 
   functions.logger.info(`좌석 공개: 이벤트 ${eventId}, ${updateCount}개 블록`);
 
-  // FCM 푸시 알림: 좌석 공개 알림
+  // 통합 알림: 좌석 공개 (FCM + SMS + 인앱)
   const eventDoc2 = await db.collection("events").doc(eventId).get();
   const eventTitle2 = eventDoc2.data()?.title ?? "공연";
-  const sentCount = await sendPushToEventUsers(
+  const sentCount = await sendNotificationToEventUsers(
     eventId,
+    "seatsRevealed",
     "좌석이 공개되었습니다!",
     `${eventTitle2} - 지금 바로 좌석을 확인하세요`,
     { type: "seats_revealed", eventId },
@@ -1667,11 +1795,12 @@ export const scheduledRevealSeats = functions.pubsub
 
         await batch.commit();
 
-        // FCM 푸시 알림: 자동 좌석 공개 알림
+        // 통합 알림: 자동 좌석 공개 (FCM + SMS + 인앱)
         const eventData = eventDoc.data()!;
         const title = eventData.title ?? "공연";
-        sendPushToEventUsers(
+        sendNotificationToEventUsers(
           eventId,
+          "seatsRevealed",
           "좌석이 공개되었습니다!",
           `${title} - 지금 바로 좌석을 확인하세요`,
           { type: "seats_revealed", eventId },
@@ -1755,15 +1884,18 @@ export const signInWithKakao = functions.https.onCall(async (data, context) => {
  * 네이버 로그인: authorization code → 액세스 토큰 교환 → 사용자 정보 조회 → Firebase Custom Token 발급
  */
 export const signInWithNaver = functions.https.onCall(async (data, context) => {
-  functions.logger.info("signInWithNaver 호출 - data keys:", Object.keys(data || {}), "data:", JSON.stringify(data));
-
-  const code = data.code as string | undefined;
-  const redirectUri = data.redirectUri as string | undefined;
-
-  // 하위 호환: accessToken 직접 전달도 지원
+  let code = data.code as string | undefined;
+  let redirectUri = data.redirectUri as string | undefined;
   let accessToken = data.accessToken as string | undefined;
 
-  functions.logger.info("파싱 결과 - code:", code?.substring(0, 10), "redirectUri:", redirectUri, "accessToken:", accessToken?.substring(0, 10));
+  // 하위 호환: accessToken에 파이프(|)가 있으면 "code|redirectUri" 형식
+  if (accessToken && accessToken.includes("|")) {
+    const parts = accessToken.split("|");
+    code = parts[0];
+    redirectUri = parts.slice(1).join("|");
+    accessToken = undefined;
+    functions.logger.info("파이프 형식 감지 - code:", code?.substring(0, 10), "redirectUri:", redirectUri);
+  }
 
   if (!code && !accessToken) {
     throw new functions.https.HttpsError("invalid-argument", "네이버 인증 코드 또는 액세스 토큰이 필요합니다");
@@ -2279,8 +2411,9 @@ export const scheduledEventReminders = functions.pubsub
       if (eventData.reminderSent) continue;
 
       const title = eventData.title ?? "공연";
-      const sent = await sendPushToEventUsers(
+      const sent = await sendNotificationToEventUsers(
         eventDoc.id,
+        "eventReminder",
         "공연이 곧 시작됩니다!",
         `${title} - 3시간 후 공연이 시작됩니다. 준비하세요!`,
         { type: "event_reminder", eventId: eventDoc.id },
@@ -2306,8 +2439,9 @@ export const scheduledEventReminders = functions.pubsub
       if (eventData.reviewReminderSent) continue;
 
       const title = eventData.title ?? "공연";
-      const sent = await sendPushToEventUsers(
+      const sent = await sendNotificationToEventUsers(
         eventDoc.id,
+        "reviewRequest",
         "공연은 어떠셨나요?",
         `${title}의 후기를 남겨주세요! 다른 관객에게 큰 도움이 됩니다.`,
         { type: "review_request", eventId: eventDoc.id },
@@ -2785,6 +2919,18 @@ async function enqueueNaverOrderSmsTask(params: {
       smsErr.message,
     );
   }
+
+  // 인앱 알림 저장 (네이버 구매자 — 전화번호 기준)
+  sendNotification({
+    phone: params.buyerPhone,
+    buyerName: params.buyerName,
+    type: "bookingConfirmed",
+    title: "예매가 확정되었습니다!",
+    body: `${params.productName} - ${params.quantity}매 예매 완료`,
+    data: { type: "booking_confirmed", eventId: params.eventId },
+    eventId: params.eventId,
+    skipDuplicateCheck: true,
+  }).catch(() => {});
 }
 
 async function createNaverOrderInternal(
@@ -3221,24 +3367,24 @@ async function cancelNaverOrderInternal(
 
   await batch.commit();
 
-  // 취소 안내 SMS 큐잉 (구매자에게)
+  // 통합 알림: 취소 안내 (SMS + 인앱)
   if (order.buyerPhone && ticketIds.length > 0) {
-    try {
-      await db.collection("smsTasks").add({
-        type: "cancelNotification",
-        buyerName: order.buyerName || "",
-        buyerPhone: order.buyerPhone,
+    const cancelBody = `${order.buyerName || "고객"}님, 주문이 취소되었습니다. (${order.seatGrade || ""} ${ticketIds.length}매)`;
+    sendNotification({
+      phone: order.buyerPhone,
+      buyerName: order.buyerName || "",
+      type: "cancellation",
+      title: "주문이 취소되었습니다",
+      body: cancelBody,
+      data: { type: "cancellation", orderId: orderDoc.id, eventId: order.eventId || "" },
+      eventId: order.eventId || "",
+      skipDuplicateCheck: true,
+      smsPayload: {
         productName: order.productName || "공연 티켓",
         seatGrade: order.seatGrade || "",
         quantity: ticketIds.length,
-        message: `[멜팅] ${order.buyerName || "고객"}님, 주문이 취소되었습니다. (${order.seatGrade || ""} ${ticketIds.length}매)`,
-        status: "pending",
-        priority: 1,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    } catch (smsErr) {
-      functions.logger.warn("취소 SMS 큐잉 실패:", smsErr);
-    }
+      },
+    }).catch((e: any) => functions.logger.warn("취소 알림 실패:", e.message));
   }
 
   functions.logger.info(

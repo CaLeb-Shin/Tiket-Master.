@@ -20,6 +20,7 @@ import '../features/mileage/mileage_history_screen.dart';
 import '../features/hall/hall_screen.dart';
 import '../features/mobile_ticket/mobile_ticket_page.dart';
 import '../features/mobile_ticket/designated_seat_select_page.dart';
+import '../features/notifications/notification_list_screen.dart';
 
 /// main()에서 설정 — splash MaterialApp이 URL 덮어쓰기 전 원래 경로 보존
 String appInitialPath = '/';
@@ -83,6 +84,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/login',
             name: 'login',
             builder: (context, state) => const LoginScreen(),
+          ),
+
+          // 알림센터
+          GoRoute(
+            path: '/notifications',
+            name: 'notifications',
+            builder: (context, state) => const NotificationListScreen(),
           ),
 
           // 공연 상세 (공유 링크로 직접 접근 가능)

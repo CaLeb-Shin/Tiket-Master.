@@ -14,6 +14,7 @@ import 'package:melon_core/data/models/event.dart';
 import 'package:melon_core/data/models/mileage.dart';
 import 'package:melon_core/data/models/mileage_history.dart';
 import 'package:melon_core/data/repositories/mileage_repository.dart';
+import 'package:melon_core/data/repositories/notification_repository.dart';
 import '../tickets/my_tickets_screen.dart';
 import '../widgets/app_download_banner.dart';
 
@@ -1662,6 +1663,9 @@ class _HomeTab extends ConsumerWidget {
                     ],
                   ),
                 ),
+                // 알림 벨 아이콘
+                _NotificationBell(ref: ref),
+                const SizedBox(width: 12),
                 // Editorial badge
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -3114,6 +3118,85 @@ class _MileageHistoryRow extends StatelessWidget {
             style: AppTheme.sans(fontSize: 11, color: AppTheme.textTertiary),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── 알림 벨 아이콘 (미읽은 배지 포함) ──
+class _NotificationBell extends StatelessWidget {
+  final WidgetRef ref;
+  const _NotificationBell({required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authStateProvider);
+    final userId = authState.value?.uid;
+
+    if (userId == null) {
+      return GestureDetector(
+        onTap: () => GoRouter.of(context).push('/notifications'),
+        child: const Icon(
+          Icons.notifications_none_rounded,
+          color: AppTheme.sage,
+          size: 22,
+        ),
+      );
+    }
+
+    final unreadAsync = ref.watch(unreadNotificationCountProvider(userId));
+
+    return GestureDetector(
+      onTap: () => GoRouter.of(context).push('/notifications'),
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: 32,
+        height: 32,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Positioned.fill(
+              child: Icon(
+                Icons.notifications_none_rounded,
+                color: AppTheme.sage,
+                size: 22,
+              ),
+            ),
+            unreadAsync.when(
+              data: (count) {
+                if (count == 0) return const SizedBox.shrink();
+                return Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: AppTheme.error,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 14,
+                    ),
+                    child: Text(
+                      count > 99 ? '99+' : '$count',
+                      textAlign: TextAlign.center,
+                      style: AppTheme.sans(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        noShadow: true,
+                      ),
+                    ),
+                  ),
+                );
+              },
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+          ],
+        ),
       ),
     );
   }
