@@ -397,6 +397,27 @@ class AuthService {
     }, SetOptions(merge: true));
   }
 
+  /// 로그인 후 전화번호 기반 네이버 주문 자동 매칭 (fire-and-forget)
+  Future<int> tryAutoClaimNaverOrders() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return 0;
+
+      // 전화번호 소스: Firebase Auth phoneNumber (Phone Auth 로그인 시)
+      final phone = user.phoneNumber;
+      if (phone == null || phone.isEmpty) return 0;
+
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('autoClaimNaverOrdersByPhone');
+      final result = await callable.call({'phone': phone});
+      final data = Map<String, dynamic>.from(result.data);
+      return (data['claimedCount'] as int?) ?? 0;
+    } catch (_) {
+      // 자동 매칭 실패는 무시 (로그인 자체에 영향 없음)
+      return 0;
+    }
+  }
+
   /// 마지막 로그인 시간 업데이트
   Future<void> _updateLastLogin(String uid) async {
     await _firestore.collection('users').doc(uid).update({

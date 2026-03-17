@@ -202,6 +202,15 @@ class FunctionsService {
     return Map<String, dynamic>.from(result.data);
   }
 
+  /// 로그인 후 전화번호 기반 네이버 주문 자동 매칭
+  Future<Map<String, dynamic>> autoClaimNaverOrdersByPhone({
+    required String phone,
+  }) async {
+    final callable = _functions.httpsCallable('autoClaimNaverOrdersByPhone');
+    final result = await callable.call({'phone': phone});
+    return Map<String, dynamic>.from(result.data);
+  }
+
   /// 모바일 티켓 QR 토큰 발급 (비로그인)
   Future<Map<String, dynamic>> issueMobileQrToken({
     required String ticketId,

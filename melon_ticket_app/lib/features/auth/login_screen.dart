@@ -520,7 +520,48 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     if (success == true && mounted) {
       await _saveLastLoginProvider('phone');
+      // 전화번호 로그인 시 네이버 주문 자동 매칭 (fire-and-forget)
+      _autoClaimAndNotify();
       _navigateAfterLogin();
+    }
+  }
+
+  /// 로그인 후 네이버 주문 자동 매칭 → 결과 스낵바
+  Future<void> _autoClaimAndNotify() async {
+    try {
+      final authService = ref.read(authServiceProvider);
+      final claimedCount = await authService.tryAutoClaimNaverOrders();
+      if (claimedCount > 0 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded,
+                    color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '네이버 예매 $claimedCount건이 자동으로 연결되었습니다',
+                    style: AppTheme.nanum(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF03C75A),
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (_) {
+      // 자동 매칭 실패는 무시
     }
   }
 

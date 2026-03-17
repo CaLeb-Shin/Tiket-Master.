@@ -3246,6 +3246,61 @@ export const claimNaverOrder = functions.https.onCall(async (data: any, context)
 });
 
 /**
+ * 로그인 후 전화번호 기반 네이버 주문 자동 매칭
+ * - 미연결(userId==null) 주문 중 buyerPhone이 일치하는 주문을 모두 현재 사용자에게 연결
+ */
+export const autoClaimNaverOrdersByPhone = functions.https.onCall(async (data: any, context) => {
+  const userId = context?.auth?.uid;
+  if (!userId) {
+    throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
+  }
+
+  const phoneInput = typeof data?.phone === "string" ? data.phone : "";
+  const phoneDigits = phoneInput.replace(/\D/g, "");
+  if (phoneDigits.length < 7) {
+    return { success: true, claimedCount: 0, orders: [] };
+  }
+
+  // 미연결 주문 중 전화번호 일치하는 것 조회
+  const snap = await db.collection("naverOrders")
+    .where("userId", "==", null)
+    .get();
+
+  const claimed: Array<{ orderId: string; eventId: string; seatGrade: string }> = [];
+
+  const batch = db.batch();
+  for (const doc of snap.docs) {
+    const order = doc.data();
+    const orderPhone = String(order.buyerPhone || "").replace(/\D/g, "");
+    if (orderPhone === phoneDigits || orderPhone.endsWith(phoneDigits.slice(-4)) && phoneDigits.slice(-4).length === 4 && orderPhone.length >= 10) {
+      // 전체 번호 일치 또는 뒤 4자리 일치 (주문 전화번호가 10자리 이상일 때)
+      if (orderPhone === phoneDigits) {
+        batch.set(doc.ref, {
+          userId,
+          linkedAt: admin.firestore.FieldValue.serverTimestamp(),
+          linkSource: "autoClaimByPhone",
+        }, { merge: true });
+        claimed.push({
+          orderId: doc.id,
+          eventId: order.eventId || "",
+          seatGrade: order.seatGrade || "",
+        });
+      }
+    }
+  }
+
+  if (claimed.length > 0) {
+    await batch.commit();
+  }
+
+  return {
+    success: true,
+    claimedCount: claimed.length,
+    orders: claimed,
+  };
+});
+
+/**
  * 모바일 티켓 QR 토큰 발급 (비로그인 — accessToken 검증)
  */
 export const issueMobileQrToken = functions.https.onCall(async (data: any) => {
