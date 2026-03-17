@@ -1,4 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -232,6 +234,362 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     }
   }
 
+  /// 전화번호 인증 — 2단계 바텀시트 (번호 입력 → SMS 코드 입력)
+  Future<void> _signInWithPhone() async {
+    final phoneController = TextEditingController();
+    final codeController = TextEditingController();
+    ConfirmationResult? confirmationResult;
+    bool isSending = false;
+    bool isVerifying = false;
+    String? errorText;
+
+    final success = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: AppTheme.card,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 핸들 바
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppTheme.border,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // 타이틀
+                    Text(
+                      confirmationResult == null
+                          ? '전화번호 인증'
+                          : 'SMS 인증코드 입력',
+                      style: AppTheme.nanum(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      confirmationResult == null
+                          ? '휴대폰 번호를 입력하면 인증 코드를 보내드립니다'
+                          : '${phoneController.text}로 발송된 6자리 코드를 입력해주세요',
+                      style: AppTheme.nanum(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // ─── Step 1: 전화번호 입력 ───
+                    if (confirmationResult == null) ...[
+                      TextFormField(
+                        controller: phoneController,
+                        keyboardType: TextInputType.phone,
+                        autofocus: true,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(11),
+                          _PhoneNumberFormatter(),
+                        ],
+                        style: AppTheme.nanum(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                          letterSpacing: 1,
+                        ),
+                        cursorColor: AppTheme.gold,
+                        decoration: InputDecoration(
+                          hintText: '010-1234-5678',
+                          prefixIcon: const Padding(
+                            padding: EdgeInsets.only(left: 16, right: 8),
+                            child: Text('🇰🇷 +82',
+                                style: TextStyle(fontSize: 15)),
+                          ),
+                          prefixIconConstraints:
+                              const BoxConstraints(minWidth: 0, minHeight: 0),
+                          filled: true,
+                          fillColor: AppTheme.background,
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                                color: AppTheme.border, width: 1),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                                color: AppTheme.gold, width: 1.5),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 16),
+                          hintStyle: AppTheme.nanum(
+                              fontSize: 18, color: AppTheme.textTertiary),
+                        ),
+                      ),
+                      if (errorText != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          errorText!,
+                          style: AppTheme.nanum(
+                            fontSize: 13,
+                            color: AppTheme.error,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      _buildPhoneActionButton(
+                        label: '인증코드 받기',
+                        isLoading: isSending,
+                        onTap: () async {
+                          final raw = phoneController.text
+                              .replaceAll(RegExp(r'[\s\-]'), '');
+                          if (raw.length < 10) {
+                            setSheetState(
+                                () => errorText = '올바른 전화번호를 입력해주세요');
+                            return;
+                          }
+                          setSheetState(() {
+                            isSending = true;
+                            errorText = null;
+                          });
+                          try {
+                            final authService = ref.read(authServiceProvider);
+                            final result =
+                                await authService.sendPhoneVerificationCode(raw);
+                            setSheetState(() {
+                              confirmationResult = result;
+                              isSending = false;
+                            });
+                          } catch (e) {
+                            setSheetState(() {
+                              isSending = false;
+                              errorText =
+                                  _parsePhoneError(e.toString());
+                            });
+                          }
+                        },
+                      ),
+                    ],
+
+                    // ─── Step 2: SMS 코드 입력 ───
+                    if (confirmationResult != null) ...[
+                      TextFormField(
+                        controller: codeController,
+                        keyboardType: TextInputType.number,
+                        autofocus: true,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(6),
+                        ],
+                        style: AppTheme.nanum(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.textPrimary,
+                          letterSpacing: 12,
+                        ),
+                        textAlign: TextAlign.center,
+                        cursorColor: AppTheme.gold,
+                        decoration: InputDecoration(
+                          hintText: '000000',
+                          filled: true,
+                          fillColor: AppTheme.background,
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                                color: AppTheme.border, width: 1),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                                color: AppTheme.gold, width: 1.5),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 16),
+                          hintStyle: AppTheme.nanum(
+                            fontSize: 28,
+                            color: AppTheme.textTertiary,
+                            letterSpacing: 12,
+                          ),
+                        ),
+                      ),
+                      if (errorText != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          errorText!,
+                          style: AppTheme.nanum(
+                            fontSize: 13,
+                            color: AppTheme.error,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: isSending
+                            ? null
+                            : () async {
+                                final raw = phoneController.text
+                                    .replaceAll(RegExp(r'[\s\-]'), '');
+                                setSheetState(() {
+                                  isSending = true;
+                                  errorText = null;
+                                });
+                                try {
+                                  final authService =
+                                      ref.read(authServiceProvider);
+                                  final result = await authService
+                                      .sendPhoneVerificationCode(raw);
+                                  setSheetState(() {
+                                    confirmationResult = result;
+                                    isSending = false;
+                                  });
+                                } catch (e) {
+                                  setSheetState(() {
+                                    isSending = false;
+                                    errorText = _parsePhoneError(e.toString());
+                                  });
+                                }
+                              },
+                        child: Text(
+                          isSending ? '발송 중...' : '인증코드 재발송',
+                          style: AppTheme.nanum(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.gold,
+                            decoration: TextDecoration.underline,
+                          ).copyWith(decorationColor: AppTheme.gold),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildPhoneActionButton(
+                        label: '인증 확인',
+                        isLoading: isVerifying,
+                        onTap: () async {
+                          if (codeController.text.length != 6) {
+                            setSheetState(
+                                () => errorText = '6자리 인증코드를 입력해주세요');
+                            return;
+                          }
+                          setSheetState(() {
+                            isVerifying = true;
+                            errorText = null;
+                          });
+                          try {
+                            final authService = ref.read(authServiceProvider);
+                            await authService.verifyPhoneCode(
+                              confirmationResult!,
+                              codeController.text,
+                            );
+                            if (ctx.mounted) Navigator.of(ctx).pop(true);
+                          } catch (e) {
+                            setSheetState(() {
+                              isVerifying = false;
+                              errorText = _parsePhoneError(e.toString());
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (success == true && mounted) {
+      await _saveLastLoginProvider('phone');
+      _navigateAfterLogin();
+    }
+  }
+
+  String _parsePhoneError(String error) {
+    if (error.contains('invalid-phone-number')) {
+      return '유효하지 않은 전화번호입니다';
+    } else if (error.contains('too-many-requests')) {
+      return '요청이 너무 많습니다. 잠시 후 다시 시도해주세요';
+    } else if (error.contains('invalid-verification-code')) {
+      return '인증코드가 올바르지 않습니다';
+    } else if (error.contains('session-expired')) {
+      return '인증 세션이 만료되었습니다. 다시 시도해주세요';
+    } else if (error.contains('quota-exceeded')) {
+      return 'SMS 발송 한도를 초과했습니다';
+    }
+    return error.replaceAll(RegExp(r'\[.*?\]'), '').trim();
+  }
+
+  Widget _buildPhoneActionButton({
+    required String label,
+    required bool isLoading,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      height: 54,
+      decoration: BoxDecoration(
+        gradient: isLoading ? null : AppTheme.goldGradient,
+        color: isLoading ? AppTheme.border : null,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: isLoading
+            ? null
+            : const [
+                BoxShadow(
+                  color: AppTheme.goldSubtle,
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isLoading ? null : onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Center(
+            child: isLoading
+                ? const SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: AppTheme.textTertiary,
+                    ),
+                  )
+                : Text(
+                    label,
+                    style: AppTheme.nanum(
+                      color: const Color(0xFFFDF3F6),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      shadows: AppTheme.textShadowOnDark,
+                    ),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+
   String _parseErrorMessage(String error) {
     if (error.contains('user-not-found')) {
       return '등록되지 않은 이메일입니다';
@@ -333,6 +691,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   ),
                   const SizedBox(height: 10),
                   _buildGoogleButton(),
+                  const SizedBox(height: 10),
+                  _buildPhoneButton(),
                   const SizedBox(height: 24),
 
                   // --- Divider: "또는 이메일로 로그인" ---
@@ -561,6 +921,67 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 const Spacer(),
                 Text(
                   'Google로 계속하기',
+                  style: AppTheme.nanum(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                const SizedBox(width: 24),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────
+  //  Phone Login Button (전화번호)
+  // ──────────────────────────────────────────────
+
+  Widget _buildPhoneButton() {
+    final isLastUsed = _lastLoginProvider == 'phone';
+
+    return Container(
+      height: 54,
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isLastUsed ? AppTheme.gold : AppTheme.border,
+          width: isLastUsed ? 1.5 : 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _isLoading ? null : _signInWithPhone,
+          borderRadius: BorderRadius.circular(14),
+          splashColor: AppTheme.goldSubtle,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Center(
+                    child: Icon(
+                      Icons.phone_android_rounded,
+                      size: 20,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+                if (isLastUsed) ...[
+                  const SizedBox(width: 8),
+                  _buildRecentBadge(),
+                ],
+                const Spacer(),
+                Text(
+                  '전화번호로 계속하기',
                   style: AppTheme.nanum(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -937,6 +1358,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 전화번호 입력 포맷터: 01012345678 → 010-1234-5678
+class _PhoneNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final buffer = StringBuffer();
+
+    for (int i = 0; i < digits.length; i++) {
+      if (i == 3 || i == 7) buffer.write('-');
+      buffer.write(digits[i]);
+    }
+
+    final formatted = buffer.toString();
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }

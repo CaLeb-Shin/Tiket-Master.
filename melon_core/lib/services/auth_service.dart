@@ -182,6 +182,52 @@ class AuthService {
     return credential;
   }
 
+  // ─── 전화번호 인증 (Phone Auth) ───
+
+  /// 전화번호로 SMS 인증 코드 발송 (웹 전용)
+  /// 반환: ConfirmationResult (verifyPhoneCode에서 사용)
+  Future<ConfirmationResult> sendPhoneVerificationCode(String phoneNumber) async {
+    // 한국 번호 포맷 변환: 01012345678 → +8201012345678
+    String formatted = phoneNumber.replaceAll(RegExp(r'[\s\-]'), '');
+    if (formatted.startsWith('0')) {
+      formatted = '+82${formatted.substring(1)}';
+    } else if (!formatted.startsWith('+')) {
+      formatted = '+82$formatted';
+    }
+
+    final confirmationResult = await _auth.signInWithPhoneNumber(formatted);
+    return confirmationResult;
+  }
+
+  /// SMS 코드 확인 → 로그인 완료
+  Future<UserCredential> verifyPhoneCode(
+    ConfirmationResult confirmationResult,
+    String smsCode,
+  ) async {
+    final credential = await confirmationResult.confirm(smsCode);
+
+    // 신규 사용자면 Firestore 문서 생성
+    if (credential.additionalUserInfo?.isNewUser == true) {
+      await _createUserDocument(
+        uid: credential.user!.uid,
+        email: null,
+        displayName: _formatPhoneDisplay(credential.user!.phoneNumber),
+        provider: 'phone',
+      );
+    } else {
+      await _updateLastLogin(credential.user!.uid);
+    }
+
+    return credential;
+  }
+
+  /// 전화번호 표시용 포맷: +821012345678 → 010-****-5678
+  String _formatPhoneDisplay(String? phone) {
+    if (phone == null || phone.length < 8) return '전화번호 사용자';
+    final last4 = phone.substring(phone.length - 4);
+    return '010-****-$last4';
+  }
+
   /// 게스트(익명) 로그인 — 체험 모드
   Future<UserCredential> signInAnonymously() async {
     final credential = await _auth.signInAnonymously();
