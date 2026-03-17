@@ -15,7 +15,9 @@ import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/data/repositories/venue_repository.dart';
 import 'package:melon_core/data/repositories/venue_view_repository.dart';
 import 'package:melon_core/services/auth_service.dart';
+import 'package:melon_core/services/functions_service.dart';
 import 'widgets/seat_dot_map.dart';
+import 'widgets/zone_drilldown.dart';
 
 // =============================================================================
 // 좌석 선택 화면 (모바일 최적화 - AI추천 / 도트맵 / 구역선택 / 빠른예매)
@@ -197,8 +199,10 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     final maxTickets = event.maxTicketsPerOrder > 0
         ? event.maxTicketsPerOrder
         : 10; // 0이면 기본 10석 제한
+    final isRemoving = _selectedSeatIds.contains(seat.id);
+
     setState(() {
-      if (_selectedSeatIds.contains(seat.id)) {
+      if (isRemoving) {
         _selectedSeatIds.remove(seat.id);
       } else {
         if (_selectedSeatIds.length < maxTickets) {
@@ -239,9 +243,27 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               backgroundColor: AppTheme.error,
             ),
           );
+          return;
         }
       }
     });
+
+    // 2-2e: 좌석 선점(hold) / 해제 — fire-and-forget
+    _trySeatHold(seat.id, isRemoving);
+  }
+
+  /// 좌석 선점/해제 CF 호출 (로그인 유저만, 실패해도 UX 안 깨짐)
+  void _trySeatHold(String seatId, bool release) {
+    final authState = ref.read(authStateProvider);
+    final user = authState.valueOrNull;
+    if (user == null) return; // 비로그인이면 홀드 안 함
+
+    final functions = ref.read(functionsServiceProvider);
+    if (release) {
+      functions.releaseSeat(seatId: seatId).catchError((_) => <String, dynamic>{});
+    } else {
+      functions.holdSeat(seatId: seatId).catchError((_) => <String, dynamic>{});
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -698,7 +720,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
               : _mode == _SeatMode.dotMap && _dotMapLayout != null
                   ? _buildDotMapMode(seats, event)
                   : _mode == _SeatMode.zone
-                      ? _buildZoneMode(seats, event, venueViews)
+                      ? _buildZoneDrilldown(seats, event, venueViews)
                       : _buildQuickMode(seats, event, isStageBottom),
         ),
         _buildBottomBar(event, selectedSeats, totalPrice, isLoggedIn),
@@ -1689,6 +1711,9 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildDotMapMode(List<Seat> seats, Event event) {
+    final authState = ref.watch(authStateProvider);
+    final currentUserId = authState.valueOrNull?.uid;
+
     return SeatDotMap(
       layout: _dotMapLayout!,
       seats: seats,
@@ -1696,9 +1721,11 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       maxSelectable: event.maxTicketsPerOrder > 0
           ? event.maxTicketsPerOrder
           : 4,
+      currentUserId: currentUserId,
       onSeatTap: (seat) {
+        final isRemoving = _selectedSeatIds.contains(seat.id);
         setState(() {
-          if (_selectedSeatIds.contains(seat.id)) {
+          if (isRemoving) {
             _selectedSeatIds.remove(seat.id);
           } else {
             final max = event.maxTicketsPerOrder > 0
@@ -1709,11 +1736,52 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             }
           }
         });
+        _trySeatHold(seat.id, isRemoving);
       },
     );
   }
 
-  // ZONE MODE
+  // ZONE DRILLDOWN MODE (2-2a ~ 2-2d 통합)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildZoneDrilldown(
+      List<Seat> seats, Event event, Map<String, VenueSeatView> venueViews) {
+    final authState = ref.watch(authStateProvider);
+    final currentUserId = authState.valueOrNull?.uid;
+
+    return ZoneDrilldown(
+      seats: seats,
+      selectedFloor: _selectedFloor,
+      selectedSeatIds: _selectedSeatIds,
+      maxSelectable:
+          event.maxTicketsPerOrder > 0 ? event.maxTicketsPerOrder : 10,
+      venueViews: venueViews,
+      dotMapLayout: _dotMapLayout,
+      currentUserId: currentUserId,
+      onSeatToggle: (seat) => _toggleSeat(seat, event, venueViews, seats),
+      onShowSeatView: (view, seat) {
+        final color = _getGradeColor(seat.grade);
+        final selected =
+            seats.where((s) => _selectedSeatIds.contains(s.id)).toList();
+        final totalPrice = selected.fold<int>(
+            0, (sum, s) => sum + _getGradePrice(s.grade, event));
+        final seatNums = selected.map((s) => '${s.number}').join(', ');
+        _showSeatView(
+          view,
+          seat.block,
+          seat.grade,
+          color,
+          seat.row,
+          '${selected.length}석 · $seatNums번',
+          totalPrice,
+          _selectedSeatIds.toList(),
+          true,
+        );
+      },
+    );
+  }
+
+  // ZONE MODE (레거시 — ZoneDrilldown으로 대체됨)
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildZoneMode(
@@ -2613,7 +2681,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
                     : _mode == _SeatMode.dotMap && _dotMapLayout != null
                         ? _buildDotMapMode(seats, event)
                         : _mode == _SeatMode.zone
-                            ? _buildZoneMode(seats, event, venueViews)
+                            ? _buildZoneDrilldown(seats, event, venueViews)
                             : _buildQuickMode(seats, event, isStageBottom),
               ),
               // 우측: 선택좌석 패널

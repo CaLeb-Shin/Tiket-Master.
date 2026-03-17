@@ -712,28 +712,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   _buildTabToggle(),
                   const SizedBox(height: 24),
 
-                  // --- Social Login Buttons (TOP) ---
-                  _buildSocialButton(
-                    label: '카카오로 계속하기',
-                    providerKey: 'kakao',
-                    color: const Color(0xFFFEE500),
-                    textColor: const Color(0xFF191600),
-                    logoWidget: SvgPicture.string(_kakaoLogoSvg, width: 20, height: 20),
-                    onTap: _signInWithKakao,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildSocialButton(
-                    label: '네이버로 계속하기',
-                    providerKey: 'naver',
-                    color: const Color(0xFF03C75A),
-                    textColor: Colors.white,
-                    logoWidget: SvgPicture.string(_naverLogoSvg, width: 18, height: 18),
-                    onTap: _signInWithNaver,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildGoogleButton(),
-                  const SizedBox(height: 10),
-                  _buildPhoneButton(),
+                  // --- 네이버 로그인 (최상단 강조) ---
+                  _buildNaverPrimaryButton(),
+                  const SizedBox(height: 16),
+
+                  // --- 보조 로그인 (카카오 · 구글 · 전화번호) ---
+                  _buildSecondaryLoginRow(),
                   const SizedBox(height: 24),
 
                   // --- Divider: "또는 이메일로 로그인" ---
@@ -868,16 +852,118 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   // ──────────────────────────────────────────────
-  //  Social Login Button (카카오, 네이버)
+  //  네이버 로그인 (최상단 강조 — 크고 눈에 띄게)
   // ──────────────────────────────────────────────
 
-  Widget _buildSocialButton({
-    required String label,
+  Widget _buildNaverPrimaryButton() {
+    final isLastUsed = _lastLoginProvider == 'naver';
+
+    return Container(
+      height: 60,
+      decoration: BoxDecoration(
+        color: const Color(0xFF03C75A),
+        borderRadius: BorderRadius.circular(16),
+        border: isLastUsed
+            ? Border.all(color: AppTheme.gold, width: 2)
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF03C75A).withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _isLoading ? null : _signInWithNaver,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: Center(
+                    child: SvgPicture.string(_naverLogoSvg, width: 22, height: 22),
+                  ),
+                ),
+                if (isLastUsed) ...[
+                  const SizedBox(width: 8),
+                  _buildRecentBadge(),
+                ],
+                const Spacer(),
+                Text(
+                  '네이버로 시작하기',
+                  style: AppTheme.nanum(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const Spacer(),
+                const SizedBox(width: 28),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────
+  //  보조 로그인 버튼 Row (카카오 · 구글 · 전화번호)
+  // ──────────────────────────────────────────────
+
+  Widget _buildSecondaryLoginRow() {
+    return Row(
+      children: [
+        Expanded(child: _buildSecondaryButton(
+          providerKey: 'kakao',
+          label: '카카오',
+          color: const Color(0xFFFEE500),
+          textColor: const Color(0xFF191600),
+          logoWidget: SvgPicture.string(_kakaoLogoSvg, width: 18, height: 18),
+          onTap: _signInWithKakao,
+        )),
+        const SizedBox(width: 8),
+        Expanded(child: _buildSecondaryButton(
+          providerKey: 'google',
+          label: 'Google',
+          color: AppTheme.card,
+          textColor: AppTheme.textPrimary,
+          logoWidget: SvgPicture.string(_googleLogoSvg, width: 18, height: 18),
+          onTap: _signInWithGoogle,
+          borderColor: AppTheme.border,
+        )),
+        const SizedBox(width: 8),
+        Expanded(child: _buildSecondaryButton(
+          providerKey: 'phone',
+          label: '전화번호',
+          color: AppTheme.card,
+          textColor: AppTheme.textPrimary,
+          logoWidget: const Icon(
+            Icons.phone_android_rounded,
+            size: 18,
+            color: AppTheme.textSecondary,
+          ),
+          onTap: _signInWithPhone,
+          borderColor: AppTheme.border,
+        )),
+      ],
+    );
+  }
+
+  Widget _buildSecondaryButton({
     required String providerKey,
+    required String label,
     required Color color,
     required Color textColor,
     required Widget logoWidget,
     required VoidCallback onTap,
+    Color? borderColor,
   }) {
     final isLastUsed = _lastLoginProvider == providerKey;
 
@@ -885,154 +971,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       height: 54,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(14),
-        border: isLastUsed
-            ? Border.all(color: AppTheme.gold, width: 1.5)
-            : null,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isLastUsed ? AppTheme.gold : (borderColor ?? Colors.transparent),
+          width: isLastUsed ? 1.5 : 1,
+        ),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: _isLoading ? null : onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                SizedBox(width: 24, height: 24, child: Center(child: logoWidget)),
-                if (isLastUsed) ...[
-                  const SizedBox(width: 8),
-                  _buildRecentBadge(),
-                ],
-                const Spacer(),
+          borderRadius: BorderRadius.circular(12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(width: 20, height: 20, child: Center(child: logoWidget)),
+              const SizedBox(height: 4),
+              if (isLastUsed)
+                _buildRecentBadge()
+              else
                 Text(
                   label,
                   style: AppTheme.nanum(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
                     color: textColor,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const Spacer(),
-                const SizedBox(width: 24),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ──────────────────────────────────────────────
-  //  Google Login Button
-  // ──────────────────────────────────────────────
-
-  Widget _buildGoogleButton() {
-    final isLastUsed = _lastLoginProvider == 'google';
-
-    return Container(
-      height: 54,
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isLastUsed ? AppTheme.gold : AppTheme.border,
-          width: isLastUsed ? 1.5 : 1,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _isLoading ? null : _signInWithGoogle,
-          borderRadius: BorderRadius.circular(14),
-          splashColor: AppTheme.goldSubtle,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: SvgPicture.string(_googleLogoSvg, width: 24, height: 24),
-                ),
-                if (isLastUsed) ...[
-                  const SizedBox(width: 8),
-                  _buildRecentBadge(),
-                ],
-                const Spacer(),
-                Text(
-                  'Google로 계속하기',
-                  style: AppTheme.nanum(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const Spacer(),
-                const SizedBox(width: 24),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ──────────────────────────────────────────────
-  //  Phone Login Button (전화번호)
-  // ──────────────────────────────────────────────
-
-  Widget _buildPhoneButton() {
-    final isLastUsed = _lastLoginProvider == 'phone';
-
-    return Container(
-      height: 54,
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isLastUsed ? AppTheme.gold : AppTheme.border,
-          width: isLastUsed ? 1.5 : 1,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _isLoading ? null : _signInWithPhone,
-          borderRadius: BorderRadius.circular(14),
-          splashColor: AppTheme.goldSubtle,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: Center(
-                    child: Icon(
-                      Icons.phone_android_rounded,
-                      size: 20,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                ),
-                if (isLastUsed) ...[
-                  const SizedBox(width: 8),
-                  _buildRecentBadge(),
-                ],
-                const Spacer(),
-                Text(
-                  '전화번호로 계속하기',
-                  style: AppTheme.nanum(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const Spacer(),
-                const SizedBox(width: 24),
-              ],
-            ),
+            ],
           ),
         ),
       ),

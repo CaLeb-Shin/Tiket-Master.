@@ -266,6 +266,24 @@ class FunctionsService {
     return Map<String, dynamic>.from(result.data);
   }
 
+  /// 좌석 선점 (5분 홀드)
+  Future<Map<String, dynamic>> holdSeat({
+    required String seatId,
+  }) async {
+    final callable = _functions.httpsCallable('holdSeat');
+    final result = await callable.call({'seatId': seatId});
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 좌석 선점 해제
+  Future<Map<String, dynamic>> releaseSeat({
+    required String seatId,
+  }) async {
+    final callable = _functions.httpsCallable('releaseSeat');
+    final result = await callable.call({'seatId': seatId});
+    return Map<String, dynamic>.from(result.data);
+  }
+
   /// HTTP CF 호출 (onRequest 엔드포인트용, Firebase Auth 토큰 사용)
   Future<Map<String, dynamic>> callHttpFunction(
     String functionName,

@@ -10,6 +10,7 @@ class SeatDotMap extends StatefulWidget {
   final List<Seat> seats; // 이벤트의 좌석 목록 (상태 포함)
   final Set<String> selectedSeatIds;
   final int maxSelectable;
+  final String? currentUserId;
   final ValueChanged<Seat> onSeatTap;
 
   const SeatDotMap({
@@ -18,6 +19,7 @@ class SeatDotMap extends StatefulWidget {
     required this.seats,
     required this.selectedSeatIds,
     this.maxSelectable = 4,
+    this.currentUserId,
     required this.onSeatTap,
   });
 
@@ -88,7 +90,8 @@ class _SeatDotMapState extends State<SeatDotMap> {
     final eventSeat = seatByKey[nearest.key];
     if (eventSeat != null &&
         eventSeat.status == SeatStatus.available &&
-        eventSeat.seatType != 'reserved_hold') {
+        eventSeat.seatType != 'reserved_hold' &&
+        !eventSeat.isHeldByOther(widget.currentUserId)) {
       widget.onSeatTap(eventSeat);
     }
   }
@@ -167,6 +170,7 @@ class _SeatDotMapState extends State<SeatDotMap> {
                       holdColor: _holdColor,
                       emptyDotColor: _emptyDotColor,
                       floorBounds: floorBounds,
+                      currentUserId: widget.currentUserId,
                     ),
                   ),
                 ),
@@ -323,6 +327,9 @@ class _DotMapPainter extends CustomPainter {
   final Color holdColor;
   final Color emptyDotColor;
   final Map<String, _FloorBound> floorBounds;
+  final String? currentUserId;
+
+  static const Color _userHoldColor = Color(0xFFFF8F00); // 다른 유저 선점
 
   _DotMapPainter({
     required this.layout,
@@ -337,6 +344,7 @@ class _DotMapPainter extends CustomPainter {
     required this.holdColor,
     required this.emptyDotColor,
     required this.floorBounds,
+    this.currentUserId,
   });
 
   @override
@@ -365,6 +373,9 @@ class _DotMapPainter extends CustomPainter {
 
         if (isSelected) {
           dotColor = selectedColor;
+        } else if (eventSeat.isHeldByOther(currentUserId)) {
+          // 2-2d: 다른 유저 선점 → 주황색
+          dotColor = _userHoldColor;
         } else if (eventSeat.seatType == 'reserved_hold') {
           dotColor = holdColor;
         } else if (eventSeat.seatType == 'wheelchair') {

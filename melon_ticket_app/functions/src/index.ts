@@ -4832,3 +4832,156 @@ export const healthCheckMobileTicket = functions.pubsub
       return null;
     }
   });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 좌석 선점 (5분 홀드) — holdSeat
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const holdSeat = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "로그인 필요");
+  }
+  const uid = context.auth.uid;
+  const seatId = data.seatId;
+  if (!seatId) {
+    throw new functions.https.HttpsError("invalid-argument", "seatId 필요");
+  }
+
+  const HOLD_MINUTES = 5;
+  const MAX_HOLDS_PER_USER = 10;
+  const seatRef = db.collection("seats").doc(seatId);
+
+  return db.runTransaction(async (tx) => {
+    const seatDoc = await tx.get(seatRef);
+    if (!seatDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "좌석 없음");
+    }
+    const seat = seatDoc.data()!;
+
+    // 이미 예약/사용/차단된 좌석
+    if (seat.status !== "available") {
+      throw new functions.https.HttpsError("failed-precondition", "선택 불가 좌석");
+    }
+
+    // 다른 유저가 홀드 중이고 아직 만료 안 됨
+    if (seat.heldBy && seat.heldBy !== uid) {
+      const heldUntil = seat.heldUntil?.toDate?.() ?? new Date(0);
+      if (heldUntil > new Date()) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "다른 사용자가 선점 중"
+        );
+      }
+    }
+
+    // 같은 이벤트에서 이 유저의 현재 홀드 수 제한
+    const eventId = seat.eventId;
+    const myHolds = await db
+      .collection("seats")
+      .where("eventId", "==", eventId)
+      .where("heldBy", "==", uid)
+      .where("heldUntil", ">", admin.firestore.Timestamp.now())
+      .get();
+
+    if (myHolds.size >= MAX_HOLDS_PER_USER) {
+      throw new functions.https.HttpsError(
+        "resource-exhausted",
+        `최대 ${MAX_HOLDS_PER_USER}석까지 선점 가능`
+      );
+    }
+
+    const heldUntil = new Date(Date.now() + HOLD_MINUTES * 60 * 1000);
+    tx.update(seatRef, {
+      heldBy: uid,
+      heldUntil: admin.firestore.Timestamp.fromDate(heldUntil),
+    });
+
+    return {
+      success: true,
+      seatId,
+      heldUntil: heldUntil.toISOString(),
+      holdMinutes: HOLD_MINUTES,
+    };
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 좌석 선점 해제 — releaseSeat
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const releaseSeat = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "로그인 필요");
+  }
+  const uid = context.auth.uid;
+  const seatId = data.seatId;
+  if (!seatId) {
+    throw new functions.https.HttpsError("invalid-argument", "seatId 필요");
+  }
+
+  const seatRef = db.collection("seats").doc(seatId);
+
+  return db.runTransaction(async (tx) => {
+    const seatDoc = await tx.get(seatRef);
+    if (!seatDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "좌석 없음");
+    }
+    const seat = seatDoc.data()!;
+
+    // 본인 홀드만 해제 가능
+    if (seat.heldBy !== uid) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "본인 선점만 해제 가능"
+      );
+    }
+
+    tx.update(seatRef, {
+      heldBy: admin.firestore.FieldValue.delete(),
+      heldUntil: admin.firestore.FieldValue.delete(),
+    });
+
+    return { success: true, seatId };
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 만료된 좌석 홀드 자동 해제 — 매 1분 실행
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const releaseExpiredHolds = functions.pubsub
+  .schedule("every 1 minutes")
+  .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+    const expiredSeats = await db
+      .collection("seats")
+      .where("heldUntil", "<=", now)
+      .where("heldBy", "!=", null)
+      .limit(500)
+      .get();
+
+    if (expiredSeats.empty) {
+      functions.logger.info("[ReleaseHolds] 만료 홀드 없음");
+      return null;
+    }
+
+    const batch = db.batch();
+    let count = 0;
+    for (const doc of expiredSeats.docs) {
+      const seat = doc.data();
+      // 이미 예약된 좌석은 건드리지 않음
+      if (seat.status !== "available") continue;
+      batch.update(doc.ref, {
+        heldBy: admin.firestore.FieldValue.delete(),
+        heldUntil: admin.firestore.FieldValue.delete(),
+      });
+      count++;
+    }
+
+    if (count > 0) {
+      await batch.commit();
+      functions.logger.info(`[ReleaseHolds] ${count}석 홀드 해제`);
+    }
+
+    return null;
+  });

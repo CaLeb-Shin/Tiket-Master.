@@ -16,6 +16,8 @@ class Seat {
   final double? dotX; // 도트맵 X 좌표 (자유 좌표 px)
   final double? dotY; // 도트맵 Y 좌표 (자유 좌표 px)
   final String seatType; // 좌석 유형 (normal/wheelchair/reserved_hold)
+  final String? heldBy; // 선점 유저 UID (5분 홀드)
+  final DateTime? heldUntil; // 선점 만료 시각
 
   Seat({
     required this.id,
@@ -32,7 +34,23 @@ class Seat {
     this.dotX,
     this.dotY,
     this.seatType = 'normal',
+    this.heldBy,
+    this.heldUntil,
   });
+
+  /// 현재 다른 유저에 의해 선점(hold) 중인지 확인
+  bool isHeldByOther(String? currentUserId) {
+    if (heldBy == null || heldUntil == null) return false;
+    if (heldBy == currentUserId) return false;
+    return heldUntil!.isAfter(DateTime.now());
+  }
+
+  /// 현재 유저가 선점 중인지 확인
+  bool isHeldByMe(String? currentUserId) {
+    if (heldBy == null || heldUntil == null || currentUserId == null) return false;
+    if (heldBy != currentUserId) return false;
+    return heldUntil!.isAfter(DateTime.now());
+  }
 
   /// 좌석 표시 문자열
   String get displayName {
@@ -67,6 +85,8 @@ class Seat {
       dotX: (data['dotX'] ?? data['gridX'])?.toDouble(),
       dotY: (data['dotY'] ?? data['gridY'])?.toDouble(),
       seatType: data['seatType'] ?? 'normal',
+      heldBy: data['heldBy'],
+      heldUntil: (data['heldUntil'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -87,6 +107,8 @@ class Seat {
       if (dotX != null) 'gridX': dotX!.toInt(), // 레거시 호환
       if (dotY != null) 'gridY': dotY!.toInt(), // 레거시 호환
       'seatType': seatType,
+      if (heldBy != null) 'heldBy': heldBy,
+      if (heldUntil != null) 'heldUntil': Timestamp.fromDate(heldUntil!),
     };
   }
 
@@ -98,6 +120,8 @@ class Seat {
     double? dotX,
     double? dotY,
     String? seatType,
+    String? heldBy,
+    DateTime? heldUntil,
   }) {
     return Seat(
       id: id,
@@ -114,6 +138,8 @@ class Seat {
       dotX: dotX ?? this.dotX,
       dotY: dotY ?? this.dotY,
       seatType: seatType ?? this.seatType,
+      heldBy: heldBy ?? this.heldBy,
+      heldUntil: heldUntil ?? this.heldUntil,
     );
   }
 }
