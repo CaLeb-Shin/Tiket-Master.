@@ -36,8 +36,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.assignFromWaitlist = exports.addToWaitlist = exports.syncOfflineCheckins = exports.downloadEventTicketsForScanner = exports.submitReview = exports.completeEvent = exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listNaverOrdersHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.cleanupExpiredTickets = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.createScannerInvite = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
-exports.healthCheckMobileTicket = exports.cancelWaitlistEntry = void 0;
+exports.addToWaitlist = exports.syncOfflineCheckins = exports.downloadEventTicketsForScanner = exports.submitReview = exports.completeEvent = exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listNaverOrdersHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.cleanupExpiredTickets = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.autoClaimNaverOrdersByPhone = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.createScannerInvite = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.changeDesignatedSeat = exports.scheduledAutoAssignDesignated = exports.getDesignatedSeatInfo = exports.confirmDesignatedSeat = exports.releaseExpiredHolds = exports.releaseSeat = exports.holdSeat = exports.healthCheckMobileTicket = exports.cancelWaitlistEntry = exports.assignFromWaitlist = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -2297,7 +2297,7 @@ async function enqueueNaverOrderSmsTask(params) {
         // 여기서는 모바일 티켓 링크 문자만 큐잉
         await db.collection("smsTasks").add({
             ...baseFields,
-            type: "mobileTicket",
+            type: params.seatAssignMode === "designated" ? "seatSelection" : "mobileTicket",
             productName: params.productName,
             seatGrade: params.seatGrade,
             quantity: params.quantity,
@@ -2305,6 +2305,7 @@ async function enqueueNaverOrderSmsTask(params) {
             status: "pending",
             priority: 1,
             createdAt: now,
+            ...(params.seatAssignMode ? { seatAssignMode: params.seatAssignMode } : {}),
         });
     }
     catch (smsErr) {
@@ -2337,11 +2338,60 @@ async function createNaverOrderInternal(raw, options = {}) {
     const eventData = eventDoc.data();
     const seatAssignMode = eventData.seatAssignMode || "immediate";
     const isDeferred = seatAssignMode === "deferred";
+    const isDesignated = seatAssignMode === "designated";
     const now = admin.firestore.Timestamp.now();
     const ticketIds = [];
     const ticketUrls = [];
     const batch = db.batch();
-    if (isDeferred) {
+    if (isDesignated) {
+        // ── designated 모드: 좌석 미배정, 24시간 내 구매자가 직접 선택 ──
+        const activeTicketsSnap = await db.collection("mobileTickets")
+            .where("eventId", "==", input.eventId)
+            .where("seatGrade", "==", input.seatGrade)
+            .where("status", "==", "active")
+            .get();
+        const nextEntryNumber = activeTicketsSnap.size + 1;
+        // 좌석 선택 마감: 주문 생성 후 24시간
+        const deadlineMs = Date.now() + 24 * 60 * 60 * 1000;
+        const seatSelectionDeadline = admin.firestore.Timestamp.fromMillis(deadlineMs);
+        for (let i = 0; i < input.quantity; i++) {
+            const ticketRef = db.collection("mobileTickets").doc();
+            const accessToken = (0, uuid_1.v4)();
+            const entryNumber = nextEntryNumber + i;
+            batch.set(ticketRef, {
+                naverOrderId: "",
+                eventId: input.eventId,
+                seatGrade: input.seatGrade,
+                seatId: null,
+                seatNumber: null,
+                seatInfo: "좌석 선택 대기",
+                buyerName: input.buyerName,
+                buyerPhone: input.buyerPhone,
+                status: "active",
+                issuedAt: now,
+                usedAt: null,
+                cancelledAt: null,
+                qrVersion: 1,
+                accessToken,
+                entryNumber,
+                orderIndex: i + 1,
+                totalInOrder: input.quantity,
+                entryCheckedInAt: null,
+                lastCheckInStage: null,
+                seatSelectionDeadline,
+                seatChangeCount: 0,
+            });
+            ticketIds.push(ticketRef.id);
+            // 좌석 선택 링크: /m/{accessToken}/select-seat
+            ticketUrls.push({
+                ticketId: ticketRef.id,
+                accessToken,
+                entryNumber,
+                url: `${MOBILE_TICKET_PUBLIC_URL}${accessToken}/select-seat`,
+            });
+        }
+    }
+    else if (isDeferred) {
         // ── deferred 모드: 좌석 미배정, 티켓만 생성 ──
         const activeTicketsSnap = await db.collection("mobileTickets")
             .where("eventId", "==", input.eventId)
@@ -2480,6 +2530,7 @@ async function createNaverOrderInternal(raw, options = {}) {
         dryRun: input.dryRun,
         skipSms: input.skipSms,
         logPrefix: options.logPrefix,
+        seatAssignMode,
     });
     functions.logger.info(`${options.logPrefix || ""}네이버 주문 생성${input.dryRun ? " (테스트)" : ""}: ${input.naverOrderId}, ${input.buyerName}, ${input.seatGrade} x${input.quantity}, 티켓 ${ticketIds.length}장`);
     return {
@@ -2713,6 +2764,54 @@ exports.claimNaverOrder = functions.https.onCall(async (data, context) => {
         alreadyLinked: false,
         orderId: orderDoc.id,
         eventId: order.eventId,
+    };
+});
+/**
+ * 로그인 후 전화번호 기반 네이버 주문 자동 매칭
+ * - 미연결(userId==null) 주문 중 buyerPhone이 일치하는 주문을 모두 현재 사용자에게 연결
+ */
+exports.autoClaimNaverOrdersByPhone = functions.https.onCall(async (data, context) => {
+    const userId = context?.auth?.uid;
+    if (!userId) {
+        throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
+    }
+    const phoneInput = typeof data?.phone === "string" ? data.phone : "";
+    const phoneDigits = phoneInput.replace(/\D/g, "");
+    if (phoneDigits.length < 7) {
+        return { success: true, claimedCount: 0, orders: [] };
+    }
+    // 미연결 주문 중 전화번호 일치하는 것 조회
+    const snap = await db.collection("naverOrders")
+        .where("userId", "==", null)
+        .get();
+    const claimed = [];
+    const batch = db.batch();
+    for (const doc of snap.docs) {
+        const order = doc.data();
+        const orderPhone = String(order.buyerPhone || "").replace(/\D/g, "");
+        if (orderPhone === phoneDigits || orderPhone.endsWith(phoneDigits.slice(-4)) && phoneDigits.slice(-4).length === 4 && orderPhone.length >= 10) {
+            // 전체 번호 일치 또는 뒤 4자리 일치 (주문 전화번호가 10자리 이상일 때)
+            if (orderPhone === phoneDigits) {
+                batch.set(doc.ref, {
+                    userId,
+                    linkedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    linkSource: "autoClaimByPhone",
+                }, { merge: true });
+                claimed.push({
+                    orderId: doc.id,
+                    eventId: order.eventId || "",
+                    seatGrade: order.seatGrade || "",
+                });
+            }
+        }
+    }
+    if (claimed.length > 0) {
+        await batch.commit();
+    }
+    return {
+        success: true,
+        claimedCount: claimed.length,
+        orders: claimed,
     };
 });
 /**
@@ -4079,6 +4178,544 @@ exports.healthCheckMobileTicket = functions.pubsub
     catch (err) {
         functions.logger.error(`[HealthCheck] 치명적 오류: ${err.message}`);
         return null;
+    }
+});
+// ═══════════════════════════════════════════════════════════════════════════
+// 좌석 선점 (5분 홀드) — holdSeat
+// ═══════════════════════════════════════════════════════════════════════════
+exports.holdSeat = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "로그인 필요");
+    }
+    const uid = context.auth.uid;
+    const seatId = data.seatId;
+    if (!seatId) {
+        throw new functions.https.HttpsError("invalid-argument", "seatId 필요");
+    }
+    const HOLD_MINUTES = 5;
+    const MAX_HOLDS_PER_USER = 10;
+    const seatRef = db.collection("seats").doc(seatId);
+    return db.runTransaction(async (tx) => {
+        const seatDoc = await tx.get(seatRef);
+        if (!seatDoc.exists) {
+            throw new functions.https.HttpsError("not-found", "좌석 없음");
+        }
+        const seat = seatDoc.data();
+        // 이미 예약/사용/차단된 좌석
+        if (seat.status !== "available") {
+            throw new functions.https.HttpsError("failed-precondition", "선택 불가 좌석");
+        }
+        // 다른 유저가 홀드 중이고 아직 만료 안 됨
+        if (seat.heldBy && seat.heldBy !== uid) {
+            const heldUntil = seat.heldUntil?.toDate?.() ?? new Date(0);
+            if (heldUntil > new Date()) {
+                throw new functions.https.HttpsError("failed-precondition", "다른 사용자가 선점 중");
+            }
+        }
+        // 같은 이벤트에서 이 유저의 현재 홀드 수 제한
+        const eventId = seat.eventId;
+        const myHolds = await db
+            .collection("seats")
+            .where("eventId", "==", eventId)
+            .where("heldBy", "==", uid)
+            .where("heldUntil", ">", admin.firestore.Timestamp.now())
+            .get();
+        if (myHolds.size >= MAX_HOLDS_PER_USER) {
+            throw new functions.https.HttpsError("resource-exhausted", `최대 ${MAX_HOLDS_PER_USER}석까지 선점 가능`);
+        }
+        const heldUntil = new Date(Date.now() + HOLD_MINUTES * 60 * 1000);
+        tx.update(seatRef, {
+            heldBy: uid,
+            heldUntil: admin.firestore.Timestamp.fromDate(heldUntil),
+        });
+        return {
+            success: true,
+            seatId,
+            heldUntil: heldUntil.toISOString(),
+            holdMinutes: HOLD_MINUTES,
+        };
+    });
+});
+// ═══════════════════════════════════════════════════════════════════════════
+// 좌석 선점 해제 — releaseSeat
+// ═══════════════════════════════════════════════════════════════════════════
+exports.releaseSeat = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "로그인 필요");
+    }
+    const uid = context.auth.uid;
+    const seatId = data.seatId;
+    if (!seatId) {
+        throw new functions.https.HttpsError("invalid-argument", "seatId 필요");
+    }
+    const seatRef = db.collection("seats").doc(seatId);
+    return db.runTransaction(async (tx) => {
+        const seatDoc = await tx.get(seatRef);
+        if (!seatDoc.exists) {
+            throw new functions.https.HttpsError("not-found", "좌석 없음");
+        }
+        const seat = seatDoc.data();
+        // 본인 홀드만 해제 가능
+        if (seat.heldBy !== uid) {
+            throw new functions.https.HttpsError("permission-denied", "본인 선점만 해제 가능");
+        }
+        tx.update(seatRef, {
+            heldBy: admin.firestore.FieldValue.delete(),
+            heldUntil: admin.firestore.FieldValue.delete(),
+        });
+        return { success: true, seatId };
+    });
+});
+// ═══════════════════════════════════════════════════════════════════════════
+// 만료된 좌석 홀드 자동 해제 — 매 1분 실행
+// ═══════════════════════════════════════════════════════════════════════════
+exports.releaseExpiredHolds = functions.pubsub
+    .schedule("every 1 minutes")
+    .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+    const expiredSeats = await db
+        .collection("seats")
+        .where("heldUntil", "<=", now)
+        .where("heldBy", "!=", null)
+        .limit(500)
+        .get();
+    if (expiredSeats.empty) {
+        functions.logger.info("[ReleaseHolds] 만료 홀드 없음");
+        return null;
+    }
+    const batch = db.batch();
+    let count = 0;
+    for (const doc of expiredSeats.docs) {
+        const seat = doc.data();
+        // 이미 예약된 좌석은 건드리지 않음
+        if (seat.status !== "available")
+            continue;
+        batch.update(doc.ref, {
+            heldBy: admin.firestore.FieldValue.delete(),
+            heldUntil: admin.firestore.FieldValue.delete(),
+        });
+        count++;
+    }
+    if (count > 0) {
+        await batch.commit();
+        functions.logger.info(`[ReleaseHolds] ${count}석 홀드 해제`);
+    }
+    return null;
+});
+// ═══════════════════════════════════════════════════════════════════════════
+// 2-3b/c: confirmDesignatedSeat — 지정석 좌석 선택 확정 (accessToken 기반)
+// ═══════════════════════════════════════════════════════════════════════════
+// 구매자가 좌석 선택 링크에서 좌석을 골랐을 때 호출
+// accessToken + buyerPhoneLast4 인증 → 좌석 available 확인 → reserved 전환
+exports.confirmDesignatedSeat = functions.https.onRequest(async (req, res) => {
+    if (req.method !== "POST") {
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+    }
+    try {
+        const { accessToken, phoneLast4, seatId } = req.body;
+        if (!accessToken || !phoneLast4 || !seatId) {
+            res.status(400).json({ error: "accessToken, phoneLast4, seatId 필수" });
+            return;
+        }
+        // 1) accessToken으로 티켓 조회
+        const ticketSnap = await db.collection("mobileTickets")
+            .where("accessToken", "==", accessToken)
+            .limit(1)
+            .get();
+        if (ticketSnap.empty) {
+            res.status(404).json({ error: "티켓을 찾을 수 없습니다" });
+            return;
+        }
+        const ticketDoc = ticketSnap.docs[0];
+        const ticket = ticketDoc.data();
+        // 2) 전화번호 끝 4자리 인증
+        const actualLast4 = ticket.buyerPhone.replace(/[^0-9]/g, "").slice(-4);
+        if (phoneLast4 !== actualLast4) {
+            res.status(403).json({ error: "전화번호가 일치하지 않습니다" });
+            return;
+        }
+        // 3) 티켓 상태 검증
+        if (ticket.status !== "active") {
+            res.status(400).json({ error: "이미 취소되었거나 사용된 티켓입니다" });
+            return;
+        }
+        if (ticket.seatId) {
+            res.status(400).json({ error: "이미 좌석이 배정된 티켓입니다" });
+            return;
+        }
+        // 4) 선택 마감 확인
+        const deadline = ticket.seatSelectionDeadline?.toDate();
+        if (deadline && new Date() > deadline) {
+            res.status(400).json({ error: "좌석 선택 기한이 만료되었습니다" });
+            return;
+        }
+        // 5) 트랜잭션: 좌석 확인 → 예약
+        const seatRef = db.collection("seats").doc(seatId);
+        const now = admin.firestore.Timestamp.now();
+        const result = await db.runTransaction(async (txn) => {
+            const seatDoc = await txn.get(seatRef);
+            if (!seatDoc.exists) {
+                throw new Error("좌석을 찾을 수 없습니다");
+            }
+            const seat = seatDoc.data();
+            // 좌석이 available이어야 하고, 등급이 맞아야 함
+            if (seat.status !== "available") {
+                throw new Error("이미 예약된 좌석입니다");
+            }
+            if (seat.grade !== ticket.seatGrade) {
+                throw new Error(`${ticket.seatGrade} 등급 좌석만 선택 가능합니다`);
+            }
+            if (seat.eventId !== ticket.eventId) {
+                throw new Error("다른 공연의 좌석입니다");
+            }
+            // 다른 유저에게 홀드된 좌석인지 확인
+            if (seat.heldBy && seat.heldBy !== `ticket:${ticketDoc.id}`) {
+                const heldUntil = seat.heldUntil?.toDate();
+                if (heldUntil && new Date() < heldUntil) {
+                    throw new Error("다른 사용자가 선택 중인 좌석입니다");
+                }
+            }
+            const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
+                .filter(Boolean)
+                .join(" ");
+            // 좌석 → reserved
+            txn.update(seatRef, {
+                status: "reserved",
+                orderId: ticket.naverOrderId,
+                reservedAt: now,
+                heldBy: admin.firestore.FieldValue.delete(),
+                heldUntil: admin.firestore.FieldValue.delete(),
+            });
+            // 티켓 → 좌석 정보 업데이트
+            txn.update(ticketDoc.ref, {
+                seatId: seatId,
+                seatNumber: `${seat.number}`,
+                seatInfo,
+                seatSelectedAt: now,
+            });
+            return { seatInfo, seatNumber: `${seat.number}` };
+        });
+        functions.logger.info(`[DesignatedSeat] 좌석 확정: ticket=${ticketDoc.id}, seat=${seatId}, info=${result.seatInfo}`);
+        res.status(200).json({
+            success: true,
+            seatInfo: result.seatInfo,
+            seatNumber: result.seatNumber,
+        });
+    }
+    catch (error) {
+        functions.logger.error("[DesignatedSeat] 좌석 확정 실패:", error);
+        res.status(400).json({ error: error.message || "좌석 확정 실패" });
+    }
+});
+// ═══════════════════════════════════════════════════════════════════════════
+// 2-3b: getDesignatedSeatInfo — 좌석 선택 페이지에 필요한 정보 조회
+// ═══════════════════════════════════════════════════════════════════════════
+exports.getDesignatedSeatInfo = functions.https.onRequest(async (req, res) => {
+    if (req.method !== "POST") {
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+    }
+    try {
+        const { accessToken, phoneLast4 } = req.body;
+        if (!accessToken || !phoneLast4) {
+            res.status(400).json({ error: "accessToken, phoneLast4 필수" });
+            return;
+        }
+        // 티켓 조회
+        const ticketSnap = await db.collection("mobileTickets")
+            .where("accessToken", "==", accessToken)
+            .limit(1)
+            .get();
+        if (ticketSnap.empty) {
+            res.status(404).json({ error: "티켓을 찾을 수 없습니다" });
+            return;
+        }
+        const ticket = ticketSnap.docs[0].data();
+        // 전화번호 끝 4자리 인증
+        const actualLast4 = ticket.buyerPhone.replace(/[^0-9]/g, "").slice(-4);
+        if (phoneLast4 !== actualLast4) {
+            res.status(403).json({ error: "전화번호가 일치하지 않습니다" });
+            return;
+        }
+        if (ticket.status !== "active") {
+            res.status(400).json({ error: "유효하지 않은 티켓입니다" });
+            return;
+        }
+        // 이벤트 정보
+        const eventDoc = await db.collection("events").doc(ticket.eventId).get();
+        if (!eventDoc.exists) {
+            res.status(404).json({ error: "공연 정보를 찾을 수 없습니다" });
+            return;
+        }
+        const event = eventDoc.data();
+        // 해당 등급 available 좌석 목록
+        const seatsSnap = await db.collection("seats")
+            .where("eventId", "==", ticket.eventId)
+            .where("grade", "==", ticket.seatGrade)
+            .where("status", "==", "available")
+            .get();
+        const seats = seatsSnap.docs.map((doc) => {
+            const s = doc.data();
+            return {
+                id: doc.id,
+                block: s.block,
+                floor: s.floor,
+                row: s.row,
+                number: s.number,
+                seatKey: s.seatKey,
+                dotX: s.dotX ?? null,
+                dotY: s.dotY ?? null,
+                heldBy: s.heldBy ?? null,
+                heldUntil: s.heldUntil?.toDate()?.toISOString() ?? null,
+            };
+        });
+        res.status(200).json({
+            success: true,
+            ticket: {
+                id: ticketSnap.docs[0].id,
+                seatGrade: ticket.seatGrade,
+                seatId: ticket.seatId ?? null,
+                seatInfo: ticket.seatInfo ?? null,
+                seatSelectionDeadline: ticket.seatSelectionDeadline?.toDate()?.toISOString() ?? null,
+                seatChangeCount: ticket.seatChangeCount ?? 0,
+                buyerName: ticket.buyerName,
+            },
+            event: {
+                id: eventDoc.id,
+                title: event.title,
+                startAt: event.startAt?.toDate()?.toISOString(),
+                venueName: event.venueName ?? null,
+                imageUrl: event.imageUrl ?? null,
+                priceByGrade: event.priceByGrade ?? null,
+            },
+            availableSeats: seats,
+        });
+    }
+    catch (error) {
+        functions.logger.error("[DesignatedSeat] 정보 조회 실패:", error);
+        res.status(500).json({ error: error.message || "조회 실패" });
+    }
+});
+// ═══════════════════════════════════════════════════════════════════════════
+// 2-3d: scheduledAutoAssignDesignated — 24시간 미선택 자동배정 스케줄러
+// ═══════════════════════════════════════════════════════════════════════════
+exports.scheduledAutoAssignDesignated = functions.pubsub
+    .schedule("every 30 minutes")
+    .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+    // seatSelectionDeadline이 지났고 seatId가 null인 active 티켓 조회
+    const expiredSnap = await db.collection("mobileTickets")
+        .where("seatSelectionDeadline", "<=", now)
+        .where("status", "==", "active")
+        .get();
+    // seatId가 null인 것만 필터 (Firestore는 null 필드 쿼리가 불안정)
+    const unassigned = expiredSnap.docs.filter((doc) => !doc.data().seatId);
+    if (unassigned.length === 0) {
+        functions.logger.info("[AutoAssign] 미선택 designated 티켓 없음");
+        return null;
+    }
+    // eventId + seatGrade별로 그룹화
+    const groups = new Map();
+    for (const doc of unassigned) {
+        const d = doc.data();
+        const key = `${d.eventId}__${d.seatGrade}`;
+        if (!groups.has(key))
+            groups.set(key, []);
+        groups.get(key).push(doc);
+    }
+    let totalAssigned = 0;
+    let totalFailed = 0;
+    for (const [key, tickets] of groups) {
+        const [eventId, seatGrade] = key.split("__");
+        // available 좌석 조회
+        const availableSnap = await db.collection("seats")
+            .where("eventId", "==", eventId)
+            .where("grade", "==", seatGrade)
+            .where("status", "==", "available")
+            .get();
+        if (availableSnap.empty) {
+            functions.logger.warn(`[AutoAssign] ${seatGrade} 잔여 좌석 없음 — ${tickets.length}장 미배정 유지`);
+            totalFailed += tickets.length;
+            continue;
+        }
+        // findAdjacentSeats로 연석 우선 배정
+        const selectedSeatDocs = findAdjacentSeats(availableSnap.docs, tickets.length);
+        if (!selectedSeatDocs) {
+            // 연석이 안 되면 개별 배정
+            const availableDocs = availableSnap.docs.slice(0, tickets.length);
+            if (availableDocs.length < tickets.length) {
+                functions.logger.warn(`[AutoAssign] ${seatGrade} 좌석 부족 (${availableDocs.length}/${tickets.length})`);
+            }
+            await assignSeatsToTickets(availableDocs, tickets.slice(0, availableDocs.length));
+            totalAssigned += Math.min(availableDocs.length, tickets.length);
+            totalFailed += Math.max(0, tickets.length - availableDocs.length);
+        }
+        else {
+            await assignSeatsToTickets(selectedSeatDocs, tickets);
+            totalAssigned += tickets.length;
+        }
+    }
+    functions.logger.info(`[AutoAssign] 자동배정 완료: ${totalAssigned}장 배정, ${totalFailed}장 실패`);
+    return null;
+});
+/** 좌석 docs를 티켓 docs에 순서대로 배정 (batch write) */
+async function assignSeatsToTickets(seatDocs, ticketDocs) {
+    const batch = db.batch();
+    const now = admin.firestore.Timestamp.now();
+    const count = Math.min(seatDocs.length, ticketDocs.length);
+    for (let i = 0; i < count; i++) {
+        const seat = seatDocs[i].data();
+        const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
+            .filter(Boolean)
+            .join(" ");
+        batch.update(seatDocs[i].ref, {
+            status: "reserved",
+            reservedAt: now,
+            heldBy: admin.firestore.FieldValue.delete(),
+            heldUntil: admin.firestore.FieldValue.delete(),
+        });
+        batch.update(ticketDocs[i].ref, {
+            seatId: seatDocs[i].id,
+            seatNumber: `${seat.number}`,
+            seatInfo,
+            seatAutoAssignedAt: now,
+        });
+    }
+    await batch.commit();
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// 2-3e: changeDesignatedSeat — 좌석 1회 변경 (공연 24시간 전까지)
+// ═══════════════════════════════════════════════════════════════════════════
+exports.changeDesignatedSeat = functions.https.onRequest(async (req, res) => {
+    if (req.method !== "POST") {
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+    }
+    try {
+        const { accessToken, phoneLast4, newSeatId } = req.body;
+        if (!accessToken || !phoneLast4 || !newSeatId) {
+            res.status(400).json({ error: "accessToken, phoneLast4, newSeatId 필수" });
+            return;
+        }
+        // 1) 티켓 조회
+        const ticketSnap = await db.collection("mobileTickets")
+            .where("accessToken", "==", accessToken)
+            .limit(1)
+            .get();
+        if (ticketSnap.empty) {
+            res.status(404).json({ error: "티켓을 찾을 수 없습니다" });
+            return;
+        }
+        const ticketDoc = ticketSnap.docs[0];
+        const ticket = ticketDoc.data();
+        // 2) 전화번호 인증
+        const actualLast4 = ticket.buyerPhone.replace(/[^0-9]/g, "").slice(-4);
+        if (phoneLast4 !== actualLast4) {
+            res.status(403).json({ error: "전화번호가 일치하지 않습니다" });
+            return;
+        }
+        // 3) 변경 자격 검증
+        if (ticket.status !== "active") {
+            res.status(400).json({ error: "유효하지 않은 티켓입니다" });
+            return;
+        }
+        if (!ticket.seatId) {
+            res.status(400).json({ error: "배정된 좌석이 없습니다. 먼저 좌석을 선택해주세요." });
+            return;
+        }
+        if ((ticket.seatChangeCount ?? 0) >= 1) {
+            res.status(400).json({ error: "좌석 변경은 1회만 가능합니다" });
+            return;
+        }
+        // 4) 공연 24시간 전까지만 변경 가능
+        const eventDoc = await db.collection("events").doc(ticket.eventId).get();
+        if (!eventDoc.exists) {
+            res.status(404).json({ error: "공연 정보를 찾을 수 없습니다" });
+            return;
+        }
+        const eventStartAt = eventDoc.data().startAt?.toDate();
+        if (eventStartAt) {
+            const cutoff = new Date(eventStartAt.getTime() - 24 * 60 * 60 * 1000);
+            if (new Date() > cutoff) {
+                res.status(400).json({ error: "공연 24시간 전 이후에는 좌석을 변경할 수 없습니다" });
+                return;
+            }
+        }
+        // 5) 같은 좌석이면 거부
+        if (ticket.seatId === newSeatId) {
+            res.status(400).json({ error: "현재 좌석과 동일한 좌석입니다" });
+            return;
+        }
+        // 6) 트랜잭션: 기존 좌석 해제 + 새 좌석 예약
+        const oldSeatRef = db.collection("seats").doc(ticket.seatId);
+        const newSeatRef = db.collection("seats").doc(newSeatId);
+        const now = admin.firestore.Timestamp.now();
+        const result = await db.runTransaction(async (txn) => {
+            const [oldSeatDoc, newSeatDoc] = await Promise.all([
+                txn.get(oldSeatRef),
+                txn.get(newSeatRef),
+            ]);
+            if (!newSeatDoc.exists) {
+                throw new Error("새 좌석을 찾을 수 없습니다");
+            }
+            const newSeat = newSeatDoc.data();
+            if (newSeat.status !== "available") {
+                throw new Error("이미 예약된 좌석입니다");
+            }
+            if (newSeat.grade !== ticket.seatGrade) {
+                throw new Error(`${ticket.seatGrade} 등급 좌석만 선택 가능합니다`);
+            }
+            if (newSeat.eventId !== ticket.eventId) {
+                throw new Error("다른 공연의 좌석입니다");
+            }
+            // 홀드 확인
+            if (newSeat.heldBy) {
+                const heldUntil = newSeat.heldUntil?.toDate();
+                if (heldUntil && new Date() < heldUntil) {
+                    throw new Error("다른 사용자가 선택 중인 좌석입니다");
+                }
+            }
+            const newSeatInfo = [newSeat.floor, newSeat.block, newSeat.row ? `${newSeat.row}열` : null, `${newSeat.number}번`]
+                .filter(Boolean)
+                .join(" ");
+            // 기존 좌석 → available
+            if (oldSeatDoc.exists) {
+                txn.update(oldSeatRef, {
+                    status: "available",
+                    orderId: admin.firestore.FieldValue.delete(),
+                    reservedAt: admin.firestore.FieldValue.delete(),
+                });
+            }
+            // 새 좌석 → reserved
+            txn.update(newSeatRef, {
+                status: "reserved",
+                orderId: ticket.naverOrderId,
+                reservedAt: now,
+                heldBy: admin.firestore.FieldValue.delete(),
+                heldUntil: admin.firestore.FieldValue.delete(),
+            });
+            // 티켓 업데이트
+            txn.update(ticketDoc.ref, {
+                seatId: newSeatId,
+                seatNumber: `${newSeat.number}`,
+                seatInfo: newSeatInfo,
+                seatChangeCount: (ticket.seatChangeCount ?? 0) + 1,
+                seatChangedAt: now,
+                previousSeatId: ticket.seatId,
+            });
+            return { seatInfo: newSeatInfo, seatNumber: `${newSeat.number}` };
+        });
+        functions.logger.info(`[DesignatedSeat] 좌석 변경: ticket=${ticketDoc.id}, ${ticket.seatId} → ${newSeatId}, info=${result.seatInfo}`);
+        res.status(200).json({
+            success: true,
+            seatInfo: result.seatInfo,
+            seatNumber: result.seatNumber,
+        });
+    }
+    catch (error) {
+        functions.logger.error("[DesignatedSeat] 좌석 변경 실패:", error);
+        res.status(400).json({ error: error.message || "좌석 변경 실패" });
     }
 });
 //# sourceMappingURL=index.js.map

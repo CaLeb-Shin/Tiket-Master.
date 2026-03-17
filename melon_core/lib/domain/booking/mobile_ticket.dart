@@ -22,6 +22,8 @@ class MobileTicket {
   final DateTime? intermissionCheckedInAt;
   final String? lastCheckInStage;
   final String? recipientName; // 전달받은 사람 이름
+  final DateTime? seatSelectionDeadline; // 지정석 좌석 선택 마감 (designated 모드)
+  final int seatChangeCount; // 좌석 변경 횟수 (최대 1회)
 
   MobileTicket({
     required this.id,
@@ -44,6 +46,8 @@ class MobileTicket {
     this.intermissionCheckedInAt,
     this.lastCheckInStage,
     this.recipientName,
+    this.seatSelectionDeadline,
+    this.seatChangeCount = 0,
   });
 
   factory MobileTicket.fromFirestore(DocumentSnapshot doc) {
@@ -72,6 +76,9 @@ class MobileTicket {
           (data['intermissionCheckedInAt'] as Timestamp?)?.toDate(),
       lastCheckInStage: data['lastCheckInStage'],
       recipientName: data['recipientName'],
+      seatSelectionDeadline:
+          (data['seatSelectionDeadline'] as Timestamp?)?.toDate(),
+      seatChangeCount: data['seatChangeCount'] ?? 0,
     );
   }
 
@@ -101,11 +108,28 @@ class MobileTicket {
           : null,
       'lastCheckInStage': lastCheckInStage,
       if (recipientName != null) 'recipientName': recipientName,
+      if (seatSelectionDeadline != null)
+        'seatSelectionDeadline':
+            Timestamp.fromDate(seatSelectionDeadline!),
+      'seatChangeCount': seatChangeCount,
     };
   }
 
   bool get isCheckedIn => entryCheckedInAt != null;
   bool get isIntermissionCheckedIn => intermissionCheckedInAt != null;
+
+  /// 좌석 선택 가능 여부 (designated 모드)
+  bool get canSelectSeat =>
+      seatId == null &&
+      status == MobileTicketStatus.active &&
+      seatSelectionDeadline != null &&
+      DateTime.now().isBefore(seatSelectionDeadline!);
+
+  /// 좌석 변경 가능 여부 (1회 제한)
+  bool get canChangeSeat =>
+      seatId != null &&
+      status == MobileTicketStatus.active &&
+      seatChangeCount < 1;
 }
 
 enum MobileTicketStatus {

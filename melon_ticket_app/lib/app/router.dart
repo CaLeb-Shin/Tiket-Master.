@@ -19,6 +19,7 @@ import '../features/orders/naver_linked_orders_screen.dart';
 import '../features/mileage/mileage_history_screen.dart';
 import '../features/hall/hall_screen.dart';
 import '../features/mobile_ticket/mobile_ticket_page.dart';
+import '../features/mobile_ticket/designated_seat_select_page.dart';
 
 /// main()에서 설정 — splash MaterialApp이 URL 덮어쓰기 전 원래 경로 보존
 String appInitialPath = '/';
@@ -231,6 +232,17 @@ final routerProvider = Provider<GoRouter>((ref) {
               final accessToken = state.pathParameters['accessToken']!;
               return MobileTicketPage(accessToken: accessToken);
             },
+            routes: [
+              // 지정석 좌석 선택 (비로그인, accessToken 기반)
+              GoRoute(
+                path: 'select-seat',
+                name: 'designatedSeatSelect',
+                builder: (context, state) {
+                  final accessToken = state.pathParameters['accessToken']!;
+                  return DesignatedSeatSelectPage(accessToken: accessToken);
+                },
+              ),
+            ],
           ),
         ],
       ),
