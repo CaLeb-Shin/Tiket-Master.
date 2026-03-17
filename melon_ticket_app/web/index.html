@@ -208,6 +208,62 @@
       });
     }
   </script>
+  <!-- Pannellum.js 360° Panorama Viewer (2-4b) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
+  <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+  <script>
+    // Flutter → Pannellum 브릿지 (2-4b)
+    var _pannellumViewers = {};
+    function createPannellumViewer(containerId, imageUrl, is180) {
+      if (_pannellumViewers[containerId]) {
+        _pannellumViewers[containerId].destroy();
+      }
+      var minHfov = is180 ? 50 : 50;
+      var maxHfov = is180 ? 120 : 120;
+      _pannellumViewers[containerId] = pannellum.viewer(containerId, {
+        type: 'equirectangular',
+        panorama: imageUrl,
+        autoLoad: true,
+        compass: true,
+        showControls: false,
+        mouseZoom: true,
+        hfov: 90,
+        minHfov: minHfov,
+        maxHfov: maxHfov,
+        minPitch: -30,
+        maxPitch: 30,
+        minYaw: is180 ? -90 : -180,
+        maxYaw: is180 ? 90 : 180,
+        hotSpots: [{
+          pitch: 0,
+          yaw: 0,
+          type: 'info',
+          text: 'STAGE',
+          cssClass: 'pannellum-stage-hotspot'
+        }]
+      });
+    }
+    function destroyPannellumViewer(containerId) {
+      if (_pannellumViewers[containerId]) {
+        _pannellumViewers[containerId].destroy();
+        delete _pannellumViewers[containerId];
+      }
+    }
+  </script>
+  <style>
+    .pannellum-stage-hotspot {
+      background: rgba(201,168,76,0.6);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 12px;
+      letter-spacing: 2px;
+      border: 1px solid rgba(201,168,76,0.8);
+    }
+    .pnlm-container { background: #0B0B0F !important; }
+  </style>
+
   <!-- Firebase Phone Auth reCAPTCHA container (invisible) -->
   <div id="recaptcha-container"></div>
   <script src="flutter_bootstrap.js" async></script>

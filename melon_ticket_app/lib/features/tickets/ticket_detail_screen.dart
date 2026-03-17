@@ -16,7 +16,9 @@ import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/data/repositories/ticket_repository.dart';
 import 'package:melon_core/data/repositories/venue_view_repository.dart';
+import 'package:melon_core/data/repositories/venue_repository.dart';
 import 'package:melon_core/services/auth_service.dart';
+import 'package:melon_ticket_app/features/booking/widgets/mini_seat_map.dart';
 import 'package:melon_core/services/functions_service.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -723,12 +725,17 @@ class _BoardingPassTicket extends ConsumerWidget {
 
     // Resolve inline seat view (reusing 5-step matching)
     VenueSeatView? matchedView;
+    int matchedViewLevel = 1;
     if (!ticket.isStanding && seat != null && event.venueId.isNotEmpty) {
       final viewsAsync = ref.watch(venueViewsProvider(event.venueId));
-      matchedView = viewsAsync.whenOrNull(
+      viewsAsync.whenOrNull(
         data: (views) {
-          if (views.isEmpty) return null;
-          return _findBestSeatView(views, seat!);
+          if (views.isEmpty) return;
+          final result = _findBestSeatViewWithLevel(views, seat!);
+          if (result != null) {
+            matchedView = result.$1;
+            matchedViewLevel = result.$2;
+          }
         },
       );
     }
@@ -875,9 +882,19 @@ class _BoardingPassTicket extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
                 child: _InlineSeatView(
-                  view: matchedView,
+                  view: matchedView!,
                   onTap: () => _showSeatViewSheet(context, matchedView!),
+                  matchLevel: matchedViewLevel,
                 ),
+              ),
+
+            // ──────────────────────────────────────────
+            // 2-4c: MINI SEAT MAP (내 좌석 위치 하이라이트)
+            // ──────────────────────────────────────────
+            if (!ticket.isStanding && seat != null)
+              _MiniSeatMapSection(
+                venueId: event.venueId,
+                seat: seat!,
               ),
 
             // ──────────────────────────────────────────
@@ -1144,6 +1161,53 @@ class _BoardingPassTicket extends ConsumerWidget {
           },
         );
       },
+    );
+  }
+}
+
+/// 2-4c: 미니 좌석맵 섹션 — 공연장 레이아웃 로드 후 표시
+class _MiniSeatMapSection extends ConsumerWidget {
+  final String venueId;
+  final Seat seat;
+
+  const _MiniSeatMapSection({required this.venueId, required this.seat});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final venueAsync = ref.watch(venueStreamProvider(venueId));
+    return venueAsync.when(
+      data: (venue) {
+        if (venue == null) return const SizedBox.shrink();
+        final layout = venue.seatLayout;
+        if (layout == null || layout.seats.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.map_rounded,
+                      size: 14, color: AppTheme.gold),
+                  const SizedBox(width: 5),
+                  Text(
+                    '내 좌석 위치',
+                    style: AppTheme.nanum(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.gold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              MiniSeatMap(layout: layout, mySeat: seat),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }
@@ -2338,8 +2402,9 @@ Color _statusBackground(TicketStatus status) {
 // 내 좌석 시야 — 5단계 매칭 + 인라인 이미지 (MT-038)
 // =============================================================================
 
-/// Top-level 5-step seat view matching (reusable from multiple widgets)
-VenueSeatView? _findBestSeatView(
+/// Top-level 5-step seat view matching + match level
+/// Returns (view, matchLevel): 1=정확좌석, 2=같은행, 3=인근행, 4=구역좌석, 5=구역대표
+(VenueSeatView, int)? _findBestSeatViewWithLevel(
     Map<String, VenueSeatView> views, Seat seat) {
   final zone = seat.block.trim();
   final floor = seat.floor.trim();
@@ -2350,13 +2415,13 @@ VenueSeatView? _findBestSeatView(
   if (row.isNotEmpty) {
     final k1 = VenueSeatView.buildKey(
         zone: zone, floor: floor, row: row, seat: number);
-    if (views.containsKey(k1)) return views[k1];
+    if (views.containsKey(k1)) return (views[k1]!, 1);
   }
 
   // 2. exact row (zone + floor + row)
   if (row.isNotEmpty) {
     final k2 = VenueSeatView.buildKey(zone: zone, floor: floor, row: row);
-    if (views.containsKey(k2)) return views[k2];
+    if (views.containsKey(k2)) return (views[k2]!, 2);
   }
 
   // 3. nearest row in same zone/floor
@@ -2380,29 +2445,38 @@ VenueSeatView? _findBestSeatView(
           }
         }
       }
-      if (nearest != null) return nearest;
+      if (nearest != null) return (nearest, 3);
     }
   }
 
   // 4. seat without row (zone + floor + seat)
   final k4 =
       VenueSeatView.buildKey(zone: zone, floor: floor, seat: number);
-  if (views.containsKey(k4)) return views[k4];
+  if (views.containsKey(k4)) return (views[k4]!, 4);
 
   // 5. zone representative (zone + floor)
   final k5 = VenueSeatView.buildKey(zone: zone, floor: floor);
-  if (views.containsKey(k5)) return views[k5];
+  if (views.containsKey(k5)) return (views[k5]!, 5);
 
   return null;
 }
+
+VenueSeatView? _findBestSeatView(
+    Map<String, VenueSeatView> views, Seat seat) =>
+    _findBestSeatViewWithLevel(views, seat)?.$1;
 
 /// Inline seat view image displayed directly inside the boarding pass card.
 /// Shows the matched seat view photo with gradient overlay, label, and 360 badge.
 class _InlineSeatView extends StatelessWidget {
   final VenueSeatView view;
   final VoidCallback onTap;
+  final int matchLevel;
 
-  const _InlineSeatView({required this.view, required this.onTap});
+  const _InlineSeatView({
+    required this.view,
+    required this.onTap,
+    this.matchLevel = 1,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2432,6 +2506,31 @@ class _InlineSeatView extends StatelessWidget {
                     color: AppTheme.gold,
                   ),
                 ),
+                if (matchLevel >= 3) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF9F0A)
+                          .withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: const Color(0xFFFF9F0A)
+                            .withValues(alpha: 0.4),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Text(
+                      matchLevel <= 3 ? '인근 구역' : '대표 시야',
+                      style: AppTheme.nanum(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFFFF9F0A),
+                      ),
+                    ),
+                  ),
+                ],
                 const Spacer(),
                 Text(
                   view.displayName,

@@ -19,7 +19,8 @@ class ZoneDrilldown extends StatefulWidget {
   final VenueSeatLayout? dotMapLayout;
   final String? currentUserId;
   final ValueChanged<Seat> onSeatToggle;
-  final void Function(VenueSeatView view, Seat seat)? onShowSeatView;
+  /// matchLevel: 1=정확좌석, 2=같은행, 3=인근행, 4=구역대표, 5=zone폴백
+  final void Function(VenueSeatView view, Seat seat, int matchLevel)? onShowSeatView;
 
   const ZoneDrilldown({
     super.key,
@@ -610,9 +611,9 @@ class _ZoneDrilldownState extends State<ZoneDrilldown>
               widget.onSeatToggle(seat);
               // 2-2c: 시야 사진 자동 표시
               if (!isSelected) {
-                final view = _findBestView(seat);
-                if (view != null && widget.onShowSeatView != null) {
-                  Future.microtask(() => widget.onShowSeatView!(view, seat));
+                final match = _findBestViewWithLevel(seat);
+                if (match != null && widget.onShowSeatView != null) {
+                  Future.microtask(() => widget.onShowSeatView!(match.$1, seat, match.$2));
                 }
               }
             }
@@ -671,7 +672,13 @@ class _ZoneDrilldownState extends State<ZoneDrilldown>
   // VENUE VIEW MATCHING (2-2c)
   // ═══════════════════════════════════════════════════════════════
 
-  VenueSeatView? _findBestView(Seat seat) {
+  /// 시야 사진 존재 여부만 확인 (indicator 용)
+  VenueSeatView? _findBestView(Seat seat) =>
+      _findBestViewWithLevel(seat)?.$1;
+
+  /// 매칭 레벨 포함 반환: (view, level)
+  /// level 1=정확좌석, 2=같은행, 3=인근행, 4=구역대표, 5=zone폴백
+  (VenueSeatView, int)? _findBestViewWithLevel(Seat seat) {
     if (widget.venueViews.isEmpty) return null;
     final floor = seat.floor.trim();
     final zone = seat.block.trim().toUpperCase();
@@ -687,7 +694,7 @@ class _ZoneDrilldownState extends State<ZoneDrilldown>
     for (final v in widget.venueViews.values) {
       if (!matchesZoneFloor(v)) continue;
       if (v.seat != seatNumber) continue;
-      if ((v.row ?? '').trim() == row) return v;
+      if ((v.row ?? '').trim() == row) return (v, 1);
     }
     // 2. 같은 행 가장 가까운 좌석
     if (row.isNotEmpty) {
@@ -696,14 +703,14 @@ class _ZoneDrilldownState extends State<ZoneDrilldown>
       for (final v in widget.venueViews.values) {
         if (!matchesZoneFloor(v)) continue;
         if ((v.row ?? '').trim() != row) continue;
-        if (v.seat == null) return v;
+        if (v.seat == null) return (v, 2);
         final dist = (v.seat! - seatNumber).abs();
         if (dist < minDist) {
           minDist = dist;
           closest = v;
         }
       }
-      if (closest != null) return closest;
+      if (closest != null) return (closest, 2);
     }
     // 3. 같은 zone+floor 가장 가까운 행
     if (row.isNotEmpty) {
@@ -721,17 +728,17 @@ class _ZoneDrilldownState extends State<ZoneDrilldown>
             closest = v;
           }
         }
-        if (closest != null) return closest;
+        if (closest != null) return (closest, 3);
       }
     }
     // 4. zone+floor 대표
     for (final v in widget.venueViews.values) {
       if (!matchesZoneFloor(v)) continue;
-      if ((v.row ?? '').trim().isEmpty && v.seat == null) return v;
+      if ((v.row ?? '').trim().isEmpty && v.seat == null) return (v, 4);
     }
     // 5. zone fallback
     for (final v in widget.venueViews.values) {
-      if (v.zone.trim().toUpperCase() == zone) return v;
+      if (v.zone.trim().toUpperCase() == zone) return (v, 5);
     }
     return null;
   }

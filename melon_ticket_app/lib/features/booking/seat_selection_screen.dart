@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:panorama_viewer/panorama_viewer.dart';
+import 'package:melon_ticket_app/widgets/panorama_web_view.dart';
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/data/models/event.dart';
 import 'package:melon_core/data/models/seat.dart';
@@ -98,6 +100,11 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   // ── Quick Mode ──
   String _quickGrade = 'VIP';
   int _quickQuantity = 2;
+
+  // ── Persistent Seat View Preview (2-4a) ──
+  VenueSeatView? _previewView;
+  Seat? _previewSeat;
+  int _previewMatchLevel = 1;
 
   // ── Standing Mode ──
   int _standingQuantity = 1;
@@ -204,36 +211,21 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     setState(() {
       if (isRemoving) {
         _selectedSeatIds.remove(seat.id);
+        // 2-4a: 프리뷰 좌석 해제 시 닫기
+        if (_previewSeat?.id == seat.id) {
+          _previewView = null;
+          _previewSeat = null;
+        }
       } else {
         if (_selectedSeatIds.length < maxTickets) {
           _selectedSeatIds.add(seat.id);
-          // 사진 있는 좌석 선택 시 자동으로 시야 팝업 + 예매 정보 전달
+          // 2-4a: 사진 있는 좌석 선택 시 하단 미니 프리뷰 표시
           if (venueViews != null) {
-            final view = _findBestView(venueViews, seat);
-            if (view != null) {
-              Future.microtask(() {
-                final color = _getGradeColor(seat.grade);
-                // 선택된 좌석 정보 계산
-                final selected = allSeats
-                        ?.where((s) => _selectedSeatIds.contains(s.id))
-                        .toList() ??
-                    [];
-                final totalPrice = selected.fold<int>(
-                    0, (sum, s) => sum + _getGradePrice(s.grade, event));
-                final seatNums =
-                    selected.map((s) => '${s.number}').join(', ');
-                _showSeatView(
-                  view,
-                  seat.block,
-                  seat.grade,
-                  color,
-                  seat.row,
-                  '${selected.length}석 · $seatNums번',
-                  totalPrice,
-                  _selectedSeatIds.toList(),
-                  true, // isZoneMode
-                );
-              });
+            final match = _findBestViewWithLevel(venueViews, seat);
+            if (match != null) {
+              _previewView = match.$1;
+              _previewSeat = seat;
+              _previewMatchLevel = match.$2;
             }
           }
         } else {
@@ -714,14 +706,28 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         if (floors.length > 1 && _mode == _SeatMode.zone)
           _buildFloorTabs(floors),
         Expanded(
-          child: _mode == _SeatMode.ai
-              ? _buildAIMode(
-                  seats, event, venueViews, isLoggedIn, isStageBottom)
-              : _mode == _SeatMode.dotMap && _dotMapLayout != null
-                  ? _buildDotMapMode(seats, event)
-                  : _mode == _SeatMode.zone
-                      ? _buildZoneDrilldown(seats, event, venueViews)
-                      : _buildQuickMode(seats, event, isStageBottom),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: _mode == _SeatMode.ai
+                    ? _buildAIMode(
+                        seats, event, venueViews, isLoggedIn, isStageBottom)
+                    : _mode == _SeatMode.dotMap && _dotMapLayout != null
+                        ? _buildDotMapMode(seats, event)
+                        : _mode == _SeatMode.zone
+                            ? _buildZoneDrilldown(seats, event, venueViews)
+                            : _buildQuickMode(seats, event, isStageBottom),
+              ),
+              // 2-4a: 시야 사진 하단 미니 프리뷰
+              if (_previewView != null && _previewSeat != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _buildSeatViewPreview(event, venueViews),
+                ),
+            ],
+          ),
         ),
         _buildBottomBar(event, selectedSeats, totalPrice, isLoggedIn),
       ],
@@ -1759,24 +1765,13 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       dotMapLayout: _dotMapLayout,
       currentUserId: currentUserId,
       onSeatToggle: (seat) => _toggleSeat(seat, event, venueViews, seats),
-      onShowSeatView: (view, seat) {
-        final color = _getGradeColor(seat.grade);
-        final selected =
-            seats.where((s) => _selectedSeatIds.contains(s.id)).toList();
-        final totalPrice = selected.fold<int>(
-            0, (sum, s) => sum + _getGradePrice(s.grade, event));
-        final seatNums = selected.map((s) => '${s.number}').join(', ');
-        _showSeatView(
-          view,
-          seat.block,
-          seat.grade,
-          color,
-          seat.row,
-          '${selected.length}석 · $seatNums번',
-          totalPrice,
-          _selectedSeatIds.toList(),
-          true,
-        );
+      onShowSeatView: (view, seat, matchLevel) {
+        // 2-4a: 하단 미니 프리뷰로 표시 (모달 대신)
+        setState(() {
+          _previewView = view;
+          _previewSeat = seat;
+          _previewMatchLevel = matchLevel;
+        });
       },
     );
   }
@@ -2020,7 +2015,10 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
   /// 3) 같은 구역+층+가까운 행
   /// 4) 같은 구역+층+좌석
   /// 5) 같은 구역+층 대표
-  VenueSeatView? _findBestView(Map<String, VenueSeatView> views, Seat seat) {
+  /// 시야 매칭 + 레벨 반환: (view, matchLevel)
+  /// 1=정확좌석, 2=같은행, 3=인근행, 4=구역좌석, 5=구역대표, 6=zone폴백
+  (VenueSeatView, int)? _findBestViewWithLevel(
+      Map<String, VenueSeatView> views, Seat seat) {
     final floor = seat.floor.trim();
     final zone = seat.block.trim().toUpperCase();
     final row = (seat.row ?? '').trim();
@@ -2036,7 +2034,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       if (!matchesZoneFloor(view)) continue;
       if (view.seat != seatNumber) continue;
       final viewRow = (view.row ?? '').trim();
-      if (viewRow == row) return view;
+      if (viewRow == row) return (view, 1);
     }
 
     // 2. 같은 구역+층+행 → 가장 가까운 좌석번호
@@ -2047,17 +2045,17 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         if (!matchesZoneFloor(view)) continue;
         final viewRow = (view.row ?? '').trim();
         if (viewRow != row) continue;
-        if (view.seat == null) return view; // 행 대표 시야
+        if (view.seat == null) return (view, 2);
         final dist = (view.seat! - seatNumber).abs();
         if (dist < minSeatDist) {
           minSeatDist = dist;
           closestSeat = view;
         }
       }
-      if (closestSeat != null) return closestSeat;
+      if (closestSeat != null) return (closestSeat, 2);
     }
 
-    // 3. 같은 구역+층 → 가장 가까운 행 (행/좌석 단위 모두 포함)
+    // 3. 같은 구역+층 → 가장 가까운 행
     if (row.isNotEmpty) {
       final rowNum = int.tryParse(row);
       if (rowNum != null) {
@@ -2075,7 +2073,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
             closest = view;
           }
         }
-        if (closest != null) return closest;
+        if (closest != null) return (closest, 3);
       }
     }
 
@@ -2084,24 +2082,27 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
       if (!matchesZoneFloor(view)) continue;
       if (view.seat != seatNumber) continue;
       final viewRow = (view.row ?? '').trim();
-      if (viewRow.isEmpty) return view;
+      if (viewRow.isEmpty) return (view, 4);
     }
 
     // 5. 같은 구역+층 대표
     for (final view in views.values) {
       if (!matchesZoneFloor(view)) continue;
       final viewRow = (view.row ?? '').trim();
-      if (viewRow.isEmpty && view.seat == null) return view;
+      if (viewRow.isEmpty && view.seat == null) return (view, 5);
     }
 
     // 6. 같은 구역 (층 무관) — fallback
     for (final view in views.values) {
       if (view.zone.trim().toUpperCase() != zone) continue;
-      return view;
+      return (view, 6);
     }
 
     return null;
   }
+
+  VenueSeatView? _findBestView(Map<String, VenueSeatView> views, Seat seat) =>
+      _findBestViewWithLevel(views, seat)?.$1;
 
   void _showSeatView(
     VenueSeatView view,
@@ -2113,6 +2114,7 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
     int? totalPrice,
     List<String>? seatIds,
     bool isZoneMode = false,
+    int matchLevel = 1,
   ]) {
     showModalBottomSheet(
       context: context,
@@ -2132,10 +2134,157 @@ class _SeatSelectionScreenState extends ConsumerState<SeatSelectionScreen> {
         eventId: seatRange != null ? widget.eventId : null,
         isZoneMode: isZoneMode,
         layout: _dotMapLayout,
+        matchLevel: matchLevel,
       ),
     );
   }
 
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 2-4a: SEAT VIEW MINI PREVIEW (하단 슬라이드업)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildSeatViewPreview(Event event, Map<String, VenueSeatView> venueViews) {
+    final view = _previewView!;
+    final seat = _previewSeat!;
+    final color = _getGradeColor(seat.grade);
+    final matchLabel = _previewMatchLevel <= 1
+        ? null
+        : _previewMatchLevel == 2
+            ? '같은 열'
+            : _previewMatchLevel <= 3
+                ? '인근 구역'
+                : '대표 시야';
+
+    return GestureDetector(
+      onTap: () {
+        // 탭 → 풀스크린 모달
+        final selected = _selectedSeatIds.toList();
+        final selectedSeats =
+            selected.isEmpty ? <Seat>[] : <Seat>[];
+        _showSeatView(
+          view,
+          seat.block,
+          seat.grade,
+          color,
+          seat.row,
+          null,
+          null,
+          null,
+          true,
+          _previewMatchLevel,
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+          border: const Border(
+            top: BorderSide(color: AppTheme.border, width: 0.5),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // 시야 썸네일
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 60,
+                height: 44,
+                child: Image.network(
+                  view.imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: AppTheme.card,
+                    child: const Icon(Icons.image_not_supported_rounded,
+                        size: 20, color: AppTheme.textTertiary),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            // 정보
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        view.is360
+                            ? Icons.threesixty_rounded
+                            : Icons.visibility_rounded,
+                        size: 14,
+                        color: AppTheme.gold,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${seat.block}구역 ${seat.row ?? ''}열 시야',
+                        style: AppTheme.nanum(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      if (matchLabel != null) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color:
+                                const Color(0xFFFF9F0A).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            matchLabel,
+                            style: AppTheme.nanum(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFFFF9F0A),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${view.floor} · 탭하여 확대',
+                    style: AppTheme.nanum(
+                      fontSize: 11,
+                      color: AppTheme.textTertiary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 닫기
+            GestureDetector(
+              onTap: () => setState(() {
+                _previewView = null;
+                _previewSeat = null;
+              }),
+              child: const Padding(
+                padding: EdgeInsets.all(4),
+                child: Icon(Icons.close_rounded,
+                    size: 18, color: AppTheme.textTertiary),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _legendItem(Color bg, Color border, String label) {
     return Row(
@@ -3818,6 +3967,8 @@ class _SeatViewBottomSheet extends StatefulWidget {
   final String? eventId;
   final bool isZoneMode;
   final VenueSeatLayout? layout;
+  /// 1=정확좌석, 2=같은행, 3=인근행, 4~5=구역대표, 6=zone폴백
+  final int matchLevel;
 
   const _SeatViewBottomSheet({
     required this.view,
@@ -3831,6 +3982,7 @@ class _SeatViewBottomSheet extends StatefulWidget {
     this.eventId,
     this.isZoneMode = false,
     this.layout,
+    this.matchLevel = 1,
   });
 
   @override
@@ -3924,6 +4076,23 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
   String get _subtitle {
     final rowInfo = widget.row != null ? '${widget.row}열 · ' : '';
     return '${widget.view.floor} · $rowInfo실제 좌석에서 바라본 무대';
+  }
+
+  /// 매칭 레벨에 따른 폴백 라벨
+  String? get _matchLabel {
+    switch (widget.matchLevel) {
+      case 1:
+        return null; // 정확 매칭 — 라벨 불필요
+      case 2:
+        return '같은 열 시야';
+      case 3:
+        return '인근 구역 시야';
+      case 4:
+      case 5:
+        return '대표 시야';
+      default:
+        return '인근 구역 시야';
+    }
   }
 
   bool get _hasBookingInfo =>
@@ -4135,12 +4304,43 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                         ],
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        _subtitle,
-                        style: AppTheme.nanum(
-                          fontSize: 12,
-                          color: AppTheme.textTertiary,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              _subtitle,
+                              style: AppTheme.nanum(
+                                fontSize: 12,
+                                color: AppTheme.textTertiary,
+                              ),
+                            ),
+                          ),
+                          if (_matchLabel != null) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF9F0A)
+                                    .withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: const Color(0xFFFF9F0A)
+                                      .withValues(alpha: 0.4),
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: Text(
+                                _matchLabel!,
+                                style: AppTheme.nanum(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFFFF9F0A),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
@@ -4225,47 +4425,54 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
     return Stack(
       children: [
         ClipRRect(
-          child: PanoramaViewer(
-            sensorControl: SensorControl.orientation,
-            animSpeed: 1.0,
-            minLongitude: is180 ? -90.0 : -180.0,
-            maxLongitude: is180 ? 90.0 : 180.0,
-            child: Image.network(
-              widget.view.imageUrl,
-              fit: BoxFit.cover,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) {
-                  if (!_imageLoaded) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _imageLoaded = true);
-                    });
-                  }
-                  return child;
-                }
-                return const SizedBox.shrink();
-              },
-              errorBuilder: (_, __, ___) => Container(
-                color: AppTheme.background,
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.image_not_supported_rounded,
-                          size: 48, color: AppTheme.textTertiary),
-                      const SizedBox(height: 12),
-                      Text(
-                        '$label 이미지를 불러올 수 없습니다',
-                        style: AppTheme.nanum(
-                          fontSize: 13,
-                          color: AppTheme.textTertiary,
+          child: kIsWeb
+              // 2-4b: 웹에서는 pannellum.js 사용
+              ? PanoramaWebView(
+                  imageUrl: widget.view.imageUrl,
+                  is180: is180,
+                  viewerId: 'seat-view-${widget.zone}-${widget.row ?? ""}',
+                )
+              : PanoramaViewer(
+                  sensorControl: SensorControl.orientation,
+                  animSpeed: 1.0,
+                  minLongitude: is180 ? -90.0 : -180.0,
+                  maxLongitude: is180 ? 90.0 : 180.0,
+                  child: Image.network(
+                    widget.view.imageUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) {
+                        if (!_imageLoaded) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) setState(() => _imageLoaded = true);
+                          });
+                        }
+                        return child;
+                      }
+                      return const SizedBox.shrink();
+                    },
+                    errorBuilder: (_, __, ___) => Container(
+                      color: AppTheme.background,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.image_not_supported_rounded,
+                                size: 48, color: AppTheme.textTertiary),
+                            const SizedBox(height: 12),
+                            Text(
+                              '$label 이미지를 불러올 수 없습니다',
+                              style: AppTheme.nanum(
+                                fontSize: 13,
+                                color: AppTheme.textTertiary,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ),
         ),
 
         // Loading overlay
@@ -4457,34 +4664,41 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
               onPointerDown: (_) {
                 if (_showDragHint) setState(() => _showDragHint = false);
               },
-              child: PanoramaViewer(
-                sensorControl: SensorControl.orientation,
-                animSpeed: 1.0,
-                zoom: 2.0,
-                minZoom: 2.0,
-                maxZoom: 5.0,
-                minLatitude: -40.0,
-                maxLatitude: 40.0,
-                minLongitude: viewType == 'panorama180' ? -90.0 : -180.0,
-                maxLongitude: viewType == 'panorama180' ? 90.0 : 180.0,
-                onViewChanged: (lon, lat, tilt) {
-                  final minLon = viewType == 'panorama180' ? -90.0 : -180.0;
-                  final maxLon = viewType == 'panorama180' ? 90.0 : 180.0;
-                  _panProgress.value =
-                      ((lon - minLon) / (maxLon - minLon)).clamp(0.0, 1.0);
-                },
-                child: Image.network(
-                  widget.view.imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: Colors.black,
-                    child: const Center(
-                      child: Icon(Icons.image_not_supported_rounded,
-                          size: 48, color: AppTheme.textTertiary),
+              child: kIsWeb
+                  // 2-4b: 웹 풀스크린 pannellum.js
+                  ? PanoramaWebView(
+                      imageUrl: widget.view.imageUrl,
+                      is180: viewType == 'panorama180',
+                      viewerId: 'fullscreen-${widget.zone}-${widget.row ?? ""}',
+                    )
+                  : PanoramaViewer(
+                      sensorControl: SensorControl.orientation,
+                      animSpeed: 1.0,
+                      zoom: 2.0,
+                      minZoom: 2.0,
+                      maxZoom: 5.0,
+                      minLatitude: -40.0,
+                      maxLatitude: 40.0,
+                      minLongitude: viewType == 'panorama180' ? -90.0 : -180.0,
+                      maxLongitude: viewType == 'panorama180' ? 90.0 : 180.0,
+                      onViewChanged: (lon, lat, tilt) {
+                        final minLon = viewType == 'panorama180' ? -90.0 : -180.0;
+                        final maxLon = viewType == 'panorama180' ? 90.0 : 180.0;
+                        _panProgress.value =
+                            ((lon - minLon) / (maxLon - minLon)).clamp(0.0, 1.0);
+                      },
+                      child: Image.network(
+                        widget.view.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.black,
+                          child: const Center(
+                            child: Icon(Icons.image_not_supported_rounded,
+                                size: 48, color: AppTheme.textTertiary),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
             )
           else
             ClipRect(
@@ -4645,6 +4859,25 @@ class _SeatViewBottomSheetState extends State<_SeatViewBottomSheet> {
                                 fontSize: 9,
                                 fontWeight: FontWeight.w700,
                                 color: AppTheme.gold,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (_matchLabel != null) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF9F0A).withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              _matchLabel!,
+                              style: AppTheme.nanum(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFFFF9F0A),
                               ),
                             ),
                           ),
