@@ -2076,3 +2076,768 @@ class ExcelValidationPreviewDialog extends StatelessWidget {
     );
   }
 }
+
+// ═══════════════════════════════════════════════════
+// 5) Excel → Interactive SeatMap Converter (2-5)
+// 엑셀 좌석배치도 → VenueSeatLayout v2 자동 변환
+// ═══════════════════════════════════════════════════
+
+/// 엑셀 셀 위치 기반 좌석 정보 (좌표 매핑 전)
+class _CellSeat {
+  final int excelRow;
+  final int excelCol;
+  final String zone;
+  final String floor;
+  final String row;
+  final int number;
+  final String grade;
+  final SeatType seatType;
+
+  _CellSeat({
+    required this.excelRow,
+    required this.excelCol,
+    required this.zone,
+    required this.floor,
+    required this.row,
+    required this.number,
+    required this.grade,
+    this.seatType = SeatType.normal,
+  });
+}
+
+/// 스테이지 감지 결과
+class DetectedStage {
+  final int startRow;
+  final int endRow;
+  final int startCol;
+  final int endCol;
+  final String label;
+
+  DetectedStage({
+    required this.startRow,
+    required this.endRow,
+    required this.startCol,
+    required this.endCol,
+    this.label = '무대',
+  });
+}
+
+/// 구역 경계 감지 결과
+class DetectedZone {
+  final String name;
+  final int minRow;
+  final int maxRow;
+  final int minCol;
+  final int maxCol;
+  final int seatCount;
+
+  DetectedZone({
+    required this.name,
+    required this.minRow,
+    required this.maxRow,
+    required this.minCol,
+    required this.maxCol,
+    required this.seatCount,
+  });
+}
+
+/// 엑셀 → 인터랙티브 좌석맵 자동 변환 결과
+class SeatMapConversionResult {
+  final VenueSeatLayout layout;
+  final ExcelFormat detectedFormat;
+  final DetectedStage? stage;
+  final List<DetectedZone> zones;
+  final List<String> warnings;
+  final List<String> errors;
+  final Map<String, int> gradeCounts;
+
+  const SeatMapConversionResult({
+    required this.layout,
+    required this.detectedFormat,
+    this.stage,
+    this.zones = const [],
+    this.warnings = const [],
+    this.errors = const [],
+    this.gradeCounts = const {},
+  });
+
+  bool get hasErrors => errors.isNotEmpty;
+  int get totalSeats => layout.seats.length;
+}
+
+/// 엑셀 좌석배치도 → VenueSeatLayout v2 자동 변환기
+/// 2-5a: 엑셀 셀 위치 → 2D 좌표 변환
+/// 2-5b: 빈 행/열 → 구역 경계 감지 + 구분선
+/// 2-5c: "무대" 텍스트/검정 셀 → 스테이지 자동 배치
+class ExcelToSeatMapConverter {
+  static const double _canvasWidth = 2000.0;
+  static const double _canvasHeight = 1400.0;
+  static const double _stageAreaHeight = 80.0;
+  static const double _padding = 60.0;
+
+  /// 엑셀 바이트 → VenueSeatLayout v2 변환
+  static SeatMapConversionResult convert(List<int> bytes) {
+    final sanitized = EnhancedExcelParser._sanitizeNumFmts(bytes);
+    final excel = Excel.decodeBytes(sanitized);
+    final colorResolver = _ThemeColorResolver(bytes);
+
+    final allCellSeats = <_CellSeat>[];
+    final allWarnings = <String>[];
+    final allErrors = <String>[];
+    ExcelFormat? detectedFormat;
+    DetectedStage? detectedStage;
+
+    for (final sheetName in excel.tables.keys) {
+      final sheet = excel.tables[sheetName]!;
+      if (sheet.maxRows < 2) continue;
+
+      final format = EnhancedExcelParser._detectFormat(sheet, sheetName, colorResolver);
+      detectedFormat ??= format;
+
+      final floor = sheetName.contains('층') ? sheetName : '1층';
+
+      // 2-5c: 스테이지 감지
+      detectedStage ??= _detectStage(sheet, colorResolver, sheetName);
+
+      // 셀 위치 기반 좌석 파싱
+      switch (format) {
+        case ExcelFormat.colorCoded:
+          _parseColorCodedWithCellPos(
+            sheet, sheetName, floor, allCellSeats, allWarnings, allErrors,
+            colorResolver, detectedStage,
+          );
+          break;
+        case ExcelFormat.visual:
+          _parseVisualWithCellPos(
+            sheet, sheetName, floor, allCellSeats, allWarnings, allErrors,
+            detectedStage,
+          );
+          break;
+        case ExcelFormat.rowCol:
+          _parseRowColWithCellPos(
+            sheet, sheetName, floor, allCellSeats, allWarnings, allErrors,
+            detectedStage,
+          );
+          break;
+        case ExcelFormat.list:
+          _parseListWithCellPos(
+            sheet, sheetName, floor, allCellSeats, allWarnings, allErrors,
+          );
+          break;
+      }
+    }
+
+    if (allCellSeats.isEmpty) {
+      return SeatMapConversionResult(
+        layout: VenueSeatLayout(),
+        detectedFormat: detectedFormat ?? ExcelFormat.visual,
+        errors: ['좌석 데이터를 찾을 수 없습니다.'],
+      );
+    }
+
+    // 2-5b: 구역 자동 감지
+    final zoneData = _detectZones(allCellSeats);
+    final zones = zoneData.map((z) => DetectedZone(
+      name: z.name,
+      minRow: z.minRow, maxRow: z.maxRow,
+      minCol: z.minCol, maxCol: z.maxCol,
+      seatCount: z.seats.length,
+    )).toList();
+    allWarnings.add('감지된 구역: ${zones.map((z) => "${z.name}(${z.seatCount}석)").join(", ")}');
+
+    // 2-5a: 셀 좌표 → 캔버스 좌표 변환
+    final layout = _buildLayout(allCellSeats, zoneData, detectedStage);
+
+    // 등급 통계
+    final gradeCounts = <String, int>{};
+    for (final s in allCellSeats) {
+      gradeCounts[s.grade] = (gradeCounts[s.grade] ?? 0) + 1;
+    }
+
+    return SeatMapConversionResult(
+      layout: layout,
+      detectedFormat: detectedFormat ?? ExcelFormat.visual,
+      stage: detectedStage,
+      zones: zones,
+      warnings: allWarnings,
+      errors: allErrors,
+      gradeCounts: gradeCounts,
+    );
+  }
+
+  // ─── 2-5c: 스테이지 자동 감지 ───
+
+  static DetectedStage? _detectStage(
+    Sheet sheet, _ThemeColorResolver colorResolver, String sheetName,
+  ) {
+    // 1) "무대" / "STAGE" 텍스트 검색
+    final scanRows = math.min(sheet.maxRows, 15);
+    for (int r = 0; r < scanRows; r++) {
+      for (int c = 0; c < sheet.maxColumns; c++) {
+        final val = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r),
+        ).value?.toString().trim() ?? '';
+        final upper = val.toUpperCase();
+        if (upper.contains('무대') || upper.contains('STAGE') ||
+            upper.contains('스테이지')) {
+          int endCol = c;
+          for (int cc = c + 1; cc < sheet.maxColumns; cc++) {
+            final v2 = sheet.cell(
+              CellIndex.indexByColumnRow(columnIndex: cc, rowIndex: r),
+            ).value?.toString().trim() ?? '';
+            if (v2.isEmpty || v2.toUpperCase().contains('무대') ||
+                v2.toUpperCase().contains('STAGE')) {
+              endCol = cc;
+            } else {
+              break;
+            }
+          }
+          return DetectedStage(
+            startRow: r, endRow: r,
+            startCol: c, endCol: endCol,
+            label: val,
+          );
+        }
+      }
+    }
+
+    // 2) 검정/어두운 배경의 가로로 긴 영역 검색
+    for (int r = 0; r < math.min(sheet.maxRows, 8); r++) {
+      int darkStart = -1;
+      int darkCount = 0;
+      for (int c = 0; c < sheet.maxColumns; c++) {
+        final hex = colorResolver.getBackgroundColor(sheetName, r, c);
+        if (_isDarkColor(hex)) {
+          if (darkStart < 0) darkStart = c;
+          darkCount++;
+        } else if (darkCount >= 3) {
+          return DetectedStage(
+            startRow: r, endRow: r,
+            startCol: darkStart, endCol: darkStart + darkCount - 1,
+            label: '무대',
+          );
+        } else {
+          darkStart = -1;
+          darkCount = 0;
+        }
+      }
+      if (darkCount >= 3) {
+        return DetectedStage(
+          startRow: r, endRow: r,
+          startCol: darkStart, endCol: darkStart + darkCount - 1,
+          label: '무대',
+        );
+      }
+    }
+    return null;
+  }
+
+  static bool _isDarkColor(String? hex) {
+    if (hex == null || hex.isEmpty) return false;
+    String rgb = hex.toUpperCase();
+    if (rgb.length == 8) rgb = rgb.substring(2);
+    if (rgb.length != 6) return false;
+    final r = int.tryParse(rgb.substring(0, 2), radix: 16) ?? 255;
+    final g = int.tryParse(rgb.substring(2, 4), radix: 16) ?? 255;
+    final b = int.tryParse(rgb.substring(4, 6), radix: 16) ?? 255;
+    return (r + g + b) / 3 < 50;
+  }
+
+  // ─── Color-coded 포맷: 셀 위치 추적 ───
+
+  static void _parseColorCodedWithCellPos(
+    Sheet sheet, String sheetName, String defaultFloor,
+    List<_CellSeat> seats, List<String> warnings, List<String> errors,
+    _ThemeColorResolver colorResolver, DetectedStage? stage,
+  ) {
+    final blockRanges = <_BlockRange>[];
+    final rowLabelCols = <int>{};
+
+    for (int r = 0; r < math.min(sheet.maxRows, 10); r++) {
+      for (int c = 0; c < sheet.maxColumns; c++) {
+        final val = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r),
+        ).value?.toString().trim() ?? '';
+        if (val.isEmpty) continue;
+        String? blockName;
+        if (val.contains('블록')) {
+          blockName = RegExp(r'([A-Za-z가-힣]*블록)')
+              .firstMatch(val)?.group(1) ?? val;
+        } else if (RegExp(r'^[A-K]\(\d+\)$').hasMatch(val)) {
+          blockName = val[0];
+        } else if (RegExp(r'^BL\d$').hasMatch(val)) {
+          blockName = val;
+        }
+        if (blockName != null) {
+          blockRanges.add(_BlockRange(name: blockName, startCol: c, headerRow: r));
+        }
+        if (val == '열') rowLabelCols.add(c);
+      }
+    }
+    blockRanges.sort((a, b) => a.startCol.compareTo(b.startCol));
+    for (int i = 0; i < blockRanges.length; i++) {
+      blockRanges[i].endCol = i + 1 < blockRanges.length
+          ? blockRanges[i + 1].startCol - 1
+          : sheet.maxColumns - 1;
+    }
+
+    String floor = defaultFloor;
+    for (int r = 0; r < math.min(sheet.maxRows, 10); r++) {
+      for (int c = 0; c < sheet.maxColumns; c++) {
+        final val = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r),
+        ).value?.toString().trim() ?? '';
+        final m = RegExp(r'(\d)층').firstMatch(val);
+        if (m != null) { floor = '${m.group(1)}층'; break; }
+      }
+    }
+
+    final gradeLabelColors = <String, String>{};
+    final gradeLabelRows = <int, String>{};
+    for (int r = 0; r < sheet.maxRows; r++) {
+      for (int c = 0; c < sheet.maxColumns; c++) {
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r));
+        final val = cell.value?.toString().trim() ?? '';
+        if (val.isEmpty) continue;
+        String? labelGrade;
+        final upper = val.toUpperCase().replaceAll(' ', '');
+        if (upper.contains('VIP')) {
+          labelGrade = 'VIP';
+        } else if (RegExp(r'^R석?$|R석', caseSensitive: false).hasMatch(val)) {
+          labelGrade = 'R';
+        } else if (RegExp(r'^S석?$|S석', caseSensitive: false).hasMatch(val)) {
+          labelGrade = 'S';
+        } else if (RegExp(r'^A석?$|A석', caseSensitive: false).hasMatch(val)) {
+          labelGrade = 'A';
+        }
+        if (labelGrade != null) {
+          gradeLabelRows[r] = labelGrade;
+          final hex = colorResolver.getBackgroundColor(sheetName, r, c);
+          if (hex != null && hex != 'FFFFFF' && hex != '000000') {
+            gradeLabelColors[hex] = labelGrade;
+          }
+        }
+      }
+    }
+    final sortedLabelRows = gradeLabelRows.keys.toList()..sort();
+    String? getRowFallback(int row) {
+      String? g;
+      for (final lr in sortedLabelRows) {
+        if (lr <= row) g = gradeLabelRows[lr]; else break;
+      }
+      return g;
+    }
+
+    final rowLabels = <int, String>{};
+    for (final lc in rowLabelCols) {
+      for (int r = 0; r < sheet.maxRows; r++) {
+        final val = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: lc, rowIndex: r),
+        ).value?.toString().trim() ?? '';
+        if (val.isNotEmpty && int.tryParse(val) != null) rowLabels[r] = val;
+      }
+    }
+
+    for (int r = 0; r < sheet.maxRows; r++) {
+      if (stage != null && r >= stage.startRow && r <= stage.endRow) continue;
+      for (int c = 0; c < sheet.maxColumns; c++) {
+        if (rowLabelCols.contains(c)) continue;
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r));
+        final val = cell.value?.toString().trim() ?? '';
+        if (val.isEmpty) continue;
+        final seatNum = int.tryParse(val);
+        if (seatNum == null) continue;
+
+        final resolvedHex = colorResolver.getBackgroundColor(sheetName, r, c);
+        final excelHex = cell.cellStyle?.backgroundColor.colorHex ?? 'none';
+        final bgHex = resolvedHex ?? excelHex;
+
+        String? grade = gradeLabelColors[bgHex];
+        grade ??= EnhancedExcelParser._colorHexToGrade(bgHex);
+        grade ??= getRowFallback(r);
+        if (grade == null) continue;
+
+        String zone = sheetName;
+        for (final block in blockRanges) {
+          if (c >= block.startCol && c <= block.endCol) {
+            zone = block.name;
+            break;
+          }
+        }
+
+        seats.add(_CellSeat(
+          excelRow: r,
+          excelCol: c,
+          zone: zone,
+          floor: floor,
+          row: rowLabels[r] ?? '${r + 1}',
+          number: seatNum,
+          grade: grade,
+        ));
+      }
+    }
+  }
+
+  // ─── Visual 포맷 ───
+
+  static void _parseVisualWithCellPos(
+    Sheet sheet, String sheetName, String defaultFloor,
+    List<_CellSeat> seats, List<String> warnings, List<String> errors,
+    DetectedStage? stage,
+  ) {
+    final firstVal = sheet.cell(
+      CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0),
+    ).value?.toString().trim() ?? '';
+    final hasHeader = firstVal.isEmpty || int.tryParse(firstVal) != null;
+    final startRow = hasHeader ? 1 : 0;
+    final startCol = hasHeader ? 1 : 0;
+
+    for (int r = startRow; r < sheet.maxRows; r++) {
+      if (stage != null && r >= stage.startRow && r <= stage.endRow) continue;
+      for (int c = startCol; c < sheet.maxColumns; c++) {
+        final val = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r),
+        ).value?.toString().trim() ?? '';
+        if (val.isEmpty) continue;
+        final grade = EnhancedExcelParser._normalizeGrade(val);
+        if (!EnhancedExcelParser._isValidGrade(grade)) continue;
+
+        seats.add(_CellSeat(
+          excelRow: r, excelCol: c,
+          zone: sheetName, floor: defaultFloor,
+          row: '${r - startRow + 1}', number: c - startCol + 1,
+          grade: grade,
+        ));
+      }
+    }
+  }
+
+  // ─── RowCol 포맷 ───
+
+  static void _parseRowColWithCellPos(
+    Sheet sheet, String sheetName, String defaultFloor,
+    List<_CellSeat> seats, List<String> warnings, List<String> errors,
+    DetectedStage? stage,
+  ) {
+    for (int r = 1; r < sheet.maxRows; r++) {
+      if (stage != null && r >= stage.startRow && r <= stage.endRow) continue;
+      final rowLabel = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: r),
+      ).value?.toString().trim() ?? '$r';
+      final rowNum = int.tryParse(rowLabel.replaceAll(RegExp(r'[^0-9]'), '')) ?? r;
+
+      for (int c = 1; c < sheet.maxColumns; c++) {
+        final val = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r),
+        ).value?.toString().trim() ?? '';
+        if (val.isEmpty) continue;
+        final grade = EnhancedExcelParser._normalizeGrade(val);
+        if (!EnhancedExcelParser._isValidGrade(grade)) continue;
+
+        seats.add(_CellSeat(
+          excelRow: r, excelCol: c,
+          zone: sheetName, floor: defaultFloor,
+          row: '$rowNum', number: c,
+          grade: grade,
+        ));
+      }
+    }
+  }
+
+  // ─── List 포맷: 가상 배치 ───
+
+  static void _parseListWithCellPos(
+    Sheet sheet, String sheetName, String defaultFloor,
+    List<_CellSeat> seats, List<String> warnings, List<String> errors,
+  ) {
+    final header = <String>[];
+    for (int c = 0; c < sheet.maxColumns; c++) {
+      header.add(sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: c, rowIndex: 0),
+      ).value?.toString().trim().toLowerCase() ?? '');
+    }
+
+    final zoneIdx = EnhancedExcelParser._findCol(header, ['zone', '구역', 'block']);
+    final floorIdx = EnhancedExcelParser._findCol(header, ['floor', '층']);
+    final gradeIdx = EnhancedExcelParser._findCol(header, ['grade', '등급']);
+    final rowIdx = EnhancedExcelParser._findCol(header, ['row', '열', '행']);
+    final numIdx = EnhancedExcelParser._findCol(header, ['number', '번호', 'seat', '좌석']);
+
+    if (gradeIdx < 0) {
+      errors.add('시트 "$sheetName": 등급 컬럼 없음');
+      return;
+    }
+
+    int virtualRow = 0;
+    String? prevRowKey;
+
+    for (int r = 1; r < sheet.maxRows; r++) {
+      String cellVal(int? idx) {
+        if (idx == null || idx < 0) return '';
+        return sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: idx, rowIndex: r),
+        ).value?.toString().trim() ?? '';
+      }
+
+      final zone = cellVal(zoneIdx);
+      final floor = cellVal(floorIdx);
+      final grade = EnhancedExcelParser._normalizeGrade(cellVal(gradeIdx));
+      if (!EnhancedExcelParser._isValidGrade(grade)) continue;
+
+      var rowName = cellVal(rowIdx);
+      final numStr = cellVal(numIdx);
+
+      if (rowName.isNotEmpty) {
+        final m = RegExp(r'^([A-Za-z가-힣]+블록?)(\d+)열?$').firstMatch(rowName);
+        if (m != null) rowName = m.group(2)!;
+        else {
+          final n = RegExp(r'(\d+)').firstMatch(rowName);
+          if (n != null) rowName = n.group(1)!;
+        }
+      }
+
+      final rowKey = '$zone:$floor:$rowName';
+      if (rowKey != prevRowKey) { virtualRow++; prevRowKey = rowKey; }
+
+      final seatNumbers = numStr.split(RegExp(r'[\s,]+'))
+          .where((s) => s.isNotEmpty && int.tryParse(s) != null)
+          .map((s) => int.parse(s)).toList();
+      if (seatNumbers.isEmpty) seatNumbers.add(0);
+
+      for (final sn in seatNumbers) {
+        seats.add(_CellSeat(
+          excelRow: virtualRow,
+          excelCol: sn > 0 ? sn : seats.length % 40,
+          zone: zone.isNotEmpty ? zone : sheetName,
+          floor: floor.isNotEmpty ? floor : defaultFloor,
+          row: rowName, number: sn, grade: grade,
+        ));
+      }
+    }
+  }
+
+  // ─── 2-5b: 구역 자동 감지 ───
+
+  static List<_ZoneData> _detectZones(List<_CellSeat> seats) {
+    if (seats.isEmpty) return [];
+
+    // 이미 블록/구역이 지정된 경우 → 그대로 그룹화
+    final zoneGroups = <String, List<_CellSeat>>{};
+    for (final s in seats) {
+      zoneGroups.putIfAbsent(s.zone, () => []).add(s);
+    }
+
+    // 구역이 1개뿐이면 → 빈 열로 하위 구역 분할
+    if (zoneGroups.length == 1) {
+      final sub = _splitByGaps(seats);
+      if (sub.length > 1) return sub;
+    }
+
+    return zoneGroups.entries.map((e) {
+      int minR = 999999, maxR = 0, minC = 999999, maxC = 0;
+      for (final s in e.value) {
+        if (s.excelRow < minR) minR = s.excelRow;
+        if (s.excelRow > maxR) maxR = s.excelRow;
+        if (s.excelCol < minC) minC = s.excelCol;
+        if (s.excelCol > maxC) maxC = s.excelCol;
+      }
+      return _ZoneData(
+        name: e.key, minRow: minR, maxRow: maxR,
+        minCol: minC, maxCol: maxC, seats: e.value,
+      );
+    }).toList()
+      ..sort((a, b) {
+        final rd = a.minRow.compareTo(b.minRow);
+        return rd != 0 ? rd : a.minCol.compareTo(b.minCol);
+      });
+  }
+
+  static List<_ZoneData> _splitByGaps(List<_CellSeat> seats) {
+    final colCounts = <int, int>{};
+    for (final s in seats) {
+      colCounts[s.excelCol] = (colCounts[s.excelCol] ?? 0) + 1;
+    }
+    if (colCounts.isEmpty) return [];
+
+    final allCols = colCounts.keys.toList()..sort();
+    final minCol = allCols.first;
+    final maxCol = allCols.last;
+
+    // 2열 이상 연속 빈 열 → 구역 경계
+    final gapCols = <int>[];
+    int gapStart = -1, gapLen = 0;
+    for (int c = minCol; c <= maxCol; c++) {
+      if (!colCounts.containsKey(c)) {
+        if (gapStart < 0) gapStart = c;
+        gapLen++;
+      } else {
+        if (gapLen >= 2) gapCols.add(gapStart + gapLen ~/ 2);
+        gapStart = -1;
+        gapLen = 0;
+      }
+    }
+    if (gapLen >= 2) gapCols.add(gapStart + gapLen ~/ 2);
+
+    if (gapCols.isEmpty) {
+      int minR = 999999, maxR = 0, minC = 999999, maxC = 0;
+      for (final s in seats) {
+        if (s.excelRow < minR) minR = s.excelRow;
+        if (s.excelRow > maxR) maxR = s.excelRow;
+        if (s.excelCol < minC) minC = s.excelCol;
+        if (s.excelCol > maxC) maxC = s.excelCol;
+      }
+      return [_ZoneData(name: seats.first.zone, minRow: minR, maxRow: maxR, minCol: minC, maxCol: maxC, seats: seats)];
+    }
+
+    final boundaries = [minCol - 1, ...gapCols, maxCol + 1];
+    final zones = <_ZoneData>[];
+    final labels = ['L', 'C', 'R', 'LL', 'RR'];
+
+    for (int i = 0; i < boundaries.length - 1; i++) {
+      final lo = boundaries[i], hi = boundaries[i + 1];
+      final zs = seats.where((s) => s.excelCol > lo && s.excelCol < hi).toList();
+      if (zs.isEmpty) continue;
+      int minR = 999999, maxR = 0, minC = 999999, maxC = 0;
+      for (final s in zs) {
+        if (s.excelRow < minR) minR = s.excelRow;
+        if (s.excelRow > maxR) maxR = s.excelRow;
+        if (s.excelCol < minC) minC = s.excelCol;
+        if (s.excelCol > maxC) maxC = s.excelCol;
+      }
+      zones.add(_ZoneData(
+        name: i < labels.length ? labels[i] : '${i + 1}',
+        minRow: minR, maxRow: maxR, minCol: minC, maxCol: maxC, seats: zs,
+      ));
+    }
+    return zones;
+  }
+
+  // ─── 2-5a: 셀 좌표 → 캔버스 좌표 변환 ───
+
+  static VenueSeatLayout _buildLayout(
+    List<_CellSeat> allSeats,
+    List<_ZoneData> zones,
+    DetectedStage? stage,
+  ) {
+    if (allSeats.isEmpty) return VenueSeatLayout();
+
+    int minRow = 999999, maxRow = 0, minCol = 999999, maxCol = 0;
+    for (final s in allSeats) {
+      if (s.excelRow < minRow) minRow = s.excelRow;
+      if (s.excelRow > maxRow) maxRow = s.excelRow;
+      if (s.excelCol < minCol) minCol = s.excelCol;
+      if (s.excelCol > maxCol) maxCol = s.excelCol;
+    }
+
+    final rowSpan = maxRow - minRow + 1;
+    final colSpan = maxCol - minCol + 1;
+
+    final hasStage = stage != null;
+    final stageH = hasStage ? _stageAreaHeight : 40.0;
+
+    final seatAreaLeft = _padding;
+    final seatAreaTop = _padding + stageH + 20;
+    final seatAreaWidth = _canvasWidth - _padding * 2;
+    final seatAreaHeight = _canvasHeight - seatAreaTop - _padding;
+
+    final cellW = seatAreaWidth / math.max(colSpan, 1);
+    final cellH = seatAreaHeight / math.max(rowSpan, 1);
+    final cellSize = math.min(cellW, cellH).clamp(8.0, 30.0);
+
+    final actualW = colSpan * cellSize;
+    final actualH = rowSpan * cellSize;
+    final offsetX = seatAreaLeft + (seatAreaWidth - actualW) / 2;
+    final offsetY = seatAreaTop + (seatAreaHeight - actualH) / 2;
+
+    final layoutSeats = <LayoutSeat>[];
+    for (final s in allSeats) {
+      layoutSeats.add(LayoutSeat(
+        x: offsetX + (s.excelCol - minCol) * cellSize + cellSize / 2,
+        y: offsetY + (s.excelRow - minRow) * cellSize + cellSize / 2,
+        zone: s.zone, floor: s.floor,
+        row: s.row, number: s.number,
+        grade: s.grade, seatType: s.seatType,
+      ));
+    }
+
+    // 라벨
+    final labels = <LayoutLabel>[];
+    for (final zone in zones) {
+      final zoneMinX = offsetX + (zone.minCol - minCol) * cellSize;
+      final zoneMidX = zoneMinX + (zone.maxCol - zone.minCol) * cellSize / 2;
+      final zoneMinY = offsetY + (zone.minRow - minRow) * cellSize;
+      labels.add(LayoutLabel(
+        x: zoneMidX, y: zoneMinY - 18,
+        text: zone.name, type: 'section', fontSize: 14,
+      ));
+    }
+
+    // 열 라벨 (좌측)
+    final rowSet = <String, double>{};
+    for (final s in allSeats) {
+      final y = offsetY + (s.excelRow - minRow) * cellSize + cellSize / 2;
+      final key = '${s.zone}:${s.row}';
+      if (!rowSet.containsKey(key)) {
+        rowSet[key] = y;
+        labels.add(LayoutLabel(
+          x: offsetX - 25, y: y,
+          text: '${s.row}열', type: 'section', fontSize: 10,
+        ));
+      }
+    }
+
+    // 구분선 (구역 간)
+    final dividers = <LayoutDivider>[];
+    if (zones.length > 1) {
+      for (int i = 0; i < zones.length - 1; i++) {
+        final z1 = zones[i], z2 = zones[i + 1];
+        if (z1.maxCol < z2.minCol) {
+          // 세로 구분선
+          final midX = offsetX + ((z1.maxCol + z2.minCol) / 2 - minCol + 0.5) * cellSize;
+          final topY = offsetY + (math.min(z1.minRow, z2.minRow) - minRow) * cellSize - 10;
+          final botY = offsetY + (math.max(z1.maxRow, z2.maxRow) - minRow + 1) * cellSize + 10;
+          dividers.add(LayoutDivider(startX: midX, startY: topY, endX: midX, endY: botY));
+        } else if (z1.maxRow < z2.minRow) {
+          // 가로 구분선
+          final midY = offsetY + ((z1.maxRow + z2.minRow) / 2 - minRow + 0.5) * cellSize;
+          final leftX = offsetX + (math.min(z1.minCol, z2.minCol) - minCol) * cellSize - 10;
+          final rightX = offsetX + (math.max(z1.maxCol, z2.maxCol) - minCol + 1) * cellSize + 10;
+          dividers.add(LayoutDivider(startX: leftX, startY: midY, endX: rightX, endY: midY));
+        }
+      }
+    }
+
+    final stageWidthRatio = (hasStage && stage != null)
+        ? ((stage.endCol - stage.startCol + 1) / colSpan).clamp(0.3, 0.8)
+        : 0.4;
+
+    return VenueSeatLayout(
+      layoutVersion: 2,
+      canvasWidth: _canvasWidth,
+      canvasHeight: _canvasHeight,
+      stagePosition: 'top',
+      stageWidthRatio: stageWidthRatio,
+      stageHeight: stageH,
+      stageShape: 'arc',
+      seats: layoutSeats,
+      labels: labels,
+      dividers: dividers,
+      gradePrice: {'VIP': 100000, 'R': 80000, 'S': 60000, 'A': 40000},
+    );
+  }
+}
+
+/// 내부 구역 데이터 (좌석 포함)
+class _ZoneData {
+  final String name;
+  final int minRow, maxRow, minCol, maxCol;
+  final List<_CellSeat> seats;
+  _ZoneData({
+    required this.name,
+    required this.minRow, required this.maxRow,
+    required this.minCol, required this.maxCol,
+    required this.seats,
+  });
+}
