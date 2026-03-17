@@ -23,6 +23,8 @@ class FirestoreService {
   CollectionReference get naverOrders => _firestore.collection('naverOrders');
   CollectionReference get mobileTickets => _firestore.collection('mobileTickets');
   CollectionReference get notifications => _firestore.collection('notifications');
+  CollectionReference get referrals => _firestore.collection('referrals');
+  CollectionReference get seatCompanionRequests => _firestore.collection('seatCompanionRequests');
 
   /// 배치 쓰기 (최대 500개)
   WriteBatch batch() => _firestore.batch();

@@ -19,3 +19,5 @@ export 'venue_request.dart';
 export 'naver_order.dart';
 export 'mobile_ticket.dart';
 export 'app_notification.dart';
+export 'referral.dart';
+export 'seat_companion_request.dart';

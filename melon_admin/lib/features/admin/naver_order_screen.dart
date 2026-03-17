@@ -545,6 +545,7 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
     final buyerPhoneCtrl = TextEditingController();
     final productNameCtrl = TextEditingController();
     final memoCtrl = TextEditingController();
+    final companionCtrl = TextEditingController();
     String selectedGrade = 'VIP';
     int quantity = 1;
     DateTime orderDate = DateTime.now();
@@ -771,6 +772,13 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 14),
+
+                    // 함께 볼 친구 (연석 요청)
+                    _DialogField(
+                      label: '함께 볼 친구 (선택)',
+                      child: _buildTextField(companionCtrl, '이름 또는 전화번호 뒷4자리'),
+                    ),
                     const SizedBox(height: 28),
 
                     // Buttons
@@ -849,6 +857,9 @@ class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
                                               memo: memoCtrl.text.trim().isEmpty
                                                   ? null
                                                   : memoCtrl.text.trim(),
+                                              companion: companionCtrl.text.trim().isEmpty
+                                                  ? null
+                                                  : companionCtrl.text.trim(),
                                             );
                                         if (ctx.mounted) {
                                           Navigator.pop(ctx);

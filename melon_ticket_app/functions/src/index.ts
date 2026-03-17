@@ -784,7 +784,7 @@ export const confirmPaymentAndAssignSeats = functions.https.onCall(async (data: 
           );
         }
 
-        // 2. 추천인 마일리지 적립 (500P)
+        // 2. 추천인 마일리지 적립 (2000P) + 피초대자 웰컴 보너스 (1000P) + referrals 기록
         const refCode = orderData.referralCode as string | undefined;
         if (refCode) {
           const referrerQuery = await db
@@ -799,14 +799,70 @@ export const confirmPaymentAndAssignSeats = functions.https.onCall(async (data: 
 
             // 자기 자신 추천 방지
             if (referrerId !== result.userId) {
+              // referrals 컬렉션 기록
+              await db.collection("referrals").add({
+                referrerUserId: referrerId,
+                refereeUserId: result.userId,
+                eventId: result.eventId,
+                orderId,
+                status: "completed",
+                referrerMileageAwarded: true,
+                refereeMileageAwarded: true,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+              });
+
+              // 초대자 2000P 적립
               await addMileageInternal(
                 referrerId,
-                500,
+                2000,
                 "referral",
-                `추천 적립 (${eventTitle})`
+                `친구 초대 적립 (${eventTitle})`
               );
+
+              // 피초대자 1000P 웰컴 보너스
+              await addMileageInternal(
+                result.userId,
+                1000,
+                "referral",
+                `초대 웰컴 보너스 (${eventTitle})`
+              );
+
+              // 초대자 알림
+              sendNotification({
+                userId: referrerId,
+                type: "bookingConfirmed",
+                title: "친구가 예매했습니다!",
+                body: `추천으로 2,000P가 적립되었습니다 (${eventTitle})`,
+                data: { type: "referral_earned", eventId: result.eventId },
+                eventId: result.eventId,
+                skipDuplicateCheck: true,
+              }).catch(() => {});
+
+              // 3명 초대 달성 시 등급 업그레이드 보너스
+              const completedReferrals = await db.collection("referrals")
+                .where("referrerUserId", "==", referrerId)
+                .where("status", "==", "completed")
+                .get();
+
+              if (completedReferrals.size === 3) {
+                await addMileageInternal(
+                  referrerId,
+                  5000,
+                  "referral",
+                  "친구 3명 초대 달성 보너스"
+                );
+                sendNotification({
+                  userId: referrerId,
+                  type: "bookingConfirmed",
+                  title: "3명 초대 달성! 🎉",
+                  body: "보너스 5,000P가 적립되었습니다",
+                  data: { type: "referral_milestone" },
+                  skipDuplicateCheck: true,
+                }).catch(() => {});
+              }
+
               functions.logger.info(
-                `추천 마일리지 적립: referrer=${referrerId}, buyer=${result.userId}, code=${refCode}`
+                `추천 마일리지 적립: referrer=${referrerId}(2000P), buyer=${result.userId}(1000P), code=${refCode}`
               );
             }
           }
@@ -3157,6 +3213,7 @@ async function createNaverOrderInternal(
     cancelledAt: null,
     cancelReason: null,
     memo: input.memo,
+    ...(input.companion ? { companion: input.companion } : {}),
   });
 
   ticketIds.forEach((ticketId) => {
@@ -3166,6 +3223,27 @@ async function createNaverOrderInternal(
   });
 
   await batch.commit();
+
+  // ── 연석 요청 생성 (companion 필드가 있으면) ──
+  if (input.companion && (isDeferred || seatAssignMode === "immediate")) {
+    try {
+      await db.collection("seatCompanionRequests").add({
+        eventId: input.eventId,
+        requesterOrderId: orderRef.id,
+        requesterName: input.buyerName,
+        requesterPhone: input.buyerPhone,
+        companionIdentifier: input.companion,
+        status: "pending",
+        matchedOrderId: null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      functions.logger.info(
+        `${options.logPrefix || ""}연석 요청 생성: ${input.buyerName} ↔ ${input.companion}`,
+      );
+    } catch (e: any) {
+      functions.logger.warn(`연석 요청 생성 실패: ${e.message}`);
+    }
+  }
 
   await enqueueNaverOrderSmsTask({
     eventId: input.eventId,
@@ -3234,50 +3312,137 @@ export const assignDeferredSeats = functions.https.onCall(async (data: any, cont
     );
   }
 
-  // 연석 우선으로 좌석 배정
-  const selectedSeats = findAdjacentSeats(availableSnap.docs, unassignedSnap.size);
-  if (!selectedSeats) {
-    throw new functions.https.HttpsError(
-      "resource-exhausted",
-      `연석 ${unassignedSnap.size}매를 찾을 수 없습니다 (잔여 ${availableSnap.size}석)`,
-    );
+  // ── 연석 요청 기반 그룹핑 ──
+  // seatCompanionRequests에서 pending 요청 조회
+  const companionReqSnap = await db.collection("seatCompanionRequests")
+    .where("eventId", "==", eventId)
+    .where("status", "==", "pending")
+    .get();
+
+  // 주문별 티켓 그룹핑 (naverOrderId 기준)
+  const orderTickets = new Map<string, admin.firestore.QueryDocumentSnapshot[]>();
+  for (const ticketDoc of unassignedSnap.docs) {
+    const orderId = ticketDoc.data().naverOrderId || "unknown";
+    if (!orderTickets.has(orderId)) orderTickets.set(orderId, []);
+    orderTickets.get(orderId)!.push(ticketDoc);
+  }
+
+  // companion 매칭: requester와 companion의 주문을 묶기
+  const companionGroups: admin.firestore.QueryDocumentSnapshot[][] = [];
+  const assignedOrderIds = new Set<string>();
+  const matchedCompanionReqs: admin.firestore.QueryDocumentSnapshot[] = [];
+
+  for (const reqDoc of companionReqSnap.docs) {
+    const req = reqDoc.data();
+    const requesterId = req.requesterOrderId;
+    if (assignedOrderIds.has(requesterId)) continue;
+
+    const identifier = (req.companionIdentifier || "").toLowerCase();
+    // 다른 주문 중 이름/전화번호 뒷4자리가 매칭되는 주문 찾기
+    for (const [orderId, tickets] of orderTickets.entries()) {
+      if (orderId === requesterId || assignedOrderIds.has(orderId)) continue;
+      const orderData = tickets[0].data();
+      const nameMatch = (orderData.buyerName || "").toLowerCase().includes(identifier);
+      const phoneMatch = (orderData.buyerPhone || "").endsWith(identifier);
+      if (nameMatch || phoneMatch) {
+        // 매칭 성공: 두 주문의 티켓을 하나의 그룹으로
+        const group = [
+          ...(orderTickets.get(requesterId) || []),
+          ...tickets,
+        ];
+        companionGroups.push(group);
+        assignedOrderIds.add(requesterId);
+        assignedOrderIds.add(orderId);
+        matchedCompanionReqs.push(reqDoc);
+        break;
+      }
+    }
+  }
+
+  // 나머지 (매칭 안 된) 티켓은 개별 그룹으로
+  const remainingTickets: admin.firestore.QueryDocumentSnapshot[] = [];
+  for (const [orderId, tickets] of orderTickets.entries()) {
+    if (!assignedOrderIds.has(orderId)) {
+      remainingTickets.push(...tickets);
+    }
   }
 
   const now = admin.firestore.Timestamp.now();
   const batch = db.batch();
   const assignments: Array<{ ticketId: string; seatInfo: string }> = [];
+  let availableSeatDocs = [...availableSnap.docs];
 
-  unassignedSnap.docs.forEach((ticketDoc, index) => {
-    const seatDoc = selectedSeats[index];
-    const seat = seatDoc.data();
-    const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
-      .filter(Boolean)
-      .join(" ");
+  // 헬퍼: 티켓 배열에 좌석 배정
+  function assignSeatsToTickets(
+    tickets: admin.firestore.QueryDocumentSnapshot[],
+    seats: admin.firestore.QueryDocumentSnapshot[],
+  ) {
+    const selected = findAdjacentSeats(seats, tickets.length);
+    if (!selected) return false;
 
-    batch.update(ticketDoc.ref, {
-      seatId: seatDoc.id,
-      seatNumber: `${seat.number}`,
-      seatInfo,
-      updatedAt: now,
+    tickets.forEach((ticketDoc, i) => {
+      const seatDoc = selected[i];
+      const seat = seatDoc.data();
+      const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
+        .filter(Boolean)
+        .join(" ");
+
+      batch.update(ticketDoc.ref, { seatId: seatDoc.id, seatNumber: `${seat.number}`, seatInfo, updatedAt: now });
+      batch.update(seatDoc.ref, { status: "reserved", updatedAt: now });
+      assignments.push({ ticketId: ticketDoc.id, seatInfo });
     });
 
-    batch.update(seatDoc.ref, {
-      status: "reserved",
-      updatedAt: now,
-    });
+    // 사용된 좌석 제거
+    const usedIds = new Set(selected.map((s) => s.id));
+    availableSeatDocs = availableSeatDocs.filter((s) => !usedIds.has(s.id));
+    return true;
+  }
 
-    assignments.push({ ticketId: ticketDoc.id, seatInfo });
-  });
+  // 1) companion 그룹 먼저 배정 (연석 우선)
+  for (const group of companionGroups) {
+    assignSeatsToTickets(group, availableSeatDocs);
+  }
+
+  // 2) 나머지 티켓 배정
+  if (remainingTickets.length > 0) {
+    assignSeatsToTickets(remainingTickets, availableSeatDocs);
+  }
+
+  // companion 요청 상태 업데이트
+  for (const reqDoc of matchedCompanionReqs) {
+    batch.update(reqDoc.ref, { status: "assigned", updatedAt: now });
+  }
 
   await batch.commit();
 
+  // ── 연석 매칭 알림: 친구 좌석 배정 알림 ──
+  for (const reqDoc of matchedCompanionReqs) {
+    const req = reqDoc.data();
+    const requesterOrderDoc = await db.collection("naverOrders").doc(req.requesterOrderId).get();
+    if (requesterOrderDoc.exists) {
+      const order = requesterOrderDoc.data()!;
+      // 요청자에게 친구 배정 알림
+      sendNotification({
+        phone: order.buyerPhone,
+        buyerName: order.buyerName || "",
+        type: "seatAssigned",
+        title: "친구와 연석 배정 완료!",
+        body: `${req.companionIdentifier}님과 가까운 좌석이 배정되었습니다`,
+        data: { type: "companion_assigned", eventId },
+        eventId,
+        skipDuplicateCheck: true,
+      }).catch(() => {});
+    }
+  }
+
   functions.logger.info(
-    `좌석 사후 배정 완료: ${eventId}, ${seatGrade} x${assignments.length}매`,
+    `좌석 사후 배정 완료: ${eventId}, ${seatGrade} x${assignments.length}매 (연석그룹 ${companionGroups.length}개)`,
   );
 
   return {
     success: true,
     assigned: assignments.length,
+    companionGroupsMatched: companionGroups.length,
     assignments,
   };
 });

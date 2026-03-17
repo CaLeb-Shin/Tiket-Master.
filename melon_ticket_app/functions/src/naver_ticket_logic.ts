@@ -10,6 +10,7 @@ export type ParsedNaverOrderCreateInput = {
   memo?: string | null;
   dryRun: boolean;
   skipSms?: boolean;
+  companion?: string | null; // 함께 볼 친구 (이름 or 전화번호 뒷4자리)
 };
 
 export class NaverTicketLogicError extends Error {
@@ -112,6 +113,7 @@ export function parseNaverOrderCreateInput(raw: any): ParsedNaverOrderCreateInpu
     memo: typeof raw?.memo === "string" && raw.memo.trim() !== "" ? raw.memo.trim() : null,
     dryRun: raw?.dryRun === true,
     skipSms: raw?.skipSms === true,
+    companion: typeof raw?.companion === "string" && raw.companion.trim() !== "" ? raw.companion.trim() : null,
   };
 }
 
