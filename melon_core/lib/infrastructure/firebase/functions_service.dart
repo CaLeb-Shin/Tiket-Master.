@@ -431,6 +431,47 @@ class FunctionsService {
     return Map<String, dynamic>.from(result.data);
   }
 
+  // ─── 구독 서비스 ─────────────────────────────────
+
+  /// 구독 응모
+  Future<Map<String, dynamic>> applyForSubscriptionLottery({
+    required String eventId,
+    required String seatGrade,
+  }) async {
+    final callable = _functions.httpsCallable('applyForSubscriptionLottery');
+    final result = await callable.call({
+      'eventId': eventId,
+      'seatGrade': seatGrade,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 구독 추첨 실행 (어드민)
+  Future<Map<String, dynamic>> runSubscriptionLottery({
+    required String eventId,
+    required String seatGrade,
+  }) async {
+    final callable = _functions.httpsCallable('runSubscriptionLottery');
+    final result = await callable.call({
+      'eventId': eventId,
+      'seatGrade': seatGrade,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  /// 구독 활성화 (어드민)
+  Future<Map<String, dynamic>> activateSubscription({
+    required String userId,
+    required String plan,
+  }) async {
+    final callable = _functions.httpsCallable('activateSubscription');
+    final result = await callable.call({
+      'userId': userId,
+      'plan': plan,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
   /// 리뷰 제출 (공연종료 후 모바일 티켓에서)
   Future<Map<String, dynamic>> submitReview({
     required String ticketId,

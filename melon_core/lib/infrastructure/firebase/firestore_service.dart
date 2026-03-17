@@ -26,6 +26,9 @@ class FirestoreService {
   CollectionReference get referrals => _firestore.collection('referrals');
   CollectionReference get seatCompanionRequests => _firestore.collection('seatCompanionRequests');
   CollectionReference get intermissionSurveys => _firestore.collection('intermissionSurveys');
+  CollectionReference get subscriptions => _firestore.collection('subscriptions');
+  CollectionReference get subscriptionEntries => _firestore.collection('subscriptionEntries');
+  CollectionReference get lotteryResults => _firestore.collection('lotteryResults');
 
   /// 배치 쓰기 (최대 500개)
   WriteBatch batch() => _firestore.batch();

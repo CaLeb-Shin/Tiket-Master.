@@ -6012,3 +6012,422 @@ export const changeDesignatedSeat = functions.https.onRequest(async (req, res) =
     res.status(400).json({ error: error.message || "좌석 변경 실패" });
   }
 });
+
+// ============================================================
+// 구독 서비스 — 응모 신청
+// ============================================================
+
+const SUBSCRIPTION_PLANS: Record<string, {
+  price: number; entries: number; guarantees: number; tier: string;
+}> = {
+  basic: { price: 9900, entries: 2, guarantees: 0, tier: "silver" },
+  standard: { price: 19900, entries: 5, guarantees: 1, tier: "gold" },
+  premium: { price: 39900, entries: 999, guarantees: 2, tier: "platinum" },
+};
+
+export const applyForSubscriptionLottery = functions.https.onCall(async (data: any, context) => {
+  const userId = context?.auth?.uid;
+  if (!userId) {
+    throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
+  }
+
+  const { eventId, seatGrade } = data;
+  if (!eventId || !seatGrade) {
+    throw new functions.https.HttpsError("invalid-argument", "eventId, seatGrade가 필요합니다");
+  }
+
+  // 활성 구독 확인
+  const subSnap = await db.collection("subscriptions")
+    .where("userId", "==", userId)
+    .where("status", "==", "active")
+    .limit(1)
+    .get();
+
+  if (subSnap.empty) {
+    throw new functions.https.HttpsError("failed-precondition", "활성 구독이 없습니다");
+  }
+
+  const subDoc = subSnap.docs[0];
+  const sub = subDoc.data();
+  const plan = sub.plan as string;
+  const isPremium = plan === "premium";
+
+  // 응모권 확인 (premium은 무제한)
+  if (!isPremium && (sub.entriesRemaining ?? 0) <= 0) {
+    throw new functions.https.HttpsError("resource-exhausted", "이번 달 응모권을 모두 사용했습니다");
+  }
+
+  // 이벤트 구독 좌석 확인
+  const eventDoc = await db.collection("events").doc(eventId).get();
+  if (!eventDoc.exists) {
+    throw new functions.https.HttpsError("not-found", "이벤트를 찾을 수 없습니다");
+  }
+  const eventData = eventDoc.data()!;
+  const subSeats = eventData.subscriptionSeats as Record<string, number> | undefined;
+  if (!subSeats || !subSeats[seatGrade] || subSeats[seatGrade] <= 0) {
+    throw new functions.https.HttpsError("failed-precondition", `${seatGrade} 등급의 구독 좌석이 없습니다`);
+  }
+
+  // 중복 응모 체크
+  const existingEntry = await db.collection("subscriptionEntries")
+    .where("userId", "==", userId)
+    .where("eventId", "==", eventId)
+    .where("seatGrade", "==", seatGrade)
+    .limit(1)
+    .get();
+
+  if (!existingEntry.empty) {
+    throw new functions.https.HttpsError("already-exists", "이미 이 공연에 응모했습니다");
+  }
+
+  // 응모 생성 + 응모권 차감
+  const batch = db.batch();
+
+  batch.create(db.collection("subscriptionEntries").doc(), {
+    subscriptionId: subDoc.id,
+    userId,
+    eventId,
+    seatGrade,
+    status: "pending",
+    isGuaranteed: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  if (!isPremium) {
+    batch.update(subDoc.ref, {
+      entriesRemaining: admin.firestore.FieldValue.increment(-1),
+    });
+  }
+
+  await batch.commit();
+
+  const eventTitle = eventData.title ?? "공연";
+  sendNotification({
+    userId,
+    type: "bookingConfirmed",
+    title: "응모 완료!",
+    body: `${eventTitle} ${seatGrade}석 추첨에 응모되었습니다`,
+    data: { type: "subscription_applied", eventId },
+    eventId,
+  }).catch(() => {});
+
+  return { success: true };
+});
+
+// ============================================================
+// 구독 서비스 — 추첨 실행 (스케줄러 또는 어드민 수동)
+// ============================================================
+export const runSubscriptionLottery = functions.https.onCall(async (data: any, context) => {
+  await assertAdmin(context?.auth?.uid);
+
+  const { eventId, seatGrade } = data;
+  if (!eventId || !seatGrade) {
+    throw new functions.https.HttpsError("invalid-argument", "eventId, seatGrade가 필요합니다");
+  }
+
+  // 이벤트 구독 좌석 수 확인
+  const eventDoc = await db.collection("events").doc(eventId).get();
+  if (!eventDoc.exists) {
+    throw new functions.https.HttpsError("not-found", "이벤트를 찾을 수 없습니다");
+  }
+  const eventData = eventDoc.data()!;
+  const subSeats = (eventData.subscriptionSeats as Record<string, number> | undefined) ?? {};
+  const totalSeats = subSeats[seatGrade] || 0;
+  if (totalSeats <= 0) {
+    throw new functions.https.HttpsError("failed-precondition", "구독 좌석이 없습니다");
+  }
+
+  // pending 응모 조회
+  const entriesSnap = await db.collection("subscriptionEntries")
+    .where("eventId", "==", eventId)
+    .where("seatGrade", "==", seatGrade)
+    .where("status", "==", "pending")
+    .get();
+
+  if (entriesSnap.empty) {
+    return { success: true, winners: 0, message: "응모자가 없습니다" };
+  }
+
+  const entries = entriesSnap.docs;
+  let winnerSlots = Math.min(totalSeats, entries.length);
+
+  // ── 보장 당첨자 우선 선정 ──
+  const guaranteedEntries: admin.firestore.QueryDocumentSnapshot[] = [];
+  const normalEntries: admin.firestore.QueryDocumentSnapshot[] = [];
+
+  for (const entry of entries) {
+    const sub = await db.collection("subscriptions").doc(entry.data().subscriptionId).get();
+    const subData = sub.data();
+    if (subData && (subData.consecutiveLosses ?? 0) >= 3 && (subData.guaranteesRemaining ?? 0) > 0) {
+      guaranteedEntries.push(entry);
+    } else {
+      normalEntries.push(entry);
+    }
+  }
+
+  // 보장 당첨자 (슬롯 내에서)
+  const guaranteedWinners = guaranteedEntries.slice(0, winnerSlots);
+  const remainingSlots = winnerSlots - guaranteedWinners.length;
+
+  // 나머지는 랜덤 추첨
+  const shuffled = [...normalEntries].sort(() => Math.random() - 0.5);
+  const randomWinners = shuffled.slice(0, remainingSlots);
+
+  const allWinners = [...guaranteedWinners, ...randomWinners];
+  const losers = entries.filter((e) => !allWinners.includes(e));
+
+  // 좌석 배정 (findAdjacentSeats 활용)
+  const availableSnap = await db.collection("seats")
+    .where("eventId", "==", eventId)
+    .where("grade", "==", seatGrade)
+    .where("status", "==", "available")
+    .get();
+
+  const selectedSeats = findAdjacentSeats(availableSnap.docs, allWinners.length);
+
+  const now = admin.firestore.Timestamp.now();
+  const batch = db.batch();
+  const winnerUserIds: string[] = [];
+  const winnerEntryIds: string[] = [];
+  const eventTitle = eventData.title ?? "공연";
+
+  for (let i = 0; i < allWinners.length; i++) {
+    const entryDoc = allWinners[i];
+    const entryData = entryDoc.data();
+    const uid = entryData.userId;
+    winnerUserIds.push(uid);
+    winnerEntryIds.push(entryDoc.id);
+
+    // 좌석 배정 + 티켓 생성
+    if (selectedSeats && selectedSeats[i]) {
+      const seatDoc = selectedSeats[i];
+      const seat = seatDoc.data();
+      const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
+        .filter(Boolean).join(" ");
+
+      const ticketRef = db.collection("tickets").doc();
+      batch.set(ticketRef, {
+        userId: uid,
+        eventId,
+        seatGrade,
+        seatId: seatDoc.id,
+        seatNumber: `${seat.number}`,
+        seatInfo,
+        status: "issued",
+        source: "subscription",
+        subscriptionEntryId: entryDoc.id,
+        issuedAt: now,
+      });
+
+      batch.update(seatDoc.ref, { status: "reserved", updatedAt: now });
+      batch.update(entryDoc.ref, { status: "won", ticketId: ticketRef.id, isGuaranteed: guaranteedWinners.includes(entryDoc) });
+    } else {
+      batch.update(entryDoc.ref, { status: "won", isGuaranteed: guaranteedWinners.includes(entryDoc) });
+    }
+
+    // 구독 consecutiveLosses 리셋 + guarantees 차감
+    const subRef = db.collection("subscriptions").doc(entryData.subscriptionId);
+    const updates: Record<string, any> = { consecutiveLosses: 0 };
+    if (guaranteedWinners.includes(entryDoc)) {
+      updates.guaranteesRemaining = admin.firestore.FieldValue.increment(-1);
+    }
+    batch.update(subRef, updates);
+
+    // 당첨 알림
+    sendNotification({
+      userId: uid,
+      type: "seatAssigned",
+      title: "축하합니다! 추첨 당첨!",
+      body: `${eventTitle} ${seatGrade}석에 당첨되었습니다`,
+      data: { type: "lottery_won", eventId },
+      eventId,
+      skipDuplicateCheck: true,
+    }).catch(() => {});
+  }
+
+  // 미당첨자 처리
+  for (const loser of losers) {
+    const loserData = loser.data();
+    batch.update(loser.ref, { status: "lost" });
+
+    // 응모권 반환
+    const subRef = db.collection("subscriptions").doc(loserData.subscriptionId);
+    const subDoc = await subRef.get();
+    const subPlan = subDoc.data()?.plan;
+    if (subPlan !== "premium") {
+      batch.update(subRef, {
+        entriesRemaining: admin.firestore.FieldValue.increment(1),
+        consecutiveLosses: admin.firestore.FieldValue.increment(1),
+      });
+    } else {
+      batch.update(subRef, {
+        consecutiveLosses: admin.firestore.FieldValue.increment(1),
+      });
+    }
+
+    sendNotification({
+      userId: loserData.userId,
+      type: "bookingConfirmed",
+      title: "아쉽게도 미당첨",
+      body: `${eventTitle} ${seatGrade}석 추첨에 미당첨되었습니다. 응모권이 반환됩니다.`,
+      data: { type: "lottery_lost", eventId },
+      eventId,
+      skipDuplicateCheck: true,
+    }).catch(() => {});
+  }
+
+  // 잔여 구독좌석 → 일반 판매 전환
+  const remainingSubSeats = totalSeats - allWinners.length;
+
+  // 추첨 결과 기록
+  batch.create(db.collection("lotteryResults").doc(), {
+    eventId,
+    seatGrade,
+    totalEntries: entries.length,
+    totalSeats,
+    winnerUserIds,
+    winnerEntryIds,
+    guaranteedWinners: guaranteedWinners.length,
+    remainingSeatsReleased: remainingSubSeats,
+    runAt: now,
+  });
+
+  await batch.commit();
+
+  functions.logger.info(
+    `구독 추첨 완료: ${eventId} ${seatGrade}, ${allWinners.length}명 당첨 / ${losers.length}명 미당첨 (보장 ${guaranteedWinners.length}명)`,
+  );
+
+  return {
+    success: true,
+    winners: allWinners.length,
+    losers: losers.length,
+    guaranteedWinners: guaranteedWinners.length,
+    remainingSeatsReleased: remainingSubSeats,
+  };
+});
+
+// ============================================================
+// 구독 서비스 — 구독 활성화 (결제 확인 후)
+// ============================================================
+export const activateSubscription = functions.https.onCall(async (data: any, context) => {
+  await assertAdmin(context?.auth?.uid);
+
+  const { userId, plan } = data;
+  if (!userId || !plan) {
+    throw new functions.https.HttpsError("invalid-argument", "userId, plan이 필요합니다");
+  }
+
+  const planInfo = SUBSCRIPTION_PLANS[plan];
+  if (!planInfo) {
+    throw new functions.https.HttpsError("invalid-argument", "유효하지 않은 플랜입니다 (basic/standard/premium)");
+  }
+
+  // 기존 활성 구독 확인
+  const existingSub = await db.collection("subscriptions")
+    .where("userId", "==", userId)
+    .where("status", "==", "active")
+    .limit(1)
+    .get();
+
+  if (!existingSub.empty) {
+    throw new functions.https.HttpsError("already-exists", "이미 활성 구독이 있습니다");
+  }
+
+  const now = new Date();
+  const endDate = new Date(now);
+  endDate.setMonth(endDate.getMonth() + 1);
+
+  // 구독 생성
+  const subRef = await db.collection("subscriptions").add({
+    userId,
+    plan,
+    status: "active",
+    entriesRemaining: planInfo.entries,
+    guaranteesRemaining: planInfo.guarantees,
+    consecutiveLosses: 0,
+    startDate: admin.firestore.Timestamp.fromDate(now),
+    endDate: admin.firestore.Timestamp.fromDate(endDate),
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // 등급 자동 부여
+  const userRef = db.collection("users").doc(userId);
+  await userRef.update({
+    "mileage.tier": planInfo.tier,
+  });
+
+  sendNotification({
+    userId,
+    type: "bookingConfirmed",
+    title: `멜팅 ${plan.charAt(0).toUpperCase() + plan.slice(1)} 구독 시작!`,
+    body: `응모권 ${planInfo.entries === 999 ? "무제한" : planInfo.entries + "회"}, ${planInfo.tier} 등급이 부여되었습니다`,
+    data: { type: "subscription_activated" },
+    skipDuplicateCheck: true,
+  }).catch(() => {});
+
+  return { success: true, subscriptionId: subRef.id };
+});
+
+// ============================================================
+// 구독 서비스 — 자동 추첨 스케줄러 (판매 마감 3일 전)
+// ============================================================
+export const scheduledSubscriptionLottery = functions.pubsub
+  .schedule("every 6 hours")
+  .timeZone("Asia/Seoul")
+  .onRun(async () => {
+    const now = new Date();
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const threeDaysAndSixHours = new Date(now.getTime() + (3 * 24 + 6) * 60 * 60 * 1000);
+
+    // saleEndAt이 3~3.5일 후인 이벤트 (아직 추첨 안 한)
+    const eventsSnap = await db.collection("events")
+      .where("saleEndAt", ">=", admin.firestore.Timestamp.fromDate(threeDaysFromNow))
+      .where("saleEndAt", "<=", admin.firestore.Timestamp.fromDate(threeDaysAndSixHours))
+      .where("status", "==", "active")
+      .get();
+
+    for (const eventDoc of eventsSnap.docs) {
+      const eventData = eventDoc.data();
+      const subSeats = (eventData.subscriptionSeats as Record<string, number> | undefined) ?? {};
+
+      for (const [grade, seats] of Object.entries(subSeats)) {
+        if (seats <= 0) continue;
+
+        // 이미 추첨했는지 확인
+        const existingLottery = await db.collection("lotteryResults")
+          .where("eventId", "==", eventDoc.id)
+          .where("seatGrade", "==", grade)
+          .limit(1)
+          .get();
+
+        if (!existingLottery.empty) continue;
+
+        // pending 응모가 있는 경우에만 추첨
+        const pendingEntries = await db.collection("subscriptionEntries")
+          .where("eventId", "==", eventDoc.id)
+          .where("seatGrade", "==", grade)
+          .where("status", "==", "pending")
+          .limit(1)
+          .get();
+
+        if (pendingEntries.empty) continue;
+
+        functions.logger.info(`자동 추첨 실행: ${eventDoc.id} ${grade}`);
+
+        // 내부적으로 추첨 로직 실행 (runSubscriptionLottery와 동일한 로직은 어드민 콜에서만 가능)
+        // 여기서는 smsTasks에 알림만 큐잉하고 어드민이 수동 실행하도록 안내
+        await db.collection("smsTasks").add({
+          type: "lotteryReminder",
+          message: `[멜팅] 구독 추첨 필요: ${eventData.title} ${grade}석 (마감 3일 전)`,
+          buyerName: "admin",
+          buyerPhone: "",
+          status: "pending",
+          priority: 1,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    return null;
+  });

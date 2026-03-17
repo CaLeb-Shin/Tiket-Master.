@@ -46,6 +46,7 @@ class Event {
   final String seatAssignMode; // 좌석 배정 모드: "immediate" | "deferred" | "designated" (구매자 직접 선택)
   final bool naverOnly; // 네이버 티켓으로 등록된 공연
   final String? naverProductUrl; // 네이버 상품 URL (놀티켓 연계 판별용)
+  final Map<String, int>? subscriptionSeats; // 구독 좌석 풀 (등급별: {"VIP": 2, "R": 5})
 
   Event({
     required this.id,
@@ -89,6 +90,7 @@ class Event {
     this.seatAssignMode = 'immediate',
     this.naverOnly = false,
     this.naverProductUrl,
+    this.subscriptionSeats,
   });
 
   /// 좌석 공개 여부
@@ -156,6 +158,9 @@ class Event {
       seatAssignMode: data['seatAssignMode'] ?? 'immediate',
       naverOnly: data['naverOnly'] ?? false,
       naverProductUrl: data['naverProductUrl'],
+      subscriptionSeats: data['subscriptionSeats'] != null
+          ? Map<String, int>.from(data['subscriptionSeats'])
+          : null,
     );
   }
 
@@ -201,6 +206,7 @@ class Event {
       'seatAssignMode': seatAssignMode,
       if (naverOnly) 'naverOnly': naverOnly,
       if (naverProductUrl != null) 'naverProductUrl': naverProductUrl,
+      if (subscriptionSeats != null) 'subscriptionSeats': subscriptionSeats,
     };
   }
 
