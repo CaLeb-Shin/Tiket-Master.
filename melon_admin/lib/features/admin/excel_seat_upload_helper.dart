@@ -1333,6 +1333,21 @@ class EnhancedExcelParser {
   }
 }
 
+/// Helper: row header like "O열 (60)", "A열 (178)" in color-coded format
+class _RowHeader {
+  final String name;     // "O", "A", "B" etc.
+  final int headerRow;   // Excel row of the header
+  final int headerCol;   // Excel col of the header
+  final int seatCount;   // Declared seat count
+
+  _RowHeader({
+    required this.name,
+    required this.headerRow,
+    required this.headerCol,
+    this.seatCount = 0,
+  });
+}
+
 /// Helper: block column range for color-coded format
 class _BlockRange {
   final String name;
@@ -2366,12 +2381,30 @@ class ExcelToSeatMapConverter {
     final blockRanges = <_BlockRange>[];
     final rowLabelCols = <int>{};
 
-    for (int r = 0; r < math.min(sheet.maxRows, 10); r++) {
+    // ── 1단계: 시트 전체 스캔 — 열 헤더, 블록 헤더, 층 마커, 열 라벨 수집 ──
+    // "X열 (NNN)" 패턴: 열 헤더 (O열 (60), A열 (178), B열 (230) 등)
+    final rowHeaders = <_RowHeader>[]; // {name, row, col, seatCount}
+    final floorBoundaries = <int, String>{}; // excelRow → floor name
+
+    for (int r = 0; r < sheet.maxRows; r++) {
       for (int c = 0; c < sheet.maxColumns; c++) {
         final val = sheet.cell(
           CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r),
         ).value?.toString().trim() ?? '';
         if (val.isEmpty) continue;
+
+        // "X열 (NNN)" or "X열(NNN)" 패턴 — 열 헤더
+        final rowHeaderMatch = RegExp(r'^([A-Za-z가-힣0-9]+)열\s*\((\d+)\)$').firstMatch(val);
+        if (rowHeaderMatch != null) {
+          rowHeaders.add(_RowHeader(
+            name: rowHeaderMatch.group(1)!,
+            headerRow: r, headerCol: c,
+            seatCount: int.tryParse(rowHeaderMatch.group(2)!) ?? 0,
+          ));
+          continue;
+        }
+
+        // 블록 헤더: "A블록(157)", "BL1", "A(157)" 등
         String? blockName;
         if (val.contains('블록')) {
           blockName = RegExp(r'([A-Za-z가-힣]*블록)')
@@ -2384,9 +2417,22 @@ class ExcelToSeatMapConverter {
         if (blockName != null) {
           blockRanges.add(_BlockRange(name: blockName, startCol: c, headerRow: r));
         }
+
+        // "열" 단독 텍스트 → 열 라벨 컬럼
         if (val == '열') rowLabelCols.add(c);
+
+        // 층 마커: "1층", "2층", "1층(594석)" 등 (단독 셀)
+        // "X열" 패턴이 아닌 경우만
+        if (rowHeaderMatch == null) {
+          final floorMatch = RegExp(r'^(\d)층').firstMatch(val);
+          if (floorMatch != null && val.length <= 10) {
+            floorBoundaries[r] = '${floorMatch.group(1)}층';
+          }
+        }
       }
     }
+
+    // 블록 범위 계산
     blockRanges.sort((a, b) => a.startCol.compareTo(b.startCol));
     for (int i = 0; i < blockRanges.length; i++) {
       blockRanges[i].endCol = i + 1 < blockRanges.length
@@ -2394,35 +2440,41 @@ class ExcelToSeatMapConverter {
           : sheet.maxColumns - 1;
     }
 
-    // 시트 전체 스캔 → 층 경계 마커 수집 (행별로 어느 층인지 매핑)
-    // "1층", "2층", "1층(594석)" 등 패턴을 전체 행에서 검색
-    final floorBoundaries = <int, String>{}; // excelRow → floor name
-    String floor = defaultFloor;
-    for (int r = 0; r < sheet.maxRows; r++) {
-      for (int c = 0; c < sheet.maxColumns; c++) {
-        final val = sheet.cell(
-          CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r),
-        ).value?.toString().trim() ?? '';
-        final m = RegExp(r'(\d)층').firstMatch(val);
-        if (m != null) {
-          floorBoundaries[r] = '${m.group(1)}층';
-          break;
-        }
-      }
-    }
-    // 첫 번째 층 마커가 있으면 그걸 기본값으로
+    // ── 층 매핑 ──
+    // 층 마커가 좌석 데이터 뒤에 있는 경우 (예: R33에 "1층", R51에 "2층")
+    // → 해당 마커 이전의 좌석들이 그 층에 속함
+    // 정렬된 층 경계로 "이전 경계 기준" 매핑
     final sortedFloorKeys = floorBoundaries.keys.toList()..sort();
-    if (sortedFloorKeys.isNotEmpty) {
+    String floor = defaultFloor;
+
+    // 층 마커가 데이터 아래에 있는 경우 (1층 마커가 R33, 2층 마커가 R51)
+    // → 열 헤더 위치를 기준으로 역매핑
+    if (sortedFloorKeys.isNotEmpty && rowHeaders.isNotEmpty) {
+      // 각 열 헤더가 어느 층에 속하는지 → 가장 가까운 다음 층 마커 기준
+      // 1층 마커(R33) → R33 이전의 헤더들은 1층
+      // 2층 마커(R51) → R33~R51 사이 헤더들은 2층
+      floor = floorBoundaries[sortedFloorKeys.first]!;
+    } else if (sortedFloorKeys.isNotEmpty) {
       floor = floorBoundaries[sortedFloorKeys.first]!;
     }
-    // 행 → 층 매핑 함수 (가장 가까운 이전 경계 기준)
+
+    // 행 → 층 매핑 (가장 가까운 이후 층 마커 기준, 없으면 이전 기준)
     String floorForRow(int row) {
-      String f = floor;
+      // 가장 가까운 이후(또는 같은 행) 층 마커를 찾음
       for (final key in sortedFloorKeys) {
-        if (key <= row) f = floorBoundaries[key]!; else break;
+        if (key >= row) return floorBoundaries[key]!;
       }
-      return f;
+      // 이후 마커 없으면 마지막 마커 사용
+      if (sortedFloorKeys.isNotEmpty) {
+        return floorBoundaries[sortedFloorKeys.last]!;
+      }
+      return floor;
     }
+
+    // ── 열 헤더 → 좌석 매핑 구조 생성 ──
+    // 각 열 헤더의 영향 범위 (col 기준 + row 기준)를 계산
+    // 같은 행에 여러 열 헤더가 있을 수 있음 (B열, C열, D열이 R8에 나란히)
+    // 열 헤더 아래의 숫자 셀들이 해당 열의 좌석
 
     final gradeLabelColors = <String, String>{};
     final gradeLabelRows = <int, String>{};
@@ -2461,6 +2513,13 @@ class ExcelToSeatMapConverter {
       return g;
     }
 
+    // ── 열 헤더 기반 좌석→열 이름 매핑 구조 ──
+    // 각 "X열 (NNN)" 헤더에 대해, 해당 열의 영향 범위를 계산
+    // 좌석 셀 (r, c) → 가장 가까운 열 헤더 → 열 이름 (O, A, B, ...)
+    //
+    // 매핑 전략: 각 열 헤더는 자신의 col 범위 내에서 headerRow 아래의 좌석에 적용
+    // col 범위: 헤더 col ~ 다음 헤더 col - 1 (같은 행의 헤더 기준)
+
     // 열 라벨 수집: "열" 컬럼에서 숫자뿐 아니라 알파벳/텍스트도 허용
     final rowLabels = <int, String>{};
     for (final lc in rowLabelCols) {
@@ -2472,8 +2531,8 @@ class ExcelToSeatMapConverter {
       }
     }
 
-    // "열" 컬럼이 없는 경우: 각 블록의 startCol 바로 왼쪽 열에서 숫자를 찾아 row label로 사용
-    if (rowLabelCols.isEmpty && blockRanges.isNotEmpty) {
+    // "열" 컬럼이 없고 블록 헤더만 있는 경우: 블록 좌측에서 row label 추출
+    if (rowLabelCols.isEmpty && blockRanges.isNotEmpty && rowHeaders.isEmpty) {
       for (final block in blockRanges) {
         final labelCol = block.startCol - 1;
         if (labelCol < 0) continue;
@@ -2489,21 +2548,33 @@ class ExcelToSeatMapConverter {
       }
     }
 
-    // "열" 컬럼도 블록도 없는 경우: 0번 컬럼에서 행 라벨 추출
-    if (rowLabels.isEmpty) {
-      for (int r = 0; r < sheet.maxRows; r++) {
-        final val = sheet.cell(
-          CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: r),
-        ).value?.toString().trim() ?? '';
-        if (val.isNotEmpty && int.tryParse(val) != null) {
-          rowLabels[r] = val;
+    // ── 좌석→열 이름 매핑 함수 ──
+    // rowHeaders가 있으면 가장 가까운 열 헤더 기반, 없으면 rowLabels 기반
+    String getRowName(int r, int c) {
+      if (rowHeaders.isNotEmpty) {
+        // 해당 (r, c)에 가장 가까운 열 헤더 찾기:
+        // 1) headerRow <= r (헤더가 좌석 위에 있음)
+        // 2) headerCol 범위 내
+        _RowHeader? best;
+        int bestDist = 999999;
+        for (final rh in rowHeaders) {
+          if (rh.headerRow >= r) continue; // 헤더가 아래에 있으면 건너뜀
+          // col 범위 체크: 헤더의 좌석 영역 내인지
+          // 헤더 col 기준으로 좌우 적절한 범위 내
+          final dist = (r - rh.headerRow) + (c - rh.headerCol).abs();
+          if (dist < bestDist) {
+            bestDist = dist;
+            best = rh;
+          }
         }
+        if (best != null) return best.name;
       }
+      return rowLabels[r] ?? '${r + 1}';
     }
 
     for (int r = 0; r < sheet.maxRows; r++) {
       if (stage != null && r >= stage.startRow && r <= stage.endRow) continue;
-      final seatFloor = floorForRow(r); // 행별 층 매핑
+      final seatFloor = floorForRow(r);
       for (int c = 0; c < sheet.maxColumns; c++) {
         if (rowLabelCols.contains(c)) continue;
         final cell = sheet.cell(
@@ -2535,7 +2606,7 @@ class ExcelToSeatMapConverter {
           excelCol: c,
           zone: zone,
           floor: seatFloor,
-          row: rowLabels[r] ?? '${r + 1}',
+          row: getRowName(r, c),
           number: seatNum,
           grade: grade,
         ));
@@ -2647,10 +2718,9 @@ class ExcelToSeatMapConverter {
       return;
     }
 
-    // 층별 virtualRow를 별도 트래킹 (1층 A열=1, 2층 A열=1로 리셋)
-    final floorRowCounter = <String, int>{};
-    String? prevRowKey;
-    int virtualRow = 0;
+    // 층+열 조합별 동일 virtualRow 매핑 (같은 A열인데 등급별로 분리된 행 → 합치기)
+    final rowKeyToVirtualRow = <String, int>{};
+    int nextVirtualRow = 0;
 
     for (int r = 1; r < sheet.maxRows; r++) {
       String cellVal(int? idx) {
@@ -2687,10 +2757,12 @@ class ExcelToSeatMapConverter {
       final effectiveZone = parsedZone ?? (zone.isNotEmpty ? zone : sheetName);
       final effectiveFloor = floor.isNotEmpty ? floor : defaultFloor;
 
-      final rowKey = '$effectiveZone:$effectiveFloor:$rowName';
-      if (rowKey != prevRowKey) { virtualRow++; prevRowKey = rowKey; }
-      final floorKey = effectiveFloor;
-      floorRowCounter[floorKey] = (floorRowCounter[floorKey] ?? 0);
+      // 같은 층+열 조합은 같은 virtualRow 공유 (등급 다르더라도)
+      final rowKey = '$effectiveFloor:$rowName';
+      if (!rowKeyToVirtualRow.containsKey(rowKey)) {
+        rowKeyToVirtualRow[rowKey] = nextVirtualRow++;
+      }
+      final virtualRow = rowKeyToVirtualRow[rowKey]!;
 
       final seatNumbers = numStr.split(RegExp(r'[\s,]+'))
           .where((s) => s.isNotEmpty && int.tryParse(s) != null)
