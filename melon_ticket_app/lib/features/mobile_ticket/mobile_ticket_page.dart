@@ -2891,6 +2891,11 @@ class _BackCardState extends State<_BackCard>
                     ),
                     const SizedBox(height: 10),
                     _cancelInfoRow(
+                      Icons.person_rounded,
+                      '취소/환불은 예매자 본인만 신청할 수 있습니다.',
+                    ),
+                    const SizedBox(height: 10),
+                    _cancelInfoRow(
                       Icons.gavel_rounded,
                       '취소/환불 규정은 판매처 정책을 따릅니다.',
                     ),
@@ -3311,23 +3316,49 @@ class _BackCardState extends State<_BackCard>
 
                   // ── 취소/환불 버튼 (활성 티켓만) ──
                   if (!widget.isCancelled && !widget.isUsed) ...[
-                    const SizedBox(height: 12),
-                    Center(
-                      child: TextButton.icon(
-                        onPressed: () => _showCancelDialog(context),
-                        icon: const Icon(Icons.cancel_outlined, size: 16),
-                        label: Text(
-                          '취소/환불하기',
-                          style: AppTheme.nanum(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            noShadow: true,
+                    const SizedBox(height: 16),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF5F5),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE8D0D0), width: 0.5),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            '취소/환불은 예매자 본인만 가능합니다',
+                            style: AppTheme.nanum(
+                              fontSize: 12,
+                              color: const Color(0xFFB05050),
+                              fontWeight: FontWeight.w600,
+                              noShadow: true,
+                            ),
                           ),
-                        ),
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFFB05050),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: TextButton.icon(
+                              onPressed: () => _showCancelDialog(context),
+                              icon: const Icon(Icons.cancel_outlined, size: 16),
+                              label: Text(
+                                '취소/환불 신청하기',
+                                style: AppTheme.nanum(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  noShadow: true,
+                                ),
+                              ),
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFFB05050),
+                                backgroundColor: const Color(0xFFB05050).withValues(alpha: 0.08),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
