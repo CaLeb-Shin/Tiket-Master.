@@ -261,21 +261,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                       // --- Social login ---
                       _buildSocialButton(
-                        label: '카카오로 계속하기',
-                        color: const Color(0xFFFEE500),
-                        textColor: const Color(0xFF191919),
-                        logoWidget: SvgPicture.string(_kakaoLogoSvg,
-                            width: 20, height: 20),
-                        onTap: _signInWithKakao,
-                      ),
-                      const SizedBox(height: 10),
-                      _buildSocialButton(
                         label: '네이버로 계속하기',
                         color: const Color(0xFF03C75A),
                         textColor: Colors.white,
                         logoWidget: SvgPicture.string(_naverLogoSvg,
                             width: 18, height: 18),
                         onTap: _signInWithNaver,
+                      ),
+                      const SizedBox(height: 10),
+                      _buildSocialButton(
+                        label: '카카오로 계속하기',
+                        color: const Color(0xFFFEE500),
+                        textColor: const Color(0xFF191919),
+                        logoWidget: SvgPicture.string(_kakaoLogoSvg,
+                            width: 20, height: 20),
+                        onTap: _signInWithKakao,
                       ),
                       const SizedBox(height: 10),
                       _buildSocialButton(
@@ -456,10 +456,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: Center(child: logoWidget)),
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      color: Colors.white.withValues(alpha: 0.15),
+                    ),
+                    child: Center(child: logoWidget),
+                  ),
                   const Spacer(),
                   Text(
                     label,
