@@ -4149,7 +4149,9 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: _openSeatLayoutEditor,
+                  onPressed: hasParsed
+                      ? _openSeatStructureEditor
+                      : _openSeatLayoutEditor,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AdminTheme.textPrimary,
                     side: const BorderSide(color: AdminTheme.border, width: 0.5),
@@ -4159,7 +4161,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.construction_rounded, size: 16),
+                      Icon(hasParsed ? Icons.edit_note_rounded : Icons.construction_rounded, size: 16),
                       const SizedBox(width: 8),
                       Text(
                         hasParsed || hasLayout ? '좌석 구조 편집' : '좌석배치도 직접 만들기',
@@ -4435,6 +4437,67 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
     });
   }
 
+  Future<void> _openSeatStructureEditor() async {
+    if (_parsedSeatLayout == null) return;
+    final result = await showModalBottomSheet<VenueSeatLayout>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final width = MediaQuery.of(sheetContext).size.width;
+        final widthFactor = width >= 1100 ? 0.98 : 1.0;
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: FractionallySizedBox(
+            widthFactor: widthFactor,
+            child: _SeatStructureEditorSheet(
+              layout: _parsedSeatLayout!,
+            ),
+          ),
+        );
+      },
+    );
+    if (result == null) return;
+
+    // 편집된 layout 반영 + floors 재계산
+    final floorMap = <String, Map<String, List<LayoutSeat>>>{};
+    for (final seat in result.seats) {
+      final floor = seat.floor.isNotEmpty ? seat.floor : '1층';
+      final zone = seat.zone.isNotEmpty ? seat.zone : 'A';
+      floorMap.putIfAbsent(floor, () => {});
+      floorMap[floor]!.putIfAbsent(zone, () => []);
+      floorMap[floor]![zone]!.add(seat);
+    }
+    final venueFloors = <VenueFloor>[];
+    for (final entry in floorMap.entries) {
+      final blocks = <VenueBlock>[];
+      for (final zoneEntry in entry.value.entries) {
+        final seats = zoneEntry.value;
+        final rows = seats.map((s) => s.row).toSet();
+        final grade = seats.isNotEmpty ? seats.first.grade : null;
+        blocks.add(VenueBlock(
+          name: zoneEntry.key,
+          rows: rows.length,
+          seatsPerRow: rows.isNotEmpty
+              ? (seats.length / rows.length).ceil()
+              : seats.length,
+          totalSeats: seats.length,
+          grade: grade,
+        ));
+      }
+      venueFloors.add(VenueFloor(
+        name: entry.key,
+        blocks: blocks,
+        totalSeats: blocks.fold(0, (s, b) => s + b.totalSeats),
+      ));
+    }
+
+    setState(() {
+      _parsedSeatLayout = result;
+      _layoutFloors = venueFloors;
+    });
+  }
+
   Future<void> _pickExcelForVenue() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -4613,6 +4676,946 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  좌석 구조 편집 시트 (파싱 결과 미세 조정)
+// ══════════════════════════════════════════════════
+
+class _SeatStructureEditorSheet extends StatefulWidget {
+  final VenueSeatLayout layout;
+
+  const _SeatStructureEditorSheet({required this.layout});
+
+  @override
+  State<_SeatStructureEditorSheet> createState() =>
+      _SeatStructureEditorSheetState();
+}
+
+class _SeatStructureEditorSheetState extends State<_SeatStructureEditorSheet> {
+  late List<LayoutSeat> _seats;
+  final Set<int> _selected = {};
+  String _tool = 'select'; // select | grade | lasso
+  String _paintGrade = 'VIP';
+  bool _showInfo = false;
+  // zoom / pan
+  final TransformationController _transformCtrl = TransformationController();
+
+  static const _gradeColors = {
+    'VIP': Color(0xFFD4AF37),
+    'R': Color(0xFFE53935),
+    'S': Color(0xFF1E88E5),
+    'A': Color(0xFF43A047),
+  };
+  static const _gradeOrder = ['VIP', 'R', 'S', 'A'];
+
+  @override
+  void initState() {
+    super.initState();
+    _seats = widget.layout.seats.map((s) => s.copyWith()).toList();
+  }
+
+  @override
+  void dispose() {
+    _transformCtrl.dispose();
+    super.dispose();
+  }
+
+  Map<String, int> get _gradeCounts {
+    final m = <String, int>{};
+    for (final s in _seats) {
+      m[s.grade] = (m[s.grade] ?? 0) + 1;
+    }
+    return m;
+  }
+
+  // ── 좌석 탭 핸들러 ──
+  void _onSeatTap(int index) {
+    setState(() {
+      if (_tool == 'grade') {
+        _seats[index] = _seats[index].copyWith(grade: _paintGrade);
+      } else {
+        if (_selected.contains(index)) {
+          _selected.remove(index);
+        } else {
+          _selected.add(index);
+        }
+        _showInfo = _selected.length == 1;
+      }
+    });
+  }
+
+  // ── 선택 영역 등급 일괄 변경 ──
+  void _changeSelectedGrade(String grade) {
+    setState(() {
+      for (final i in _selected) {
+        _seats[i] = _seats[i].copyWith(grade: grade);
+      }
+    });
+  }
+
+  // ── 등급별 전체 선택 ──
+  void _selectByGrade(String grade) {
+    setState(() {
+      _selected.clear();
+      for (int i = 0; i < _seats.length; i++) {
+        if (_seats[i].grade == grade) _selected.add(i);
+      }
+      _showInfo = false;
+    });
+  }
+
+  // ── 구역별 전체 선택 ──
+  void _selectByZone(String zone) {
+    setState(() {
+      _selected.clear();
+      for (int i = 0; i < _seats.length; i++) {
+        if (_seats[i].zone == zone) _selected.add(i);
+      }
+      _showInfo = false;
+    });
+  }
+
+  void _selectAll() => setState(() {
+        _selected.clear();
+        _selected.addAll(List.generate(_seats.length, (i) => i));
+        _showInfo = false;
+      });
+
+  void _clearSelection() => setState(() {
+        _selected.clear();
+        _showInfo = false;
+      });
+
+  // ── 선택 좌석 삭제 ──
+  void _deleteSelected() {
+    if (_selected.isEmpty) return;
+    setState(() {
+      final sorted = _selected.toList()..sort((a, b) => b.compareTo(a));
+      for (final i in sorted) {
+        _seats.removeAt(i);
+      }
+      _selected.clear();
+      _showInfo = false;
+    });
+  }
+
+  // ── 개별 좌석 수정 (zone, row, number) ──
+  void _editSingleSeat(int index) {
+    final seat = _seats[index];
+    final zoneCtrl = TextEditingController(text: seat.zone);
+    final rowCtrl = TextEditingController(text: seat.row);
+    final numCtrl = TextEditingController(text: seat.number.toString());
+    String tempGrade = seat.grade;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          backgroundColor: AdminTheme.surface,
+          title: Text(
+            '좌석 정보 수정',
+            style: AdminTheme.sans(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AdminTheme.textPrimary,
+            ),
+          ),
+          content: SizedBox(
+            width: 300,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _dialogField('구역', zoneCtrl),
+                const SizedBox(height: 10),
+                _dialogField('열', rowCtrl),
+                const SizedBox(height: 10),
+                _dialogField('번호', numCtrl, isNumber: true),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Text('등급',
+                        style: AdminTheme.sans(
+                          fontSize: 12,
+                          color: AdminTheme.textSecondary,
+                        )),
+                    const SizedBox(width: 12),
+                    ..._gradeOrder.map(
+                      (g) => Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: GestureDetector(
+                          onTap: () => setDlg(() => tempGrade = g),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: tempGrade == g
+                                  ? _gradeColors[g]
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: _gradeColors[g] ?? AdminTheme.border,
+                                width: tempGrade == g ? 1.5 : 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              g,
+                              style: AdminTheme.sans(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: tempGrade == g
+                                    ? Colors.white
+                                    : _gradeColors[g],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('취소',
+                  style: AdminTheme.sans(color: AdminTheme.textTertiary)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AdminTheme.gold,
+                foregroundColor: AdminTheme.onAccent,
+              ),
+              onPressed: () {
+                setState(() {
+                  _seats[index] = _seats[index].copyWith(
+                    zone: zoneCtrl.text.trim(),
+                    row: rowCtrl.text.trim(),
+                    number: int.tryParse(numCtrl.text.trim()) ?? seat.number,
+                    grade: tempGrade,
+                  );
+                });
+                Navigator.pop(ctx);
+              },
+              child: Text('적용',
+                  style: AdminTheme.sans(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      ),
+    );
+    // Dispose controllers when dialog closes
+    zoneCtrl.addListener(() {});
+  }
+
+  Widget _dialogField(String label, TextEditingController ctrl,
+      {bool isNumber = false}) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 40,
+          child: Text(label,
+              style: AdminTheme.sans(
+                fontSize: 12,
+                color: AdminTheme.textSecondary,
+              )),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextField(
+            controller: ctrl,
+            keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+            style: AdminTheme.sans(
+                fontSize: 13, color: AdminTheme.textPrimary),
+            cursorColor: AdminTheme.gold,
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide:
+                    const BorderSide(color: AdminTheme.border, width: 0.5),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: const BorderSide(color: AdminTheme.gold, width: 1),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── 적용 & 반환 ──
+  void _apply() {
+    final newLayout = VenueSeatLayout(
+      layoutVersion: widget.layout.layoutVersion,
+      canvasWidth: widget.layout.canvasWidth,
+      canvasHeight: widget.layout.canvasHeight,
+      stagePosition: widget.layout.stagePosition,
+      stageWidthRatio: widget.layout.stageWidthRatio,
+      stageHeight: widget.layout.stageHeight,
+      stageShape: widget.layout.stageShape,
+      seats: _seats,
+      labels: widget.layout.labels,
+      dividers: widget.layout.dividers,
+      gradePrice: widget.layout.gradePrice,
+      backgroundImageUrl: widget.layout.backgroundImageUrl,
+      backgroundOpacity: widget.layout.backgroundOpacity,
+    );
+    Navigator.pop(context, newLayout);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = NumberFormat('#,###');
+    final gc = _gradeCounts;
+    final zones = _seats.map((s) => s.zone).toSet().toList()..sort();
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.92,
+      decoration: const BoxDecoration(
+        color: AdminTheme.background,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: Column(
+        children: [
+          // ── 핸들 + 헤더 ──
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
+            child: Column(
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AdminTheme.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.edit_note_rounded,
+                        color: AdminTheme.gold, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      '좌석 구조 편집',
+                      style: AdminTheme.sans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AdminTheme.textPrimary,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '총 ${fmt.format(_seats.length)}석',
+                      style: AdminTheme.sans(
+                        fontSize: 12,
+                        color: AdminTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, size: 20),
+                      color: AdminTheme.textTertiary,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // ── 등급 요약 바 ──
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              children: _gradeOrder
+                  .where((g) => gc.containsKey(g))
+                  .map((g) => Padding(
+                        padding: const EdgeInsets.only(right: 14),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: _gradeColors[g],
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$g ${fmt.format(gc[g])}',
+                              style: AdminTheme.sans(
+                                fontSize: 11,
+                                color: AdminTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ),
+
+          const Divider(height: 1, color: AdminTheme.border),
+
+          // ── 도구 바 ──
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _toolButton(
+                    icon: Icons.touch_app_rounded,
+                    label: '선택',
+                    active: _tool == 'select',
+                    onTap: () => setState(() => _tool = 'select'),
+                  ),
+                  const SizedBox(width: 4),
+                  _toolButton(
+                    icon: Icons.brush_rounded,
+                    label: '등급 칠하기',
+                    active: _tool == 'grade',
+                    onTap: () => setState(() => _tool = 'grade'),
+                  ),
+                  if (_tool == 'grade') ...[
+                    const SizedBox(width: 8),
+                    ..._gradeOrder.map(
+                      (g) => Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: GestureDetector(
+                          onTap: () => setState(() => _paintGrade = g),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _paintGrade == g
+                                  ? _gradeColors[g]
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: _gradeColors[g] ?? AdminTheme.border,
+                                width: _paintGrade == g ? 1.5 : 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              g,
+                              style: AdminTheme.sans(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: _paintGrade == g
+                                    ? Colors.white
+                                    : _gradeColors[g],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 8),
+                  Container(
+                      width: 1, height: 20, color: AdminTheme.border),
+                  const SizedBox(width: 8),
+                  // 빠른 선택
+                  PopupMenuButton<String>(
+                    tooltip: '빠른 선택',
+                    color: AdminTheme.surface,
+                    onSelected: (val) {
+                      if (val == 'all') {
+                        _selectAll();
+                      } else if (val == 'clear') {
+                        _clearSelection();
+                      } else if (val.startsWith('grade:')) {
+                        _selectByGrade(val.substring(6));
+                      } else if (val.startsWith('zone:')) {
+                        _selectByZone(val.substring(5));
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: 'all',
+                        child: Text('전체 선택',
+                            style: AdminTheme.sans(
+                                fontSize: 12,
+                                color: AdminTheme.textPrimary)),
+                      ),
+                      PopupMenuItem(
+                        value: 'clear',
+                        child: Text('선택 해제',
+                            style: AdminTheme.sans(
+                                fontSize: 12,
+                                color: AdminTheme.textPrimary)),
+                      ),
+                      const PopupMenuDivider(),
+                      ...['VIP', 'R', 'S', 'A'].map(
+                        (g) => PopupMenuItem(
+                          value: 'grade:$g',
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: _gradeColors[g],
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text('$g석 전체',
+                                  style: AdminTheme.sans(
+                                      fontSize: 12,
+                                      color: AdminTheme.textPrimary)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (zones.length > 1) ...[
+                        const PopupMenuDivider(),
+                        ...zones.map(
+                          (z) => PopupMenuItem(
+                            value: 'zone:$z',
+                            child: Text('$z구역',
+                                style: AdminTheme.sans(
+                                    fontSize: 12,
+                                    color: AdminTheme.textPrimary)),
+                          ),
+                        ),
+                      ],
+                    ],
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 5),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                            color: AdminTheme.border, width: 0.5),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.checklist_rounded,
+                              size: 14, color: AdminTheme.textSecondary),
+                          const SizedBox(width: 4),
+                          Text('빠른 선택',
+                              style: AdminTheme.sans(
+                                fontSize: 11,
+                                color: AdminTheme.textSecondary,
+                              )),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── 선택 액션 바 (선택시만) ──
+          if (_selected.isNotEmpty)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              color: AdminTheme.gold.withValues(alpha: 0.08),
+              child: Row(
+                children: [
+                  Text(
+                    '${_selected.length}석 선택됨',
+                    style: AdminTheme.sans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AdminTheme.gold,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ..._gradeOrder.map(
+                    (g) => Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: _actionChip(
+                        label: g,
+                        color: _gradeColors[g]!,
+                        onTap: () => _changeSelectedGrade(g),
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_selected.length == 1)
+                    IconButton(
+                      onPressed: () =>
+                          _editSingleSeat(_selected.first),
+                      icon: const Icon(Icons.edit_rounded, size: 16),
+                      color: AdminTheme.textSecondary,
+                      tooltip: '상세 편집',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                          minWidth: 32, minHeight: 32),
+                    ),
+                  IconButton(
+                    onPressed: _deleteSelected,
+                    icon:
+                        const Icon(Icons.delete_outline_rounded, size: 16),
+                    color: AdminTheme.error,
+                    tooltip: '선택 삭제',
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                  IconButton(
+                    onPressed: _clearSelection,
+                    icon: const Icon(Icons.close_rounded, size: 16),
+                    color: AdminTheme.textTertiary,
+                    tooltip: '선택 해제',
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                ],
+              ),
+            ),
+
+          // ── 캔버스 (인터랙티브 좌석맵) ──
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF12121A),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                    color: AdminTheme.border.withValues(alpha: 0.3)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InteractiveViewer(
+                transformationController: _transformCtrl,
+                minScale: 0.5,
+                maxScale: 5.0,
+                constrained: false,
+                boundaryMargin: const EdgeInsets.all(200),
+                child: SizedBox(
+                  width: widget.layout.canvasWidth,
+                  height: widget.layout.canvasHeight,
+                  child: CustomPaint(
+                    painter: _InteractiveSeatMapPainter(
+                      seats: _seats,
+                      selected: _selected,
+                      layout: widget.layout,
+                    ),
+                    child: _SeatTapLayer(
+                      seats: _seats,
+                      onTap: _onSeatTap,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // ── 좌석 정보 패널 (1석 선택시) ──
+          if (_showInfo && _selected.length == 1)
+            _buildSeatInfoPanel(_seats[_selected.first]),
+
+          // ── 하단 버튼 ──
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AdminTheme.textSecondary,
+                      side: const BorderSide(
+                          color: AdminTheme.border, width: 0.5),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4)),
+                    ),
+                    child: Text('취소',
+                        style: AdminTheme.sans(fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: _apply,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AdminTheme.gold,
+                      foregroundColor: AdminTheme.onAccent,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4)),
+                    ),
+                    child: Text(
+                      '적용 (${fmt.format(_seats.length)}석)',
+                      style:
+                          AdminTheme.sans(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _toolButton({
+    required IconData icon,
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: active
+              ? AdminTheme.gold.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: active ? AdminTheme.gold : AdminTheme.border,
+            width: active ? 1 : 0.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 14,
+                color: active ? AdminTheme.gold : AdminTheme.textTertiary),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: AdminTheme.sans(
+                fontSize: 11,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                color: active ? AdminTheme.gold : AdminTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _actionChip({
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color, width: 0.8),
+        ),
+        child: Text(
+          label,
+          style: AdminTheme.sans(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSeatInfoPanel(LayoutSeat seat) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AdminTheme.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AdminTheme.border, width: 0.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: _gradeColors[seat.grade],
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${seat.zone}구역 ${seat.row}열 ${seat.number}번',
+            style: AdminTheme.sans(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AdminTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: _gradeColors[seat.grade]?.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              seat.grade,
+              style: AdminTheme.sans(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: _gradeColors[seat.grade],
+              ),
+            ),
+          ),
+          const Spacer(),
+          Text(
+            '${seat.floor} · (${seat.x.toInt()}, ${seat.y.toInt()})',
+            style: AdminTheme.sans(
+              fontSize: 10,
+              color: AdminTheme.textTertiary,
+            ),
+          ),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: () => _editSingleSeat(_selected.first),
+            child: const Icon(Icons.edit_rounded,
+                size: 14, color: AdminTheme.gold),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 인터랙티브 좌석맵 페인터 ──
+class _InteractiveSeatMapPainter extends CustomPainter {
+  final List<LayoutSeat> seats;
+  final Set<int> selected;
+  final VenueSeatLayout layout;
+
+  _InteractiveSeatMapPainter({
+    required this.seats,
+    required this.selected,
+    required this.layout,
+  });
+
+  static const _gradeColors = {
+    'VIP': Color(0xFFD4AF37),
+    'R': Color(0xFFE53935),
+    'S': Color(0xFF1E88E5),
+    'A': Color(0xFF43A047),
+  };
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Stage
+    final stageW = size.width * layout.stageWidthRatio;
+    const stageH = 40.0;
+    final stageRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(size.width / 2, stageH / 2 + 20),
+        width: stageW,
+        height: stageH,
+      ),
+      const Radius.circular(6),
+    );
+    canvas.drawRRect(stageRect, Paint()..color = const Color(0xFF2A2A34));
+    final tp = TextPainter(
+      text: const TextSpan(
+        text: 'STAGE',
+        style: TextStyle(
+          color: Color(0xFF888898),
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 3,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+    tp.paint(
+      canvas,
+      Offset(size.width / 2 - tp.width / 2, stageH / 2 + 20 - tp.height / 2),
+    );
+
+    // Seats
+    const dotR = 5.0;
+    const selectedR = 7.0;
+    final selectedPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    for (int i = 0; i < seats.length; i++) {
+      final seat = seats[i];
+      final color = _gradeColors[seat.grade] ?? const Color(0xFF666666);
+      final isSelected = selected.contains(i);
+      canvas.drawCircle(
+        Offset(seat.x, seat.y),
+        isSelected ? selectedR : dotR,
+        Paint()..color = color,
+      );
+      if (isSelected) {
+        canvas.drawCircle(
+          Offset(seat.x, seat.y),
+          selectedR + 1.5,
+          selectedPaint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _InteractiveSeatMapPainter old) => true;
+}
+
+// ── 좌석 탭 감지 레이어 ──
+class _SeatTapLayer extends StatelessWidget {
+  final List<LayoutSeat> seats;
+  final void Function(int index) onTap;
+
+  const _SeatTapLayer({required this.seats, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTapDown: (details) {
+        final pos = details.localPosition;
+        const hitRadius = 12.0;
+        // 가장 가까운 좌석 탐색
+        double minDist = double.infinity;
+        int closest = -1;
+        for (int i = 0; i < seats.length; i++) {
+          final dx = seats[i].x - pos.dx;
+          final dy = seats[i].y - pos.dy;
+          final dist = dx * dx + dy * dy;
+          if (dist < minDist) {
+            minDist = dist;
+            closest = i;
+          }
+        }
+        if (closest >= 0 && minDist <= hitRadius * hitRadius) {
+          onTap(closest);
+        }
+      },
+      child: const SizedBox.expand(),
+    );
   }
 }
 
