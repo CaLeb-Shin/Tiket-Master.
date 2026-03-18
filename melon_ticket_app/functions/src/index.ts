@@ -2107,6 +2107,7 @@ export const signInWithNaver = functions.https.onCall(async (data, context) => {
   const email = profile.email ?? `naver_${naverId}@melonticket.app`;
   const displayName = profile.nickname ?? profile.name ?? `네이버${naverId.slice(-4)}`;
   const photoUrl = profile.profile_image;
+  const naverPhone = profile.mobile ?? profile.mobile_e164 ?? null;
 
   // Firebase UID = naver:{naverId}
   const uid = `naver:${naverId}`;
@@ -2123,6 +2124,7 @@ export const signInWithNaver = functions.https.onCall(async (data, context) => {
       photoUrl: photoUrl ?? null,
       provider: "naver",
       naverId,
+      phone: naverPhone,
       role: "user",
       mileage: { balance: 0, tier: "bronze", totalEarned: 0 },
       referralCode,
@@ -2130,9 +2132,50 @@ export const signInWithNaver = functions.https.onCall(async (data, context) => {
       lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
     });
   } else {
-    await userRef.update({
-      lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    const updateData: any = { lastLoginAt: admin.firestore.FieldValue.serverTimestamp() };
+    if (naverPhone) updateData.phone = naverPhone;
+    await userRef.update(updateData);
+  }
+
+  // 네이버 전화번호가 있으면 자동으로 NaverOrder 매칭
+  let claimedCount = 0;
+  if (naverPhone) {
+    const phoneDigits = naverPhone.replace(/\D/g, "");
+    if (phoneDigits.length >= 10) {
+      const unlinkedSnap = await db.collection("naverOrders")
+        .where("userId", "==", null)
+        .get();
+
+      const batch = db.batch();
+      const claimedOrderIds: string[] = [];
+
+      for (const doc of unlinkedSnap.docs) {
+        const order = doc.data();
+        const orderPhone = String(order.buyerPhone || "").replace(/\D/g, "");
+        if (orderPhone === phoneDigits) {
+          batch.set(doc.ref, {
+            userId: uid,
+            linkedAt: admin.firestore.FieldValue.serverTimestamp(),
+            linkSource: "naverLoginAutoClaim",
+          }, { merge: true });
+          claimedOrderIds.push(doc.id);
+
+          // MobileTicket에도 userId 설정
+          const ticketIds: string[] = order.ticketIds || [];
+          for (const tid of ticketIds) {
+            batch.set(db.collection("mobileTickets").doc(tid), {
+              userId: uid,
+            }, { merge: true });
+          }
+        }
+      }
+
+      if (claimedOrderIds.length > 0) {
+        await batch.commit();
+        claimedCount = claimedOrderIds.length;
+        functions.logger.info(`네이버 로그인 자동 매칭: ${claimedCount}건 (uid=${uid}, phone=${phoneDigits.slice(-4)})`);
+      }
+    }
   }
 
   // Firebase Custom Token 발급
@@ -2141,7 +2184,7 @@ export const signInWithNaver = functions.https.onCall(async (data, context) => {
     naverId,
   });
 
-  return { customToken, uid, displayName, email };
+  return { customToken, uid, displayName, email, phone: naverPhone, claimedCount };
 });
 
 /**
@@ -3785,6 +3828,15 @@ export const autoClaimNaverOrdersByPhone = functions.https.onCall(async (data: a
           linkedAt: admin.firestore.FieldValue.serverTimestamp(),
           linkSource: "autoClaimByPhone",
         }, { merge: true });
+
+        // MobileTicket에도 userId 설정
+        const ticketIds: string[] = order.ticketIds || [];
+        for (const tid of ticketIds) {
+          batch.set(db.collection("mobileTickets").doc(tid), {
+            userId,
+          }, { merge: true });
+        }
+
         claimed.push({
           orderId: doc.id,
           eventId: order.eventId || "",

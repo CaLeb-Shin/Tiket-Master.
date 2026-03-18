@@ -21,6 +21,21 @@ final mobileTicketsStreamProvider =
       });
 });
 
+/// 내 모바일 티켓 스트림 (userId로 조회)
+final myMobileTicketsStreamProvider =
+    StreamProvider.family<List<MobileTicket>, String>((ref, userId) {
+  final fs = ref.watch(firestoreServiceProvider);
+  return fs.mobileTickets
+      .where('userId', isEqualTo: userId)
+      .where('status', isEqualTo: 'active')
+      .snapshots()
+      .map((snap) {
+        final list = snap.docs.map((d) => MobileTicket.fromFirestore(d)).toList();
+        list.sort((a, b) => b.issuedAt.compareTo(a.issuedAt));
+        return list;
+      });
+});
+
 /// 네이버 주문별 모바일 티켓 스트림
 final mobileTicketsByOrderProvider =
     StreamProvider.family<List<MobileTicket>, String>((ref, naverOrderId) {

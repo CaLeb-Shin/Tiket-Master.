@@ -6,8 +6,10 @@ import 'package:intl/intl.dart';
 import 'package:melon_core/app/theme.dart';
 import 'package:melon_core/widgets/premium_effects.dart';
 import 'package:melon_core/data/models/ticket.dart';
+import 'package:melon_core/data/models/mobile_ticket.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/ticket_repository.dart';
+import 'package:melon_core/data/repositories/mobile_ticket_repository.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/services/auth_service.dart';
 
@@ -64,9 +66,12 @@ class _TicketBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ticketsAsync = ref.watch(myTicketsStreamProvider(userId));
+    final mobileTicketsAsync = ref.watch(myMobileTicketsStreamProvider(userId));
 
     return ticketsAsync.when(
       data: (tickets) {
+        final mobileTickets = mobileTicketsAsync.value ?? [];
+
         // orderId별 티켓 수 집계 (통합 QR 표시용)
         final orderCounts = <String, int>{};
         for (final t in tickets) {
@@ -75,32 +80,83 @@ class _TicketBody extends ConsumerWidget {
           }
         }
 
+        final totalCount = tickets.length + mobileTickets.length;
+
         return CustomScrollView(
           slivers: [
             SliverToBoxAdapter(
-              child: _TicketSummary(totalCount: tickets.length),
+              child: _TicketSummary(totalCount: totalCount),
             ),
-            if (tickets.isEmpty)
+            if (totalCount == 0)
               const SliverFillRemaining(
                 hasScrollBody: false,
                 child: _EmptyTicketState(),
               )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
-                sliver: SliverList.separated(
-                  itemCount: tickets.length,
-                  itemBuilder: (context, index) {
-                    final ticket = tickets[index];
-                    final showGroupQr = (orderCounts[ticket.orderId] ?? 0) >= 2;
-                    return _TicketCard(
-                      ticket: ticket,
-                      showGroupQr: showGroupQr,
-                    );
-                  },
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+            else ...[
+              // 네이버 구매 모바일 티켓
+              if (mobileTickets.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF03C75A).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'N',
+                            style: AppTheme.nanum(
+                              fontSize: 12,
+                              color: const Color(0xFF03C75A),
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '네이버 티켓 ${mobileTickets.length}매',
+                          style: AppTheme.nanum(
+                            fontSize: 13,
+                            color: _textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
+                  sliver: SliverList.separated(
+                    itemCount: mobileTickets.length,
+                    itemBuilder: (context, index) {
+                      return _MobileTicketCard(ticket: mobileTickets[index]);
+                    },
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  ),
+                ),
+              ],
+              // 일반 티켓
+              if (tickets.isNotEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
+                  sliver: SliverList.separated(
+                    itemCount: tickets.length,
+                    itemBuilder: (context, index) {
+                      final ticket = tickets[index];
+                      final showGroupQr = (orderCounts[ticket.orderId] ?? 0) >= 2;
+                      return _TicketCard(
+                        ticket: ticket,
+                        showGroupQr: showGroupQr,
+                      );
+                    },
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  ),
+                ),
+            ],
           ],
         );
       },
@@ -581,6 +637,254 @@ class _SeatInfoRow extends StatelessWidget {
           fontWeight: FontWeight.w800,
         ),
       ),
+    );
+  }
+}
+
+class _MobileTicketCard extends ConsumerWidget {
+  final MobileTicket ticket;
+
+  const _MobileTicketCard({required this.ticket});
+
+  static const _gradeColors = {
+    'VIP': Color(0xFFC9A84C),
+    'R': Color(0xFF6B4FA0),
+    'S': Color(0xFF2D6A4F),
+    'A': Color(0xFF3B7DD8),
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final eventAsync = ref.watch(eventStreamProvider(ticket.eventId));
+
+    return eventAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 6),
+        child: ShimmerLoading(height: 80, borderRadius: 14),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (event) {
+        if (event == null) return const SizedBox.shrink();
+
+        final dateText =
+            DateFormat('yyyy년 M월 d일 (E)', 'ko_KR').format(event.startAt);
+        final timeText = DateFormat('HH:mm', 'ko_KR').format(event.startAt);
+        final venueText = (event.venueName == null || event.venueName!.isEmpty)
+            ? '공연장 정보 없음'
+            : event.venueName!;
+
+        final gradeColor = _gradeColors[ticket.seatGrade] ?? AppTheme.textSecondary;
+        final statusLabel = ticket.status == MobileTicketStatus.active
+            ? '스마트티켓'
+            : ticket.status == MobileTicketStatus.used
+                ? '이용완료'
+                : '취소됨';
+        final statusBg = ticket.status == MobileTicketStatus.active
+            ? AppTheme.gold
+            : ticket.status == MobileTicketStatus.used
+                ? const Color(0x1A30D158)
+                : const Color(0x1AFF5A5F);
+        final statusFg = ticket.status == MobileTicketStatus.active
+            ? AppTheme.onAccent
+            : ticket.status == MobileTicketStatus.used
+                ? AppTheme.success
+                : AppTheme.error;
+
+        return PressableScale(
+          onTap: () => context.push('/m/${ticket.accessToken}'),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppTheme.card,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _cardBorder),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF03C75A).withValues(alpha: 0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // 상단 바 — 네이버 그린 그래디언트
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF03C75A), Color(0xFF02B350)],
+                    ),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(13)),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        'N',
+                        style: AppTheme.nanum(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          dateText,
+                          style: AppTheme.nanum(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: statusBg,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          statusLabel,
+                          style: AppTheme.nanum(
+                            color: statusFg,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // 본문
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        event.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTheme.nanum(
+                          color: _textPrimary,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
+                          shadows: AppTheme.textShadow,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('입장시각', style: AppTheme.nanum(fontSize: 12, color: _textSecondary, fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 2),
+                                Text(timeText, style: AppTheme.nanum(fontSize: 20, color: _textPrimary, fontWeight: FontWeight.w800, letterSpacing: -0.2, shadows: AppTheme.textShadowStrong)),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_rounded, size: 22, color: AppTheme.goldLight),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text('공연장', style: AppTheme.nanum(fontSize: 12, color: _textSecondary, fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 2),
+                                Text(venueText, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTheme.nanum(fontSize: 20, color: _textPrimary, fontWeight: FontWeight.w800, letterSpacing: -0.2, shadows: AppTheme.textShadowStrong)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      // 좌석 정보
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surface,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.borderLight),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: gradeColor.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: gradeColor.withValues(alpha: 0.3), width: 0.5),
+                              ),
+                              child: Text(
+                                ticket.seatGrade.isNotEmpty ? ticket.seatGrade : '일반',
+                                style: AppTheme.nanum(fontSize: 11, color: gradeColor, fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                ticket.seatInfo ?? (ticket.seatNumber != null ? '${ticket.seatNumber}번' : '입장번호 ${ticket.entryNumber}번'),
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTheme.nanum(fontSize: 12, color: _textPrimary, fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                            if (ticket.isCheckedIn) ...[
+                              const SizedBox(width: 6),
+                              const Icon(Icons.check_circle, size: 14, color: AppTheme.success),
+                              const SizedBox(width: 3),
+                              Text('입장완료', style: AppTheme.nanum(fontSize: 11, color: AppTheme.success, fontWeight: FontWeight.w700)),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // 하단 버튼
+                Container(
+                  decoration: const BoxDecoration(
+                    color: _softBlue,
+                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(13)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => context.push('/event/${event.id}'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppTheme.textPrimary,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.only(bottomLeft: Radius.circular(13)),
+                            ),
+                          ),
+                          child: Text('공연 정보', style: AppTheme.nanum(fontWeight: FontWeight.w700, fontSize: 15)),
+                        ),
+                      ),
+                      Container(width: 1, height: 44, color: AppTheme.border),
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => context.push('/m/${ticket.accessToken}'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppTheme.textPrimary,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.only(bottomRight: Radius.circular(13)),
+                            ),
+                          ),
+                          child: Text('QR 보기', style: AppTheme.nanum(fontWeight: FontWeight.w700, fontSize: 15)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

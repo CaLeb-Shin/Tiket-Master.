@@ -9,6 +9,7 @@ class MobileTicket {
   final String? seatId; // Firestore seat doc ID (공개 전 null)
   final String? seatNumber; // 표시용 좌석번호 (공개 전 null)
   final String? seatInfo; // "1층 B블록 3열 15번" 등
+  final String? userId; // 연결된 사용자 (NaverOrder claim 시 설정)
   final String buyerName;
   final String buyerPhone;
   final MobileTicketStatus status;
@@ -33,6 +34,7 @@ class MobileTicket {
     this.seatId,
     this.seatNumber,
     this.seatInfo,
+    this.userId,
     required this.buyerName,
     required this.buyerPhone,
     required this.status,
@@ -60,6 +62,7 @@ class MobileTicket {
       seatId: data['seatId'],
       seatNumber: data['seatNumber'],
       seatInfo: data['seatInfo'],
+      userId: data['userId'],
       buyerName: data['buyerName'] ?? '',
       buyerPhone: data['buyerPhone'] ?? '',
       status: MobileTicketStatus.fromString(data['status']),
@@ -90,6 +93,7 @@ class MobileTicket {
       'seatId': seatId,
       'seatNumber': seatNumber,
       'seatInfo': seatInfo,
+      if (userId != null) 'userId': userId,
       'buyerName': buyerName,
       'buyerPhone': buyerPhone,
       'status': status.name,

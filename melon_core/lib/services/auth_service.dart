@@ -398,18 +398,29 @@ class AuthService {
   }
 
   /// 로그인 후 전화번호 기반 네이버 주문 자동 매칭 (fire-and-forget)
-  Future<int> tryAutoClaimNaverOrders() async {
+  /// phone 파라미터: 외부에서 전달한 전화번호 (네이버 프로필 등)
+  Future<int> tryAutoClaimNaverOrders({String? phone}) async {
     try {
       final user = _auth.currentUser;
       if (user == null) return 0;
 
-      // 전화번호 소스: Firebase Auth phoneNumber (Phone Auth 로그인 시)
-      final phone = user.phoneNumber;
-      if (phone == null || phone.isEmpty) return 0;
+      // 전화번호 소스: 파라미터 > Firebase Auth phoneNumber > Firestore users 문서
+      final resolvedPhone = phone ?? user.phoneNumber;
+      if (resolvedPhone == null || resolvedPhone.isEmpty) {
+        // Firestore에서 phone 필드 확인 (네이버 로그인 시 저장됨)
+        final userDoc = await _firestore.collection('users').doc(user.uid).get();
+        final firestorePhone = userDoc.data()?['phone'] as String?;
+        if (firestorePhone == null || firestorePhone.isEmpty) return 0;
+        final callable =
+            FirebaseFunctions.instance.httpsCallable('autoClaimNaverOrdersByPhone');
+        final result = await callable.call({'phone': firestorePhone});
+        final data = Map<String, dynamic>.from(result.data);
+        return (data['claimedCount'] as int?) ?? 0;
+      }
 
       final callable =
           FirebaseFunctions.instance.httpsCallable('autoClaimNaverOrdersByPhone');
-      final result = await callable.call({'phone': phone});
+      final result = await callable.call({'phone': resolvedPhone});
       final data = Map<String, dynamic>.from(result.data);
       return (data['claimedCount'] as int?) ?? 0;
     } catch (_) {
