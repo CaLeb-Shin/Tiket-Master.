@@ -9,6 +9,7 @@ export 'domain/catalog/hall.dart';
 export 'domain/catalog/review.dart';
 export 'domain/catalog/discount_policy.dart';
 export 'domain/catalog/venue_request.dart';
+export 'domain/catalog/master_venue.dart';
 
 // ─── Domain: Booking (주문/좌석/티켓) ───
 export 'domain/booking/order.dart';
@@ -49,6 +50,7 @@ export 'data/repositories/settlement_repository.dart';
 export 'data/repositories/seller_repository.dart';
 export 'data/repositories/venue_request_repository.dart';
 export 'data/repositories/subscription_repository.dart';
+export 'data/repositories/master_venue_repository.dart';
 
 // ─── Infrastructure: Firebase ───
 export 'infrastructure/firebase/firestore_service.dart';

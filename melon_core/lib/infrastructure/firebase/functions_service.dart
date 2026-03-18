@@ -488,4 +488,22 @@ class FunctionsService {
     });
     return Map<String, dynamic>.from(result.data);
   }
+
+  // ── 마스터 공연장 ──
+
+  Future<Map<String, dynamic>> migrateMasterVenues() async {
+    final callable = _functions.httpsCallable('migrateMasterVenues');
+    final result = await callable.call({});
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  Future<Map<String, dynamic>> createVenueFromMaster({
+    required String masterVenueId,
+  }) async {
+    final callable = _functions.httpsCallable('createVenueFromMaster');
+    final result = await callable.call({
+      'masterVenueId': masterVenueId,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
 }

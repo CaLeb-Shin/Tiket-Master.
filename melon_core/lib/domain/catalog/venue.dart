@@ -12,6 +12,7 @@ class Venue {
   final int totalSeats;
   final bool hasSeatView; // 시점 이미지 등록 여부
   final VenueSeatLayout? seatLayout; // 도트맵 좌석 배치도
+  final String? masterVenueId; // 마스터 공연장 ID (연결된 경우)
   final DateTime createdAt;
 
   Venue({
@@ -25,6 +26,7 @@ class Venue {
     required this.totalSeats,
     this.hasSeatView = false,
     this.seatLayout,
+    this.masterVenueId,
     required this.createdAt,
   });
 
@@ -49,6 +51,7 @@ class Venue {
       seatLayout: data['seatLayout'] != null
           ? VenueSeatLayout.fromMap(data['seatLayout'] as Map<String, dynamic>)
           : null,
+      masterVenueId: data['masterVenueId'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
@@ -64,6 +67,7 @@ class Venue {
       'totalSeats': totalSeats,
       'hasSeatView': hasSeatView,
       if (seatLayout != null) 'seatLayout': seatLayout!.toMap(),
+      if (masterVenueId != null) 'masterVenueId': masterVenueId,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }

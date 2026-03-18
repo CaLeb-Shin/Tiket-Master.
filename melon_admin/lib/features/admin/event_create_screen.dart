@@ -19,6 +19,9 @@ import 'package:melon_core/data/models/venue.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/data/repositories/venue_repository.dart';
+import 'package:melon_core/data/repositories/master_venue_repository.dart';
+import 'package:melon_core/domain/catalog/master_venue.dart';
+import 'package:melon_core/infrastructure/firebase/functions_service.dart';
 import 'package:melon_core/data/repositories/hall_repository.dart';
 import 'package:melon_core/data/models/hall.dart';
 import 'package:melon_core/services/auth_service.dart';
@@ -2067,6 +2070,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
 
   Widget _buildSeatMapSection() {
     final venuesAsync = ref.watch(venuesStreamProvider);
+    final masterVenuesAsync = ref.watch(masterVenuesStreamProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2080,6 +2084,48 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           ),
         ),
         const SizedBox(height: 16),
+
+        // ── 마스터 공연장에서 생성 ──
+        masterVenuesAsync.when(
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+          data: (masterVenues) {
+            if (masterVenues.isEmpty) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.verified, size: 14, color: AdminTheme.gold),
+                    const SizedBox(width: 6),
+                    Text(
+                      '멜팅 인증 공연장',
+                      style: AdminTheme.sans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AdminTheme.gold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: masterVenues.map((mv) {
+                    return _buildMasterVenueChip(mv);
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                Divider(
+                  color: AdminTheme.sage.withValues(alpha: 0.15),
+                  height: 1,
+                ),
+                const SizedBox(height: 16),
+              ],
+            );
+          },
+        ),
 
         // ── 공연장 DB에서 선택 ──
         venuesAsync.when(
@@ -2373,6 +2419,85 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     });
 
     _onSeatMapLoaded(data);
+  }
+
+  Widget _buildMasterVenueChip(MasterVenue mv) {
+    final isSelected = _selectedVenue?.masterVenueId == mv.id;
+    final grades = mv.seatCountByGrade;
+
+    return GestureDetector(
+      onTap: () async {
+        // 마스터에서 venue 생성 후 선택
+        setState(() => _isLoadingSeatMap = true);
+        try {
+          final result = await ref
+              .read(functionsServiceProvider)
+              .createVenueFromMaster(masterVenueId: mv.id);
+          final venueId = result['venueId'] as String;
+          final venue = await ref
+              .read(venueRepositoryProvider)
+              .getVenue(venueId);
+          if (venue != null && mounted) _selectVenue(venue);
+        } catch (e) {
+          if (mounted) _showError('마스터 공연장 연결 실패: $e');
+        } finally {
+          if (mounted) setState(() => _isLoadingSeatMap = false);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AdminTheme.gold.withValues(alpha: 0.06)
+              : AdminTheme.surface,
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(
+            color: isSelected ? AdminTheme.gold : AdminTheme.border,
+            width: isSelected ? 1.5 : 0.5,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (mv.isVerified)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(
+                      Icons.verified,
+                      size: 12,
+                      color: isSelected
+                          ? AdminTheme.gold
+                          : AdminTheme.sage,
+                    ),
+                  ),
+                Text(
+                  mv.name,
+                  style: AdminTheme.sans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected
+                        ? AdminTheme.gold
+                        : AdminTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${mv.region ?? ""} · ${mv.totalSeats}석${grades.isNotEmpty ? " · ${grades.keys.join("/")}" : ""}',
+              style: AdminTheme.sans(
+                fontSize: 10,
+                color: AdminTheme.textTertiary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildExcelUploadArea() {

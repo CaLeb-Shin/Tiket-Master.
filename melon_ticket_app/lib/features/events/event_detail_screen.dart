@@ -480,9 +480,33 @@ class _InfoRow extends StatelessWidget {
             ),
             // Location column
             Expanded(
-              child: _InfoColumn(
-                label: 'LOCATION',
-                value: event.venueName ?? '-',
+              child: Column(
+                children: [
+                  _InfoColumn(
+                    label: 'LOCATION',
+                    value: event.venueName ?? '-',
+                  ),
+                  if (event.has360View)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.verified,
+                              size: 10, color: AppTheme.gold),
+                          const SizedBox(width: 3),
+                          Text(
+                            'MELTING',
+                            style: AppTheme.label(
+                              fontSize: 7,
+                              color: AppTheme.gold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             ),
             // Divider

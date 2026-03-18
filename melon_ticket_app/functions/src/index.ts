@@ -1867,6 +1867,110 @@ export const scheduledRevealSeats = functions.pubsub
     return null;
   });
 
+// ════════════════════════════════════════════════════════════════════════════
+// 마스터 공연장 시스템
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 기존 venues → masterVenues 마이그레이션
+ * 어드민에서 1회만 호출
+ */
+export const migrateMasterVenues = functions.https.onCall(async (_data: any, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "로그인 필요");
+  await assertAdmin(context.auth.uid);
+
+  const venuesSnap = await db.collection("venues").get();
+  if (venuesSnap.empty) return { success: true, migrated: 0 };
+
+  const batch = db.batch();
+  let count = 0;
+
+  for (const venueDoc of venuesSnap.docs) {
+    const v = venueDoc.data();
+    if (v.masterVenueId) continue;
+
+    const existing = await db.collection("masterVenues")
+      .where("name", "==", v.name)
+      .limit(1)
+      .get();
+    if (!existing.empty) {
+      batch.update(venueDoc.ref, { masterVenueId: existing.docs[0].id });
+      const linkedIds = existing.docs[0].data().linkedVenueIds || [];
+      if (!linkedIds.includes(venueDoc.id)) {
+        batch.update(existing.docs[0].ref, {
+          linkedVenueIds: [...linkedIds, venueDoc.id],
+        });
+      }
+      count++;
+      continue;
+    }
+
+    let region: string | null = null;
+    const addr = v.address || "";
+    if (addr.includes("부산")) region = "부산";
+    else if (addr.includes("대전")) region = "대전";
+    else if (addr.includes("대구")) region = "대구";
+    else if (addr.includes("창원")) region = "창원";
+    else if (addr.includes("고양")) region = "고양";
+    else if (addr.includes("서울")) region = "서울";
+    else if (addr.includes("인천")) region = "인천";
+
+    const masterRef = db.collection("masterVenues").doc();
+    batch.set(masterRef, {
+      name: v.name,
+      region,
+      address: v.address || null,
+      totalSeats: v.totalSeats || 0,
+      floors: v.floors || [],
+      seatLayout: v.seatLayout || null,
+      isVerified: true,
+      hasSeatView: v.hasSeatView || false,
+      linkedVenueIds: [venueDoc.id],
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    batch.update(venueDoc.ref, { masterVenueId: masterRef.id });
+    count++;
+  }
+
+  await batch.commit();
+  return { success: true, migrated: count };
+});
+
+/**
+ * 마스터 공연장에서 새 Venue 생성
+ */
+export const createVenueFromMaster = functions.https.onCall(async (data: any, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "로그인 필요");
+  await assertAdmin(context.auth.uid);
+
+  const { masterVenueId } = data;
+  if (!masterVenueId) throw new functions.https.HttpsError("invalid-argument", "masterVenueId 필요");
+
+  const masterDoc = await db.collection("masterVenues").doc(masterVenueId).get();
+  if (!masterDoc.exists) throw new functions.https.HttpsError("not-found", "마스터 공연장 없음");
+
+  const mv = masterDoc.data()!;
+  const venueRef = await db.collection("venues").add({
+    name: mv.name,
+    address: mv.address || null,
+    stagePosition: mv.seatLayout?.stagePosition || "top",
+    floors: mv.floors || [],
+    totalSeats: mv.totalSeats || 0,
+    hasSeatView: mv.hasSeatView || false,
+    seatLayout: mv.seatLayout || null,
+    masterVenueId,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  const linkedIds = mv.linkedVenueIds || [];
+  await masterDoc.ref.update({
+    linkedVenueIds: [...linkedIds, venueRef.id],
+  });
+
+  return { success: true, venueId: venueRef.id };
+});
+
 // ============================================================
 // 소셜 로그인 - 카카오 (Custom Token 발급)
 // ============================================================

@@ -29,6 +29,7 @@ class FirestoreService {
   CollectionReference get subscriptions => _firestore.collection('subscriptions');
   CollectionReference get subscriptionEntries => _firestore.collection('subscriptionEntries');
   CollectionReference get lotteryResults => _firestore.collection('lotteryResults');
+  CollectionReference get masterVenues => _firestore.collection('masterVenues');
 
   /// 배치 쓰기 (최대 500개)
   WriteBatch batch() => _firestore.batch();
