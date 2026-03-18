@@ -228,16 +228,37 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
   }
 
   bool _isFromCache = false;
+  bool _isRefreshing = false; // 백그라운드 갱신 중 표시
 
   Future<void> _loadTicket({bool preserveGroupContext = false}) async {
     final previousPage = _currentPage;
     final previousOverview = _showGroupOverview;
 
+    // 1) 캐시가 있으면 즉시 표시 (로딩 스피너 없이)
+    if (_ticketData == null && !preserveGroupContext) {
+      final cached = await _loadTicketCache(widget.accessToken);
+      if (cached != null && mounted) {
+        _applyTicketData(cached, false, 0, false);
+        _isFromCache = true;
+        // 캐시 표시 후 백그라운드에서 최신 데이터 갱신
+        _refreshFromNetwork(previousPage, previousOverview);
+        return;
+      }
+    }
+
+    // 캐시 없으면 로딩 표시
     setState(() {
-      _isLoading = true;
+      _isLoading = _ticketData == null;
       _errorText = null;
       _isFromCache = false;
     });
+
+    await _refreshFromNetwork(previousPage, previousOverview, preserveGroupContext: preserveGroupContext);
+  }
+
+  Future<void> _refreshFromNetwork(int previousPage, bool previousOverview, {bool preserveGroupContext = false}) async {
+    if (_isRefreshing) return;
+    _isRefreshing = true;
 
     try {
       final result = await ref
@@ -245,17 +266,24 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
           .getMobileTicketByToken(accessToken: widget.accessToken);
       if (!mounted) return;
 
-      // 성공 시 로컬 캐시에 저장 (오프라인 폴백용)
+      // 성공 시 로컬 캐시에 저장
       _saveTicketCache(widget.accessToken, result);
 
       _applyTicketData(result, preserveGroupContext, previousPage, previousOverview);
+      _isFromCache = false;
     } catch (e) {
       if (!mounted) return;
-      // 네트워크 실패 시 로컬 캐시에서 로드
+      // 이미 캐시 데이터가 표시되고 있으면 에러 무시
+      if (_ticketData != null) {
+        _isRefreshing = false;
+        return;
+      }
+      // 캐시도 없고 네트워크도 실패
       final cached = await _loadTicketCache(widget.accessToken);
       if (cached != null && mounted) {
         _applyTicketData(cached, preserveGroupContext, previousPage, previousOverview);
         setState(() => _isFromCache = true);
+        _isRefreshing = false;
         return;
       }
       if (!mounted) return;
@@ -264,6 +292,7 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
         _errorText = '티켓을 찾을 수 없습니다';
       });
     }
+    _isRefreshing = false;
   }
 
   void _applyTicketData(
@@ -1409,6 +1438,8 @@ class _GroupTicketOverview extends StatelessWidget {
                           ? CachedNetworkImage(
                               imageUrl: imageUrl!,
                               fit: BoxFit.cover,
+                              memCacheWidth: 220,
+                              fadeInDuration: const Duration(milliseconds: 100),
                               errorWidget: (_, __, ___) => const Icon(
                                 Icons.music_note_rounded,
                                 color: _burgundy,
@@ -3246,14 +3277,11 @@ class _PosterWithQr extends StatelessWidget {
                   imageUrl: imageUrl!,
                   fit: BoxFit.fitWidth,
                   width: double.infinity,
-                  placeholder: (_, __) => const SizedBox(
+                  memCacheWidth: 800, // 메모리 캐시 최적화 (디코딩 속도 ↑)
+                  fadeInDuration: const Duration(milliseconds: 150),
+                  placeholder: (_, __) => Container(
                     height: 280,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: _burgundy,
-                      ),
-                    ),
+                    color: _creamDark,
                   ),
                   errorWidget: (_, __, ___) => const SizedBox(
                     height: 280,
