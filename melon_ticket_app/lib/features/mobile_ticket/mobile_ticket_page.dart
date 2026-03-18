@@ -987,7 +987,14 @@ class _TicketViewState extends ConsumerState<_TicketView>
           end: Alignment.bottomRight,
         ),
       ),
-      child: SingleChildScrollView(
+      child: isCancelled
+        ? _CancelledTicketView(
+            eventTitle: eventTitle,
+            venueName: venueName,
+            startAt: startAt,
+            naverProductUrl: naverProductUrl,
+          )
+        : SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
         child: Column(
           children: [
@@ -1070,6 +1077,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
                               buyerPhoneMasked: buyerPhoneMasked,
                               recipientName: recipientName,
                               naverOrderId: naverOrderId,
+                              naverProductUrl: naverProductUrl,
                               seatGrade: seatGrade,
                               seatInfo: seatInfo,
                               entryNumber: entryNumber,
@@ -2760,6 +2768,7 @@ class _BackCard extends StatefulWidget {
   final bool qrRevealed;
   final bool isCancelled;
   final bool isUsed;
+  final String? naverProductUrl;
   final List<String> pamphletUrls;
   final VoidCallback onBack;
 
@@ -2770,6 +2779,7 @@ class _BackCard extends StatefulWidget {
     this.buyerPhoneMasked,
     this.recipientName,
     this.naverOrderId,
+    this.naverProductUrl,
     this.seatGrade = '',
     this.seatInfo,
     required this.entryNumber,
@@ -2820,6 +2830,142 @@ class _BackCardState extends State<_BackCard>
       final revealed = !now.isBefore(widget.revealAt!);
       setState(() => _localQrRevealed = revealed);
     }
+  }
+
+  void _showCancelDialog(BuildContext context) {
+    final hasNaverUrl = widget.naverProductUrl != null && widget.naverProductUrl!.isNotEmpty;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: _cream,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFB05050).withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.receipt_long_rounded,
+                  color: Color(0xFFB05050),
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '티켓 취소/환불',
+                style: AppTheme.nanum(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: _textDark,
+                  noShadow: true,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _creamDark,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _cancelInfoRow(
+                      Icons.storefront_rounded,
+                      hasNaverUrl
+                          ? '네이버 스토어에서 취소/환불 신청이 가능합니다.'
+                          : '판매처에 직접 문의하여 취소/환불을 신청해주세요.',
+                    ),
+                    const SizedBox(height: 10),
+                    _cancelInfoRow(
+                      Icons.event_seat_rounded,
+                      '취소 시 좌석 배정이 해제되며, 이 티켓 링크는 더 이상 사용할 수 없습니다.',
+                    ),
+                    const SizedBox(height: 10),
+                    _cancelInfoRow(
+                      Icons.gavel_rounded,
+                      '취소/환불 규정은 판매처 정책을 따릅니다.',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _textMid,
+                        side: const BorderSide(color: _divider),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text('닫기', style: AppTheme.nanum(fontWeight: FontWeight.w700, noShadow: true)),
+                    ),
+                  ),
+                  if (hasNaverUrl) ...[
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          launchUrl(
+                            Uri.parse(widget.naverProductUrl!),
+                            mode: LaunchMode.externalApplication,
+                          );
+                        },
+                        icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                        label: Text(
+                          '네이버에서 취소하기',
+                          style: AppTheme.nanum(fontWeight: FontWeight.w700, noShadow: true),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _naverGreen,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _cancelInfoRow(IconData icon, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: _textMid),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: AppTheme.nanum(
+              fontSize: 12.5,
+              color: _textMid,
+              height: 1.5,
+              noShadow: true,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -3160,6 +3306,29 @@ class _BackCardState extends State<_BackCard>
                       ],
                     ),
                   ),
+
+                  // ── 취소/환불 버튼 (활성 티켓만) ──
+                  if (!widget.isCancelled && !widget.isUsed) ...[
+                    const SizedBox(height: 12),
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: () => _showCancelDialog(context),
+                        icon: const Icon(Icons.cancel_outlined, size: 16),
+                        label: Text(
+                          '취소/환불하기',
+                          style: AppTheme.nanum(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            noShadow: true,
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFFB05050),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 20),
 
@@ -3807,6 +3976,152 @@ class _GoldDivider extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── 취소된 티켓 전용 화면 ──
+class _CancelledTicketView extends StatelessWidget {
+  final String eventTitle;
+  final String venueName;
+  final DateTime? startAt;
+  final String? naverProductUrl;
+
+  const _CancelledTicketView({
+    required this.eventTitle,
+    required this.venueName,
+    this.startAt,
+    this.naverProductUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasNaverUrl = naverProductUrl != null && naverProductUrl!.isNotEmpty;
+    final dateText = startAt != null
+        ? DateFormat('yyyy.MM.dd (E) HH:mm', 'ko_KR').format(startAt!)
+        : null;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 60),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 취소 아이콘
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                color: const Color(0xFFB05050).withValues(alpha: 0.10),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.cancel_rounded,
+                color: Color(0xFFB05050),
+                size: 44,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              '이 티켓은 취소되었습니다',
+              style: AppTheme.nanum(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: _textDark,
+                noShadow: true,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '취소된 티켓은 입장에 사용할 수 없으며\n좌석 배정이 해제되었습니다.',
+              style: AppTheme.nanum(
+                fontSize: 13,
+                color: _textMid,
+                height: 1.6,
+                noShadow: true,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+
+            // 공연 정보 카드
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _creamDark,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    eventTitle,
+                    style: AppTheme.nanum(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: _textDark,
+                      noShadow: true,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (dateText != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      dateText,
+                      style: AppTheme.nanum(
+                        fontSize: 12,
+                        color: _textMid,
+                        noShadow: true,
+                      ),
+                    ),
+                  ],
+                  if (venueName.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      venueName,
+                      style: AppTheme.nanum(
+                        fontSize: 12,
+                        color: _textMid,
+                        noShadow: true,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            if (hasNaverUrl) ...[
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => launchUrl(
+                    Uri.parse(naverProductUrl!),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                  label: Text(
+                    '네이버에서 환불 확인하기',
+                    style: AppTheme.nanum(
+                      fontWeight: FontWeight.w700,
+                      noShadow: true,
+                    ),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _naverGreen,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
