@@ -3202,7 +3202,9 @@ class _VenueDetailScreenState extends ConsumerState<VenueDetailScreen> {
                         color: AdminTheme.textPrimary,
                       )),
                   const SizedBox(height: 8),
-                  if (_floors!.isEmpty)
+                  if (venue.seatLayout != null && venue.seatLayout!.seats.isNotEmpty)
+                    ..._buildSeatLayoutSummary(venue.seatLayout!)
+                  else if (_floors!.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -3211,85 +3213,13 @@ class _VenueDetailScreenState extends ConsumerState<VenueDetailScreen> {
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Text(
-                        '등록된 좌석 구조가 없습니다. 좌석 구조 편집에서 추가해주세요.',
+                        '좌석배치도 엑셀을 업로드하면 층/구역 정보가 자동으로 표시됩니다.',
                         style: AdminTheme.sans(
                           fontSize: 12,
                           color: AdminTheme.textTertiary,
                         ),
                       ),
-                    )
-                  else
-                    ..._floors!.map((floor) => Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(floor.name,
-                                style: AdminTheme.sans(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: AdminTheme.textPrimary,
-                                )),
-                            const SizedBox(height: 8),
-                            ...floor.blocks.map((block) => Container(
-                                  margin: const EdgeInsets.only(bottom: 6),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: AdminTheme.card,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Text('${block.name}열',
-                                          style: AdminTheme.sans(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: AdminTheme.textPrimary,
-                                          )),
-                                      const SizedBox(width: 8),
-                                      if (block.grade != null)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 1),
-                                          decoration: BoxDecoration(
-                                            color:
-                                                AdminTheme.gold.withValues(alpha: 0.15),
-                                            borderRadius:
-                                                BorderRadius.circular(4),
-                                          ),
-                                          child: Text(block.grade!,
-                                              style: AdminTheme.sans(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w600,
-                                                color: AdminTheme.gold,
-                                              )),
-                                        ),
-                                      const Spacer(),
-                                      Builder(
-                                        builder: (_) {
-                                          final isCustom =
-                                              block.customRows.isNotEmpty;
-                                          final rowCount = isCustom
-                                              ? block.customRows.length
-                                              : block.rows;
-                                          final modeText = isCustom
-                                              ? '자유 편집'
-                                              : _layoutDirectionLabel(
-                                                  block.layoutDirection,
-                                                );
-                                          return Text(
-                                              '$rowCount행 · ${fmt.format(block.totalSeats)}석 · $modeText',
-                                              style: AdminTheme.sans(
-                                                fontSize: 12,
-                                                color: AdminTheme.textTertiary,
-                                              ));
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                )),
-                            const SizedBox(height: 12),
-                          ],
-                        )),
+                    ),
                 ],
               ),
             ),
@@ -3421,6 +3351,109 @@ class _VenueDetailScreenState extends ConsumerState<VenueDetailScreen> {
     } finally {
       if (mounted) setState(() => _isSavingLayout = false);
     }
+  }
+
+  /// seatLayout에서 층/구역별 요약 생성
+  List<Widget> _buildSeatLayoutSummary(VenueSeatLayout layout) {
+    final fmt = NumberFormat('#,###');
+
+    // 층 → 구역 → 좌석수, 등급, 열 수 집계
+    final floorData = <String, Map<String, _RowInfo>>{};
+    final floorZoneRows = <String, Map<String, Set<String>>>{};
+    for (final seat in layout.seats) {
+      final floor = seat.floor.isNotEmpty ? seat.floor : '1층';
+      final zone = seat.zone.isNotEmpty ? seat.zone : '-';
+      final row = seat.row.isNotEmpty ? seat.row : '-';
+
+      final zoneMap = floorData.putIfAbsent(floor, () => {});
+      final info = zoneMap.putIfAbsent(zone, () => _RowInfo());
+      info.count++;
+      info.grades.add(seat.grade);
+
+      floorZoneRows
+          .putIfAbsent(floor, () => {})
+          .putIfAbsent(zone, () => {})
+          .add(row);
+    }
+
+    // 층 정렬
+    final sortedFloors = floorData.keys.toList()..sort((a, b) {
+      final na = int.tryParse(a.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+      final nb = int.tryParse(b.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+      return na.compareTo(nb);
+    });
+
+    final gradeColors = {
+      'VIP': const Color(0xFFC9A84C),
+      'R': const Color(0xFFE53935),
+      'S': const Color(0xFF1E88E5),
+      'A': const Color(0xFF43A047),
+    };
+
+    final widgets = <Widget>[];
+    for (final floor in sortedFloors) {
+      final zones = floorData[floor]!;
+      final floorTotal = zones.values.fold<int>(0, (sum, r) => sum + r.count);
+
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Text('$floor  (${fmt.format(floorTotal)}석)',
+            style: AdminTheme.sans(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AdminTheme.textPrimary,
+            )),
+      ));
+
+      for (final zone in zones.keys) {
+        final info = zones[zone]!;
+        final zoneTotal = info.count;
+        final zoneGrades = info.grades;
+        widgets.add(Container(
+          margin: const EdgeInsets.only(bottom: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AdminTheme.card,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            children: [
+              Text('${zone}열',
+                  style: AdminTheme.sans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AdminTheme.textPrimary,
+                  )),
+              const SizedBox(width: 8),
+              ...zoneGrades.take(3).map((g) => Container(
+                    margin: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: (gradeColors[g] ?? AdminTheme.textSecondary).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(g,
+                        style: AdminTheme.sans(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: gradeColors[g] ?? AdminTheme.textSecondary,
+                        )),
+                  )),
+              const Spacer(),
+              Text('${floorZoneRows[floor]?[zone]?.length ?? 0}열 · ${fmt.format(zoneTotal)}석',
+                  style: AdminTheme.sans(
+                    fontSize: 12,
+                    color: AdminTheme.textTertiary,
+                  )),
+            ],
+          ),
+        ));
+      }
+
+      widgets.add(const SizedBox(height: 12));
+    }
+
+    return widgets;
   }
 
   Widget _buildSeatMapAssetCard(Venue venue) {
@@ -5999,4 +6032,9 @@ class _RowCenter {
   final String name;
   double minX, minY, maxX, maxY;
   _RowCenter(this.name, this.minX, this.minY, this.maxX, this.maxY);
+}
+
+class _RowInfo {
+  int count = 0;
+  final Set<String> grades = {};
 }
