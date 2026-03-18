@@ -72,6 +72,14 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
                   _buildInfoCard(),
                   const SizedBox(height: 20),
 
+                  // 인터랙티브 배치도 (좌석 클릭 → 시야 업로드)
+                  if (venue?.seatLayout != null && venue!.seatLayout!.seats.isNotEmpty) ...[
+                    _buildSectionTitle('배치도에서 구역 선택'),
+                    const SizedBox(height: 8),
+                    _buildInteractiveSeatMap(venue, existingViews),
+                    const SizedBox(height: 20),
+                  ],
+
                   // 기존 시점 이미지
                   if (existingViews.isNotEmpty) ...[
                     _buildSectionTitle('등록된 시점 이미지'),
@@ -227,6 +235,121 @@ class _VenueViewUploadScreenState extends ConsumerState<VenueViewUploadScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildInteractiveSeatMap(Venue venue, Map<String, VenueSeatView> existingViews) {
+    final layout = venue.seatLayout!;
+
+    // 구역별로 시야 등록 여부 계산
+    final zonesWithView = <String>{};
+    for (final key in existingViews.keys) {
+      final parts = key.split('_');
+      if (parts.isNotEmpty) zonesWithView.add(parts[0]);
+    }
+
+    // 구역 목록 추출
+    final zones = <String>{};
+    final floors = <String>{};
+    for (final seat in layout.seats) {
+      if (seat.zone.isNotEmpty) zones.add(seat.zone);
+      if (seat.floor.isNotEmpty) floors.add(seat.floor);
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AdminTheme.card,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AdminTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 배치도 미리보기
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+            child: Container(
+              width: double.infinity,
+              height: 250,
+              color: const Color(0xFF1A1A2E),
+              child: CustomPaint(
+                painter: _ViewSeatMapPainter(layout, existingViews),
+                size: Size.infinite,
+              ),
+            ),
+          ),
+          // 구역 선택 그리드
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '구역을 선택하여 시야 사진을 업로드하세요',
+                  style: AdminTheme.sans(
+                    fontSize: 12,
+                    color: AdminTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: zones.map((zone) {
+                    final hasView = zonesWithView.contains(zone);
+                    // 해당 구역의 첫 번째 층 찾기
+                    final firstFloor = layout.seats
+                        .where((s) => s.zone == zone)
+                        .map((s) => s.floor)
+                        .whereType<String>()
+                        .where((f) => f.isNotEmpty)
+                        .firstOrNull ?? '1층';
+
+                    return ActionChip(
+                      avatar: Icon(
+                        hasView ? Icons.check_circle_rounded : Icons.add_a_photo_rounded,
+                        size: 16,
+                        color: hasView ? AdminTheme.success : AdminTheme.textSecondary,
+                      ),
+                      label: Text(
+                        '${zone}구역',
+                        style: AdminTheme.sans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: hasView ? AdminTheme.success : AdminTheme.textPrimary,
+                        ),
+                      ),
+                      backgroundColor: hasView
+                          ? AdminTheme.success.withValues(alpha: 0.10)
+                          : AdminTheme.surface,
+                      side: BorderSide(
+                        color: hasView
+                            ? AdminTheme.success.withValues(alpha: 0.3)
+                            : AdminTheme.border,
+                        width: 0.5,
+                      ),
+                      onPressed: () => _addEntryForZone(zone, firstFloor),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addEntryForZone(String zone, String floor) {
+    final entry = _ZoneViewEntry();
+    entry.zoneCtrl.text = zone;
+    entry.floorCtrl.text = floor;
+    entry.descCtrl.text = '${zone}구역 대표 시야';
+    setState(() {
+      _entries.add(entry);
+    });
+
+    // 이미지 선택 다이얼로그 바로 열기
+    Future.microtask(() => _pickImage(_entries.length - 1));
   }
 
   Widget _buildInfoCard() {
@@ -2497,4 +2620,117 @@ class _ZoneViewEntry {
     seatCtrl.dispose();
     descCtrl.dispose();
   }
+}
+
+/// 시야 업로드용 배치도 — 시야 등록된 구역을 녹색 테두리로 표시
+class _ViewSeatMapPainter extends CustomPainter {
+  final VenueSeatLayout layout;
+  final Map<String, VenueSeatView> existingViews;
+
+  _ViewSeatMapPainter(this.layout, this.existingViews);
+
+  static const _gradeColors = {
+    'VIP': Color(0xFFC9A84C),
+    'R': Color(0xFFE74C3C),
+    'S': Color(0xFF3498DB),
+    'A': Color(0xFF2ECC71),
+  };
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (layout.seats.isEmpty) return;
+
+    // 구역별 시야 등록 여부
+    final zonesWithView = <String>{};
+    for (final key in existingViews.keys) {
+      final parts = key.split('_');
+      if (parts.isNotEmpty) zonesWithView.add(parts[0]);
+    }
+
+    // 좌표 범위 계산
+    double minX = double.infinity, maxX = -double.infinity;
+    double minY = double.infinity, maxY = -double.infinity;
+    for (final s in layout.seats) {
+      if (s.x < minX) minX = s.x;
+      if (s.x > maxX) maxX = s.x;
+      if (s.y < minY) minY = s.y;
+      if (s.y > maxY) maxY = s.y;
+    }
+
+    final dataW = maxX - minX;
+    final dataH = maxY - minY;
+    if (dataW <= 0 || dataH <= 0) return;
+
+    // 스테이지 + 여백
+    const stageH = 20.0;
+    const pad = 16.0;
+    final scaleX = (size.width - pad * 2) / dataW;
+    final scaleY = (size.height - pad * 2 - stageH - 8) / dataH;
+    final scale = scaleX < scaleY ? scaleX : scaleY;
+    final offsetX = (size.width - dataW * scale) / 2;
+    final offsetY = pad + stageH + 8;
+
+    // 스테이지
+    final stageRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(size.width * 0.2, pad, size.width * 0.6, stageH),
+      const Radius.circular(4),
+    );
+    canvas.drawRRect(stageRect, Paint()..color = const Color(0xFF3A3A4A));
+    final stageTp = TextPainter(
+      text: const TextSpan(
+        text: 'STAGE',
+        style: TextStyle(color: Color(0xFF888888), fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 2),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    stageTp.paint(canvas, Offset(size.width / 2 - stageTp.width / 2, pad + stageH / 2 - stageTp.height / 2));
+
+    // 좌석 그리기
+    final dotR = (scale * 0.35).clamp(1.5, 4.0);
+    for (final s in layout.seats) {
+      final cx = offsetX + (s.x - minX) * scale;
+      final cy = offsetY + (s.y - minY) * scale;
+      final color = _gradeColors[s.grade] ?? const Color(0xFF666666);
+      final hasView = zonesWithView.contains(s.zone);
+
+      canvas.drawCircle(
+        Offset(cx, cy),
+        dotR,
+        Paint()..color = hasView ? color : color.withValues(alpha: 0.5),
+      );
+
+      // 시야 등록된 좌석은 밝은 테두리
+      if (hasView) {
+        canvas.drawCircle(
+          Offset(cx, cy),
+          dotR + 1,
+          Paint()
+            ..color = const Color(0xFF2ECC71).withValues(alpha: 0.4)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 0.8,
+        );
+      }
+    }
+
+    // 라벨 (열/구역 표시)
+    for (final label in layout.labels) {
+      final lx = offsetX + (label.x - minX) * scale;
+      final ly = offsetY + (label.y - minY) * scale;
+      final tp = TextPainter(
+        text: TextSpan(
+          text: label.text,
+          style: TextStyle(
+            color: const Color(0xFFAAAAAA),
+            fontSize: (label.fontSize * scale * 0.5).clamp(6.0, 11.0),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(lx - tp.width / 2, ly - tp.height / 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ViewSeatMapPainter old) => true;
 }

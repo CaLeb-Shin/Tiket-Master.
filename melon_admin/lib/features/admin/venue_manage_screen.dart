@@ -3182,7 +3182,7 @@ class _VenueDetailScreenState extends ConsumerState<VenueDetailScreen> {
                       _stat('총 좌석', '${fmt.format(totalSeats)}석'),
                       _stat('층수', '${_floors!.length}층'),
                       _stat('무대', _stagePositionLabel(_stagePosition ?? 'top')),
-                      _stat('3D 시야', venue.hasSeatView ? '등록됨' : '미등록'),
+                      _stat('좌석 시야', venue.hasSeatView ? '등록됨' : '미등록'),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -3304,53 +3304,25 @@ class _VenueDetailScreenState extends ConsumerState<VenueDetailScreen> {
             ),
             child: Column(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _isSavingLayout
-                            ? null
-                            : () => _editSeatStructure(venue),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AdminTheme.textPrimary,
-                          side: const BorderSide(color: AdminTheme.border, width: 0.5),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: _isSavingLayout
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AdminTheme.gold,
-                                ),
-                              )
-                            : Text('좌석 구조 편집',
-                                style: AdminTheme.sans(
-                                    fontWeight: FontWeight.w700)),
-                      ),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      context.go(
+                        '/venues/${venue.id}/views?name=${Uri.encodeComponent(venue.name)}',
+                      );
+                    },
+                    icon: const Icon(Icons.camera_alt_rounded, size: 18),
+                    label: Text('좌석 시야 업로드',
+                        style: AdminTheme.sans(
+                            fontWeight: FontWeight.w700)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AdminTheme.textPrimary,
+                      side: const BorderSide(color: AdminTheme.border, width: 0.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          context.go(
-                            '/venues/${venue.id}/views?name=${Uri.encodeComponent(venue.name)}',
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AdminTheme.textPrimary,
-                          side: const BorderSide(color: AdminTheme.border, width: 0.5),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: Text('3D 시야 업로드',
-                            style: AdminTheme.sans(
-                                fontWeight: FontWeight.w700)),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 10),
                 SizedBox(
