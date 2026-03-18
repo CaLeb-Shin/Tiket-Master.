@@ -1329,7 +1329,7 @@ class EnhancedExcelParser {
   }
 
   static bool _isValidGrade(String grade) {
-    return {'VIP', 'R', 'S', 'A'}.contains(grade);
+    return {'VIP', 'R', 'S', 'A', '시야장애', '하우스유보', '유보석'}.contains(grade);
   }
 }
 

@@ -4859,8 +4859,12 @@ class _SeatStructureEditorSheetState extends State<_SeatStructureEditorSheet> {
     'R': Color(0xFFE53935),
     'S': Color(0xFF1E88E5),
     'A': Color(0xFF43A047),
+    '시야장애': Color(0xFF888888),
+    '하우스유보': Color(0xFF4488CC),
+    '유보석': Color(0xFF666666),
   };
   static const _gradeOrder = ['VIP', 'R', 'S', 'A'];
+  static const _extraGrades = ['시야장애', '하우스유보', '유보석'];
 
   @override
   void initState() {
@@ -4995,43 +4999,50 @@ class _SeatStructureEditorSheetState extends State<_SeatStructureEditorSheet> {
                 _dialogField('번호', numCtrl, isNumber: true),
                 const SizedBox(height: 14),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('등급',
-                        style: AdminTheme.sans(
-                          fontSize: 12,
-                          color: AdminTheme.textSecondary,
-                        )),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text('등급',
+                          style: AdminTheme.sans(
+                            fontSize: 12,
+                            color: AdminTheme.textSecondary,
+                          )),
+                    ),
                     const SizedBox(width: 12),
-                    ..._gradeOrder.map(
-                      (g) => Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: GestureDetector(
-                          onTap: () => setDlg(() => tempGrade = g),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: tempGrade == g
-                                  ? _gradeColors[g]
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: _gradeColors[g] ?? AdminTheme.border,
-                                width: tempGrade == g ? 1.5 : 0.5,
-                              ),
-                            ),
-                            child: Text(
-                              g,
-                              style: AdminTheme.sans(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
+                    Expanded(
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: [..._gradeOrder, ..._extraGrades].map(
+                          (g) => GestureDetector(
+                            onTap: () => setDlg(() => tempGrade = g),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
                                 color: tempGrade == g
-                                    ? Colors.white
-                                    : _gradeColors[g],
+                                    ? _gradeColors[g]
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: _gradeColors[g] ?? AdminTheme.border,
+                                  width: tempGrade == g ? 1.5 : 0.5,
+                                ),
+                              ),
+                              child: Text(
+                                g,
+                                style: AdminTheme.sans(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: tempGrade == g
+                                      ? Colors.white
+                                      : _gradeColors[g],
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ).toList(),
                       ),
                     ),
                   ],
@@ -5253,7 +5264,7 @@ class _SeatStructureEditorSheetState extends State<_SeatStructureEditorSheet> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Row(
-              children: _gradeOrder
+              children: [..._gradeOrder, ..._extraGrades]
                   .where((g) => gc.containsKey(g))
                   .map((g) => Padding(
                         padding: const EdgeInsets.only(right: 14),
@@ -5307,7 +5318,7 @@ class _SeatStructureEditorSheetState extends State<_SeatStructureEditorSheet> {
                   ),
                   if (_tool == 'grade') ...[
                     const SizedBox(width: 8),
-                    ..._gradeOrder.map(
+                    ...[..._gradeOrder, ..._extraGrades].map(
                       (g) => Padding(
                         padding: const EdgeInsets.only(right: 4),
                         child: GestureDetector(
@@ -5375,7 +5386,7 @@ class _SeatStructureEditorSheetState extends State<_SeatStructureEditorSheet> {
                                 color: AdminTheme.textPrimary)),
                       ),
                       const PopupMenuDivider(),
-                      ...['VIP', 'R', 'S', 'A'].map(
+                      ...[..._gradeOrder, ..._extraGrades].map(
                         (g) => PopupMenuItem(
                           value: 'grade:$g',
                           child: Row(
@@ -5455,7 +5466,7 @@ class _SeatStructureEditorSheetState extends State<_SeatStructureEditorSheet> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  ..._gradeOrder.map(
+                  ...[..._gradeOrder, ..._extraGrades].map(
                     (g) => Padding(
                       padding: const EdgeInsets.only(right: 4),
                       child: _actionChip(
@@ -5735,6 +5746,9 @@ class _InteractiveSeatMapPainter extends CustomPainter {
     'R': Color(0xFFE53935),
     'S': Color(0xFF1E88E5),
     'A': Color(0xFF43A047),
+    '시야장애': Color(0xFF888888),
+    '하우스유보': Color(0xFF4488CC),
+    '유보석': Color(0xFF666666),
   };
 
   @override
