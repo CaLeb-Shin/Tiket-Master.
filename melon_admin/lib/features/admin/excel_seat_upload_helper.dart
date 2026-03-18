@@ -736,7 +736,20 @@ class EnhancedExcelParser {
     final floorIdx = _findCol(header, ['floor', '층']);
     final gradeIdx = _findCol(header, ['grade', '등급', 'class']);
     final rowIdx = _findCol(header, ['row', '열', '행']);
-    final numIdx = _findCol(header, ['number', '번호', 'seat', 'num', '좌석']);
+    // '좌석번호'를 먼저 시도 → '좌석수'와 혼동 방지
+    var numIdx = _findCol(header, ['좌석번호']);
+    if (numIdx < 0) numIdx = _findCol(header, ['number', '번호']);
+    if (numIdx < 0) {
+      for (int c = 0; c < header.length; c++) {
+        if (header[c].contains('좌석') &&
+            !header[c].contains('좌석수') &&
+            !header[c].contains('좌석등급') &&
+            !header[c].contains('등급')) {
+          numIdx = c;
+          break;
+        }
+      }
+    }
     final xIdx = _findCol(header, ['x', 'col', '열위치']);
     final yIdx = _findCol(header, ['y', 'row_pos', '행위치']);
     final typeIdx = _findCol(header, ['type', '유형', 'seat_type']);
@@ -786,10 +799,10 @@ class EnhancedExcelParser {
           zone = blockRowMatch.group(1)!;
           rowName = blockRowMatch.group(2)!;
         } else {
-          // Try extracting just the number (e.g. "3열" → "3")
-          final rowNumMatch = RegExp(r'(\d+)').firstMatch(rowName);
-          if (rowNumMatch != null) {
-            rowName = rowNumMatch.group(1)!;
+          // "A열" → "A", "3열" → "3", just clean up '열' suffix
+          final cleaned = rowName.replaceAll('열', '').trim();
+          if (cleaned.isNotEmpty) {
+            rowName = cleaned;
           }
         }
       }
@@ -2381,15 +2394,34 @@ class ExcelToSeatMapConverter {
           : sheet.maxColumns - 1;
     }
 
+    // 시트 전체 스캔 → 층 경계 마커 수집 (행별로 어느 층인지 매핑)
+    // "1층", "2층", "1층(594석)" 등 패턴을 전체 행에서 검색
+    final floorBoundaries = <int, String>{}; // excelRow → floor name
     String floor = defaultFloor;
-    for (int r = 0; r < math.min(sheet.maxRows, 10); r++) {
+    for (int r = 0; r < sheet.maxRows; r++) {
       for (int c = 0; c < sheet.maxColumns; c++) {
         final val = sheet.cell(
           CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r),
         ).value?.toString().trim() ?? '';
         final m = RegExp(r'(\d)층').firstMatch(val);
-        if (m != null) { floor = '${m.group(1)}층'; break; }
+        if (m != null) {
+          floorBoundaries[r] = '${m.group(1)}층';
+          break;
+        }
       }
+    }
+    // 첫 번째 층 마커가 있으면 그걸 기본값으로
+    final sortedFloorKeys = floorBoundaries.keys.toList()..sort();
+    if (sortedFloorKeys.isNotEmpty) {
+      floor = floorBoundaries[sortedFloorKeys.first]!;
+    }
+    // 행 → 층 매핑 함수 (가장 가까운 이전 경계 기준)
+    String floorForRow(int row) {
+      String f = floor;
+      for (final key in sortedFloorKeys) {
+        if (key <= row) f = floorBoundaries[key]!; else break;
+      }
+      return f;
     }
 
     final gradeLabelColors = <String, String>{};
@@ -2429,18 +2461,49 @@ class ExcelToSeatMapConverter {
       return g;
     }
 
+    // 열 라벨 수집: "열" 컬럼에서 숫자뿐 아니라 알파벳/텍스트도 허용
     final rowLabels = <int, String>{};
     for (final lc in rowLabelCols) {
       for (int r = 0; r < sheet.maxRows; r++) {
         final val = sheet.cell(
           CellIndex.indexByColumnRow(columnIndex: lc, rowIndex: r),
         ).value?.toString().trim() ?? '';
-        if (val.isNotEmpty && int.tryParse(val) != null) rowLabels[r] = val;
+        if (val.isNotEmpty && val != '열') rowLabels[r] = val;
+      }
+    }
+
+    // "열" 컬럼이 없는 경우: 각 블록의 startCol 바로 왼쪽 열에서 숫자를 찾아 row label로 사용
+    if (rowLabelCols.isEmpty && blockRanges.isNotEmpty) {
+      for (final block in blockRanges) {
+        final labelCol = block.startCol - 1;
+        if (labelCol < 0) continue;
+        for (int r = 0; r < sheet.maxRows; r++) {
+          if (rowLabels.containsKey(r)) continue;
+          final val = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: labelCol, rowIndex: r),
+          ).value?.toString().trim() ?? '';
+          if (val.isNotEmpty && int.tryParse(val) != null) {
+            rowLabels[r] = val;
+          }
+        }
+      }
+    }
+
+    // "열" 컬럼도 블록도 없는 경우: 0번 컬럼에서 행 라벨 추출
+    if (rowLabels.isEmpty) {
+      for (int r = 0; r < sheet.maxRows; r++) {
+        final val = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: r),
+        ).value?.toString().trim() ?? '';
+        if (val.isNotEmpty && int.tryParse(val) != null) {
+          rowLabels[r] = val;
+        }
       }
     }
 
     for (int r = 0; r < sheet.maxRows; r++) {
       if (stage != null && r >= stage.startRow && r <= stage.endRow) continue;
+      final seatFloor = floorForRow(r); // 행별 층 매핑
       for (int c = 0; c < sheet.maxColumns; c++) {
         if (rowLabelCols.contains(c)) continue;
         final cell = sheet.cell(
@@ -2471,7 +2534,7 @@ class ExcelToSeatMapConverter {
           excelRow: r,
           excelCol: c,
           zone: zone,
-          floor: floor,
+          floor: seatFloor,
           row: rowLabels[r] ?? '${r + 1}',
           number: seatNum,
           grade: grade,
@@ -2563,15 +2626,31 @@ class ExcelToSeatMapConverter {
     final floorIdx = EnhancedExcelParser._findCol(header, ['floor', '층']);
     final gradeIdx = EnhancedExcelParser._findCol(header, ['grade', '등급']);
     final rowIdx = EnhancedExcelParser._findCol(header, ['row', '열', '행']);
-    final numIdx = EnhancedExcelParser._findCol(header, ['number', '번호', 'seat', '좌석']);
+    // '좌석번호'를 먼저 시도하고, '번호'로 fallback → '좌석수'와 혼동 방지
+    var numIdx = EnhancedExcelParser._findCol(header, ['좌석번호']);
+    numIdx = numIdx >= 0 ? numIdx : EnhancedExcelParser._findCol(header, ['number', '번호']);
+    if (numIdx < 0) {
+      // '좌석' 키워드로 검색하되 '좌석수'/'좌석등급' 컬럼 제외
+      for (int c = 0; c < header.length; c++) {
+        if (header[c].contains('좌석') &&
+            !header[c].contains('좌석수') &&
+            !header[c].contains('좌석등급') &&
+            !header[c].contains('등급')) {
+          numIdx = c;
+          break;
+        }
+      }
+    }
 
     if (gradeIdx < 0) {
       errors.add('시트 "$sheetName": 등급 컬럼 없음');
       return;
     }
 
-    int virtualRow = 0;
+    // 층별 virtualRow를 별도 트래킹 (1층 A열=1, 2층 A열=1로 리셋)
+    final floorRowCounter = <String, int>{};
     String? prevRowKey;
+    int virtualRow = 0;
 
     for (int r = 1; r < sheet.maxRows; r++) {
       String cellVal(int? idx) {
@@ -2589,17 +2668,29 @@ class ExcelToSeatMapConverter {
       var rowName = cellVal(rowIdx);
       final numStr = cellVal(numIdx);
 
+      // 열 이름 파싱: "B블록3열" → zone=B블록, row=3 / "A열" → row=A / "3열" → row=3 / "3" → row=3
+      String? parsedZone;
       if (rowName.isNotEmpty) {
-        final m = RegExp(r'^([A-Za-z가-힣]+블록?)(\d+)열?$').firstMatch(rowName);
-        if (m != null) rowName = m.group(2)!;
-        else {
-          final n = RegExp(r'(\d+)').firstMatch(rowName);
-          if (n != null) rowName = n.group(1)!;
+        final blockRowMatch = RegExp(r'^([A-Za-z가-힣]+블록?)(\d+)열?$').firstMatch(rowName);
+        if (blockRowMatch != null) {
+          parsedZone = blockRowMatch.group(1)!;
+          rowName = blockRowMatch.group(2)!;
+        } else {
+          // "A열" → "A", "3열" → "3", "A" → "A"
+          final cleaned = rowName.replaceAll('열', '').trim();
+          if (cleaned.isNotEmpty) {
+            rowName = cleaned;
+          }
         }
       }
 
-      final rowKey = '$zone:$floor:$rowName';
+      final effectiveZone = parsedZone ?? (zone.isNotEmpty ? zone : sheetName);
+      final effectiveFloor = floor.isNotEmpty ? floor : defaultFloor;
+
+      final rowKey = '$effectiveZone:$effectiveFloor:$rowName';
       if (rowKey != prevRowKey) { virtualRow++; prevRowKey = rowKey; }
+      final floorKey = effectiveFloor;
+      floorRowCounter[floorKey] = (floorRowCounter[floorKey] ?? 0);
 
       final seatNumbers = numStr.split(RegExp(r'[\s,]+'))
           .where((s) => s.isNotEmpty && int.tryParse(s) != null)
@@ -2610,8 +2701,8 @@ class ExcelToSeatMapConverter {
         seats.add(_CellSeat(
           excelRow: virtualRow,
           excelCol: sn > 0 ? sn : seats.length % 40,
-          zone: zone.isNotEmpty ? zone : sheetName,
-          floor: floor.isNotEmpty ? floor : defaultFloor,
+          zone: effectiveZone,
+          floor: effectiveFloor,
           row: rowName, number: sn, grade: grade,
         ));
       }
