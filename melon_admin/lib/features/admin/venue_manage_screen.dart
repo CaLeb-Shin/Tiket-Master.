@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,8 @@ import 'package:melon_core/data/repositories/venue_repository.dart';
 import 'package:melon_core/data/repositories/venue_request_repository.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/services/storage_service.dart';
+import 'excel_seat_upload_helper.dart';
+import 'widgets/seat_map_picker.dart';
 
 /// 공연장 관리 화면 (역할 기반: superAdmin=관리+요청처리, seller=열람+요청)
 class VenueManageScreen extends ConsumerStatefulWidget {
@@ -3753,6 +3756,12 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
   String? _seatMapFileName;
   List<VenueFloor> _layoutFloors = [];
 
+  // 엑셀 파싱 결과
+  bool _isParsingExcel = false;
+  String? _excelFileName;
+  ParsedSeatData? _parsedSeatData;
+  VenueSeatLayout? _parsedSeatLayout;
+
   // 프리셋으로 자동 채워진 경우
   Venue? _presetVenue;
 
@@ -4022,58 +4031,99 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
   }
 
   Widget _buildSeatMapUploadField() {
-    final hasFile = _seatMapBytes != null && _seatMapFileName != null;
+    final hasExcel = _excelFileName != null;
+    final hasParsed = _parsedSeatLayout != null;
     final hasLayout = _layoutFloors.isNotEmpty;
+    final fmt = NumberFormat('#,###');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('좌석배치도 이미지 (선택)',
+        Text('좌석배치도 엑셀 업로드',
             style: AdminTheme.sans(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AdminTheme.textSecondary,
             )),
         const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AdminTheme.surface,
-            border: Border.all(color: AdminTheme.sage.withValues(alpha: 0.15), width: 0.5),
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  hasFile ? _seatMapFileName! : '업로드된 파일 없음',
-                  style: AdminTheme.sans(
-                    fontSize: 12,
-                    color:
-                        hasFile ? AdminTheme.textPrimary : AdminTheme.textTertiary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+
+        // 엑셀 업로드 영역
+        InkWell(
+          onTap: _isParsingExcel ? null : _pickExcelForVenue,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            decoration: BoxDecoration(
+              color: AdminTheme.surface,
+              border: Border.all(
+                color: hasParsed
+                    ? AdminTheme.success.withValues(alpha: 0.5)
+                    : AdminTheme.sage.withValues(alpha: 0.25),
+                width: 0.5,
               ),
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: _pickSeatMapImage,
-                style: TextButton.styleFrom(
-                  foregroundColor: AdminTheme.textPrimary,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                ),
-                child: Text(
-                  hasFile ? '교체' : '업로드',
-                  style: AdminTheme.sans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Column(
+              children: [
+                if (_isParsingExcel) ...[
+                  const SizedBox(
+                    width: 24, height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2, color: AdminTheme.gold,
+                    ),
                   ),
-                ),
-              ),
-            ],
+                  const SizedBox(height: 8),
+                  Text('좌석 배치도 분석 중...',
+                    style: AdminTheme.sans(
+                      fontSize: 12, color: AdminTheme.textTertiary,
+                    ),
+                  ),
+                ] else if (hasParsed) ...[
+                  const Icon(Icons.check_circle_outline,
+                    size: 28, color: AdminTheme.success),
+                  const SizedBox(height: 8),
+                  Text(_excelFileName ?? '',
+                    style: AdminTheme.sans(
+                      fontSize: 12, fontWeight: FontWeight.w600,
+                      color: AdminTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${fmt.format(_parsedSeatLayout!.totalSeats)}석 감지 · 탭하여 다시 업로드',
+                    style: AdminTheme.sans(
+                      fontSize: 11, color: AdminTheme.textTertiary,
+                    ),
+                  ),
+                ] else ...[
+                  Icon(Icons.upload_file_outlined,
+                    size: 28,
+                    color: AdminTheme.sage.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('좌석배치도 엑셀 파일을 업로드하세요',
+                    style: AdminTheme.sans(
+                      fontSize: 12, color: AdminTheme.textTertiary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('.xlsx / .xls 지원 · 색상 기반 자동 등급 분류',
+                    style: AdminTheme.sans(
+                      fontSize: 10, color: AdminTheme.sage.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
+
+        // 파싱 결과 Canvas 미리보기
+        if (hasParsed) ...[
+          const SizedBox(height: 12),
+          _buildParsedSeatMapPreview(),
+        ],
+
         const SizedBox(height: 8),
         Container(
           width: double.infinity,
@@ -4087,9 +4137,9 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                hasLayout
-                    ? '이미지 없이도 작성한 좌석 구조로 자동 배치도를 생성합니다. 무대 위치도 함께 수정할 수 있습니다.'
-                    : '좌석배치도 이미지가 없어도 아래 버튼에서 직접 좌석 구조를 만들 수 있습니다.',
+                hasParsed || hasLayout
+                    ? '엑셀 파싱 완료! 아래 편집 도구로 미세 조정할 수 있습니다.'
+                    : '엑셀 없이도 아래 버튼에서 직접 좌석 구조를 만들 수 있습니다.',
                 style: AdminTheme.sans(
                   fontSize: 11,
                   color: AdminTheme.textSecondary,
@@ -4112,7 +4162,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
                       const Icon(Icons.construction_rounded, size: 16),
                       const SizedBox(width: 8),
                       Text(
-                        hasLayout ? '직접 만든 좌석 구조 편집' : '좌석배치도 직접 만들기',
+                        hasParsed || hasLayout ? '좌석 구조 편집' : '좌석배치도 직접 만들기',
                         style: AdminTheme.sans(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -4126,6 +4176,73 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildParsedSeatMapPreview() {
+    if (_parsedSeatLayout == null) return const SizedBox.shrink();
+    final layout = _parsedSeatLayout!;
+    final gradeCount = layout.seatCountByGrade;
+    final fmt = NumberFormat('#,###');
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AdminTheme.success.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: AdminTheme.success.withValues(alpha: 0.3), width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.check_circle, size: 14, color: AdminTheme.success),
+              const SizedBox(width: 6),
+              Text('파싱 결과',
+                style: AdminTheme.sans(
+                  fontSize: 12, fontWeight: FontWeight.w600,
+                  color: AdminTheme.success,
+                ),
+              ),
+              const Spacer(),
+              Text('${fmt.format(layout.totalSeats)}석',
+                style: AdminTheme.sans(
+                  fontSize: 13, fontWeight: FontWeight.w700,
+                  color: AdminTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: ['VIP', 'R', 'S', 'A']
+                .where((g) => gradeCount.containsKey(g))
+                .map((g) => Text(
+                      '$g: ${fmt.format(gradeCount[g])}석',
+                      style: AdminTheme.sans(
+                        fontSize: 11, color: AdminTheme.textSecondary,
+                      ),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: 10),
+          // Canvas 미리보기
+          Container(
+            width: double.infinity,
+            height: 200,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A24),
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: CustomPaint(
+              painter: _MiniSeatMapPainter(layout),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -4318,33 +4435,77 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
     });
   }
 
-  Future<void> _pickSeatMapImage() async {
+  Future<void> _pickExcelForVenue() async {
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls'],
         withData: true,
       );
 
       final file = result?.files.single;
       final bytes = file?.bytes;
       if (file == null || bytes == null) return;
-      if (bytes.length > 10 * 1024 * 1024) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('이미지 크기는 10MB 이하만 가능합니다'),
-            backgroundColor: AdminTheme.error,
-          ),
-        );
+
+      setState(() {
+        _isParsingExcel = true;
+        _excelFileName = file.name;
+      });
+
+      // 엑셀 파싱
+      final parsed = await SeatMapParser.parseExcel(bytes, file.name);
+      if (parsed == null || !mounted) {
+        if (mounted) {
+          setState(() => _isParsingExcel = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('좌석 데이터를 파싱할 수 없습니다'),
+              backgroundColor: AdminTheme.error,
+            ),
+          );
+        }
         return;
       }
 
+      // Canvas 좌표 변환
+      final convResult = ExcelToSeatMapConverter.convert(bytes);
+      final layout = convResult.layout;
+
       setState(() {
-        _seatMapBytes = bytes;
-        _seatMapFileName = file.name;
+        _isParsingExcel = false;
+        _parsedSeatData = parsed;
+        _parsedSeatLayout = layout;
+        // floors도 업데이트 (ParsedFloor → VenueFloor 변환)
+        _layoutFloors = parsed.floors
+            .map((f) => VenueFloor(
+                  name: f.name,
+                  blocks: f.blocks
+                      .map((b) => VenueBlock(
+                            name: b.name,
+                            rows: b.rows,
+                            seatsPerRow: b.seatsPerRow,
+                            totalSeats: b.totalSeats,
+                            grade: b.grade,
+                          ))
+                      .toList(),
+                  totalSeats: f.totalSeats,
+                ))
+            .toList();
+        // 공연장명 자동 채우기 (비어있으면)
+        if (_nameCtrl.text.trim().isEmpty && parsed.venueName != null) {
+          _nameCtrl.text = parsed.venueName!;
+        }
       });
-    } catch (_) {
-      // 선택 취소
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isParsingExcel = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('엑셀 파싱 오류: $e'),
+            backgroundColor: AdminTheme.error,
+          ),
+        );
+      }
     }
   }
 
@@ -4362,10 +4523,10 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
     final floors = _layoutFloors.isNotEmpty
         ? _layoutFloors
         : (_presetVenue?.floors ?? <VenueFloor>[]);
-    if (_seatMapBytes == null && floors.isEmpty) {
+    if (_parsedSeatLayout == null && floors.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('좌석배치도 이미지가 없다면 좌석 구조를 먼저 직접 만들어주세요'),
+          content: Text('좌석배치도 엑셀을 업로드하거나 좌석 구조를 직접 만들어주세요'),
           backgroundColor: AdminTheme.error,
         ),
       );
@@ -4383,25 +4544,13 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
             : _addressCtrl.text.trim(),
         stagePosition: _stagePosition,
         floors: floors,
-        totalSeats: _calcTotalSeats(floors),
+        totalSeats: _parsedSeatLayout?.totalSeats ?? _calcTotalSeats(floors),
+        seatLayout: _parsedSeatLayout,
         createdAt: DateTime.now(),
       );
 
       final venueId =
           await ref.read(venueRepositoryProvider).createVenue(venue);
-
-      if (_seatMapBytes != null && _seatMapFileName != null) {
-        final seatMapUrl =
-            await ref.read(storageServiceProvider).uploadSeatMapImage(
-                  bytes: _seatMapBytes!,
-                  venueId: venueId,
-                  fileName: _seatMapFileName!,
-                );
-        await ref.read(venueRepositoryProvider).updateVenue(
-          venueId,
-          {'seatMapImageUrl': seatMapUrl},
-        );
-      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -4425,4 +4574,74 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
+}
+
+/// 미니 좌석맵 Canvas 미리보기
+class _MiniSeatMapPainter extends CustomPainter {
+  final VenueSeatLayout layout;
+
+  _MiniSeatMapPainter(this.layout);
+
+  static const _gradeColors = {
+    'VIP': Color(0xFFD4AF37),
+    'R': Color(0xFFE53935),
+    'S': Color(0xFF1E88E5),
+    'A': Color(0xFF43A047),
+  };
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (layout.seats.isEmpty) return;
+
+    final scaleX = size.width / layout.canvasWidth;
+    final scaleY = size.height / layout.canvasHeight;
+    final scale = scaleX < scaleY ? scaleX : scaleY;
+    final offsetX = (size.width - layout.canvasWidth * scale) / 2;
+    final offsetY = (size.height - layout.canvasHeight * scale) / 2;
+
+    // Stage
+    final stageW = size.width * layout.stageWidthRatio;
+    final stageH = 16.0;
+    final stageRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(size.width / 2, offsetY + stageH / 2 + 4),
+        width: stageW,
+        height: stageH,
+      ),
+      const Radius.circular(3),
+    );
+    canvas.drawRRect(
+      stageRect,
+      Paint()..color = const Color(0xFF3A3A44),
+    );
+    final tp = TextPainter(
+      text: const TextSpan(
+        text: 'STAGE',
+        style: TextStyle(color: Color(0xFF888898), fontSize: 7,
+            fontWeight: FontWeight.w600, letterSpacing: 2),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(
+      size.width / 2 - tp.width / 2,
+      offsetY + stageH / 2 + 4 - tp.height / 2,
+    ));
+
+    // Seats
+    final dotRadius = (scale * 6).clamp(1.5, 4.0);
+    for (final seat in layout.seats) {
+      final x = offsetX + seat.x * scale;
+      final y = offsetY + seat.y * scale;
+      final color = _gradeColors[seat.grade] ?? const Color(0xFF666666);
+      canvas.drawCircle(
+        Offset(x, y),
+        dotRadius,
+        Paint()..color = color,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MiniSeatMapPainter old) =>
+      old.layout != layout;
 }
