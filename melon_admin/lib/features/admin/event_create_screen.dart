@@ -4874,6 +4874,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           isStanding: _isStanding,
           seatAssignMode: _seatAssignMode,
           hallId: _hallId,
+          sellerId: ref.read(currentUserProvider).value?.isSeller == true
+              ? ref.read(currentUserProvider).value?.id
+              : null,
           subscriptionSeats: () {
             final s = <String, int>{};
             for (final g in _enabledGrades) {

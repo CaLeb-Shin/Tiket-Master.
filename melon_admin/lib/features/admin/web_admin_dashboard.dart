@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shad;
 import '../../app/admin_theme.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
+import 'package:melon_core/data/repositories/order_repository.dart';
 import 'package:melon_core/data/models/event.dart';
 import 'package:melon_core/data/models/app_user.dart';
 import 'package:melon_core/services/auth_service.dart';
@@ -39,7 +40,8 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
       );
     }
 
-    if (currentUser.value?.isAdmin != true) {
+    if (currentUser.value?.isAdmin != true &&
+        currentUser.value?.isSeller != true) {
       return Scaffold(
         backgroundColor: AdminTheme.background,
         body: Center(
@@ -215,6 +217,11 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard> {
   }
 
   Widget _buildContent() {
+    final user = ref.watch(currentUserProvider).value;
+    // 셀러는 내 공연만 표시
+    if (user?.isSeller == true && user?.isAdmin != true) {
+      return _SellerDashboard(sellerId: user!.id);
+    }
     switch (_selectedMenuIndex) {
       case 0:
         return const _DashboardContent();
@@ -3071,6 +3078,241 @@ class _OccupancyBar extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── 셀러 전용 대시보드 ───
+
+class _SellerDashboard extends ConsumerWidget {
+  final String sellerId;
+  const _SellerDashboard({required this.sellerId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final eventsAsync = ref.watch(sellerEventsProvider(sellerId));
+    final fmt = NumberFormat('#,###');
+
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'MY EVENTS',
+            style: AdminTheme.label(fontSize: 10, color: AdminTheme.sage),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '내 공연 관리',
+            style: AdminTheme.serif(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: AdminTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              ElevatedButton.icon(
+                onPressed: () => context.go('/events/create'),
+                icon: const Icon(Icons.add, size: 16),
+                label: Text(
+                  '새 공연 등록',
+                  style: AdminTheme.sans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AdminTheme.gold,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          Expanded(
+            child: eventsAsync.when(
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: AdminTheme.gold),
+              ),
+              error: (e, _) => Center(child: Text('오류: $e')),
+              data: (events) {
+                if (events.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.event_note_outlined,
+                          size: 48,
+                          color: AdminTheme.sage.withValues(alpha: 0.3),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '등록된 공연이 없습니다',
+                          style: AdminTheme.sans(
+                            fontSize: 14,
+                            color: AdminTheme.textTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                // Summary cards
+                final activeCount =
+                    events.where((e) => e.status == EventStatus.active).length;
+                final totalSeats = events.fold<int>(
+                    0, (sum, e) => sum + e.totalSeats);
+                final totalAvailable = events.fold<int>(
+                    0, (sum, e) => sum + e.availableSeats);
+
+                return ListView(
+                  children: [
+                    // Stats row
+                    Row(
+                      children: [
+                        _statCard('활성 공연', '$activeCount', AdminTheme.success),
+                        const SizedBox(width: 12),
+                        _statCard(
+                            '총 좌석', fmt.format(totalSeats), AdminTheme.gold),
+                        const SizedBox(width: 12),
+                        _statCard('판매 좌석',
+                            fmt.format(totalSeats - totalAvailable),
+                            const Color(0xFF0A84FF)),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Event list
+                    for (final event in events) ...[
+                      _buildEventCard(context, event, fmt),
+                      const SizedBox(height: 8),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statCard(String label, String value, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AdminTheme.surface,
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(color: AdminTheme.border, width: 0.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: AdminTheme.sans(
+                fontSize: 11,
+                color: AdminTheme.textTertiary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: AdminTheme.sans(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEventCard(BuildContext context, Event event, NumberFormat fmt) {
+    final statusColor = switch (event.status) {
+      EventStatus.active => AdminTheme.success,
+      EventStatus.soldOut => AdminTheme.warning,
+      EventStatus.completed => AdminTheme.sage,
+      _ => AdminTheme.textTertiary,
+    };
+    final sold = event.totalSeats - event.availableSeats;
+    final pct =
+        event.totalSeats > 0 ? (sold / event.totalSeats * 100).round() : 0;
+
+    return InkWell(
+      onTap: () => context.go('/events/${event.id}/naver-orders'),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AdminTheme.surface,
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(color: AdminTheme.border, width: 0.5),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event.title,
+                    style: AdminTheme.sans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AdminTheme.textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${DateFormat('yyyy.MM.dd').format(event.startAt)} · ${event.venueName ?? ""}',
+                    style: AdminTheme.sans(
+                      fontSize: 11,
+                      color: AdminTheme.textTertiary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Sales progress
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '$pct%',
+                  style: AdminTheme.sans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: statusColor,
+                  ),
+                ),
+                Text(
+                  '${fmt.format(sold)}/${fmt.format(event.totalSeats)}석',
+                  style: AdminTheme.sans(
+                    fontSize: 10,
+                    color: AdminTheme.textTertiary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

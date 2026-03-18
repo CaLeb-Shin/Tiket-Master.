@@ -22,6 +22,12 @@ final allEventsStreamProvider = StreamProvider<List<Event>>((ref) {
   return ref.watch(eventRepositoryProvider).getAllEvents();
 });
 
+/// 셀러별 공연 스트림
+final sellerEventsProvider =
+    StreamProvider.family<List<Event>, String>((ref, sellerId) {
+  return ref.watch(eventRepositoryProvider).getEventsBySeller(sellerId);
+});
+
 /// 시리즈(다회 공연) 이벤트 스트림
 final seriesEventsProvider =
     StreamProvider.family<List<Event>, String>((ref, seriesId) {
@@ -130,6 +136,18 @@ class EventRepository {
     // 이벤트 문서도 삭제
     batch.delete(_firestoreService.events.doc(eventId));
     await batch.commit();
+  }
+
+  /// 셀러별 공연 목록
+  Stream<List<Event>> getEventsBySeller(String sellerId) {
+    return _firestoreService.events
+        .where('sellerId', isEqualTo: sellerId)
+        .orderBy('startAt', descending: true)
+        .snapshots()
+        .map((s) => s.docs
+            .map((d) => Event.fromFirestore(d))
+            .where((e) => e.status != EventStatus.deleted)
+            .toList());
   }
 
   /// 같은 시리즈(다회 공연)의 이벤트 목록

@@ -2473,6 +2473,23 @@ class _ProfileTab extends ConsumerWidget {
               const SizedBox(height: 8),
             ],
 
+            // Seller registration
+            if (isLoggedIn && currentUser.value?.isAdmin != true) ...[
+              _MenuItem(
+                icon: Icons.storefront_outlined,
+                title: currentUser.value?.isSeller == true
+                    ? '공연사 정보'
+                    : '공연사 등록',
+                subtitle: currentUser.value?.isSeller == true
+                    ? (currentUser.value?.sellerProfile?.sellerStatus == 'active'
+                        ? '승인 완료 — ${currentUser.value?.sellerProfile?.businessName ?? ""}'
+                        : '승인 대기 중')
+                    : '공연사로 등록하고 공연을 직접 관리하세요',
+                onTap: () => context.push('/seller/register'),
+              ),
+              const SizedBox(height: 8),
+            ],
+
             // Staff/admin menus
             if (currentUser.value?.isStaff == true) ...[
               _MenuItem(

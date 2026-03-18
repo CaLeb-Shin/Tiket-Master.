@@ -497,6 +497,24 @@ class FunctionsService {
     return Map<String, dynamic>.from(result.data);
   }
 
+  Future<Map<String, dynamic>> registerAsSeller({
+    required String businessName,
+    String? businessNumber,
+    String? representativeName,
+    String? contactNumber,
+    String? description,
+  }) async {
+    final callable = _functions.httpsCallable('registerAsSeller');
+    final result = await callable.call({
+      'businessName': businessName,
+      'businessNumber': businessNumber,
+      'representativeName': representativeName,
+      'contactNumber': contactNumber,
+      'description': description,
+    });
+    return Map<String, dynamic>.from(result.data);
+  }
+
   Future<Map<String, dynamic>> createVenueFromMaster({
     required String masterVenueId,
   }) async {

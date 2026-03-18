@@ -6535,3 +6535,51 @@ export const scheduledSubscriptionLottery = functions.pubsub
 
     return null;
   });
+
+// ════════════════════════════════════════════════════════════════════════════
+// 공연사(셀러) 등록
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 공연사 등록 신청 — 일반 유저 → seller(pending) 전환
+ */
+export const registerAsSeller = functions.https.onCall(async (data: any, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "로그인 필요");
+  const uid = context.auth.uid;
+
+  const { businessName, businessNumber, representativeName, contactNumber, description } = data;
+  if (!businessName) throw new functions.https.HttpsError("invalid-argument", "상호명 필수");
+
+  const userDoc = await db.collection("users").doc(uid).get();
+  if (!userDoc.exists) throw new functions.https.HttpsError("not-found", "사용자 없음");
+
+  const userData = userDoc.data()!;
+  if (userData.role === "seller") {
+    throw new functions.https.HttpsError("already-exists", "이미 공연사로 등록되어 있습니다");
+  }
+
+  await db.collection("users").doc(uid).update({
+    role: "seller",
+    sellerProfile: {
+      businessName,
+      businessNumber: businessNumber || null,
+      representativeName: representativeName || null,
+      contactNumber: contactNumber || null,
+      description: description || null,
+      logoUrl: null,
+      sellerStatus: "pending",
+    },
+  });
+
+  // 어드민에게 알림
+  await sendNotification({
+    userId: undefined,
+    phone: undefined,
+    type: "seller_registration",
+    title: "공연사 등록 신청",
+    body: `${businessName} (${userData.displayName || userData.email})`,
+    data: { sellerId: uid },
+  });
+
+  return { success: true };
+});
