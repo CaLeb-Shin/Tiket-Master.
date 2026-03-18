@@ -3453,8 +3453,8 @@ class _VenueDetailScreenState extends ConsumerState<VenueDetailScreen> {
 
   Widget _buildSeatMapAssetCard(Venue venue) {
     final hasSeatMap = _seatMapUrl != null && _seatMapUrl!.isNotEmpty;
-    final hasGeneratedMap = !hasSeatMap && _floors!.isNotEmpty;
-    final hasLayout = _floors!.isNotEmpty;
+    final hasParsedLayout = venue.seatLayout != null && venue.seatLayout!.seats.isNotEmpty;
+    final hasAnyMap = hasSeatMap || hasParsedLayout;
 
     return Container(
       width: double.infinity,
@@ -3473,15 +3473,13 @@ class _VenueDetailScreenState extends ConsumerState<VenueDetailScreen> {
                 child: Text(
                   hasSeatMap
                       ? '좌석배치도 이미지 등록됨'
-                      : hasGeneratedMap
-                          ? '좌석 구조 기반 자동 배치도'
+                      : hasParsedLayout
+                          ? '엑셀 파싱 배치도 (${venue.seatLayout!.totalSeats}석)'
                           : '좌석배치도 미등록',
                   style: AdminTheme.sans(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: hasSeatMap || hasGeneratedMap
-                        ? AdminTheme.info
-                        : AdminTheme.textSecondary,
+                    color: hasAnyMap ? AdminTheme.info : AdminTheme.textSecondary,
                   ),
                 ),
               ),
@@ -3502,7 +3500,7 @@ class _VenueDetailScreenState extends ConsumerState<VenueDetailScreen> {
                         ),
                       )
                     : Text(
-                        hasLayout ? '수정' : '구조 만들기',
+                        hasAnyMap ? '수정' : '구조 만들기',
                         style: AdminTheme.sans(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -3541,7 +3539,7 @@ class _VenueDetailScreenState extends ConsumerState<VenueDetailScreen> {
             borderRadius: BorderRadius.circular(4),
             child: SizedBox(
               width: double.infinity,
-              height: hasGeneratedMap ? 300 : 140,
+              height: hasParsedLayout ? 300 : 140,
               child: hasSeatMap
                   ? Image.network(
                       _seatMapUrl!,
@@ -3549,32 +3547,23 @@ class _VenueDetailScreenState extends ConsumerState<VenueDetailScreen> {
                       errorBuilder: (_, __, ___) =>
                           _assetPlaceholder('배치도 이미지 로드 실패'),
                     )
-                  : hasGeneratedMap
-                      ? _buildGeneratedSeatMapPreview()
-                      : _assetPlaceholder('좌석배치도 이미지를 업로드하세요'),
+                  : hasParsedLayout
+                      ? _buildParsedSeatMapPreview(venue.seatLayout!)
+                      : _assetPlaceholder('좌석배치도 엑셀을 업로드하세요'),
             ),
           ),
-          if (hasGeneratedMap) ...[
-            const SizedBox(height: 8),
-            Text(
-              '이미지가 없어도 좌석 구조 데이터로 배치도를 자동 생성합니다. STAGE(무대)는 ${_stagePositionLabel(_stagePosition ?? 'top')}에 표시됩니다.',
-              style: AdminTheme.sans(
-                fontSize: 11,
-                color: AdminTheme.textTertiary,
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _buildGeneratedSeatMapPreview() {
-    return _GeneratedSeatMapDiagram(
-      floors: _floors!,
-      stagePosition: _stagePosition!,
-      compact: true,
-      showSummaryLabel: true,
+  Widget _buildParsedSeatMapPreview(VenueSeatLayout layout) {
+    return Container(
+      color: const Color(0xFF1A1A2E),
+      child: CustomPaint(
+        painter: _MiniSeatMapPainter(layout),
+        size: Size.infinite,
+      ),
     );
   }
 
