@@ -5839,12 +5839,13 @@ class _MiniSeatMapPainter extends CustomPainter {
     final offsetX = (size.width - layout.canvasWidth * scale) / 2;
     final offsetY = (size.height - layout.canvasHeight * scale) / 2;
 
-    // ── Stage ──
-    final stageW = size.width * layout.stageWidthRatio;
-    final stageH = 16.0;
+    // ── Stage (좌석 범위에 맞게 크기 조정) ──
+    final seatDataW = layout.canvasWidth * scale;
+    final stageW = seatDataW * 0.45; // 좌석 영역의 45%
+    final stageH = 14.0;
     final stageRect = RRect.fromRectAndRadius(
       Rect.fromCenter(
-        center: Offset(size.width / 2, offsetY + stageH / 2 + 4),
+        center: Offset(size.width / 2, offsetY + stageH / 2 + 2),
         width: stageW,
         height: stageH,
       ),
@@ -5852,7 +5853,7 @@ class _MiniSeatMapPainter extends CustomPainter {
     );
     canvas.drawRRect(stageRect, Paint()..color = const Color(0xFF3A3A44));
     _drawText(canvas, 'STAGE',
-      Offset(size.width / 2, offsetY + stageH / 2 + 4),
+      Offset(size.width / 2, offsetY + stageH / 2 + 2),
       fontSize: 7, color: const Color(0xFF888898), letterSpacing: 2,
     );
 

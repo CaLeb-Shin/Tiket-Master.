@@ -2662,24 +2662,30 @@ class _ViewSeatMapPainter extends CustomPainter {
     if (dataW <= 0 || dataH <= 0) return;
 
     // 스테이지 + 여백
-    const stageH = 20.0;
+    const stageH = 14.0;
     const pad = 16.0;
     final scaleX = (size.width - pad * 2) / dataW;
     final scaleY = (size.height - pad * 2 - stageH - 8) / dataH;
     final scale = scaleX < scaleY ? scaleX : scaleY;
-    final offsetX = (size.width - dataW * scale) / 2;
+    final seatDataW = dataW * scale;
+    final offsetX = (size.width - seatDataW) / 2;
     final offsetY = pad + stageH + 8;
 
-    // 스테이지
+    // 스테이지 (좌석 범위에 맞게)
+    final stageW = seatDataW * 0.45;
     final stageRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(size.width * 0.2, pad, size.width * 0.6, stageH),
-      const Radius.circular(4),
+      Rect.fromCenter(
+        center: Offset(size.width / 2, pad + stageH / 2),
+        width: stageW,
+        height: stageH,
+      ),
+      const Radius.circular(3),
     );
     canvas.drawRRect(stageRect, Paint()..color = const Color(0xFF3A3A4A));
     final stageTp = TextPainter(
       text: const TextSpan(
         text: 'STAGE',
-        style: TextStyle(color: Color(0xFF888888), fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 2),
+        style: TextStyle(color: Color(0xFF888888), fontSize: 8, fontWeight: FontWeight.w700, letterSpacing: 2),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
