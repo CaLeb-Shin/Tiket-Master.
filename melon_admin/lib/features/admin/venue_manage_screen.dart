@@ -3821,8 +3821,6 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               _buildField('주소 (선택)', _addressCtrl, '예: 서울특별시 강서구 등촌동'),
               const SizedBox(height: 12),
               _buildSeatMapUploadField(),
-              const SizedBox(height: 12),
-              _buildSeatLayoutField(),
 
               // 프리셋 미리보기
               if (_presetVenue != null) ...[
@@ -4187,6 +4185,32 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
     final gradeCount = layout.seatCountByGrade;
     final fmt = NumberFormat('#,###');
 
+    // 층별 → 열별 좌석 그룹핑
+    final floorMap = <String, Map<String, Map<String, int>>>{};
+    // floorMap[floor][row] = { grade: count }
+    for (final seat in layout.seats) {
+      final f = seat.floor.isNotEmpty ? seat.floor : '1층';
+      final r = seat.row.isNotEmpty ? seat.row : '?';
+      floorMap.putIfAbsent(f, () => {});
+      floorMap[f]!.putIfAbsent(r, () => {});
+      floorMap[f]![r]![seat.grade] = (floorMap[f]![r]![seat.grade] ?? 0) + 1;
+    }
+
+    // 층 정렬 (1층, 2층 순서)
+    final sortedFloors = floorMap.keys.toList()
+      ..sort((a, b) {
+        final na = int.tryParse(a.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        final nb = int.tryParse(b.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        return na.compareTo(nb);
+      });
+
+    const gradeColors = {
+      'VIP': Color(0xFFD4AF37),
+      'R': Color(0xFFE53935),
+      'S': Color(0xFF1E88E5),
+      'A': Color(0xFF43A047),
+    };
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -4197,6 +4221,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── 헤더 ──
           Row(
             children: [
               const Icon(Icons.check_circle, size: 14, color: AdminTheme.success),
@@ -4217,21 +4242,37 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
             ],
           ),
           const SizedBox(height: 8),
+
+          // ── 등급 요약 ──
           Wrap(
             spacing: 12,
             runSpacing: 4,
             children: ['VIP', 'R', 'S', 'A']
                 .where((g) => gradeCount.containsKey(g))
-                .map((g) => Text(
-                      '$g: ${fmt.format(gradeCount[g])}석',
-                      style: AdminTheme.sans(
-                        fontSize: 11, color: AdminTheme.textSecondary,
-                      ),
+                .map((g) => Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8, height: 8,
+                          decoration: BoxDecoration(
+                            color: gradeColors[g],
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$g: ${fmt.format(gradeCount[g])}석',
+                          style: AdminTheme.sans(
+                            fontSize: 11, color: AdminTheme.textSecondary,
+                          ),
+                        ),
+                      ],
                     ))
                 .toList(),
           ),
           const SizedBox(height: 10),
-          // Canvas 미리보기
+
+          // ── Canvas 미리보기 ──
           Container(
             width: double.infinity,
             height: 200,
@@ -4243,6 +4284,117 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               painter: _MiniSeatMapPainter(layout),
             ),
           ),
+          const SizedBox(height: 12),
+
+          // ── 층별 · 열별 상세 ──
+          ...sortedFloors.map((floorName) {
+            final rowMap = floorMap[floorName]!;
+            final floorTotal = rowMap.values.fold<int>(
+                0, (sum, grades) => sum + grades.values.fold(0, (s, c) => s + c));
+
+            // 열 정렬: 숫자 우선, 알파벳 다음
+            final sortedRows = rowMap.keys.toList()..sort((a, b) {
+              final na = int.tryParse(a);
+              final nb = int.tryParse(b);
+              if (na != null && nb != null) return na.compareTo(nb);
+              if (na != null) return -1;
+              if (nb != null) return 1;
+              return a.compareTo(b);
+            });
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AdminTheme.surface,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: AdminTheme.border, width: 0.5),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        floorName,
+                        style: AdminTheme.sans(
+                          fontSize: 12, fontWeight: FontWeight.w700,
+                          color: AdminTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${fmt.format(floorTotal)}석 · ${sortedRows.length}열',
+                        style: AdminTheme.sans(
+                          fontSize: 11, color: AdminTheme.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  // 열별 테이블
+                  ...sortedRows.map((rowName) {
+                    final grades = rowMap[rowName]!;
+                    final rowTotal = grades.values.fold<int>(0, (s, c) => s + c);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 36,
+                            child: Text(
+                              '${rowName}열',
+                              style: AdminTheme.sans(
+                                fontSize: 10, fontWeight: FontWeight.w600,
+                                color: AdminTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                          // 등급별 색상 바
+                          Expanded(
+                            child: Row(
+                              children: ['VIP', 'R', 'S', 'A']
+                                  .where((g) => grades.containsKey(g))
+                                  .map((g) => Padding(
+                                        padding: const EdgeInsets.only(right: 8),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Container(
+                                              width: 6, height: 6,
+                                              decoration: BoxDecoration(
+                                                color: gradeColors[g],
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              '${grades[g]}',
+                                              style: AdminTheme.sans(
+                                                fontSize: 10,
+                                                color: gradeColors[g],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ))
+                                  .toList(),
+                            ),
+                          ),
+                          Text(
+                            '${fmt.format(rowTotal)}석',
+                            style: AdminTheme.sans(
+                              fontSize: 10, color: AdminTheme.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );
