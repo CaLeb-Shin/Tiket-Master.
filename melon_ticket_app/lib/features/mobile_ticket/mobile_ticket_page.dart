@@ -2991,7 +2991,9 @@ class _BackCardState extends State<_BackCard>
           ),
           child: Stack(
             children: [
-              Column(
+              SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
                 children: [
                   const SizedBox(height: 32),
 
@@ -3354,6 +3356,7 @@ class _BackCardState extends State<_BackCard>
                   ),
                   const SizedBox(height: 24),
                 ],
+              ),
               ),
             ],
           ),
