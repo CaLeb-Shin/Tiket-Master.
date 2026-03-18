@@ -1,0 +1,728 @@
+openapi: 3.0.3
+info:
+  title: 멜팅티켓 API
+  description: |
+    멜팅티켓 플랫폼 API — Firebase Cloud Functions 기반
+
+    ## 인증
+    - **Firebase Auth**: Callable 함수는 Firebase Auth ID 토큰 필요
+    - **HTTP 함수**: Bearer 토큰 또는 파라미터 기반 인증
+    - **공개 함수**: 인증 불필요 (모바일 티켓 조회 등)
+
+    ## 함수 유형
+    - **Callable (onCall)**: Firebase SDK로 호출, 자동 인증
+    - **HTTP (onRequest)**: REST 엔드포인트, 수동 인증
+    - **Scheduled (PubSub)**: 자동 실행, 외부 호출 불가
+    - **Trigger (Firestore)**: 문서 변경 시 자동 실행
+  version: 1.0.0
+  contact:
+    name: 멜팅티켓 개발팀
+    url: https://github.com/CaLeb-Shin/Tiket-Master..
+
+servers:
+  - url: https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net
+    description: Production
+
+tags:
+  - name: Auth
+    description: 소셜 로그인 (카카오/네이버)
+  - name: Events
+    description: 공연 관리
+  - name: Orders
+    description: 주문/결제/취소
+  - name: Tickets
+    description: 티켓 발급/QR/체크인
+  - name: Seats
+    description: 좌석 배정/홀드/해제
+  - name: Naver
+    description: 네이버 스토어 연동 (주문/취소/SMS)
+  - name: Mobile Ticket
+    description: 네이버 모바일 티켓 (비로그인 접근)
+  - name: Scanner
+    description: 스캐너 기기 등록/체크인
+  - name: Mileage
+    description: 마일리지/등급/업그레이드
+  - name: Subscription
+    description: 멜팅 구독 서비스 (응모/추첨)
+  - name: Venue
+    description: 공연장/마스터 공연장
+  - name: Seller
+    description: 공연사(셀러) 관리
+  - name: Review
+    description: 리뷰/설문/네이버 리뷰
+  - name: Notification
+    description: 알림 (FCM/SMS/인앱)
+  - name: Waitlist
+    description: 대기열
+  - name: Designated Seat
+    description: 지정석 선택/변경
+  - name: Scheduler
+    description: 자동 실행 스케줄러 (PubSub)
+  - name: OG Meta
+    description: 소셜 공유 메타 태그
+
+paths:
+  # ═══════════════════════════════════════
+  # Auth
+  # ═══════════════════════════════════════
+  /signInWithKakao:
+    post:
+      tags: [Auth]
+      summary: 카카오 로그인
+      description: 카카오 OAuth accessToken → Firebase Custom Token 발급
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accessToken]
+              properties:
+                accessToken: { type: string, description: 카카오 OAuth access_token }
+      responses:
+        '200':
+          description: Firebase Custom Token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customToken: { type: string }
+
+  /signInWithNaver:
+    post:
+      tags: [Auth]
+      summary: 네이버 로그인
+      description: 네이버 OAuth accessToken → Firebase Custom Token 발급
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accessToken]
+              properties:
+                accessToken: { type: string }
+      responses:
+        '200':
+          description: Firebase Custom Token
+
+  # ═══════════════════════════════════════
+  # Events
+  # ═══════════════════════════════════════
+  /completeEvent:
+    post:
+      tags: [Events]
+      summary: 공연 완료 처리
+      description: 공연 상태를 completed로 변경 (어드민 전용)
+      security: [{ firebase: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [eventId]
+              properties:
+                eventId: { type: string }
+
+  /revealSeatsForEvent:
+    post:
+      tags: [Events]
+      summary: 좌석 공개
+      description: 이벤트의 모바일 티켓 좌석 정보 공개 (어드민 전용)
+      security: [{ firebase: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [eventId]
+              properties:
+                eventId: { type: string }
+
+  /revealSeatsNow:
+    post:
+      tags: [Events]
+      summary: 즉시 좌석 공개
+      description: revealAt 무시하고 즉시 공개 (어드민)
+      security: [{ firebase: [] }]
+
+  /assignDeferredSeats:
+    post:
+      tags: [Events]
+      summary: 비지정석 좌석 배정
+      description: deferred 모드 이벤트의 미배정 티켓에 좌석 일괄 배정
+      security: [{ firebase: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [eventId]
+              properties:
+                eventId: { type: string }
+
+  /listEventsHttp:
+    get:
+      tags: [Events]
+      summary: 공연 목록 (HTTP)
+      description: 봇용 — 활성 이벤트 목록 반환
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, draft, all] }
+      responses:
+        '200':
+          description: 이벤트 목록
+
+  # ═══════════════════════════════════════
+  # Orders
+  # ═══════════════════════════════════════
+  /createOrder:
+    post:
+      tags: [Orders]
+      summary: 주문 생성
+      description: 좌석 선택 후 주문 생성 (로그인 필수)
+      security: [{ firebase: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [eventId, seatIds]
+              properties:
+                eventId: { type: string }
+                seatIds: { type: array, items: { type: string } }
+                quantity: { type: integer }
+
+  /confirmPaymentAndAssignSeats:
+    post:
+      tags: [Orders]
+      summary: 결제 확정 + 좌석 배정
+      description: 결제 성공 후 좌석 확정 + 티켓 발급
+      security: [{ firebase: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId]
+              properties:
+                orderId: { type: string }
+
+  /requestTicketCancellation:
+    post:
+      tags: [Orders]
+      summary: 예매 취소 요청
+      description: 취소 수수료 규정 적용 (7일 이내 무료, 당일 불가)
+      security: [{ firebase: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId]
+              properties:
+                orderId: { type: string }
+                ticketIds: { type: array, items: { type: string } }
+
+  # ═══════════════════════════════════════
+  # Tickets / QR
+  # ═══════════════════════════════════════
+  /issueQrToken:
+    post:
+      tags: [Tickets]
+      summary: QR 토큰 발급
+      description: 2분 유효 JWT QR 토큰 생성
+      security: [{ firebase: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ticketId]
+              properties:
+                ticketId: { type: string }
+
+  /issueGroupQrToken:
+    post:
+      tags: [Tickets]
+      summary: 그룹 QR 토큰 발급
+      description: 같은 주문의 전체 티켓 그룹 QR
+      security: [{ firebase: [] }]
+
+  /verifyAndCheckIn:
+    post:
+      tags: [Tickets]
+      summary: 입장 검증 + 체크인
+      description: QR 스캔 → JWT 검증 → 체크인 기록
+      security: [{ firebase: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, description: "QR JWT 토큰" }
+                stage: { type: string, enum: [entry, intermission] }
+
+  /verifyAndCheckInGroup:
+    post:
+      tags: [Tickets]
+      summary: 그룹 입장 체크인
+      security: [{ firebase: [] }]
+
+  /upgradeTicketSeat:
+    post:
+      tags: [Tickets]
+      summary: 좌석 등급 업그레이드
+      description: 마일리지로 좌석 등급 변경 (A→S 2000P, S→R 3000P, R→VIP 5000P)
+      security: [{ firebase: [] }]
+
+  /reassignTicketSeat:
+    post:
+      tags: [Tickets]
+      summary: 좌석 재배정
+      description: 어드민이 특정 티켓의 좌석을 변경
+      security: [{ firebase: [] }]
+
+  /downloadEventTicketsForScanner:
+    post:
+      tags: [Tickets]
+      summary: 오프라인 스캐너용 티켓 다운로드
+      security: [{ firebase: [] }]
+
+  /syncOfflineCheckins:
+    post:
+      tags: [Tickets]
+      summary: 오프라인 체크인 동기화
+      security: [{ firebase: [] }]
+
+  # ═══════════════════════════════════════
+  # Seats
+  # ═══════════════════════════════════════
+  /holdSeat:
+    post:
+      tags: [Seats]
+      summary: 좌석 선점 (5분 홀드)
+      security: [{ firebase: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [seatId, eventId]
+              properties:
+                seatId: { type: string }
+                eventId: { type: string }
+
+  /releaseSeat:
+    post:
+      tags: [Seats]
+      summary: 좌석 선점 해제
+      security: [{ firebase: [] }]
+
+  # ═══════════════════════════════════════
+  # Naver Store Integration
+  # ═══════════════════════════════════════
+  /createNaverOrder:
+    post:
+      tags: [Naver]
+      summary: 네이버 주문 생성 (Callable)
+      description: 네이버 주문 정보 → 좌석 배정 + 모바일 티켓 + SMS 발송
+      security: [{ firebase: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [naverOrderId, buyerName, buyerPhone, eventId, seatGrade, quantity]
+              properties:
+                naverOrderId: { type: string }
+                buyerName: { type: string }
+                buyerPhone: { type: string }
+                eventId: { type: string }
+                seatGrade: { type: string, enum: [VIP, R, S, A] }
+                quantity: { type: integer }
+
+  /cancelNaverOrder:
+    post:
+      tags: [Naver]
+      summary: 네이버 주문 취소
+      security: [{ firebase: [] }]
+
+  /claimNaverOrder:
+    post:
+      tags: [Naver]
+      summary: 네이버 주문 연동 (로그인 유저)
+      description: 전화번호 기반으로 네이버 주문과 앱 계정 연결
+      security: [{ firebase: [] }]
+
+  /autoClaimNaverOrdersByPhone:
+    post:
+      tags: [Naver]
+      summary: 전화번호로 네이버 주문 자동 연동
+      security: [{ firebase: [] }]
+
+  /createNaverOrderHttp:
+    post:
+      tags: [Naver]
+      summary: 네이버 주문 생성 (HTTP)
+      description: 봇 서버용 — Bearer 토큰 인증
+
+  /cancelNaverOrderHttp:
+    post:
+      tags: [Naver]
+      summary: 네이버 주문 취소 (HTTP)
+      description: 봇 서버용
+
+  /listNaverOrdersHttp:
+    get:
+      tags: [Naver]
+      summary: 네이버 주문 목록 (HTTP)
+      description: 봇 서버용
+
+  /getPendingSmsHttp:
+    get:
+      tags: [Naver]
+      summary: 대기 중 SMS 목록
+      description: 뿌리오 봇 폴링용
+
+  /markSmsSentHttp:
+    post:
+      tags: [Naver]
+      summary: SMS 발송 완료 마킹
+      description: 뿌리오 봇 결과 보고용
+
+  /syncNaverProductsHttp:
+    post:
+      tags: [Naver]
+      summary: 네이버 스토어 상품 동기화
+      description: 봇 → Firestore naverProducts 컬렉션
+
+  /scrapeNaverProductHttp:
+    post:
+      tags: [Naver]
+      summary: 네이버 상품 스크래핑
+      description: Playwright 기반
+
+  # ═══════════════════════════════════════
+  # Mobile Ticket (공개, 비로그인)
+  # ═══════════════════════════════════════
+  /getMobileTicketByToken:
+    post:
+      tags: [Mobile Ticket]
+      summary: 모바일 티켓 조회
+      description: accessToken으로 티켓 정보 조회 (비로그인, revealAt 전 좌석 숨김)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accessToken]
+              properties:
+                accessToken: { type: string, format: uuid }
+
+  /issueMobileQrToken:
+    post:
+      tags: [Mobile Ticket]
+      summary: 모바일 QR 토큰 발급
+      description: accessToken 기반 2분 JWT QR (비로그인)
+
+  /setRecipientName:
+    post:
+      tags: [Mobile Ticket]
+      summary: 전달 받는 사람 이름 설정
+
+  # ═══════════════════════════════════════
+  # Designated Seat (지정석)
+  # ═══════════════════════════════════════
+  /getDesignatedSeatInfo:
+    post:
+      tags: [Designated Seat]
+      summary: 지정석 선택 가능 좌석 조회 (HTTP)
+      description: accessToken + phoneLast4 인증 후 선택 가능 좌석 반환
+
+  /confirmDesignatedSeat:
+    post:
+      tags: [Designated Seat]
+      summary: 지정석 선택 확정 (HTTP)
+      description: 좌석 선택 → reserved 상태 + 티켓 업데이트
+
+  /changeDesignatedSeat:
+    post:
+      tags: [Designated Seat]
+      summary: 지정석 1회 변경 (HTTP)
+      description: 공연 시작 24시간 전까지, 최대 1회
+
+  # ═══════════════════════════════════════
+  # Scanner
+  # ═══════════════════════════════════════
+  /registerScannerDevice:
+    post:
+      tags: [Scanner]
+      summary: 스캐너 기기 등록
+      security: [{ firebase: [] }]
+
+  /createScannerInvite:
+    post:
+      tags: [Scanner]
+      summary: 스캐너 초대 링크 생성 (어드민)
+      security: [{ firebase: [] }]
+
+  /setScannerDeviceApproval:
+    post:
+      tags: [Scanner]
+      summary: 스캐너 기기 승인/거부 (어드민)
+      security: [{ firebase: [] }]
+
+  # ═══════════════════════════════════════
+  # Mileage / Loyalty
+  # ═══════════════════════════════════════
+  /addMileage:
+    post:
+      tags: [Mileage]
+      summary: 마일리지 적립
+      security: [{ firebase: [] }]
+
+  /addReviewMileage:
+    post:
+      tags: [Mileage]
+      summary: 리뷰 마일리지 (첫 리뷰 1000P)
+      security: [{ firebase: [] }]
+
+  # ═══════════════════════════════════════
+  # Subscription
+  # ═══════════════════════════════════════
+  /activateSubscription:
+    post:
+      tags: [Subscription]
+      summary: 구독 활성화
+      description: Basic/Standard/Premium 플랜 시작
+      security: [{ firebase: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, plan]
+              properties:
+                userId: { type: string }
+                plan: { type: string, enum: [basic, standard, premium] }
+
+  /applyForSubscriptionLottery:
+    post:
+      tags: [Subscription]
+      summary: 구독 응모
+      description: 응모권 차감 + 이벤트 응모 등록
+      security: [{ firebase: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [eventId, seatGrade]
+              properties:
+                eventId: { type: string }
+                seatGrade: { type: string, enum: [VIP, R, S, A] }
+
+  /runSubscriptionLottery:
+    post:
+      tags: [Subscription]
+      summary: 구독 추첨 실행 (어드민)
+      security: [{ firebase: [] }]
+
+  # ═══════════════════════════════════════
+  # Venue
+  # ═══════════════════════════════════════
+  /migrateMasterVenues:
+    post:
+      tags: [Venue]
+      summary: 기존 공연장 → 마스터 마이그레이션 (1회성)
+      security: [{ firebase: [] }]
+
+  /createVenueFromMaster:
+    post:
+      tags: [Venue]
+      summary: 마스터에서 새 Venue 생성
+      security: [{ firebase: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [masterVenueId]
+              properties:
+                masterVenueId: { type: string }
+
+  /analyzeSeatLayout:
+    post:
+      tags: [Venue]
+      summary: AI 좌석맵 분석 (Anthropic Claude)
+      security: [{ firebase: [] }]
+
+  /convertXlsToXlsxHttp:
+    post:
+      tags: [Venue]
+      summary: XLS → XLSX 변환 (HTTP)
+
+  /updateTicketSeatsHttp:
+    post:
+      tags: [Venue]
+      summary: 티켓 좌석 일괄 업데이트 (HTTP)
+
+  /searchAddressHttp:
+    get:
+      tags: [Venue]
+      summary: 주소 검색 (카카오 API 프록시)
+
+  # ═══════════════════════════════════════
+  # Seller
+  # ═══════════════════════════════════════
+  /registerAsSeller:
+    post:
+      tags: [Seller]
+      summary: 공연사 등록 신청
+      description: 일반 유저 → seller(pending) 전환
+      security: [{ firebase: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [businessName]
+              properties:
+                businessName: { type: string, description: 상호명 }
+                businessNumber: { type: string, description: 사업자등록번호 }
+                representativeName: { type: string, description: 대표자명 }
+                contactNumber: { type: string, description: 연락처 }
+                description: { type: string, description: 소개글 }
+
+  # ═══════════════════════════════════════
+  # Review / Survey
+  # ═══════════════════════════════════════
+  /submitReview:
+    post:
+      tags: [Review]
+      summary: 공연 리뷰 작성
+      description: 별점 + 코멘트 → 마일리지 적립
+
+  /submitIntermissionSurvey:
+    post:
+      tags: [Review]
+      summary: 인터미션 설문 제출
+      description: 3문항 설문 → 500P
+
+  /confirmNaverReview:
+    post:
+      tags: [Review]
+      summary: 네이버 리뷰 확인 (자기신고)
+      description: 네이버 리뷰 작성 확인 → +500P (1회)
+
+  # ═══════════════════════════════════════
+  # Waitlist
+  # ═══════════════════════════════════════
+  /addToWaitlist:
+    post:
+      tags: [Waitlist]
+      summary: 대기열 등록
+      security: [{ firebase: [] }]
+
+  /assignFromWaitlist:
+    post:
+      tags: [Waitlist]
+      summary: 대기열에서 좌석 배정 (어드민)
+      security: [{ firebase: [] }]
+
+  /cancelWaitlistEntry:
+    post:
+      tags: [Waitlist]
+      summary: 대기열 취소
+      security: [{ firebase: [] }]
+
+  # ═══════════════════════════════════════
+  # OG Meta / Social Sharing
+  # ═══════════════════════════════════════
+  /ogMeta:
+    get:
+      tags: [OG Meta]
+      summary: 이벤트 OG 메타태그
+      description: 소셜 미디어 공유용 HTML 반환
+      parameters:
+        - name: eventId
+          in: query
+          schema: { type: string }
+
+  /getTicketOgMeta:
+    get:
+      tags: [OG Meta]
+      summary: 티켓 OG 메타태그
+
+  /ogImage:
+    get:
+      tags: [OG Meta]
+      summary: OG 이미지 생성
+
+  # ═══════════════════════════════════════
+  # Schedulers (자동 실행, 외부 호출 불가)
+  # ═══════════════════════════════════════
+  # scheduledRevealSeats: 정각마다 좌석 공개 체크
+  # scheduledEventReminders: 공연 리마인더 (1일/7일 전)
+  # scheduledSubscriptionLottery: 6시간마다 구독 추첨 체크
+  # scheduledAutoAssignDesignated: 30분마다 지정석 미선택 자동배정
+  # cleanupExpiredTickets: 만료 티켓 정리
+  # releaseExpiredHolds: 만료 좌석 홀드 해제
+  # healthCheckMobileTicket: 모바일 티켓 상태 체크
+
+components:
+  securitySchemes:
+    firebase:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID Token
+      description: Firebase Auth ID 토큰 (Callable 함수는 Firebase SDK가 자동 처리)
+
+  schemas:
+    Event:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        startAt: { type: string, format: date-time }
+        venueName: { type: string }
+        status: { type: string, enum: [draft, active, soldOut, canceled, completed, deleted] }
+        totalSeats: { type: integer }
+        availableSeats: { type: integer }
+        priceByGrade: { type: object, additionalProperties: { type: integer } }
+        subscriptionSeats: { type: object, additionalProperties: { type: integer } }
+
+    MobileTicket:
+      type: object
+      properties:
+        id: { type: string }
+        naverOrderId: { type: string }
+        eventId: { type: string }
+        seatGrade: { type: string, enum: [VIP, R, S, A] }
+        seatInfo: { type: string, nullable: true }
+        buyerName: { type: string }
+        status: { type: string, enum: [active, cancelled, used] }
+        accessToken: { type: string, format: uuid }
+        entryNumber: { type: integer }
+
+    Subscription:
+      type: object
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        plan: { type: string, enum: [basic, standard, premium] }
+        status: { type: string, enum: [active, expired, cancelled] }
+        entriesRemaining: { type: integer }
+        guaranteesRemaining: { type: integer }
+
+    SellerProfile:
+      type: object
+      properties:
+        businessName: { type: string }
+        businessNumber: { type: string }
+        representativeName: { type: string }
+        contactNumber: { type: string }
+        sellerStatus: { type: string, enum: [pending, active, suspended] }

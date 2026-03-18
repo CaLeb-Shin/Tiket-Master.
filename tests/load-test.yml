@@ -1,0 +1,70 @@
+# 멜팅티켓 부하 테스트 (Artillery)
+#
+# 설치: npm install -g artillery
+# 실행: artillery run tests/load-test.yml
+# 리포트: artillery run tests/load-test.yml --output report.json
+#         artillery report report.json
+
+config:
+  target: "https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net"
+  phases:
+    # Phase 1: 워밍업 (10초, 10 RPS)
+    - duration: 10
+      arrivalRate: 10
+      name: "Warm up"
+    # Phase 2: 램프업 (30초, 10→100 RPS)
+    - duration: 30
+      arrivalRate: 10
+      rampTo: 100
+      name: "Ramp up"
+    # Phase 3: 피크 (60초, 100 RPS)
+    - duration: 60
+      arrivalRate: 100
+      name: "Peak load"
+    # Phase 4: 스파이크 (10초, 1000 RPS — 티켓 오픈 시뮬레이션)
+    - duration: 10
+      arrivalRate: 1000
+      name: "Ticket open spike"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+scenarios:
+  # 시나리오 1: 공연 목록 조회 (가장 빈번)
+  - name: "공연 목록 조회"
+    weight: 40
+    flow:
+      - get:
+          url: "/listEventsHttp?status=active"
+          expect:
+            - statusCode: 200
+
+  # 시나리오 2: 모바일 티켓 조회 (공유 링크)
+  - name: "모바일 티켓 조회"
+    weight: 30
+    flow:
+      - post:
+          url: "/getMobileTicketByToken"
+          json:
+            data:
+              accessToken: "test-token-{{ $randomString() }}"
+          expect:
+            - statusCode: 200
+
+  # 시나리오 3: OG 메타 (소셜 공유)
+  - name: "OG 메타태그"
+    weight: 20
+    flow:
+      - get:
+          url: "/ogMeta?eventId=test-event"
+          expect:
+            - statusCode: 200
+
+  # 시나리오 4: SMS 폴링 (봇)
+  - name: "SMS 폴링"
+    weight: 10
+    flow:
+      - get:
+          url: "/getPendingSmsHttp"
+          expect:
+            - statusCode: 200

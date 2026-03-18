@@ -1,6 +1,7 @@
 {
   "projects": {
-    "default": "melon-ticket-mvp-2026"
+    "default": "melon-ticket-mvp-2026",
+    "staging": "melon-ticket-staging"
   },
   "targets": {
     "melon-ticket-mvp-2026": {
