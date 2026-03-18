@@ -4452,9 +4452,11 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
         _excelFileName = file.name;
       });
 
-      // 엑셀 파싱
-      final parsed = await SeatMapParser.parseExcel(bytes, file.name);
-      if (parsed == null || !mounted) {
+      // ExcelToSeatMapConverter로 직접 변환 (색상 기반 + 리스트 등 모든 포맷 지원)
+      final convResult = ExcelToSeatMapConverter.convert(bytes);
+      final layout = convResult.layout;
+
+      if (layout.seats.isEmpty && !mounted) {
         if (mounted) {
           setState(() => _isParsingExcel = false);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -4467,35 +4469,73 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
         return;
       }
 
-      // Canvas 좌표 변환
-      final convResult = ExcelToSeatMapConverter.convert(bytes);
-      final layout = convResult.layout;
+      if (!mounted) return;
+
+      if (layout.seats.isEmpty) {
+        setState(() => _isParsingExcel = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(convResult.errors.isNotEmpty
+                ? '파싱 오류: ${convResult.errors.first}'
+                : '좌석 데이터를 파싱할 수 없습니다'),
+            backgroundColor: AdminTheme.error,
+          ),
+        );
+        return;
+      }
+
+      // layout에서 floors 역산 (zone+grade 기반 그룹화)
+      final floorMap = <String, Map<String, List<LayoutSeat>>>{};
+      for (final seat in layout.seats) {
+        final floor = seat.floor.isNotEmpty ? seat.floor : '1층';
+        final zone = seat.zone.isNotEmpty ? seat.zone : 'A';
+        floorMap.putIfAbsent(floor, () => {});
+        floorMap[floor]!.putIfAbsent(zone, () => []);
+        floorMap[floor]![zone]!.add(seat);
+      }
+
+      final venueFloors = <VenueFloor>[];
+      for (final entry in floorMap.entries) {
+        final blocks = <VenueBlock>[];
+        for (final zoneEntry in entry.value.entries) {
+          final seats = zoneEntry.value;
+          final rows = seats.map((s) => s.row).toSet();
+          final grade = seats.isNotEmpty ? seats.first.grade : null;
+          blocks.add(VenueBlock(
+            name: zoneEntry.key,
+            rows: rows.length,
+            seatsPerRow: rows.isNotEmpty
+                ? (seats.length / rows.length).ceil()
+                : seats.length,
+            totalSeats: seats.length,
+            grade: grade,
+          ));
+        }
+        venueFloors.add(VenueFloor(
+          name: entry.key,
+          blocks: blocks,
+          totalSeats: blocks.fold(0, (s, b) => s + b.totalSeats),
+        ));
+      }
 
       setState(() {
         _isParsingExcel = false;
-        _parsedSeatData = parsed;
         _parsedSeatLayout = layout;
-        // floors도 업데이트 (ParsedFloor → VenueFloor 변환)
-        _layoutFloors = parsed.floors
-            .map((f) => VenueFloor(
-                  name: f.name,
-                  blocks: f.blocks
-                      .map((b) => VenueBlock(
-                            name: b.name,
-                            rows: b.rows,
-                            seatsPerRow: b.seatsPerRow,
-                            totalSeats: b.totalSeats,
-                            grade: b.grade,
-                          ))
-                      .toList(),
-                  totalSeats: f.totalSeats,
-                ))
-            .toList();
+        _layoutFloors = venueFloors;
         // 공연장명 자동 채우기 (비어있으면)
-        if (_nameCtrl.text.trim().isEmpty && parsed.venueName != null) {
-          _nameCtrl.text = parsed.venueName!;
+        if (_nameCtrl.text.trim().isEmpty) {
+          _nameCtrl.text = file.name.replaceAll(RegExp(r'\.(xlsx|xls)$'), '');
         }
       });
+
+      if (convResult.warnings.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('파싱 완료 (경고: ${convResult.warnings.first})'),
+            backgroundColor: AdminTheme.warning,
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _isParsingExcel = false);
