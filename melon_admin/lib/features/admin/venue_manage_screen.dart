@@ -4275,10 +4275,10 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
           // ── Canvas 미리보기 ──
           Container(
             width: double.infinity,
-            height: 200,
+            height: 280,
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A24),
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(4),
             ),
             child: CustomPaint(
               painter: _MiniSeatMapPainter(layout),
@@ -4954,12 +4954,21 @@ class _SeatStructureEditorSheetState extends State<_SeatStructureEditorSheet> {
   }
 
   // ── 개별 좌석 수정 (zone, row, number) ──
+  static const _seatTypeLabels = {
+    SeatType.normal: '일반석',
+    SeatType.obstructedView: '시야장애석',
+    SeatType.houseReserved: '하우스유보석',
+    SeatType.wheelchair: '장애인석',
+    SeatType.reservedHold: '유보석',
+  };
+
   void _editSingleSeat(int index) {
     final seat = _seats[index];
     final zoneCtrl = TextEditingController(text: seat.zone);
     final rowCtrl = TextEditingController(text: seat.row);
     final numCtrl = TextEditingController(text: seat.number.toString());
     String tempGrade = seat.grade;
+    SeatType tempSeatType = seat.seatType;
 
     showDialog(
       context: context,
@@ -4975,7 +4984,7 @@ class _SeatStructureEditorSheetState extends State<_SeatStructureEditorSheet> {
             ),
           ),
           content: SizedBox(
-            width: 300,
+            width: 340,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -5027,6 +5036,61 @@ class _SeatStructureEditorSheetState extends State<_SeatStructureEditorSheet> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 14),
+                // 좌석 유형 선택
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text('유형',
+                          style: AdminTheme.sans(
+                            fontSize: 12,
+                            color: AdminTheme.textSecondary,
+                          )),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: _seatTypeLabels.entries.map(
+                          (e) => GestureDetector(
+                            onTap: () => setDlg(() => tempSeatType = e.key),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: tempSeatType == e.key
+                                    ? AdminTheme.gold.withValues(alpha: 0.2)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: tempSeatType == e.key
+                                      ? AdminTheme.gold
+                                      : AdminTheme.border,
+                                  width: tempSeatType == e.key ? 1.5 : 0.5,
+                                ),
+                              ),
+                              child: Text(
+                                e.value,
+                                style: AdminTheme.sans(
+                                  fontSize: 10,
+                                  fontWeight: tempSeatType == e.key
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: tempSeatType == e.key
+                                      ? AdminTheme.gold
+                                      : AdminTheme.textTertiary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ).toList(),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -5048,6 +5112,7 @@ class _SeatStructureEditorSheetState extends State<_SeatStructureEditorSheet> {
                     row: rowCtrl.text.trim(),
                     number: int.tryParse(numCtrl.text.trim()) ?? seat.number,
                     grade: tempGrade,
+                    seatType: tempSeatType,
                   );
                 });
                 Navigator.pop(ctx);
@@ -5059,8 +5124,6 @@ class _SeatStructureEditorSheetState extends State<_SeatStructureEditorSheet> {
         ),
       ),
     );
-    // Dispose controllers when dialog closes
-    zoneCtrl.addListener(() {});
   }
 
   Widget _dialogField(String label, TextEditingController ctrl,
@@ -5771,7 +5834,7 @@ class _SeatTapLayer extends StatelessWidget {
   }
 }
 
-/// 미니 좌석맵 Canvas 미리보기
+/// 미니 좌석맵 Canvas 미리보기 (열 라벨 + 층 구분 + 특수좌석 표시)
 class _MiniSeatMapPainter extends CustomPainter {
   final VenueSeatLayout layout;
 
@@ -5784,6 +5847,13 @@ class _MiniSeatMapPainter extends CustomPainter {
     'A': Color(0xFF43A047),
   };
 
+  static const _seatTypeColors = {
+    SeatType.obstructedView: Color(0xFF888888),
+    SeatType.houseReserved: Color(0xFF4488CC),
+    SeatType.wheelchair: Color(0xFFAA66CC),
+    SeatType.reservedHold: Color(0xFF666666),
+  };
+
   @override
   void paint(Canvas canvas, Size size) {
     if (layout.seats.isEmpty) return;
@@ -5794,7 +5864,7 @@ class _MiniSeatMapPainter extends CustomPainter {
     final offsetX = (size.width - layout.canvasWidth * scale) / 2;
     final offsetY = (size.height - layout.canvasHeight * scale) / 2;
 
-    // Stage
+    // ── Stage ──
     final stageW = size.width * layout.stageWidthRatio;
     final stageH = 16.0;
     final stageRect = RRect.fromRectAndRadius(
@@ -5805,38 +5875,152 @@ class _MiniSeatMapPainter extends CustomPainter {
       ),
       const Radius.circular(3),
     );
-    canvas.drawRRect(
-      stageRect,
-      Paint()..color = const Color(0xFF3A3A44),
+    canvas.drawRRect(stageRect, Paint()..color = const Color(0xFF3A3A44));
+    _drawText(canvas, 'STAGE',
+      Offset(size.width / 2, offsetY + stageH / 2 + 4),
+      fontSize: 7, color: const Color(0xFF888898), letterSpacing: 2,
     );
-    final tp = TextPainter(
-      text: const TextSpan(
-        text: 'STAGE',
-        style: TextStyle(color: Color(0xFF888898), fontSize: 7,
-            fontWeight: FontWeight.w600, letterSpacing: 2),
-      ),
-      textDirection: ui.TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset(
-      size.width / 2 - tp.width / 2,
-      offsetY + stageH / 2 + 4 - tp.height / 2,
-    ));
 
-    // Seats
+    // ── 층별 좌석 그룹핑 ──
+    final floorGroups = <String, List<LayoutSeat>>{};
+    for (final s in layout.seats) {
+      final f = s.floor.isNotEmpty ? s.floor : '1층';
+      floorGroups.putIfAbsent(f, () => []).add(s);
+    }
+    final sortedFloors = floorGroups.keys.toList()..sort((a, b) {
+      final na = int.tryParse(a.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+      final nb = int.tryParse(b.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+      return na.compareTo(nb);
+    });
+
+    // ── 층 구분선 + 라벨 (2개 이상 층일 때) ──
+    if (sortedFloors.length > 1) {
+      for (int i = 1; i < sortedFloors.length; i++) {
+        final prevFloor = floorGroups[sortedFloors[i - 1]]!;
+        final currFloor = floorGroups[sortedFloors[i]]!;
+        final prevMaxY = prevFloor.fold<double>(0, (m, s) => s.y > m ? s.y : m);
+        final currMinY = currFloor.fold<double>(double.infinity, (m, s) => s.y < m ? s.y : m);
+        final midY = offsetY + ((prevMaxY + currMinY) / 2) * scale;
+
+        // 구분선
+        canvas.drawLine(
+          Offset(offsetX + 10, midY),
+          Offset(size.width - offsetX - 10, midY),
+          Paint()
+            ..color = const Color(0xFF555566)
+            ..strokeWidth = 0.5,
+        );
+
+        // 층 라벨 (위쪽 층)
+        if (i == 1) {
+          _drawText(canvas, sortedFloors[0],
+            Offset(size.width - offsetX - 4, midY - 8),
+            fontSize: 7, color: const Color(0xFF999999), align: TextAlign.right,
+          );
+        }
+        // 아래쪽 층 라벨
+        _drawText(canvas, sortedFloors[i],
+          Offset(size.width - offsetX - 4, midY + 4),
+          fontSize: 7, color: const Color(0xFF999999), align: TextAlign.right,
+        );
+      }
+    }
+
+    // ── 열 라벨 수집 (row 이름별 좌석 중앙 좌표) ──
+    final rowCenters = <String, _RowCenter>{}; // "floor:row" → center
+    for (final seat in layout.seats) {
+      final key = '${seat.floor}:${seat.row}';
+      if (!rowCenters.containsKey(key)) {
+        rowCenters[key] = _RowCenter(seat.row, seat.x, seat.y, seat.x, seat.y);
+      } else {
+        final rc = rowCenters[key]!;
+        if (seat.x < rc.minX) rc.minX = seat.x;
+        if (seat.x > rc.maxX) rc.maxX = seat.x;
+        if (seat.y < rc.minY) rc.minY = seat.y;
+        if (seat.y > rc.maxY) rc.maxY = seat.y;
+      }
+    }
+
+    // 열 라벨 그리기 (각 행 그룹의 위쪽 중앙에)
+    final drawnLabels = <String>{};
+    for (final entry in rowCenters.entries) {
+      final rc = entry.value;
+      final label = '${rc.name}열';
+      // 같은 이름 열이 여러 층에 있을 수 있으므로 키 전체로 중복 체크
+      if (drawnLabels.contains(entry.key)) continue;
+      drawnLabels.add(entry.key);
+
+      final cx = offsetX + ((rc.minX + rc.maxX) / 2) * scale;
+      final topY = offsetY + rc.minY * scale - 7;
+
+      _drawText(canvas, label, Offset(cx, topY),
+        fontSize: 5.5, color: const Color(0xFFAAAAAA),
+      );
+    }
+
+    // ── Seats ──
     final dotRadius = (scale * 6).clamp(1.5, 4.0);
     for (final seat in layout.seats) {
       final x = offsetX + seat.x * scale;
       final y = offsetY + seat.y * scale;
-      final color = _gradeColors[seat.grade] ?? const Color(0xFF666666);
-      canvas.drawCircle(
-        Offset(x, y),
-        dotRadius,
-        Paint()..color = color,
-      );
+
+      // 특수좌석은 다른 색상
+      Color color;
+      if (seat.seatType != SeatType.normal) {
+        color = _seatTypeColors[seat.seatType] ?? const Color(0xFF666666);
+      } else {
+        color = _gradeColors[seat.grade] ?? const Color(0xFF666666);
+      }
+
+      canvas.drawCircle(Offset(x, y), dotRadius, Paint()..color = color);
+
+      // 특수좌석 표시 (작은 마커)
+      if (seat.seatType == SeatType.obstructedView) {
+        // 대각선 줄
+        canvas.drawLine(
+          Offset(x - dotRadius * 0.6, y - dotRadius * 0.6),
+          Offset(x + dotRadius * 0.6, y + dotRadius * 0.6),
+          Paint()..color = Colors.white.withValues(alpha: 0.6)..strokeWidth = 0.5,
+        );
+      } else if (seat.seatType == SeatType.houseReserved) {
+        // 작은 사각형 마커
+        canvas.drawRect(
+          Rect.fromCenter(center: Offset(x, y), width: dotRadius, height: dotRadius),
+          Paint()..color = Colors.white.withValues(alpha: 0.4)..style = PaintingStyle.stroke..strokeWidth = 0.5,
+        );
+      }
     }
   }
 
+  void _drawText(Canvas canvas, String text, Offset center, {
+    double fontSize = 7,
+    Color color = const Color(0xFF888898),
+    double letterSpacing = 0,
+    TextAlign align = TextAlign.center,
+  }) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color, fontSize: fontSize,
+          fontWeight: FontWeight.w600, letterSpacing: letterSpacing,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+    final dx = align == TextAlign.right
+        ? center.dx - tp.width
+        : center.dx - tp.width / 2;
+    tp.paint(canvas, Offset(dx, center.dy - tp.height / 2));
+  }
+
   @override
-  bool shouldRepaint(covariant _MiniSeatMapPainter old) =>
-      old.layout != layout;
+  bool shouldRepaint(covariant _MiniSeatMapPainter old) => true;
+}
+
+/// 열 라벨 위치 계산용
+class _RowCenter {
+  final String name;
+  double minX, minY, maxX, maxY;
+  _RowCenter(this.name, this.minX, this.minY, this.maxX, this.maxY);
 }

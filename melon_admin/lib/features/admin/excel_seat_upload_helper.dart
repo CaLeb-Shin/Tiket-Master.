@@ -2478,12 +2478,40 @@ class ExcelToSeatMapConverter {
 
     final gradeLabelColors = <String, String>{};
     final gradeLabelRows = <int, String>{};
+    // 특수좌석 색상 매핑: hex → SeatType
+    final seatTypeLabelColors = <String, SeatType>{};
     for (int r = 0; r < sheet.maxRows; r++) {
       for (int c = 0; c < sheet.maxColumns; c++) {
         final cell = sheet.cell(
           CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r));
         final val = cell.value?.toString().trim() ?? '';
         if (val.isEmpty) continue;
+
+        // 특수좌석 텍스트 라벨 감지
+        final normalized = val.replaceAll(' ', '');
+        if (normalized.contains('시야장애') || normalized.contains('시야제한')) {
+          final hex = colorResolver.getBackgroundColor(sheetName, r, c);
+          if (hex != null && hex != 'FFFFFF' && hex != '000000') {
+            seatTypeLabelColors[hex] = SeatType.obstructedView;
+          }
+          continue;
+        }
+        if (normalized.contains('하우스유보') || normalized.contains('하우스보류')) {
+          final hex = colorResolver.getBackgroundColor(sheetName, r, c);
+          if (hex != null && hex != 'FFFFFF' && hex != '000000') {
+            seatTypeLabelColors[hex] = SeatType.houseReserved;
+          }
+          continue;
+        }
+        if (normalized.contains('장애인석') || normalized.contains('휠체어')) {
+          final hex = colorResolver.getBackgroundColor(sheetName, r, c);
+          if (hex != null && hex != 'FFFFFF' && hex != '000000') {
+            seatTypeLabelColors[hex] = SeatType.wheelchair;
+          }
+          continue;
+        }
+
+        // 등급 라벨 감지
         String? labelGrade;
         final upper = val.toUpperCase().replaceAll(' ', '');
         if (upper.contains('VIP')) {
@@ -2588,9 +2616,19 @@ class ExcelToSeatMapConverter {
         final excelHex = cell.cellStyle?.backgroundColor.colorHex ?? 'none';
         final bgHex = resolvedHex ?? excelHex;
 
+        // 특수좌석 타입 확인 (색상 → SeatType 매핑)
+        SeatType seatType = SeatType.normal;
+        if (seatTypeLabelColors.containsKey(bgHex)) {
+          seatType = seatTypeLabelColors[bgHex]!;
+        }
+
         String? grade = gradeLabelColors[bgHex];
         grade ??= EnhancedExcelParser._colorHexToGrade(bgHex);
         grade ??= getRowFallback(r);
+        // 특수좌석인데 등급이 없으면 기본 등급 할당
+        if (grade == null && seatType != SeatType.normal) {
+          grade = 'S'; // 특수좌석 기본 등급
+        }
         if (grade == null) continue;
 
         String zone = sheetName;
@@ -2609,6 +2647,7 @@ class ExcelToSeatMapConverter {
           row: getRowName(r, c),
           number: seatNum,
           grade: grade,
+          seatType: seatType,
         ));
       }
     }

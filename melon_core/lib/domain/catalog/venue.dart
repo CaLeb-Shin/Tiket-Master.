@@ -220,9 +220,11 @@ class VenueBlock {
 
 /// 좌석 유형
 enum SeatType {
-  normal,       // 일반석
-  wheelchair,   // 장애인석
-  reservedHold; // 유보석 (판매 보류)
+  normal,          // 일반석
+  wheelchair,      // 장애인석
+  reservedHold,    // 유보석 (판매 보류)
+  obstructedView,  // 시야장애석
+  houseReserved;   // 하우스유보석 (운영 보류)
 
   static SeatType fromString(String? value) {
     return SeatType.values.firstWhere(
@@ -239,6 +241,25 @@ enum SeatType {
         return '장애인석';
       case SeatType.reservedHold:
         return '유보석';
+      case SeatType.obstructedView:
+        return '시야장애석';
+      case SeatType.houseReserved:
+        return '하우스유보석';
+    }
+  }
+
+  String get shortLabel {
+    switch (this) {
+      case SeatType.normal:
+        return '';
+      case SeatType.wheelchair:
+        return '♿';
+      case SeatType.reservedHold:
+        return '보류';
+      case SeatType.obstructedView:
+        return '시야';
+      case SeatType.houseReserved:
+        return 'H';
     }
   }
 }
