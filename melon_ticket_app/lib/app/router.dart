@@ -21,6 +21,7 @@ import '../features/hall/hall_screen.dart';
 import '../features/mobile_ticket/mobile_ticket_page.dart';
 import '../features/mobile_ticket/designated_seat_select_page.dart';
 import '../features/notifications/notification_list_screen.dart';
+import '../features/subscription/subscription_screen.dart';
 
 /// main()에서 설정 — splash MaterialApp이 URL 덮어쓰기 전 원래 경로 보존
 String appInitialPath = '/';
@@ -37,7 +38,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           path.startsWith('/orders') ||
           path.startsWith('/checkout') ||
           path.startsWith('/staff') ||
-          path.startsWith('/mileage');
+          path.startsWith('/mileage') ||
+          path.startsWith('/subscription');
 
       if (!isLoggedIn && requiresAuth) {
         // 로그인 후 원래 경로로 돌아가도록 returnTo 파라미터 전달
@@ -187,6 +189,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/mileage',
             name: 'mileage',
             builder: (context, state) => const MileageHistoryScreen(),
+          ),
+
+          // 멜팅 구독
+          GoRoute(
+            path: '/subscription',
+            name: 'subscription',
+            builder: (context, state) => const SubscriptionScreen(),
           ),
 
           // 내 티켓

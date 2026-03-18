@@ -2451,6 +2451,17 @@ class _ProfileTab extends ConsumerWidget {
               const SizedBox(height: 16),
             ],
 
+            // Subscription
+            if (isLoggedIn) ...[
+              _MenuItem(
+                icon: Icons.loyalty_outlined,
+                title: '멜팅 구독',
+                subtitle: '구독 응모로 특별 좌석 당첨',
+                onTap: () => context.push('/subscription'),
+              ),
+              const SizedBox(height: 8),
+            ],
+
             // Order history
             if (isLoggedIn) ...[
               _MenuItem(

@@ -24,6 +24,11 @@ export 'domain/identity/app_user.dart';
 export 'domain/loyalty/mileage.dart';
 export 'domain/loyalty/mileage_history.dart';
 
+// ─── Domain: Subscription (구독/추첨) ───
+export 'domain/subscription/subscription.dart';
+export 'domain/subscription/subscription_entry.dart';
+export 'domain/subscription/lottery_result.dart';
+
 // ─── Domain: Finance (정산/에스크로) ───
 export 'domain/finance/settlement.dart';
 export 'domain/finance/escrow.dart';
@@ -43,6 +48,7 @@ export 'data/repositories/hall_repository.dart';
 export 'data/repositories/settlement_repository.dart';
 export 'data/repositories/seller_repository.dart';
 export 'data/repositories/venue_request_repository.dart';
+export 'data/repositories/subscription_repository.dart';
 
 // ─── Infrastructure: Firebase ───
 export 'infrastructure/firebase/firestore_service.dart';

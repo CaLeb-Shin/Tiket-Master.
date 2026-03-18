@@ -96,6 +96,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
   };
   final Set<String> _enabledGrades = {'VIP', 'R', 'S', 'A'};
   final Map<String, TextEditingController> _gradePriceControllers = {};
+  final Map<String, TextEditingController> _subscriptionSeatControllers = {};
 
   Uint8List? _posterBytes; // 업로드 중 임시 미리보기용
   String? _posterUrl; // 서버에 업로드된 포스터 URL
@@ -180,6 +181,7 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       _gradePriceControllers[grade] = TextEditingController(
         text: priceFmt.format(SeatMapParser.getDefaultPrice(grade)),
       );
+      _subscriptionSeatControllers[grade] = TextEditingController(text: '0');
     }
     if (_isEditMode) {
       _loadEventForEdit();
@@ -218,6 +220,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
     _hourCtrl.dispose();
     _minuteCtrl.dispose();
     for (final c in _gradePriceControllers.values) {
+      c.dispose();
+    }
+    for (final c in _subscriptionSeatControllers.values) {
       c.dispose();
     }
     super.dispose();
@@ -272,6 +277,9 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
       'enabledGrades': _enabledGrades.toList(),
       'gradePrices': {
         for (final e in _gradePriceControllers.entries) e.key: e.value.text,
+      },
+      'subscriptionSeats': {
+        for (final e in _subscriptionSeatControllers.entries) e.key: e.value.text,
       },
       'showRemainingSeats': _showRemainingSeats,
       'isStanding': _isStanding,
@@ -366,6 +374,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
         }
       }
 
+      if (data['subscriptionSeats'] != null) {
+        final ss = data['subscriptionSeats'] as Map<String, dynamic>;
+        for (final entry in ss.entries) {
+          _subscriptionSeatControllers[entry.key]?.text = entry.value as String;
+        }
+      }
+
       if (data['discountPolicies'] != null) {
         _discountPolicies
           ..clear()
@@ -453,6 +468,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
             ..addAll(event.discountPolicies!);
         }
 
+        if (event.subscriptionSeats != null) {
+          for (final entry in event.subscriptionSeats!.entries) {
+            _subscriptionSeatControllers[entry.key]?.text =
+                entry.value.toString();
+          }
+        }
+
         // 기존 포스터/팜플렛 URL 로드
         _posterUrl = event.imageUrl;
         _pamphletUrls = List<String>.from(event.pamphletUrls ?? []);
@@ -525,6 +547,13 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           _discountPolicies
             ..clear()
             ..addAll(event.discountPolicies!);
+        }
+
+        if (event.subscriptionSeats != null) {
+          for (final entry in event.subscriptionSeats!.entries) {
+            _subscriptionSeatControllers[entry.key]?.text =
+                entry.value.toString();
+          }
         }
 
         // 포스터/팜플렛 URL 복사
@@ -2694,6 +2723,73 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           inputFormatters: [_ThousandsSeparatorFormatter()],
           textAlign: TextAlign.end,
         ),
+        // ── 구독 좌석 수 입력 ──
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Icon(
+              Icons.loyalty_outlined,
+              size: 12,
+              color: isEnabled
+                  ? AdminTheme.gold.withValues(alpha: 0.6)
+                  : AdminTheme.textTertiary.withValues(alpha: 0.4),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '구독 좌석',
+              style: AdminTheme.sans(
+                fontSize: 10,
+                color: isEnabled
+                    ? AdminTheme.textSecondary
+                    : AdminTheme.textTertiary,
+              ),
+            ),
+            const Spacer(),
+            SizedBox(
+              width: 60,
+              child: TextFormField(
+                controller: _subscriptionSeatControllers[grade],
+                enabled: isEnabled,
+                style: AdminTheme.sans(
+                  fontSize: 12,
+                  color: isEnabled
+                      ? AdminTheme.textPrimary
+                      : AdminTheme.textTertiary,
+                ),
+                decoration: InputDecoration(
+                  suffixText: '석',
+                  suffixStyle: AdminTheme.sans(
+                    fontSize: 10,
+                    color: AdminTheme.textTertiary,
+                  ),
+                  filled: false,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 0,
+                    vertical: 4,
+                  ),
+                  border: UnderlineInputBorder(
+                    borderSide: BorderSide(
+                      color: AdminTheme.sage.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
+                  ),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(
+                      color: AdminTheme.sage.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
+                  ),
+                  focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: AdminTheme.gold, width: 1),
+                  ),
+                ),
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.end,
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -4480,6 +4576,18 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           if (_hallId != null) 'hallId': _hallId,
         };
 
+        // 구독 좌석 풀
+        final subSeats = <String, int>{};
+        for (final grade in _enabledGrades) {
+          final cnt = int.tryParse(
+                _subscriptionSeatControllers[grade]?.text ?? '0',
+              ) ??
+              0;
+          if (cnt > 0) subSeats[grade] = cnt;
+        }
+        updateData['subscriptionSeats'] =
+            subSeats.isNotEmpty ? subSeats : null;
+
         // 포스터/팜플렛은 이미 서버에 업로드되어 URL 보유
         updateData['imageUrl'] = _posterUrl;
         updateData['pamphletUrls'] = _pamphletUrls.isNotEmpty
@@ -4641,6 +4749,17 @@ class _EventCreateScreenState extends ConsumerState<EventCreateScreen> {
           isStanding: _isStanding,
           seatAssignMode: _seatAssignMode,
           hallId: _hallId,
+          subscriptionSeats: () {
+            final s = <String, int>{};
+            for (final g in _enabledGrades) {
+              final cnt = int.tryParse(
+                    _subscriptionSeatControllers[g]?.text ?? '0',
+                  ) ??
+                  0;
+              if (cnt > 0) s[g] = cnt;
+            }
+            return s.isNotEmpty ? s : null;
+          }(),
         );
 
         // ── Step 1: 이벤트 생성
