@@ -739,7 +739,11 @@ class _ScannerInviteDialogState extends State<_ScannerInviteDialog> {
           '아래 링크를 눌러 스캐너에 접속하세요.\n'
           '로그인 후 자동으로 기기가 승인됩니다.\n\n'
           '$link';
-      await Clipboard.setData(ClipboardData(text: copyText));
+      try {
+        await Clipboard.setData(ClipboardData(text: copyText));
+      } catch (_) {
+        // 웹 클립보드 API 미지원 시 무시 — 링크는 화면에 표시됨
+      }
       if (!mounted) return;
       setState(() {
         _generatedLink = link;
@@ -884,10 +888,15 @@ class _ScannerInviteDialogState extends State<_ScannerInviteDialog> {
                               '아래 링크를 눌러 스캐너에 접속하세요.\n'
                               '로그인 후 자동으로 기기가 승인됩니다.\n\n'
                               '${_generatedLink!}';
-                          Clipboard.setData(ClipboardData(text: copyText));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('복사됨')),
-                          );
+                          Clipboard.setData(ClipboardData(text: copyText)).then((_) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('복사됨')),
+                            );
+                          }).catchError((_) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('링크를 직접 복사해주세요')),
+                            );
+                          });
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 10),
