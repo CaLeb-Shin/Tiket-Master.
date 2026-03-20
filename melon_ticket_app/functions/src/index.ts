@@ -188,12 +188,13 @@ async function assertScannerAuthorized(uid?: string): Promise<string> {
     authCache.set(uid, { authorized: true, ts: Date.now() });
     return uid;
   }
+  // 단일 필드 쿼리 (복합 인덱스 불필요)
   const devices = await db.collection("scannerDevices")
     .where("ownerUid", "==", uid)
-    .where("approved", "==", true)
-    .limit(1)
+    .limit(5)
     .get();
-  if (!devices.empty) {
+  const hasApproved = devices.docs.some(d => d.data().approved === true);
+  if (hasApproved) {
     authCache.set(uid, { authorized: true, ts: Date.now() });
     return uid;
   }
@@ -1511,8 +1512,11 @@ export const verifyAndCheckIn = functions.https.onCall(async (data: any, context
   const actorStaffId = scannerUid;
 
   // ── Short token 처리 (m: / mm: 접두어) ──
+  // 구버전 클라이언트 호환: "m:TOKEN" → ticketId="m", qrToken="TOKEN" 으로 분리해서 보냄
   let shortTokenDoc: Record<string, any> | null = null;
-  const rawQr = (qrToken || ticketId || "").trim();
+  const rawQr = (ticketId === "m" || ticketId === "mm")
+    ? `${ticketId}:${qrToken}`
+    : (qrToken || ticketId || "").trim();
   if (rawQr.startsWith("m:") || rawQr.startsWith("mm:")) {
     const isShortMobile = rawQr.startsWith("mm:");
     const token = rawQr.substring(rawQr.indexOf(":") + 1);
@@ -2780,8 +2784,11 @@ export const verifyAndCheckInGroup = functions.https.onCall(async (data: any, co
   const scannerUid = await assertScannerAuthorized(context?.auth?.uid);
 
   // ── Short token 처리 (mg: 접두어) ──
+  // 구버전 클라이언트 호환: "mg:TOKEN" → orderId="mg", qrToken="TOKEN"
   let shortTokenDoc: Record<string, any> | null = null;
-  const rawQr = (qrToken || orderId || "").trim();
+  const rawQr = orderId === "mg"
+    ? `mg:${qrToken}`
+    : (qrToken || orderId || "").trim();
   if (rawQr.startsWith("mg:")) {
     const token = rawQr.substring(3);
     shortTokenDoc = await resolveShortToken(token);
