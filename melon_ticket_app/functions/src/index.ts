@@ -1283,16 +1283,16 @@ export const registerScannerDevice = functions.https.onCall(async (data: any, co
   const existingDoc = await deviceRef.get();
   const existing = existingDoc.data() ?? {};
 
-  if (existingDoc.exists && existing.ownerUid && existing.ownerUid !== scannerUid) {
-    throw new functions.https.HttpsError("permission-denied", "다른 계정에 등록된 기기입니다");
-  }
+  // 다른 계정으로 재등록 시 소유권 이전 (승인은 리셋)
+  const ownerChanged = existingDoc.exists && existing.ownerUid && existing.ownerUid !== scannerUid;
 
-  // admin 역할이거나 초대 토큰 사용 시 자동 승인
   const userRole = await getUserRole(scannerUid);
-  const approved = existingDoc.exists
-    ? existing.approved === true
-    : (userRole === "admin" || inviteApproved);
-  const blocked = existingDoc.exists ? existing.blocked === true : false;
+  const approved = ownerChanged
+    ? (userRole === "admin" || inviteApproved)   // 소유권 이전 시 재승인 필요
+    : existingDoc.exists
+      ? existing.approved === true
+      : (userRole === "admin" || inviteApproved);
+  const blocked = ownerChanged ? false : (existingDoc.exists ? existing.blocked === true : false);
 
   const payload: Record<string, unknown> = {
     ownerUid: scannerUid,
@@ -1308,7 +1308,7 @@ export const registerScannerDevice = functions.https.onCall(async (data: any, co
     lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 
-  if (!existingDoc.exists) {
+  if (!existingDoc.exists || ownerChanged) {
     payload.requestedAt = admin.firestore.FieldValue.serverTimestamp();
   }
 
