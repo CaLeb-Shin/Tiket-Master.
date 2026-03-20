@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -22,7 +23,8 @@ class ScannerScreen extends ConsumerStatefulWidget {
   ConsumerState<ScannerScreen> createState() => _ScannerScreenState();
 }
 
-class _ScannerScreenState extends ConsumerState<ScannerScreen> {
+class _ScannerScreenState extends ConsumerState<ScannerScreen>
+    with TickerProviderStateMixin {
   late final MobileScannerController _controller;
   String _checkinStage = 'entry';
   bool _isProcessing = false;
@@ -35,6 +37,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   String _scannerDeviceLabel = '';
   String? _deviceStatusMessage;
   bool _cameraStarted = false;
+
+  // ─── 결과 애니메이션 ─────────────────────────────
+  AnimationController? _resultAnimCtrl;
+  AnimationController? _countdownCtrl;
 
   // ─── 오프라인 캐시 관련 ─────────────────────────────
   bool _isOfflineMode = false;
@@ -92,6 +98,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   @override
   void dispose() {
     _resultDismissTimer?.cancel();
+    _resultAnimCtrl?.dispose();
+    _countdownCtrl?.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -523,6 +531,18 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       }
     }
 
+    // 진입 애니메이션
+    _resultAnimCtrl?.dispose();
+    _resultAnimCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _countdownCtrl?.dispose();
+    _countdownCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+
     setState(() {
       _lastResult = _ScanResultData(
         isSuccess: success,
@@ -533,6 +553,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         phoneLast4: phoneLast4,
       );
     });
+
+    _resultAnimCtrl!.forward();
+    _countdownCtrl!.forward();
   }
 
   /// QR 데이터에서 ticketId 추출 (오프라인 폴백용)
@@ -1262,206 +1285,336 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   //  Result Overlay
   // ──────────────────────────────────────────────
 
+  void _dismissResult() {
+    _resultDismissTimer?.cancel();
+    _resultAnimCtrl?.dispose();
+    _resultAnimCtrl = null;
+    _countdownCtrl?.dispose();
+    _countdownCtrl = null;
+    setState(() => _lastResult = null);
+    if (_isDeviceApproved && !_isDeviceBlocked) {
+      _controller.start();
+    }
+  }
+
   Widget _buildResultOverlay(_ScanResultData result) {
     final color = result.isSuccess ? AppTheme.success : AppTheme.error;
+    final anim = _resultAnimCtrl;
+    final countdown = _countdownCtrl;
 
-    return GestureDetector(
-      onTap: () {
-        _resultDismissTimer?.cancel();
-        setState(() => _lastResult = null);
-        if (_isDeviceApproved && !_isDeviceBlocked) {
-          _controller.start();
-        }
-      },
-      child: Container(
-        color: Color.lerp(const Color(0xFF0B0B0F), color, 0.08),
-        child: Center(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 32),
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              color: AppTheme.card,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: color, width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withAlpha(40),
-                  blurRadius: 32,
-                  offset: const Offset(0, 8),
+    Widget content = GestureDetector(
+      onTap: _dismissResult,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          color: Color.lerp(const Color(0xFF0B0B0F), color, 0.06)!
+              .withValues(alpha: 0.85),
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 28),
+              padding: const EdgeInsets.fromLTRB(32, 36, 32, 28),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: color.withValues(alpha: 0.15),
+                  width: 1,
                 ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Icon
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: color.withAlpha(26),
-                    shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.12),
+                    blurRadius: 48,
+                    spreadRadius: 0,
+                    offset: const Offset(0, 12),
                   ),
-                  child: Icon(
-                    result.isSuccess
-                        ? Icons.check_circle_rounded
-                        : Icons.cancel_rounded,
-                    size: 44,
-                    color: color,
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 80,
+                    offset: const Offset(0, 24),
                   ),
-                ),
-                const SizedBox(height: 20),
-
-                // Title
-                Text(
-                  result.title,
-                  style: AppTheme.nanum(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: color,
-                    shadows: AppTheme.textShadowStrong,
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                // Message
-                Text(
-                  result.message,
-                  style: AppTheme.nanum(
-                    fontSize: 14,
-                    color: AppTheme.textSecondary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-
-                // Buyer info (이름 + 전화번호 뒷4자리)
-                if (result.isSuccess && (result.buyerName ?? '').isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardElevated,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.border, width: 0.5),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ── 아이콘 + 카운트다운 링 ──
+                  SizedBox(
+                    width: 88,
+                    height: 88,
+                    child: Stack(
+                      alignment: Alignment.center,
                       children: [
-                        const Icon(
-                          Icons.person_rounded,
-                          color: AppTheme.gold,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          result.buyerName!,
-                          style: AppTheme.nanum(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
-                            shadows: AppTheme.textShadow,
-                          ),
-                        ),
-                        if ((result.phoneLast4 ?? '').isNotEmpty) ...[
-                          const SizedBox(width: 10),
-                          Text(
-                            '(${result.phoneLast4})',
-                            style: AppTheme.nanum(
-                              fontSize: 15,
-                              color: AppTheme.textSecondary,
+                        // 카운트다운 프로그레스 링
+                        if (countdown != null)
+                          AnimatedBuilder(
+                            animation: countdown,
+                            builder: (_, __) => SizedBox(
+                              width: 88,
+                              height: 88,
+                              child: CircularProgressIndicator(
+                                value: 1.0 - countdown.value,
+                                strokeWidth: 2.5,
+                                color: color.withValues(alpha: 0.3),
+                                backgroundColor: color.withValues(alpha: 0.06),
+                                strokeCap: StrokeCap.round,
+                              ),
                             ),
                           ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-
-                // Seat info
-                if (result.seatInfo != null) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardElevated,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.border, width: 0.5),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.event_seat_rounded,
-                          color: AppTheme.gold,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          result.seatInfo!,
-                          style: AppTheme.nanum(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
-                            shadows: AppTheme.textShadow,
+                        // 아이콘 배경
+                        Container(
+                          width: 68,
+                          height: 68,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [
+                                color.withValues(alpha: 0.12),
+                                color.withValues(alpha: 0.04),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          child: Icon(
+                            result.isSuccess
+                                ? Icons.check_rounded
+                                : Icons.close_rounded,
+                            size: 36,
+                            color: color,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
+                  const SizedBox(height: 24),
 
-                const SizedBox(height: 24),
-
-                // Next scan button
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: result.isSuccess ? null : AppTheme.goldGradient,
-                      color: result.isSuccess ? AppTheme.success : null,
-                      borderRadius: BorderRadius.circular(12),
+                  // ── 라벨 ──
+                  Text(
+                    result.isSuccess ? 'CONFIRMED' : 'DENIED',
+                    style: AppTheme.label(
+                      fontSize: 10,
+                      color: color.withValues(alpha: 0.6),
                     ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          _resultDismissTimer?.cancel();
-                          setState(() => _lastResult = null);
-                          if (_isDeviceApproved && !_isDeviceBlocked) {
-                            _controller.start();
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Center(
-                          child: Text(
-                            '다음 스캔',
-                            style: AppTheme.nanum(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: result.isSuccess
-                                  ? Colors.white
-                                  : const Color(0xFFFDF3F6),
-                              shadows: AppTheme.textShadowOnDark,
+                  ),
+                  const SizedBox(height: 8),
+
+                  // ── 타이틀 (세리프) ──
+                  Text(
+                    result.title,
+                    style: AppTheme.serif(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                      shadows: [
+                        Shadow(
+                          color: color.withValues(alpha: 0.15),
+                          offset: const Offset(0, 2),
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+
+                  // ── 메시지 ──
+                  Text(
+                    result.message,
+                    style: AppTheme.sans(
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
+                      noShadow: true,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+
+                  // ── 구매자 + 좌석 정보 ──
+                  if (result.isSuccess &&
+                      ((result.buyerName ?? '').isNotEmpty ||
+                          result.seatInfo != null)) ...[
+                    const SizedBox(height: 20),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF9F7F3),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppTheme.border,
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          if ((result.buyerName ?? '').isNotEmpty)
+                            Row(
+                              children: [
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.goldSubtle,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.person_outline_rounded,
+                                    color: AppTheme.gold,
+                                    size: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    result.buyerName!,
+                                    style: AppTheme.nanum(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                                if ((result.phoneLast4 ?? '').isNotEmpty)
+                                  Text(
+                                    result.phoneLast4!,
+                                    style: AppTheme.sans(
+                                      fontSize: 13,
+                                      color: AppTheme.textTertiary,
+                                      noShadow: true,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          if ((result.buyerName ?? '').isNotEmpty &&
+                              result.seatInfo != null)
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 10),
+                              child: Divider(
+                                height: 1,
+                                color: AppTheme.border,
+                              ),
+                            ),
+                          if (result.seatInfo != null)
+                            Row(
+                              children: [
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.goldSubtle,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.event_seat_outlined,
+                                    color: AppTheme.gold,
+                                    size: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    result.seatInfo!,
+                                    style: AppTheme.nanum(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  // ── 다음 스캔 버튼 ──
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: result.isSuccess
+                            ? LinearGradient(
+                                colors: [
+                                  color,
+                                  color.withValues(alpha: 0.85),
+                                ],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              )
+                            : AppTheme.goldGradient,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (result.isSuccess ? color : AppTheme.gold)
+                                .withValues(alpha: 0.2),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _dismissResult,
+                          borderRadius: BorderRadius.circular(14),
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '다음 스캔',
+                                  style: AppTheme.nanum(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
+                                    shadows: AppTheme.textShadowOnDark,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Icon(
+                                  Icons.arrow_forward_rounded,
+                                  size: 16,
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
+
+    // 진입 애니메이션
+    if (anim != null) {
+      final curve = CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
+      content = AnimatedBuilder(
+        animation: curve,
+        builder: (_, child) => Opacity(
+          opacity: anim.value.clamp(0.0, 1.0),
+          child: Transform.scale(
+            scale: 0.85 + 0.15 * curve.value,
+            child: child,
+          ),
+        ),
+        child: content,
+      );
+    }
+
+    return content;
   }
 
   // ──────────────────────────────────────────────
