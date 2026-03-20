@@ -137,15 +137,25 @@ async function assertAdmin(uid?: string): Promise<string> {
   return uid;
 }
 
-async function assertStaffOrAdmin(uid?: string): Promise<string> {
+/** staff/admin 역할 또는 승인된 스캐너 기기 보유 시 통과 */
+async function assertScannerAuthorized(uid?: string): Promise<string> {
   if (!uid) {
     throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
   }
   const role = (await getUserRole(uid)).toLowerCase();
-  if (role !== "admin" && role !== "superadmin" && role !== "staff") {
-    throw new functions.https.HttpsError("permission-denied", "스태프 권한이 필요합니다");
+  if (role === "admin" || role === "superadmin" || role === "staff") {
+    return uid;
   }
-  return uid;
+  // 승인된 스캐너 기기가 있는지 확인
+  const devices = await db.collection("scannerDevices")
+    .where("ownerUid", "==", uid)
+    .where("approved", "==", true)
+    .limit(1)
+    .get();
+  if (!devices.empty) {
+    return uid;
+  }
+  throw new functions.https.HttpsError("permission-denied", "스태프 권한이 필요합니다");
 }
 
 type CheckinStage = "entry" | "intermission";
@@ -1460,7 +1470,7 @@ export const verifyAndCheckIn = functions.https.onCall(async (data: any, context
   const { ticketId, qrToken } = data;
   const scannerDeviceId = (data?.scannerDeviceId as string | undefined)?.trim();
   const checkinStage = normalizeCheckinStage(data?.checkinStage);
-  const scannerUid = await assertStaffOrAdmin(context?.auth?.uid);
+  const scannerUid = await assertScannerAuthorized(context?.auth?.uid);
   const actorStaffId = scannerUid;
 
   // 모바일 티켓(mt_) 분기 — 선언을 최상단에 배치
@@ -2710,7 +2720,7 @@ export const verifyAndCheckInGroup = functions.https.onCall(async (data: any, co
   const { orderId, qrToken } = data;
   const scannerDeviceId = (data?.scannerDeviceId as string | undefined)?.trim();
   const checkinStage = normalizeCheckinStage(data?.checkinStage);
-  const scannerUid = await assertStaffOrAdmin(context?.auth?.uid);
+  const scannerUid = await assertScannerAuthorized(context?.auth?.uid);
 
   if (!orderId || !qrToken) {
     throw new functions.https.HttpsError("invalid-argument", "잘못된 요청입니다");
@@ -5141,7 +5151,7 @@ export const confirmNaverReview = functions.https.onCall(async (data: any) => {
 // 스캐너 오프라인 캐시용 — 이벤트 전체 티켓 다운로드
 // ============================================================
 export const downloadEventTicketsForScanner = functions.https.onCall(async (data: any, context) => {
-  await assertStaffOrAdmin(context?.auth?.uid);
+  await assertScannerAuthorized(context?.auth?.uid);
   const { eventId } = data;
   if (!eventId || typeof eventId !== "string") {
     throw new functions.https.HttpsError("invalid-argument", "eventId가 필요합니다");
@@ -5216,7 +5226,7 @@ export const downloadEventTicketsForScanner = functions.https.onCall(async (data
 // 오프라인 체크인 일괄 동기화
 // ============================================================
 export const syncOfflineCheckins = functions.https.onCall(async (data: any, context) => {
-  await assertStaffOrAdmin(context?.auth?.uid);
+  await assertScannerAuthorized(context?.auth?.uid);
   const { checkins } = data;
   if (!Array.isArray(checkins) || checkins.length === 0) {
     throw new functions.https.HttpsError("invalid-argument", "체크인 배열이 필요합니다");
