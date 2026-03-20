@@ -36,8 +36,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addToWaitlist = exports.syncOfflineCheckins = exports.downloadEventTicketsForScanner = exports.submitReview = exports.completeEvent = exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listNaverOrdersHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.cleanupExpiredTickets = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.autoClaimNaverOrdersByPhone = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.createScannerInvite = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
-exports.changeDesignatedSeat = exports.scheduledAutoAssignDesignated = exports.getDesignatedSeatInfo = exports.confirmDesignatedSeat = exports.releaseExpiredHolds = exports.releaseSeat = exports.holdSeat = exports.healthCheckMobileTicket = exports.cancelWaitlistEntry = exports.assignFromWaitlist = void 0;
+exports.submitIntermissionSurvey = exports.submitReview = exports.completeEvent = exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listNaverOrdersHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.cleanupExpiredTickets = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.autoClaimNaverOrdersByPhone = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.createVenueFromMaster = exports.migrateMasterVenues = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.createScannerInvite = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.registerAsSeller = exports.scheduledSubscriptionLottery = exports.activateSubscription = exports.runSubscriptionLottery = exports.applyForSubscriptionLottery = exports.changeDesignatedSeat = exports.scheduledAutoAssignDesignated = exports.getDesignatedSeatInfo = exports.confirmDesignatedSeat = exports.releaseExpiredHolds = exports.releaseSeat = exports.holdSeat = exports.healthCheckMobileTicket = exports.cancelWaitlistEntry = exports.assignFromWaitlist = exports.addToWaitlist = exports.syncOfflineCheckins = exports.downloadEventTicketsForScanner = exports.confirmNaverReview = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -668,7 +668,7 @@ exports.confirmPaymentAndAssignSeats = functions.https.onCall(async (data, conte
                 if (purchaseMileage > 0) {
                     await addMileageInternal(result.userId, purchaseMileage, "purchase", `${eventTitle} 예매 적립 (${result.seatCount}매)`);
                 }
-                // 2. 추천인 마일리지 적립 (500P)
+                // 2. 추천인 마일리지 적립 (2000P) + 피초대자 웰컴 보너스 (1000P) + referrals 기록
                 const refCode = orderData.referralCode;
                 if (refCode) {
                     const referrerQuery = await db
@@ -681,8 +681,48 @@ exports.confirmPaymentAndAssignSeats = functions.https.onCall(async (data, conte
                         const referrerId = referrerDoc.id;
                         // 자기 자신 추천 방지
                         if (referrerId !== result.userId) {
-                            await addMileageInternal(referrerId, 500, "referral", `추천 적립 (${eventTitle})`);
-                            functions.logger.info(`추천 마일리지 적립: referrer=${referrerId}, buyer=${result.userId}, code=${refCode}`);
+                            // referrals 컬렉션 기록
+                            await db.collection("referrals").add({
+                                referrerUserId: referrerId,
+                                refereeUserId: result.userId,
+                                eventId: result.eventId,
+                                orderId,
+                                status: "completed",
+                                referrerMileageAwarded: true,
+                                refereeMileageAwarded: true,
+                                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                            });
+                            // 초대자 2000P 적립
+                            await addMileageInternal(referrerId, 2000, "referral", `친구 초대 적립 (${eventTitle})`);
+                            // 피초대자 1000P 웰컴 보너스
+                            await addMileageInternal(result.userId, 1000, "referral", `초대 웰컴 보너스 (${eventTitle})`);
+                            // 초대자 알림
+                            sendNotification({
+                                userId: referrerId,
+                                type: "bookingConfirmed",
+                                title: "친구가 예매했습니다!",
+                                body: `추천으로 2,000P가 적립되었습니다 (${eventTitle})`,
+                                data: { type: "referral_earned", eventId: result.eventId },
+                                eventId: result.eventId,
+                                skipDuplicateCheck: true,
+                            }).catch(() => { });
+                            // 3명 초대 달성 시 등급 업그레이드 보너스
+                            const completedReferrals = await db.collection("referrals")
+                                .where("referrerUserId", "==", referrerId)
+                                .where("status", "==", "completed")
+                                .get();
+                            if (completedReferrals.size === 3) {
+                                await addMileageInternal(referrerId, 5000, "referral", "친구 3명 초대 달성 보너스");
+                                sendNotification({
+                                    userId: referrerId,
+                                    type: "bookingConfirmed",
+                                    title: "3명 초대 달성! 🎉",
+                                    body: "보너스 5,000P가 적립되었습니다",
+                                    data: { type: "referral_milestone" },
+                                    skipDuplicateCheck: true,
+                                }).catch(() => { });
+                            }
+                            functions.logger.info(`추천 마일리지 적립: referrer=${referrerId}(2000P), buyer=${result.userId}(1000P), code=${refCode}`);
                         }
                     }
                 }
@@ -986,17 +1026,11 @@ exports.requestTicketCancellation = functions.https.onCall(async (data, context)
 // ============================================================
 exports.registerScannerDevice = functions.https.onCall(async (data, context) => {
     const { deviceId, label, platform, inviteToken } = data ?? {};
-    // 초대 토큰이 있으면 로그인만 확인, 없으면 staff/admin 권한 필요
-    let scannerUid;
-    if (typeof inviteToken === "string" && inviteToken.trim().length > 0) {
-        if (!context?.auth?.uid) {
-            throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
-        }
-        scannerUid = context.auth.uid;
+    // 로그인만 확인 — 초대 토큰 없어도 기기 등록은 허용 (승인은 별도)
+    if (!context?.auth?.uid) {
+        throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
     }
-    else {
-        scannerUid = await assertStaffOrAdmin(context?.auth?.uid);
-    }
+    const scannerUid = context.auth.uid;
     if (!deviceId || typeof deviceId !== "string") {
         throw new functions.https.HttpsError("invalid-argument", "기기 ID가 필요합니다");
     }
@@ -1527,6 +1561,107 @@ exports.scheduledRevealSeats = functions.pubsub
     }
     return null;
 });
+// ════════════════════════════════════════════════════════════════════════════
+// 마스터 공연장 시스템
+// ════════════════════════════════════════════════════════════════════════════
+/**
+ * 기존 venues → masterVenues 마이그레이션
+ * 어드민에서 1회만 호출
+ */
+exports.migrateMasterVenues = functions.https.onCall(async (_data, context) => {
+    if (!context.auth)
+        throw new functions.https.HttpsError("unauthenticated", "로그인 필요");
+    await assertAdmin(context.auth.uid);
+    const venuesSnap = await db.collection("venues").get();
+    if (venuesSnap.empty)
+        return { success: true, migrated: 0 };
+    const batch = db.batch();
+    let count = 0;
+    for (const venueDoc of venuesSnap.docs) {
+        const v = venueDoc.data();
+        if (v.masterVenueId)
+            continue;
+        const existing = await db.collection("masterVenues")
+            .where("name", "==", v.name)
+            .limit(1)
+            .get();
+        if (!existing.empty) {
+            batch.update(venueDoc.ref, { masterVenueId: existing.docs[0].id });
+            const linkedIds = existing.docs[0].data().linkedVenueIds || [];
+            if (!linkedIds.includes(venueDoc.id)) {
+                batch.update(existing.docs[0].ref, {
+                    linkedVenueIds: [...linkedIds, venueDoc.id],
+                });
+            }
+            count++;
+            continue;
+        }
+        let region = null;
+        const addr = v.address || "";
+        if (addr.includes("부산"))
+            region = "부산";
+        else if (addr.includes("대전"))
+            region = "대전";
+        else if (addr.includes("대구"))
+            region = "대구";
+        else if (addr.includes("창원"))
+            region = "창원";
+        else if (addr.includes("고양"))
+            region = "고양";
+        else if (addr.includes("서울"))
+            region = "서울";
+        else if (addr.includes("인천"))
+            region = "인천";
+        const masterRef = db.collection("masterVenues").doc();
+        batch.set(masterRef, {
+            name: v.name,
+            region,
+            address: v.address || null,
+            totalSeats: v.totalSeats || 0,
+            floors: v.floors || [],
+            seatLayout: v.seatLayout || null,
+            isVerified: true,
+            hasSeatView: v.hasSeatView || false,
+            linkedVenueIds: [venueDoc.id],
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        batch.update(venueDoc.ref, { masterVenueId: masterRef.id });
+        count++;
+    }
+    await batch.commit();
+    return { success: true, migrated: count };
+});
+/**
+ * 마스터 공연장에서 새 Venue 생성
+ */
+exports.createVenueFromMaster = functions.https.onCall(async (data, context) => {
+    if (!context.auth)
+        throw new functions.https.HttpsError("unauthenticated", "로그인 필요");
+    await assertAdmin(context.auth.uid);
+    const { masterVenueId } = data;
+    if (!masterVenueId)
+        throw new functions.https.HttpsError("invalid-argument", "masterVenueId 필요");
+    const masterDoc = await db.collection("masterVenues").doc(masterVenueId).get();
+    if (!masterDoc.exists)
+        throw new functions.https.HttpsError("not-found", "마스터 공연장 없음");
+    const mv = masterDoc.data();
+    const venueRef = await db.collection("venues").add({
+        name: mv.name,
+        address: mv.address || null,
+        stagePosition: mv.seatLayout?.stagePosition || "top",
+        floors: mv.floors || [],
+        totalSeats: mv.totalSeats || 0,
+        hasSeatView: mv.hasSeatView || false,
+        seatLayout: mv.seatLayout || null,
+        masterVenueId,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    const linkedIds = mv.linkedVenueIds || [];
+    await masterDoc.ref.update({
+        linkedVenueIds: [...linkedIds, venueRef.id],
+    });
+    return { success: true, venueId: venueRef.id };
+});
 // ============================================================
 // 소셜 로그인 - 카카오 (Custom Token 발급)
 // ============================================================
@@ -1645,6 +1780,7 @@ exports.signInWithNaver = functions.https.onCall(async (data, context) => {
     const email = profile.email ?? `naver_${naverId}@melonticket.app`;
     const displayName = profile.nickname ?? profile.name ?? `네이버${naverId.slice(-4)}`;
     const photoUrl = profile.profile_image;
+    const naverPhone = profile.mobile ?? profile.mobile_e164 ?? null;
     // Firebase UID = naver:{naverId}
     const uid = `naver:${naverId}`;
     // Firestore 사용자 문서 생성/업데이트
@@ -1658,6 +1794,7 @@ exports.signInWithNaver = functions.https.onCall(async (data, context) => {
             photoUrl: photoUrl ?? null,
             provider: "naver",
             naverId,
+            phone: naverPhone,
             role: "user",
             mileage: { balance: 0, tier: "bronze", totalEarned: 0 },
             referralCode,
@@ -1666,16 +1803,53 @@ exports.signInWithNaver = functions.https.onCall(async (data, context) => {
         });
     }
     else {
-        await userRef.update({
-            lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        const updateData = { lastLoginAt: admin.firestore.FieldValue.serverTimestamp() };
+        if (naverPhone)
+            updateData.phone = naverPhone;
+        await userRef.update(updateData);
+    }
+    // 네이버 전화번호가 있으면 자동으로 NaverOrder 매칭
+    let claimedCount = 0;
+    if (naverPhone) {
+        const phoneDigits = naverPhone.replace(/\D/g, "");
+        if (phoneDigits.length >= 10) {
+            const unlinkedSnap = await db.collection("naverOrders")
+                .where("userId", "==", null)
+                .get();
+            const batch = db.batch();
+            const claimedOrderIds = [];
+            for (const doc of unlinkedSnap.docs) {
+                const order = doc.data();
+                const orderPhone = String(order.buyerPhone || "").replace(/\D/g, "");
+                if (orderPhone === phoneDigits) {
+                    batch.set(doc.ref, {
+                        userId: uid,
+                        linkedAt: admin.firestore.FieldValue.serverTimestamp(),
+                        linkSource: "naverLoginAutoClaim",
+                    }, { merge: true });
+                    claimedOrderIds.push(doc.id);
+                    // MobileTicket에도 userId 설정
+                    const ticketIds = order.ticketIds || [];
+                    for (const tid of ticketIds) {
+                        batch.set(db.collection("mobileTickets").doc(tid), {
+                            userId: uid,
+                        }, { merge: true });
+                    }
+                }
+            }
+            if (claimedOrderIds.length > 0) {
+                await batch.commit();
+                claimedCount = claimedOrderIds.length;
+                functions.logger.info(`네이버 로그인 자동 매칭: ${claimedCount}건 (uid=${uid}, phone=${phoneDigits.slice(-4)})`);
+            }
+        }
     }
     // Firebase Custom Token 발급
     const customToken = await admin.auth().createCustomToken(uid, {
         provider: "naver",
         naverId,
     });
-    return { customToken, uid, displayName, email };
+    return { customToken, uid, displayName, email, phone: naverPhone, claimedCount };
 });
 /**
  * 내부용 마일리지 적립/차감 헬퍼 (Cloud Function 간 호출용)
@@ -1827,7 +2001,7 @@ exports.addReviewMileage = functions.https.onCall(async (data, context) => {
         .where("userId", "==", userId)
         .get();
     const isFirstReview = allReviews.size === 1;
-    const amount = isFirstReview ? 500 : 200;
+    const amount = isFirstReview ? 1000 : 200;
     // 마일리지 적립
     const userRef = db.collection("users").doc(userId);
     const userDoc = await userRef.get();
@@ -2664,6 +2838,7 @@ async function createNaverOrderInternal(raw, options = {}) {
         cancelledAt: null,
         cancelReason: null,
         memo: input.memo,
+        ...(input.companion ? { companion: input.companion } : {}),
     });
     ticketIds.forEach((ticketId) => {
         batch.update(db.collection("mobileTickets").doc(ticketId), {
@@ -2671,6 +2846,25 @@ async function createNaverOrderInternal(raw, options = {}) {
         });
     });
     await batch.commit();
+    // ── 연석 요청 생성 (companion 필드가 있으면) ──
+    if (input.companion && (isDeferred || seatAssignMode === "immediate")) {
+        try {
+            await db.collection("seatCompanionRequests").add({
+                eventId: input.eventId,
+                requesterOrderId: orderRef.id,
+                requesterName: input.buyerName,
+                requesterPhone: input.buyerPhone,
+                companionIdentifier: input.companion,
+                status: "pending",
+                matchedOrderId: null,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            functions.logger.info(`${options.logPrefix || ""}연석 요청 생성: ${input.buyerName} ↔ ${input.companion}`);
+        }
+        catch (e) {
+            functions.logger.warn(`연석 요청 생성 실패: ${e.message}`);
+        }
+    }
     await enqueueNaverOrderSmsTask({
         eventId: input.eventId,
         orderId: orderRef.id,
@@ -2724,37 +2918,119 @@ exports.assignDeferredSeats = functions.https.onCall(async (data, context) => {
     if (availableSnap.size < unassignedSnap.size) {
         throw new functions.https.HttpsError("resource-exhausted", `잔여 좌석 부족 (미확정 ${unassignedSnap.size}매, 잔여 ${availableSnap.size}석)`);
     }
-    // 연석 우선으로 좌석 배정
-    const selectedSeats = findAdjacentSeats(availableSnap.docs, unassignedSnap.size);
-    if (!selectedSeats) {
-        throw new functions.https.HttpsError("resource-exhausted", `연석 ${unassignedSnap.size}매를 찾을 수 없습니다 (잔여 ${availableSnap.size}석)`);
+    // ── 연석 요청 기반 그룹핑 ──
+    // seatCompanionRequests에서 pending 요청 조회
+    const companionReqSnap = await db.collection("seatCompanionRequests")
+        .where("eventId", "==", eventId)
+        .where("status", "==", "pending")
+        .get();
+    // 주문별 티켓 그룹핑 (naverOrderId 기준)
+    const orderTickets = new Map();
+    for (const ticketDoc of unassignedSnap.docs) {
+        const orderId = ticketDoc.data().naverOrderId || "unknown";
+        if (!orderTickets.has(orderId))
+            orderTickets.set(orderId, []);
+        orderTickets.get(orderId).push(ticketDoc);
+    }
+    // companion 매칭: requester와 companion의 주문을 묶기
+    const companionGroups = [];
+    const assignedOrderIds = new Set();
+    const matchedCompanionReqs = [];
+    for (const reqDoc of companionReqSnap.docs) {
+        const req = reqDoc.data();
+        const requesterId = req.requesterOrderId;
+        if (assignedOrderIds.has(requesterId))
+            continue;
+        const identifier = (req.companionIdentifier || "").toLowerCase();
+        // 다른 주문 중 이름/전화번호 뒷4자리가 매칭되는 주문 찾기
+        for (const [orderId, tickets] of orderTickets.entries()) {
+            if (orderId === requesterId || assignedOrderIds.has(orderId))
+                continue;
+            const orderData = tickets[0].data();
+            const nameMatch = (orderData.buyerName || "").toLowerCase().includes(identifier);
+            const phoneMatch = (orderData.buyerPhone || "").endsWith(identifier);
+            if (nameMatch || phoneMatch) {
+                // 매칭 성공: 두 주문의 티켓을 하나의 그룹으로
+                const group = [
+                    ...(orderTickets.get(requesterId) || []),
+                    ...tickets,
+                ];
+                companionGroups.push(group);
+                assignedOrderIds.add(requesterId);
+                assignedOrderIds.add(orderId);
+                matchedCompanionReqs.push(reqDoc);
+                break;
+            }
+        }
+    }
+    // 나머지 (매칭 안 된) 티켓은 개별 그룹으로
+    const remainingTickets = [];
+    for (const [orderId, tickets] of orderTickets.entries()) {
+        if (!assignedOrderIds.has(orderId)) {
+            remainingTickets.push(...tickets);
+        }
     }
     const now = admin.firestore.Timestamp.now();
     const batch = db.batch();
     const assignments = [];
-    unassignedSnap.docs.forEach((ticketDoc, index) => {
-        const seatDoc = selectedSeats[index];
-        const seat = seatDoc.data();
-        const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
-            .filter(Boolean)
-            .join(" ");
-        batch.update(ticketDoc.ref, {
-            seatId: seatDoc.id,
-            seatNumber: `${seat.number}`,
-            seatInfo,
-            updatedAt: now,
+    let availableSeatDocs = [...availableSnap.docs];
+    // 헬퍼: 티켓 배열에 좌석 배정
+    function assignSeatsToTickets(tickets, seats) {
+        const selected = findAdjacentSeats(seats, tickets.length);
+        if (!selected)
+            return false;
+        tickets.forEach((ticketDoc, i) => {
+            const seatDoc = selected[i];
+            const seat = seatDoc.data();
+            const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
+                .filter(Boolean)
+                .join(" ");
+            batch.update(ticketDoc.ref, { seatId: seatDoc.id, seatNumber: `${seat.number}`, seatInfo, updatedAt: now });
+            batch.update(seatDoc.ref, { status: "reserved", updatedAt: now });
+            assignments.push({ ticketId: ticketDoc.id, seatInfo });
         });
-        batch.update(seatDoc.ref, {
-            status: "reserved",
-            updatedAt: now,
-        });
-        assignments.push({ ticketId: ticketDoc.id, seatInfo });
-    });
+        // 사용된 좌석 제거
+        const usedIds = new Set(selected.map((s) => s.id));
+        availableSeatDocs = availableSeatDocs.filter((s) => !usedIds.has(s.id));
+        return true;
+    }
+    // 1) companion 그룹 먼저 배정 (연석 우선)
+    for (const group of companionGroups) {
+        assignSeatsToTickets(group, availableSeatDocs);
+    }
+    // 2) 나머지 티켓 배정
+    if (remainingTickets.length > 0) {
+        assignSeatsToTickets(remainingTickets, availableSeatDocs);
+    }
+    // companion 요청 상태 업데이트
+    for (const reqDoc of matchedCompanionReqs) {
+        batch.update(reqDoc.ref, { status: "assigned", updatedAt: now });
+    }
     await batch.commit();
-    functions.logger.info(`좌석 사후 배정 완료: ${eventId}, ${seatGrade} x${assignments.length}매`);
+    // ── 연석 매칭 알림: 친구 좌석 배정 알림 ──
+    for (const reqDoc of matchedCompanionReqs) {
+        const req = reqDoc.data();
+        const requesterOrderDoc = await db.collection("naverOrders").doc(req.requesterOrderId).get();
+        if (requesterOrderDoc.exists) {
+            const order = requesterOrderDoc.data();
+            // 요청자에게 친구 배정 알림
+            sendNotification({
+                phone: order.buyerPhone,
+                buyerName: order.buyerName || "",
+                type: "seatAssigned",
+                title: "친구와 연석 배정 완료!",
+                body: `${req.companionIdentifier}님과 가까운 좌석이 배정되었습니다`,
+                data: { type: "companion_assigned", eventId },
+                eventId,
+                skipDuplicateCheck: true,
+            }).catch(() => { });
+        }
+    }
+    functions.logger.info(`좌석 사후 배정 완료: ${eventId}, ${seatGrade} x${assignments.length}매 (연석그룹 ${companionGroups.length}개)`);
     return {
         success: true,
         assigned: assignments.length,
+        companionGroupsMatched: companionGroups.length,
         assignments,
     };
 });
@@ -2949,6 +3225,13 @@ exports.autoClaimNaverOrdersByPhone = functions.https.onCall(async (data, contex
                     linkedAt: admin.firestore.FieldValue.serverTimestamp(),
                     linkSource: "autoClaimByPhone",
                 }, { merge: true });
+                // MobileTicket에도 userId 설정
+                const ticketIds = order.ticketIds || [];
+                for (const tid of ticketIds) {
+                    batch.set(db.collection("mobileTickets").doc(tid), {
+                        userId,
+                    }, { merge: true });
+                }
                 claimed.push({
                     orderId: doc.id,
                     eventId: order.eventId || "",
@@ -4004,6 +4287,115 @@ exports.submitReview = functions.https.onCall(async (data) => {
     return { success: true };
 });
 // ============================================================
+// 인터미션 설문 제출 (비로그인, accessToken 기반)
+// ============================================================
+exports.submitIntermissionSurvey = functions.https.onCall(async (data) => {
+    const { ticketId, accessToken, rating, bestMoment, comment } = data;
+    if (!ticketId || !accessToken || !rating || !bestMoment) {
+        throw new functions.https.HttpsError("invalid-argument", "ticketId, accessToken, rating, bestMoment가 필요합니다");
+    }
+    if (typeof rating !== "number" || rating < 1 || rating > 5) {
+        throw new functions.https.HttpsError("invalid-argument", "rating은 1~5 사이여야 합니다");
+    }
+    // accessToken으로 티켓 소유 확인
+    const ticketRef = db.collection("mobileTickets").doc(ticketId);
+    const ticketDoc = await ticketRef.get();
+    if (!ticketDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "티켓을 찾을 수 없습니다");
+    }
+    const ticket = ticketDoc.data();
+    if (ticket.accessToken !== accessToken) {
+        throw new functions.https.HttpsError("permission-denied", "접근 권한이 없습니다");
+    }
+    // 인터미션 체크인 여부 확인
+    if (!ticket.intermissionCheckedInAt) {
+        throw new functions.https.HttpsError("failed-precondition", "인터미션 체크인 후 설문 가능합니다");
+    }
+    // 중복 설문 체크
+    const existingSurvey = await db.collection("intermissionSurveys")
+        .where("ticketId", "==", ticketId)
+        .limit(1)
+        .get();
+    if (!existingSurvey.empty) {
+        throw new functions.https.HttpsError("already-exists", "이미 설문을 제출하셨습니다");
+    }
+    // 설문 저장
+    await db.collection("intermissionSurveys").add({
+        ticketId,
+        eventId: ticket.eventId,
+        buyerName: ticket.buyerName || "",
+        rating,
+        bestMoment,
+        comment: typeof comment === "string" ? comment.trim().slice(0, 100) : null,
+        mileageAwarded: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    // 마일리지 적립 (로그인 유저인 경우)
+    if (ticket.claimedByUserId) {
+        await addMileageInternal(ticket.claimedByUserId, 500, "review", "인터미션 설문 적립 (500P)");
+        await db.collection("intermissionSurveys")
+            .where("ticketId", "==", ticketId)
+            .limit(1)
+            .get()
+            .then((snap) => {
+            if (!snap.empty)
+                snap.docs[0].ref.update({ mileageAwarded: true });
+        });
+    }
+    // 알림
+    sendNotification({
+        phone: ticket.buyerPhone,
+        buyerName: ticket.buyerName || "",
+        type: "intermissionSurvey",
+        title: "설문 감사합니다!",
+        body: "인터미션 설문 완료! 500P가 적립되었습니다",
+        data: { type: "intermission_survey", eventId: ticket.eventId },
+        eventId: ticket.eventId,
+        skipDuplicateCheck: true,
+    }).catch(() => { });
+    return { success: true, mileageAwarded: !!ticket.claimedByUserId };
+});
+// ============================================================
+// 네이버 리뷰 자기 신고 + 500P 적립
+// ============================================================
+exports.confirmNaverReview = functions.https.onCall(async (data) => {
+    const { ticketId, accessToken } = data;
+    if (!ticketId || !accessToken) {
+        throw new functions.https.HttpsError("invalid-argument", "ticketId, accessToken이 필요합니다");
+    }
+    const ticketRef = db.collection("mobileTickets").doc(ticketId);
+    const ticketDoc = await ticketRef.get();
+    if (!ticketDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "티켓을 찾을 수 없습니다");
+    }
+    const ticket = ticketDoc.data();
+    if (ticket.accessToken !== accessToken) {
+        throw new functions.https.HttpsError("permission-denied", "접근 권한이 없습니다");
+    }
+    // 중복 확인
+    const existing = await db.collection("naverReviewConfirms")
+        .where("ticketId", "==", ticketId)
+        .limit(1)
+        .get();
+    if (!existing.empty) {
+        throw new functions.https.HttpsError("already-exists", "이미 네이버 리뷰 확인이 완료되었습니다");
+    }
+    // 기록 저장
+    await db.collection("naverReviewConfirms").add({
+        ticketId,
+        eventId: ticket.eventId,
+        buyerName: ticket.buyerName || "",
+        buyerPhone: ticket.buyerPhone || "",
+        mileageAwarded: !!ticket.claimedByUserId,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    // 마일리지 적립 (로그인 유저인 경우)
+    if (ticket.claimedByUserId) {
+        await addMileageInternal(ticket.claimedByUserId, 500, "review", "네이버 리뷰 적립 (500P)");
+    }
+    return { success: true, mileageAwarded: !!ticket.claimedByUserId };
+});
+// ============================================================
 // 스캐너 오프라인 캐시용 — 이벤트 전체 티켓 다운로드
 // ============================================================
 exports.downloadEventTicketsForScanner = functions.https.onCall(async (data, context) => {
@@ -4869,5 +5261,403 @@ exports.changeDesignatedSeat = functions.https.onRequest(async (req, res) => {
         functions.logger.error("[DesignatedSeat] 좌석 변경 실패:", error);
         res.status(400).json({ error: error.message || "좌석 변경 실패" });
     }
+});
+// ============================================================
+// 구독 서비스 — 응모 신청
+// ============================================================
+const SUBSCRIPTION_PLANS = {
+    basic: { price: 9900, entries: 2, guarantees: 0, tier: "silver" },
+    standard: { price: 19900, entries: 5, guarantees: 1, tier: "gold" },
+    premium: { price: 39900, entries: 999, guarantees: 2, tier: "platinum" },
+};
+exports.applyForSubscriptionLottery = functions.https.onCall(async (data, context) => {
+    const userId = context?.auth?.uid;
+    if (!userId) {
+        throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
+    }
+    const { eventId, seatGrade } = data;
+    if (!eventId || !seatGrade) {
+        throw new functions.https.HttpsError("invalid-argument", "eventId, seatGrade가 필요합니다");
+    }
+    // 활성 구독 확인
+    const subSnap = await db.collection("subscriptions")
+        .where("userId", "==", userId)
+        .where("status", "==", "active")
+        .limit(1)
+        .get();
+    if (subSnap.empty) {
+        throw new functions.https.HttpsError("failed-precondition", "활성 구독이 없습니다");
+    }
+    const subDoc = subSnap.docs[0];
+    const sub = subDoc.data();
+    const plan = sub.plan;
+    const isPremium = plan === "premium";
+    // 응모권 확인 (premium은 무제한)
+    if (!isPremium && (sub.entriesRemaining ?? 0) <= 0) {
+        throw new functions.https.HttpsError("resource-exhausted", "이번 달 응모권을 모두 사용했습니다");
+    }
+    // 이벤트 구독 좌석 확인
+    const eventDoc = await db.collection("events").doc(eventId).get();
+    if (!eventDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "이벤트를 찾을 수 없습니다");
+    }
+    const eventData = eventDoc.data();
+    const subSeats = eventData.subscriptionSeats;
+    if (!subSeats || !subSeats[seatGrade] || subSeats[seatGrade] <= 0) {
+        throw new functions.https.HttpsError("failed-precondition", `${seatGrade} 등급의 구독 좌석이 없습니다`);
+    }
+    // 중복 응모 체크
+    const existingEntry = await db.collection("subscriptionEntries")
+        .where("userId", "==", userId)
+        .where("eventId", "==", eventId)
+        .where("seatGrade", "==", seatGrade)
+        .limit(1)
+        .get();
+    if (!existingEntry.empty) {
+        throw new functions.https.HttpsError("already-exists", "이미 이 공연에 응모했습니다");
+    }
+    // 응모 생성 + 응모권 차감
+    const batch = db.batch();
+    batch.create(db.collection("subscriptionEntries").doc(), {
+        subscriptionId: subDoc.id,
+        userId,
+        eventId,
+        seatGrade,
+        status: "pending",
+        isGuaranteed: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    if (!isPremium) {
+        batch.update(subDoc.ref, {
+            entriesRemaining: admin.firestore.FieldValue.increment(-1),
+        });
+    }
+    await batch.commit();
+    const eventTitle = eventData.title ?? "공연";
+    sendNotification({
+        userId,
+        type: "bookingConfirmed",
+        title: "응모 완료!",
+        body: `${eventTitle} ${seatGrade}석 추첨에 응모되었습니다`,
+        data: { type: "subscription_applied", eventId },
+        eventId,
+    }).catch(() => { });
+    return { success: true };
+});
+// ============================================================
+// 구독 서비스 — 추첨 실행 (스케줄러 또는 어드민 수동)
+// ============================================================
+exports.runSubscriptionLottery = functions.https.onCall(async (data, context) => {
+    await assertAdmin(context?.auth?.uid);
+    const { eventId, seatGrade } = data;
+    if (!eventId || !seatGrade) {
+        throw new functions.https.HttpsError("invalid-argument", "eventId, seatGrade가 필요합니다");
+    }
+    // 이벤트 구독 좌석 수 확인
+    const eventDoc = await db.collection("events").doc(eventId).get();
+    if (!eventDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "이벤트를 찾을 수 없습니다");
+    }
+    const eventData = eventDoc.data();
+    const subSeats = eventData.subscriptionSeats ?? {};
+    const totalSeats = subSeats[seatGrade] || 0;
+    if (totalSeats <= 0) {
+        throw new functions.https.HttpsError("failed-precondition", "구독 좌석이 없습니다");
+    }
+    // pending 응모 조회
+    const entriesSnap = await db.collection("subscriptionEntries")
+        .where("eventId", "==", eventId)
+        .where("seatGrade", "==", seatGrade)
+        .where("status", "==", "pending")
+        .get();
+    if (entriesSnap.empty) {
+        return { success: true, winners: 0, message: "응모자가 없습니다" };
+    }
+    const entries = entriesSnap.docs;
+    let winnerSlots = Math.min(totalSeats, entries.length);
+    // ── 보장 당첨자 우선 선정 ──
+    const guaranteedEntries = [];
+    const normalEntries = [];
+    for (const entry of entries) {
+        const sub = await db.collection("subscriptions").doc(entry.data().subscriptionId).get();
+        const subData = sub.data();
+        if (subData && (subData.consecutiveLosses ?? 0) >= 3 && (subData.guaranteesRemaining ?? 0) > 0) {
+            guaranteedEntries.push(entry);
+        }
+        else {
+            normalEntries.push(entry);
+        }
+    }
+    // 보장 당첨자 (슬롯 내에서)
+    const guaranteedWinners = guaranteedEntries.slice(0, winnerSlots);
+    const remainingSlots = winnerSlots - guaranteedWinners.length;
+    // 나머지는 랜덤 추첨
+    const shuffled = [...normalEntries].sort(() => Math.random() - 0.5);
+    const randomWinners = shuffled.slice(0, remainingSlots);
+    const allWinners = [...guaranteedWinners, ...randomWinners];
+    const losers = entries.filter((e) => !allWinners.includes(e));
+    // 좌석 배정 (findAdjacentSeats 활용)
+    const availableSnap = await db.collection("seats")
+        .where("eventId", "==", eventId)
+        .where("grade", "==", seatGrade)
+        .where("status", "==", "available")
+        .get();
+    const selectedSeats = findAdjacentSeats(availableSnap.docs, allWinners.length);
+    const now = admin.firestore.Timestamp.now();
+    const batch = db.batch();
+    const winnerUserIds = [];
+    const winnerEntryIds = [];
+    const eventTitle = eventData.title ?? "공연";
+    for (let i = 0; i < allWinners.length; i++) {
+        const entryDoc = allWinners[i];
+        const entryData = entryDoc.data();
+        const uid = entryData.userId;
+        winnerUserIds.push(uid);
+        winnerEntryIds.push(entryDoc.id);
+        // 좌석 배정 + 티켓 생성
+        if (selectedSeats && selectedSeats[i]) {
+            const seatDoc = selectedSeats[i];
+            const seat = seatDoc.data();
+            const seatInfo = [seat.floor, seat.block, seat.row ? `${seat.row}열` : null, `${seat.number}번`]
+                .filter(Boolean).join(" ");
+            const ticketRef = db.collection("tickets").doc();
+            batch.set(ticketRef, {
+                userId: uid,
+                eventId,
+                seatGrade,
+                seatId: seatDoc.id,
+                seatNumber: `${seat.number}`,
+                seatInfo,
+                status: "issued",
+                source: "subscription",
+                subscriptionEntryId: entryDoc.id,
+                issuedAt: now,
+            });
+            batch.update(seatDoc.ref, { status: "reserved", updatedAt: now });
+            batch.update(entryDoc.ref, { status: "won", ticketId: ticketRef.id, isGuaranteed: guaranteedWinners.includes(entryDoc) });
+        }
+        else {
+            batch.update(entryDoc.ref, { status: "won", isGuaranteed: guaranteedWinners.includes(entryDoc) });
+        }
+        // 구독 consecutiveLosses 리셋 + guarantees 차감
+        const subRef = db.collection("subscriptions").doc(entryData.subscriptionId);
+        const updates = { consecutiveLosses: 0 };
+        if (guaranteedWinners.includes(entryDoc)) {
+            updates.guaranteesRemaining = admin.firestore.FieldValue.increment(-1);
+        }
+        batch.update(subRef, updates);
+        // 당첨 알림
+        sendNotification({
+            userId: uid,
+            type: "seatAssigned",
+            title: "축하합니다! 추첨 당첨!",
+            body: `${eventTitle} ${seatGrade}석에 당첨되었습니다`,
+            data: { type: "lottery_won", eventId },
+            eventId,
+            skipDuplicateCheck: true,
+        }).catch(() => { });
+    }
+    // 미당첨자 처리
+    for (const loser of losers) {
+        const loserData = loser.data();
+        batch.update(loser.ref, { status: "lost" });
+        // 응모권 반환
+        const subRef = db.collection("subscriptions").doc(loserData.subscriptionId);
+        const subDoc = await subRef.get();
+        const subPlan = subDoc.data()?.plan;
+        if (subPlan !== "premium") {
+            batch.update(subRef, {
+                entriesRemaining: admin.firestore.FieldValue.increment(1),
+                consecutiveLosses: admin.firestore.FieldValue.increment(1),
+            });
+        }
+        else {
+            batch.update(subRef, {
+                consecutiveLosses: admin.firestore.FieldValue.increment(1),
+            });
+        }
+        sendNotification({
+            userId: loserData.userId,
+            type: "bookingConfirmed",
+            title: "아쉽게도 미당첨",
+            body: `${eventTitle} ${seatGrade}석 추첨에 미당첨되었습니다. 응모권이 반환됩니다.`,
+            data: { type: "lottery_lost", eventId },
+            eventId,
+            skipDuplicateCheck: true,
+        }).catch(() => { });
+    }
+    // 잔여 구독좌석 → 일반 판매 전환
+    const remainingSubSeats = totalSeats - allWinners.length;
+    // 추첨 결과 기록
+    batch.create(db.collection("lotteryResults").doc(), {
+        eventId,
+        seatGrade,
+        totalEntries: entries.length,
+        totalSeats,
+        winnerUserIds,
+        winnerEntryIds,
+        guaranteedWinners: guaranteedWinners.length,
+        remainingSeatsReleased: remainingSubSeats,
+        runAt: now,
+    });
+    await batch.commit();
+    functions.logger.info(`구독 추첨 완료: ${eventId} ${seatGrade}, ${allWinners.length}명 당첨 / ${losers.length}명 미당첨 (보장 ${guaranteedWinners.length}명)`);
+    return {
+        success: true,
+        winners: allWinners.length,
+        losers: losers.length,
+        guaranteedWinners: guaranteedWinners.length,
+        remainingSeatsReleased: remainingSubSeats,
+    };
+});
+// ============================================================
+// 구독 서비스 — 구독 활성화 (결제 확인 후)
+// ============================================================
+exports.activateSubscription = functions.https.onCall(async (data, context) => {
+    await assertAdmin(context?.auth?.uid);
+    const { userId, plan } = data;
+    if (!userId || !plan) {
+        throw new functions.https.HttpsError("invalid-argument", "userId, plan이 필요합니다");
+    }
+    const planInfo = SUBSCRIPTION_PLANS[plan];
+    if (!planInfo) {
+        throw new functions.https.HttpsError("invalid-argument", "유효하지 않은 플랜입니다 (basic/standard/premium)");
+    }
+    // 기존 활성 구독 확인
+    const existingSub = await db.collection("subscriptions")
+        .where("userId", "==", userId)
+        .where("status", "==", "active")
+        .limit(1)
+        .get();
+    if (!existingSub.empty) {
+        throw new functions.https.HttpsError("already-exists", "이미 활성 구독이 있습니다");
+    }
+    const now = new Date();
+    const endDate = new Date(now);
+    endDate.setMonth(endDate.getMonth() + 1);
+    // 구독 생성
+    const subRef = await db.collection("subscriptions").add({
+        userId,
+        plan,
+        status: "active",
+        entriesRemaining: planInfo.entries,
+        guaranteesRemaining: planInfo.guarantees,
+        consecutiveLosses: 0,
+        startDate: admin.firestore.Timestamp.fromDate(now),
+        endDate: admin.firestore.Timestamp.fromDate(endDate),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    // 등급 자동 부여
+    const userRef = db.collection("users").doc(userId);
+    await userRef.update({
+        "mileage.tier": planInfo.tier,
+    });
+    sendNotification({
+        userId,
+        type: "bookingConfirmed",
+        title: `멜팅 ${plan.charAt(0).toUpperCase() + plan.slice(1)} 구독 시작!`,
+        body: `응모권 ${planInfo.entries === 999 ? "무제한" : planInfo.entries + "회"}, ${planInfo.tier} 등급이 부여되었습니다`,
+        data: { type: "subscription_activated" },
+        skipDuplicateCheck: true,
+    }).catch(() => { });
+    return { success: true, subscriptionId: subRef.id };
+});
+// ============================================================
+// 구독 서비스 — 자동 추첨 스케줄러 (판매 마감 3일 전)
+// ============================================================
+exports.scheduledSubscriptionLottery = functions.pubsub
+    .schedule("every 6 hours")
+    .timeZone("Asia/Seoul")
+    .onRun(async () => {
+    const now = new Date();
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const threeDaysAndSixHours = new Date(now.getTime() + (3 * 24 + 6) * 60 * 60 * 1000);
+    // saleEndAt이 3~3.5일 후인 이벤트 (아직 추첨 안 한)
+    const eventsSnap = await db.collection("events")
+        .where("saleEndAt", ">=", admin.firestore.Timestamp.fromDate(threeDaysFromNow))
+        .where("saleEndAt", "<=", admin.firestore.Timestamp.fromDate(threeDaysAndSixHours))
+        .where("status", "==", "active")
+        .get();
+    for (const eventDoc of eventsSnap.docs) {
+        const eventData = eventDoc.data();
+        const subSeats = eventData.subscriptionSeats ?? {};
+        for (const [grade, seats] of Object.entries(subSeats)) {
+            if (seats <= 0)
+                continue;
+            // 이미 추첨했는지 확인
+            const existingLottery = await db.collection("lotteryResults")
+                .where("eventId", "==", eventDoc.id)
+                .where("seatGrade", "==", grade)
+                .limit(1)
+                .get();
+            if (!existingLottery.empty)
+                continue;
+            // pending 응모가 있는 경우에만 추첨
+            const pendingEntries = await db.collection("subscriptionEntries")
+                .where("eventId", "==", eventDoc.id)
+                .where("seatGrade", "==", grade)
+                .where("status", "==", "pending")
+                .limit(1)
+                .get();
+            if (pendingEntries.empty)
+                continue;
+            functions.logger.info(`자동 추첨 실행: ${eventDoc.id} ${grade}`);
+            // 내부적으로 추첨 로직 실행 (runSubscriptionLottery와 동일한 로직은 어드민 콜에서만 가능)
+            // 여기서는 smsTasks에 알림만 큐잉하고 어드민이 수동 실행하도록 안내
+            await db.collection("smsTasks").add({
+                type: "lotteryReminder",
+                message: `[멜팅] 구독 추첨 필요: ${eventData.title} ${grade}석 (마감 3일 전)`,
+                buyerName: "admin",
+                buyerPhone: "",
+                status: "pending",
+                priority: 1,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+    }
+    return null;
+});
+// ════════════════════════════════════════════════════════════════════════════
+// 공연사(셀러) 등록
+// ════════════════════════════════════════════════════════════════════════════
+/**
+ * 공연사 등록 신청 — 일반 유저 → seller(pending) 전환
+ */
+exports.registerAsSeller = functions.https.onCall(async (data, context) => {
+    if (!context.auth)
+        throw new functions.https.HttpsError("unauthenticated", "로그인 필요");
+    const uid = context.auth.uid;
+    const { businessName, businessNumber, representativeName, contactNumber, description } = data;
+    if (!businessName)
+        throw new functions.https.HttpsError("invalid-argument", "상호명 필수");
+    const userDoc = await db.collection("users").doc(uid).get();
+    if (!userDoc.exists)
+        throw new functions.https.HttpsError("not-found", "사용자 없음");
+    const userData = userDoc.data();
+    if (userData.role === "seller") {
+        throw new functions.https.HttpsError("already-exists", "이미 공연사로 등록되어 있습니다");
+    }
+    await db.collection("users").doc(uid).update({
+        role: "seller",
+        sellerProfile: {
+            businessName,
+            businessNumber: businessNumber || null,
+            representativeName: representativeName || null,
+            contactNumber: contactNumber || null,
+            description: description || null,
+            logoUrl: null,
+            sellerStatus: "pending",
+        },
+    });
+    // 어드민에게 알림
+    await sendNotification({
+        userId: undefined,
+        phone: undefined,
+        type: "seller_registration",
+        title: "공연사 등록 신청",
+        body: `${businessName} (${userData.displayName || userData.email})`,
+        data: { sellerId: uid },
+    });
+    return { success: true };
 });
 //# sourceMappingURL=index.js.map

@@ -1236,16 +1236,11 @@ export const requestTicketCancellation = functions.https.onCall(async (data: any
 export const registerScannerDevice = functions.https.onCall(async (data: any, context) => {
   const { deviceId, label, platform, inviteToken } = data ?? {};
 
-  // 초대 토큰이 있으면 로그인만 확인, 없으면 staff/admin 권한 필요
-  let scannerUid: string;
-  if (typeof inviteToken === "string" && inviteToken.trim().length > 0) {
-    if (!context?.auth?.uid) {
-      throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
-    }
-    scannerUid = context.auth.uid;
-  } else {
-    scannerUid = await assertStaffOrAdmin(context?.auth?.uid);
+  // 로그인만 확인 — 초대 토큰 없어도 기기 등록은 허용 (승인은 별도)
+  if (!context?.auth?.uid) {
+    throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
   }
+  const scannerUid: string = context.auth.uid;
 
   if (!deviceId || typeof deviceId !== "string") {
     throw new functions.https.HttpsError("invalid-argument", "기기 ID가 필요합니다");
