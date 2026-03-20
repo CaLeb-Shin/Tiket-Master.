@@ -84,6 +84,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       detectionSpeed: DetectionSpeed.noDuplicates,
       facing: CameraFacing.back,
       formats: [BarcodeFormat.qrCode],
+      cameraResolution: const Size(1920, 1080),
     );
     unawaited(_registerCurrentDevice());
   }
@@ -394,8 +395,27 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       final functionsService = ref.read(functionsServiceProvider);
       Map<String, dynamic> result;
 
-      // 통합 QR: group:{orderId}:{jwtToken}
-      if (raw.startsWith('group:')) {
+      // ── Short token (m: / mm: / mg:) ──
+      if (raw.startsWith('mg:')) {
+        // 통합 short token → 서버가 orderId 등을 resolve
+        result = await functionsService.verifyAndCheckInGroup(
+          orderId: raw, // 서버가 mg: 접두어로 short token 감지
+          qrToken: raw,
+          staffId: authUser.uid,
+          scannerDeviceId: _scannerDeviceId!,
+          checkinStage: _checkinStage,
+        );
+      } else if (raw.startsWith('m:') || raw.startsWith('mm:')) {
+        // 개별/모바일 short token → 서버가 ticketId를 resolve
+        result = await functionsService.verifyAndCheckIn(
+          ticketId: raw, // 서버가 m:/mm: 접두어로 short token 감지
+          qrToken: raw,
+          staffId: authUser.uid,
+          scannerDeviceId: _scannerDeviceId!,
+          checkinStage: _checkinStage,
+        );
+      } else if (raw.startsWith('group:')) {
+        // 기존 통합 QR: group:{orderId}:{jwtToken}
         final firstColon = raw.indexOf(':');
         final secondColon = raw.indexOf(':', firstColon + 1);
         if (secondColon <= firstColon + 1 || secondColon >= raw.length - 1) {
@@ -412,7 +432,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
           checkinStage: _checkinStage,
         );
       } else {
-        // 개별 QR: ticketId:jwtToken
+        // 기존 개별 QR: ticketId:jwtToken
         final sepIndex = raw.indexOf(':');
         if (sepIndex <= 0 || sepIndex >= raw.length - 1) {
           throw const FormatException('지원하지 않는 QR 형식입니다');
@@ -475,7 +495,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
         // Auto-dismiss result after 5 seconds and resume scanning
         _resultDismissTimer?.cancel();
-        _resultDismissTimer = Timer(const Duration(seconds: 5), () {
+        _resultDismissTimer = Timer(const Duration(seconds: 3), () {
           if (mounted) {
             setState(() => _lastResult = null);
             if (_isDeviceApproved && !_isDeviceBlocked) {

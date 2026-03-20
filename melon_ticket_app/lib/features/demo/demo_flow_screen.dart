@@ -348,6 +348,7 @@ class _DemoFlowScreenState extends State<DemoFlowScreen> {
                             QrImageView(
                               data: _ticket!.qrPayload,
                               version: QrVersions.auto,
+                              errorCorrectionLevel: QrErrorCorrectLevel.Q,
                               size: 180,
                               backgroundColor: Colors.white,
                             ),

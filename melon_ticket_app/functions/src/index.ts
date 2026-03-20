@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as jwt from "jsonwebtoken";
+import * as crypto from "crypto";
 import sharp from "sharp";
 import Anthropic from "@anthropic-ai/sdk";
 import {
@@ -17,6 +18,40 @@ const db = admin.firestore();
 // JWT 시크릿 (실제 운영 시 환경 변수로 관리)
 const JWT_SECRET = process.env.JWT_SECRET || "melon-ticket-secret-key-change-in-production";
 const QR_TOKEN_EXPIRY = 120; // 2분
+
+// ── Short QR Token ──────────────────────────────────────────
+// 12자 랜덤 토큰 → QR Version 1-2 (21x21), 기존 JWT 대비 ~30배 짧음
+async function generateShortToken(
+  payload: Record<string, unknown>,
+  type: "standard" | "mobile" | "group",
+): Promise<string> {
+  const token = crypto.randomBytes(9).toString("base64url").slice(0, 12);
+  const expiresAt = admin.firestore.Timestamp.fromMillis(Date.now() + QR_TOKEN_EXPIRY * 1000);
+  await db.collection("qrTokens").doc(token).set({
+    ...payload,
+    type,
+    expiresAt,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return token;
+}
+
+/** qrTokens doc 읽기 + 만료 체크. 실패 시 null 반환 */
+async function resolveShortToken(token: string): Promise<Record<string, any> | null> {
+  const doc = await db.collection("qrTokens").doc(token).get();
+  if (!doc.exists) return null;
+  const data = doc.data()!;
+  const expiresAt = data.expiresAt?.toMillis?.() ?? 0;
+  if (Date.now() > expiresAt) return null;
+  return data;
+}
+
+// ── 서버 캐시 (Cloud Functions 인스턴스 수명 동안 유지) ──────
+const lastSeenCache: Map<string, number> = new Map();
+const LAST_SEEN_THROTTLE_MS = 10 * 60 * 1000; // 10분
+
+const authCache: Map<string, { authorized: boolean; ts: number }> = new Map();
+const AUTH_CACHE_TTL_MS = 5 * 60 * 1000; // 5분
 // 취소 수수료 규정 (실제 서비스 기준)
 // - 예매 후 7일 이내: 무료취소
 // - 예매 후 8일 ~ 관람일 10일 전: 공연권 4000원 / 입장권 2000원 (최대 10%)
@@ -137,24 +172,32 @@ async function assertAdmin(uid?: string): Promise<string> {
   return uid;
 }
 
-/** staff/admin 역할 또는 승인된 스캐너 기기 보유 시 통과 */
+/** staff/admin 역할 또는 승인된 스캐너 기기 보유 시 통과 (5분 캐시) */
 async function assertScannerAuthorized(uid?: string): Promise<string> {
   if (!uid) {
     throw new functions.https.HttpsError("unauthenticated", "로그인이 필요합니다");
   }
+  // 캐시 확인
+  const cached = authCache.get(uid);
+  if (cached && Date.now() - cached.ts < AUTH_CACHE_TTL_MS) {
+    if (cached.authorized) return uid;
+    throw new functions.https.HttpsError("permission-denied", "스태프 권한이 필요합니다");
+  }
   const role = (await getUserRole(uid)).toLowerCase();
   if (role === "admin" || role === "superadmin" || role === "staff") {
+    authCache.set(uid, { authorized: true, ts: Date.now() });
     return uid;
   }
-  // 승인된 스캐너 기기가 있는지 확인
   const devices = await db.collection("scannerDevices")
     .where("ownerUid", "==", uid)
     .where("approved", "==", true)
     .limit(1)
     .get();
   if (!devices.empty) {
+    authCache.set(uid, { authorized: true, ts: Date.now() });
     return uid;
   }
+  authCache.set(uid, { authorized: false, ts: Date.now() });
   throw new functions.https.HttpsError("permission-denied", "스태프 권한이 필요합니다");
 }
 
@@ -1440,26 +1483,20 @@ export const issueQrToken = functions.https.onCall(async (data: any, context) =>
     throw new functions.https.HttpsError("failed-precondition", "유효하지 않은 티켓입니다");
   }
 
-  // JWT 토큰 생성
-  const now = Math.floor(Date.now() / 1000);
-  const payload = {
+  // Short token 생성 (QR 데이터 최소화)
+  const shortToken = await generateShortToken({
     ticketId,
     eventId: ticket.eventId,
     userId,
-    qrVersion: ticket.qrVersion,
-    iat: now,
-    exp: now + QR_TOKEN_EXPIRY,
-  };
+    qrVersion: ticket.qrVersion ?? 1,
+  }, "standard");
 
-  const token = jwt.sign(payload, JWT_SECRET);
-
-  // QR 데이터: ticketId:token 형식
-  const qrData = `${ticketId}:${token}`;
+  const qrData = `m:${shortToken}`;
 
   return {
     success: true,
     token: qrData,
-    exp: payload.exp,
+    exp: Math.floor(Date.now() / 1000) + QR_TOKEN_EXPIRY,
   };
 });
 
@@ -1467,11 +1504,27 @@ export const issueQrToken = functions.https.onCall(async (data: any, context) =>
 // 8. verifyAndCheckIn - 입장 검증 및 체크인(1차/2차)
 // ============================================================
 export const verifyAndCheckIn = functions.https.onCall(async (data: any, context) => {
-  const { ticketId, qrToken } = data;
+  let { ticketId, qrToken } = data;
   const scannerDeviceId = (data?.scannerDeviceId as string | undefined)?.trim();
   const checkinStage = normalizeCheckinStage(data?.checkinStage);
   const scannerUid = await assertScannerAuthorized(context?.auth?.uid);
   const actorStaffId = scannerUid;
+
+  // ── Short token 처리 (m: / mm: 접두어) ──
+  let shortTokenDoc: Record<string, any> | null = null;
+  const rawQr = (qrToken || ticketId || "").trim();
+  if (rawQr.startsWith("m:") || rawQr.startsWith("mm:")) {
+    const isShortMobile = rawQr.startsWith("mm:");
+    const token = rawQr.substring(rawQr.indexOf(":") + 1);
+    shortTokenDoc = await resolveShortToken(token);
+    if (!shortTokenDoc) {
+      return { success: false, result: "expired", title: "QR 만료", message: "QR이 만료되었습니다" };
+    }
+    ticketId = isShortMobile ? `mt_${shortTokenDoc.ticketId}` : shortTokenDoc.ticketId;
+    qrToken = "__short__"; // JWT 검증 스킵 마커
+    // 사용된 토큰 삭제 (fire-and-forget)
+    db.collection("qrTokens").doc(token).delete().catch(() => {});
+  }
 
   // 모바일 티켓(mt_) 분기 — 선언을 최상단에 배치
   const isMobileTicket = (ticketId || "").startsWith("mt_");
@@ -1536,50 +1589,58 @@ export const verifyAndCheckIn = functions.https.onCall(async (data: any, context
     };
   }
 
-  await db.collection("scannerDevices").doc(scannerDeviceId).set(
-    {
-      lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
+  // lastSeenAt 쓰로틀링 (10분에 1번)
+  const now = Date.now();
+  const lastSeen = lastSeenCache.get(scannerDeviceId) || 0;
+  if (now - lastSeen > LAST_SEEN_THROTTLE_MS) {
+    await db.collection("scannerDevices").doc(scannerDeviceId).set(
+      {
+        lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+    lastSeenCache.set(scannerDeviceId, now);
+  }
   } // end of !isDemoDevice else block
 
-  // 토큰에서 실제 JWT 추출 (ticketId:token 형식)
-  const tokenParts = qrToken.split(":");
-  const actualToken = tokenParts.length > 1 ? tokenParts.slice(1).join(":") : qrToken;
+  // Short token이면 JWT 검증 스킵 (이미 resolveShortToken에서 만료 확인됨)
+  let decoded: any = shortTokenDoc;
+  if (qrToken !== "__short__") {
+    // 기존 JWT 폴백 (구형 QR)
+    const tokenParts = qrToken.split(":");
+    const actualToken = tokenParts.length > 1 ? tokenParts.slice(1).join(":") : qrToken;
 
-  // JWT 검증
-  let decoded: any;
-  try {
-    decoded = jwt.verify(actualToken, JWT_SECRET);
-  } catch (error: any) {
-    const result = error.name === "TokenExpiredError" ? "expired" : "invalidSignature";
-    await logCheckin(ticketId, actorStaffId, result, error.message, {
-      stage: checkinStage,
-      scannerDeviceId,
-    });
-    return {
-      success: false,
-      result,
-      title: result === "expired" ? "QR 만료" : "잘못된 QR",
-      message: result === "expired" ? "QR이 만료되었습니다" : "잘못된 QR입니다",
-    };
-  }
+    try {
+      decoded = jwt.verify(actualToken, JWT_SECRET);
+    } catch (error: any) {
+      const result = error.name === "TokenExpiredError" ? "expired" : "invalidSignature";
+      await logCheckin(ticketId, actorStaffId, result, error.message, {
+        stage: checkinStage,
+        scannerDeviceId,
+      });
+      return {
+        success: false,
+        result,
+        title: result === "expired" ? "QR 만료" : "잘못된 QR",
+        message: result === "expired" ? "QR이 만료되었습니다" : "잘못된 QR입니다",
+      };
+    }
 
-  // 티켓 ID 일치 확인
-  if (decoded.ticketId !== actualTicketId) {
-    await logCheckin(actualTicketId, actorStaffId, "invalidTicket", "티켓 ID 불일치", {
-      stage: checkinStage,
-      scannerDeviceId,
-      eventId: decoded?.eventId,
-    });
-    return {
-      success: false,
-      result: "invalidTicket",
-      title: "잘못된 티켓",
-      message: "잘못된 티켓입니다",
-    };
+    // 티켓 ID 일치 확인 (JWT 경로만)
+    if (decoded.ticketId !== actualTicketId) {
+      await logCheckin(actualTicketId, actorStaffId, "invalidTicket", "티켓 ID 불일치", {
+        stage: checkinStage,
+        scannerDeviceId,
+        eventId: decoded?.eventId,
+      });
+      return {
+        success: false,
+        result: "invalidTicket",
+        title: "잘못된 티켓",
+        message: "잘못된 티켓입니다",
+      };
+    }
   }
 
   // 트랜잭션으로 체크인 처리
@@ -2691,24 +2752,20 @@ export const issueGroupQrToken = functions.https.onCall(async (data: any, contex
   const ticketIds = ticketsSnap.docs.map(doc => doc.id);
   const firstTicket = ticketsSnap.docs[0].data();
 
-  const now = Math.floor(Date.now() / 1000);
-  const payload = {
+  // Short token 생성
+  const shortToken = await generateShortToken({
     orderId,
     ticketIds,
     eventId: firstTicket.eventId,
     userId,
-    type: "group",
-    iat: now,
-    exp: now + QR_TOKEN_EXPIRY,
-  };
+  }, "group");
 
-  const token = jwt.sign(payload, JWT_SECRET);
-  const qrData = `group:${orderId}:${token}`;
+  const qrData = `mg:${shortToken}`;
 
   return {
     success: true,
     token: qrData,
-    exp: payload.exp,
+    exp: Math.floor(Date.now() / 1000) + QR_TOKEN_EXPIRY,
     ticketCount: ticketIds.length,
   };
 });
@@ -2717,10 +2774,24 @@ export const issueGroupQrToken = functions.https.onCall(async (data: any, contex
 // verifyAndCheckInGroup - 통합 QR 일괄 체크인
 // ============================================================
 export const verifyAndCheckInGroup = functions.https.onCall(async (data: any, context) => {
-  const { orderId, qrToken } = data;
+  let { orderId, qrToken } = data;
   const scannerDeviceId = (data?.scannerDeviceId as string | undefined)?.trim();
   const checkinStage = normalizeCheckinStage(data?.checkinStage);
   const scannerUid = await assertScannerAuthorized(context?.auth?.uid);
+
+  // ── Short token 처리 (mg: 접두어) ──
+  let shortTokenDoc: Record<string, any> | null = null;
+  const rawQr = (qrToken || orderId || "").trim();
+  if (rawQr.startsWith("mg:")) {
+    const token = rawQr.substring(3);
+    shortTokenDoc = await resolveShortToken(token);
+    if (!shortTokenDoc) {
+      return { success: false, result: "expired", title: "QR 만료", message: "QR이 만료되었습니다" };
+    }
+    orderId = shortTokenDoc.orderId;
+    qrToken = "__short__";
+    db.collection("qrTokens").doc(token).delete().catch(() => {});
+  }
 
   if (!orderId || !qrToken) {
     throw new functions.https.HttpsError("invalid-argument", "잘못된 요청입니다");
@@ -2746,20 +2817,23 @@ export const verifyAndCheckInGroup = functions.https.onCall(async (data: any, co
     }
   }
 
-  // JWT 검증
-  let decoded: any;
-  try {
-    decoded = jwt.verify(qrToken, JWT_SECRET);
-  } catch (error: any) {
-    const result = error.name === "TokenExpiredError" ? "expired" : "invalidSignature";
-    return { success: false, result, message: result === "expired" ? "QR이 만료되었습니다" : "잘못된 QR입니다" };
+  // Short token이면 JWT 검증 스킵
+  let decoded: any = shortTokenDoc;
+  let ticketIds: string[];
+  if (qrToken !== "__short__") {
+    // 기존 JWT 폴백
+    try {
+      decoded = jwt.verify(qrToken, JWT_SECRET);
+    } catch (error: any) {
+      const result = error.name === "TokenExpiredError" ? "expired" : "invalidSignature";
+      return { success: false, result, message: result === "expired" ? "QR이 만료되었습니다" : "잘못된 QR입니다" };
+    }
+    if (decoded.orderId !== orderId || decoded.type !== "group") {
+      return { success: false, result: "invalidTicket", message: "잘못된 통합 QR입니다" };
+    }
   }
 
-  if (decoded.orderId !== orderId || decoded.type !== "group") {
-    return { success: false, result: "invalidTicket", message: "잘못된 통합 QR입니다" };
-  }
-
-  const ticketIds: string[] = decoded.ticketIds || [];
+  ticketIds = decoded.ticketIds || [];
   if (ticketIds.length === 0) {
     return { success: false, result: "invalidTicket", message: "티켓 정보가 없습니다" };
   }
@@ -3899,22 +3973,14 @@ export const issueMobileQrToken = functions.https.onCall(async (data: any) => {
     );
   }
 
-  const token = jwt.sign(
-    {
-      ticketId,
-      eventId: ticket.eventId,
-      qrVersion: ticket.qrVersion || 1,
-      type: "mobile",
-      seatGrade: ticket.seatGrade || null,
-      seatInfo: ticket.seatInfo || null,
-      entryNumber: ticket.entryNumber || null,
-    },
-    JWT_SECRET,
-    { expiresIn: QR_TOKEN_EXPIRY }
-  );
+  // Short token 생성
+  const shortToken = await generateShortToken({
+    ticketId,
+    eventId: ticket.eventId,
+    qrVersion: ticket.qrVersion || 1,
+  }, "mobile");
 
-  // QR 데이터: mt_{ticketId}:{jwt} 형식 (스캐너가 mt_ 접두어로 모바일 티켓 구분)
-  const qrData = `mt_${ticketId}:${token}`;
+  const qrData = `mm:${shortToken}`;
 
   return {
     success: true,

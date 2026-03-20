@@ -1690,6 +1690,7 @@ class _CompactQrSectionState extends ConsumerState<_CompactQrSection> {
       child: QrImageView(
         data: _qrData!,
         version: QrVersions.auto,
+        errorCorrectionLevel: QrErrorCorrectLevel.Q,
         size: 108,
         eyeStyle: const QrEyeStyle(
           eyeShape: QrEyeShape.square,
@@ -2871,6 +2872,7 @@ class _GroupQrScreenState extends ConsumerState<_GroupQrScreen> {
                           child: QrImageView(
                             data: _qrData!,
                             version: QrVersions.auto,
+                            errorCorrectionLevel: QrErrorCorrectLevel.Q,
                             size: 180,
                             eyeStyle: const QrEyeStyle(
                               eyeShape: QrEyeShape.square,

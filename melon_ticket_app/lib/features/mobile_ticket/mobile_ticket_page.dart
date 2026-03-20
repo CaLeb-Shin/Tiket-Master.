@@ -4463,7 +4463,7 @@ class _QrSectionState extends ConsumerState<_QrSection> {
       child: QrImageView(
         data: _qrData!,
         version: QrVersions.auto,
-        errorCorrectionLevel: QrErrorCorrectLevel.L,
+        errorCorrectionLevel: QrErrorCorrectLevel.Q,
         size: 220,
         eyeStyle: const QrEyeStyle(
           eyeShape: QrEyeShape.square,
