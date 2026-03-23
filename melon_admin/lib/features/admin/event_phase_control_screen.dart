@@ -48,6 +48,32 @@ class _EventPhaseControlScreenState
     return AdminTheme.textTertiary;
   }
 
+  Future<void> _revealNow(Event event) async {
+    if (_isUpdating) return;
+    setState(() => _isUpdating = true);
+    try {
+      final repo = ref.read(eventRepositoryProvider);
+      await repo.updateEvent(widget.eventId, {
+        'revealAt': Timestamp.fromDate(DateTime.now().subtract(const Duration(minutes: 1))),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('좌석 + QR이 즉시 공개되었습니다'),
+          backgroundColor: Color(0xFF4ADE80),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('오류: $e'),
+          backgroundColor: AdminTheme.error,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isUpdating = false);
+    }
+  }
+
   Future<void> _setPhase(LivePhase phase, Event event) async {
     if (phase == event.livePhase || _isUpdating) return;
 
@@ -196,6 +222,30 @@ class _EventPhaseControlScreenState
               ],
             ),
           ),
+
+          // ── 즉시 공개 버튼 (아직 공개 전이면) ──
+          if (!event.isSeatsRevealed) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: _isUpdating ? null : () => _revealNow(event),
+                icon: const Icon(Icons.visibility_rounded, size: 18),
+                label: Text('좌석 + QR 지금 공개',
+                    style: AdminTheme.sans(
+                        fontWeight: FontWeight.w600,
+                        color: AdminTheme.onAccent,
+                        noShadow: true)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AdminTheme.gold,
+                  foregroundColor: AdminTheme.onAccent,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
 
           const SizedBox(height: 32),
 
