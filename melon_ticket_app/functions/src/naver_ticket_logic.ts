@@ -214,6 +214,7 @@ export function buildMobileTicketPublicPayload(params: {
         naverProductUrl: params.event.naverProductUrl || null,
         pamphletUrls: params.event.pamphletUrls || [],
         eventStatus: params.event.eventStatus || "active",
+        livePhase: params.event.livePhase || "pre",
       }
       : null,
     isRevealed,

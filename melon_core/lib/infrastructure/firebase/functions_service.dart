@@ -235,6 +235,15 @@ class FunctionsService {
     return Map<String, dynamic>.from(result.data);
   }
 
+  /// 이벤트 livePhase 조회 (가벼운 폴링용)
+  Future<Map<String, dynamic>> getEventLivePhase({
+    required String eventId,
+  }) async {
+    final callable = _functions.httpsCallable('getEventLivePhase');
+    final result = await callable.call({'eventId': eventId});
+    return Map<String, dynamic>.from(result.data);
+  }
+
   /// 티켓 수신자 이름 설정 (비로그인)
   Future<Map<String, dynamic>> setRecipientName({
     required String accessToken,

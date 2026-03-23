@@ -4280,6 +4280,25 @@ export const getMobileTicketByToken = functions.https.onCall(async (data: any) =
 });
 
 // ============================================================
+// 이벤트 livePhase 조회 (가벼운 폴링용, 비로그인 허용)
+// ============================================================
+export const getEventLivePhase = functions.https.onCall(async (data: any) => {
+  const eventId = (data?.eventId as string | undefined)?.trim();
+  if (!eventId) {
+    throw new functions.https.HttpsError("invalid-argument", "eventId가 필요합니다");
+  }
+  const doc = await db.collection("events").doc(eventId).get();
+  if (!doc.exists) {
+    throw new functions.https.HttpsError("not-found", "이벤트를 찾을 수 없습니다");
+  }
+  const ev = doc.data()!;
+  return {
+    livePhase: ev.livePhase || "pre",
+    eventStatus: ev.status || "active",
+  };
+});
+
+// ============================================================
 // 티켓 수신자 이름 설정 (비로그인 — accessToken으로 인증)
 // ============================================================
 

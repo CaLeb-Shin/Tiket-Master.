@@ -221,6 +221,10 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
   int _currentPage = 0;
   bool _showGroupOverview = false;
 
+  // ── livePhase 폴링 ──
+  Timer? _phaseTimer;
+  String _livePhase = 'pre';
+
   @override
   void initState() {
     super.initState();
@@ -312,15 +316,26 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
     );
 
     _pageController?.dispose();
+
+    // livePhase 초기값 + 폴링 시작
+    final eventData = result['event'] as Map<String, dynamic>? ?? {};
+    final eventId = (result['ticket'] as Map<String, dynamic>?)?['eventId'] as String?;
+    final initialPhase = eventData['livePhase'] as String? ?? 'pre';
+
     setState(() {
       _ticketData = result;
       _isLoading = false;
+      _livePhase = initialPhase;
       _currentPage = groupViewState.currentPage;
       _pageController = PageController(
         initialPage: groupViewState.currentPage,
       );
       _showGroupOverview = groupViewState.showGroupOverview;
     });
+
+    if (eventId != null && eventId.isNotEmpty) {
+      _startPhasePolling(eventId);
+    }
   }
 
   // ─── 로컬 캐시 (오프라인 폴백용) ───
@@ -346,8 +361,27 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
 
   @override
   void dispose() {
+    _phaseTimer?.cancel();
     _pageController?.dispose();
     super.dispose();
+  }
+
+  void _startPhasePolling(String eventId) {
+    _phaseTimer?.cancel();
+    _phaseTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
+      if (!mounted) return;
+      try {
+        final result = await ref
+            .read(functionsServiceProvider)
+            .getEventLivePhase(eventId: eventId);
+        final newPhase = result['livePhase'] as String? ?? 'pre';
+        if (mounted && newPhase != _livePhase) {
+          setState(() => _livePhase = newPhase);
+        }
+      } catch (_) {
+        // 폴링 실패는 무시 (다음 주기에 재시도)
+      }
+    });
   }
 
   void _openGroupTicket(int index) {
@@ -602,6 +636,7 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
                         data: data,
                         accessToken: sibling['accessToken'] as String,
                         isGroupTicket: true,
+                        livePhase: _livePhase,
                         onRefresh: _refreshTicketState,
                         onRecipientNameUpdated: _updateRecipientName,
                       );
@@ -627,6 +662,7 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
                 child: _TicketView(
                   data: _ticketData!,
                   accessToken: widget.accessToken,
+                  livePhase: _livePhase,
                   onRefresh: _refreshTicketState,
                 ),
               ),
@@ -675,6 +711,7 @@ class _TicketView extends ConsumerStatefulWidget {
   final Map<String, dynamic> data;
   final String accessToken;
   final bool isGroupTicket;
+  final String livePhase;
   final Future<void> Function()? onRefresh;
   final void Function({
     required String accessToken,
@@ -686,6 +723,7 @@ class _TicketView extends ConsumerStatefulWidget {
     required this.data,
     required this.accessToken,
     this.isGroupTicket = false,
+    this.livePhase = 'pre',
     this.onRefresh,
     this.onRecipientNameUpdated,
   });
@@ -1104,7 +1142,8 @@ class _TicketViewState extends ConsumerState<_TicketView>
             // ══════════════════════════════════════════
             // ── 라이브 상태: 스탬프 + 인터미션 + 리뷰 ──
             // ══════════════════════════════════════════
-            if (isCheckedIn || isIntermissionCheckedIn || stateInfo.code == 'eventCompleted')
+            if (isCheckedIn || isIntermissionCheckedIn || stateInfo.code == 'eventCompleted'
+                || widget.livePhase == 'intermission' || widget.livePhase == 'ended')
               _LiveStatusSection(
                 stateCode: stateInfo.code,
                 isCheckedIn: isCheckedIn,
@@ -1115,6 +1154,7 @@ class _TicketViewState extends ConsumerState<_TicketView>
                 qrRevealed: qrRevealed,
                 isCancelled: isCancelled,
                 naverProductUrl: naverProductUrl,
+                livePhase: widget.livePhase,
               ),
 
             // ── 그룹 티켓: 이 티켓 전달하기 버튼 ──
@@ -4780,6 +4820,7 @@ class _LiveStatusSection extends ConsumerStatefulWidget {
   final bool qrRevealed;
   final bool isCancelled;
   final String? naverProductUrl;
+  final String livePhase;
 
   const _LiveStatusSection({
     required this.stateCode,
@@ -4791,6 +4832,7 @@ class _LiveStatusSection extends ConsumerStatefulWidget {
     required this.qrRevealed,
     required this.isCancelled,
     this.naverProductUrl,
+    this.livePhase = 'pre',
   });
 
   @override
@@ -4817,8 +4859,8 @@ class _LiveStatusSectionState extends ConsumerState<_LiveStatusSection> {
             _buildIntermissionStamp(),
           ],
 
-          // ── 인터미션 설문 (인터미션 체크인 완료 후) ──
-          if (widget.isIntermissionCheckedIn && !_surveySubmitted) ...[
+          // ── 인터미션 설문 (인터미션 체크인 완료 또는 어드민이 인터미션 단계로 전환) ──
+          if ((widget.isIntermissionCheckedIn || widget.livePhase == 'intermission') && !_surveySubmitted) ...[
             const SizedBox(height: 12),
             _buildIntermissionSurveyCard(),
           ],
@@ -4834,8 +4876,8 @@ class _LiveStatusSectionState extends ConsumerState<_LiveStatusSection> {
               _buildIntermissionQrCard(),
           ],
 
-          // ── 공연종료 → 리뷰 카드 ──
-          if (widget.stateCode == 'eventCompleted') ...[
+          // ── 공연종료 → 리뷰 카드 (stateCode 또는 livePhase ended) ──
+          if (widget.stateCode == 'eventCompleted' || widget.livePhase == 'ended') ...[
             const SizedBox(height: 12),
             _buildReviewCard(),
             if (!_naverReviewConfirmed && widget.naverProductUrl != null) ...[

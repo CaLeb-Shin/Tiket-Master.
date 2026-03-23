@@ -78,6 +78,7 @@ function parseNaverOrderCreateInput(raw) {
         memo: typeof raw?.memo === "string" && raw.memo.trim() !== "" ? raw.memo.trim() : null,
         dryRun: raw?.dryRun === true,
         skipSms: raw?.skipSms === true,
+        companion: typeof raw?.companion === "string" && raw.companion.trim() !== "" ? raw.companion.trim() : null,
     };
 }
 function evaluateCancelOrderStatus(status, allowAlreadyCancelled = false) {
@@ -154,6 +155,7 @@ function buildMobileTicketPublicPayload(params) {
                 naverProductUrl: params.event.naverProductUrl || null,
                 pamphletUrls: params.event.pamphletUrls || [],
                 eventStatus: params.event.eventStatus || "active",
+                livePhase: params.event.livePhase || "pre",
             }
             : null,
         isRevealed,

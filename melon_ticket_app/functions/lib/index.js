@@ -36,8 +36,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.submitIntermissionSurvey = exports.submitReview = exports.completeEvent = exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listNaverOrdersHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getMobileTicketByToken = exports.generateOgImage = exports.cleanupExpiredTickets = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.autoClaimNaverOrdersByPhone = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.createVenueFromMaster = exports.migrateMasterVenues = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.createScannerInvite = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
-exports.registerAsSeller = exports.scheduledSubscriptionLottery = exports.activateSubscription = exports.runSubscriptionLottery = exports.applyForSubscriptionLottery = exports.changeDesignatedSeat = exports.scheduledAutoAssignDesignated = exports.getDesignatedSeatInfo = exports.confirmDesignatedSeat = exports.releaseExpiredHolds = exports.releaseSeat = exports.holdSeat = exports.healthCheckMobileTicket = exports.cancelWaitlistEntry = exports.assignFromWaitlist = exports.addToWaitlist = exports.syncOfflineCheckins = exports.downloadEventTicketsForScanner = exports.confirmNaverReview = void 0;
+exports.submitReview = exports.completeEvent = exports.updateTicketSeatsHttp = exports.convertXlsToXlsxHttp = exports.searchAddressHttp = exports.syncNaverProductsHttp = exports.scrapeNaverProductHttp = exports.cancelNaverOrderHttp = exports.markSmsSentHttp = exports.getPendingSmsHttp = exports.listNaverOrdersHttp = exports.listEventsHttp = exports.createNaverOrderHttp = exports.reassignTicketSeat = exports.revealSeatsNow = exports.setRecipientName = exports.getEventLivePhase = exports.getMobileTicketByToken = exports.generateOgImage = exports.cleanupExpiredTickets = exports.ogImage = exports.getTicketOgMeta = exports.issueMobileQrToken = exports.autoClaimNaverOrdersByPhone = exports.claimNaverOrder = exports.cancelNaverOrder = exports.createNaverOrder = exports.assignDeferredSeats = exports.analyzeSeatLayout = exports.verifyAndCheckInGroup = exports.issueGroupQrToken = exports.scheduledEventReminders = exports.upgradeTicketSeat = exports.addReviewMileage = exports.addMileage = exports.signInWithNaver = exports.signInWithKakao = exports.createVenueFromMaster = exports.migrateMasterVenues = exports.scheduledRevealSeats = exports.verifyAndCheckIn = exports.issueQrToken = exports.setScannerDeviceApproval = exports.createScannerInvite = exports.registerScannerDevice = exports.requestTicketCancellation = exports.revealSeatsForEvent = exports.confirmPaymentAndAssignSeats = exports.createOrder = exports.ogMeta = void 0;
+exports.registerAsSeller = exports.scheduledSubscriptionLottery = exports.activateSubscription = exports.runSubscriptionLottery = exports.applyForSubscriptionLottery = exports.changeDesignatedSeat = exports.scheduledAutoAssignDesignated = exports.getDesignatedSeatInfo = exports.confirmDesignatedSeat = exports.releaseExpiredHolds = exports.releaseSeat = exports.holdSeat = exports.healthCheckMobileTicket = exports.cancelWaitlistEntry = exports.assignFromWaitlist = exports.addToWaitlist = exports.syncOfflineCheckins = exports.downloadEventTicketsForScanner = exports.confirmNaverReview = exports.submitIntermissionSurvey = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const jwt = __importStar(require("jsonwebtoken"));
@@ -3622,6 +3622,24 @@ exports.getMobileTicketByToken = functions.https.onCall(async (data) => {
         event,
         siblingDocs,
     });
+});
+// ============================================================
+// 이벤트 livePhase 조회 (가벼운 폴링용, 비로그인 허용)
+// ============================================================
+exports.getEventLivePhase = functions.https.onCall(async (data) => {
+    const eventId = data?.eventId?.trim();
+    if (!eventId) {
+        throw new functions.https.HttpsError("invalid-argument", "eventId가 필요합니다");
+    }
+    const doc = await db.collection("events").doc(eventId).get();
+    if (!doc.exists) {
+        throw new functions.https.HttpsError("not-found", "이벤트를 찾을 수 없습니다");
+    }
+    const ev = doc.data();
+    return {
+        livePhase: ev.livePhase || "pre",
+        eventStatus: ev.status || "active",
+    };
 });
 // ============================================================
 // 티켓 수신자 이름 설정 (비로그인 — accessToken으로 인증)
