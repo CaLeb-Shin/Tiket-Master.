@@ -5,9 +5,12 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'dart:ui' as ui;
+
 import '../../app/admin_theme.dart';
 import 'package:melon_core/data/models/event.dart';
 import 'package:melon_core/data/models/seat.dart';
+import 'package:melon_core/data/models/venue.dart';
 import 'package:melon_core/data/repositories/event_repository.dart';
 
 // =============================================================================
@@ -42,6 +45,10 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
   final Set<String> _selectedSeatIds = {};
   Map<String, List<Seat>> _seatsByGrade = {};
 
+  // 좌석배치도
+  VenueSeatLayout? _venueLayout;
+  final TransformationController _mapCtrl = TransformationController();
+
   // 유저 선택
   List<Map<String, dynamic>> _users = [];
   String? _selectedUserId;
@@ -54,6 +61,12 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
   void initState() {
     super.initState();
     _loadUsers();
+  }
+
+  @override
+  void dispose() {
+    _mapCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUsers() async {
@@ -93,6 +106,8 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
       _availableSeats = [];
       _selectedSeatIds.clear();
       _seatsByGrade = {};
+      _venueLayout = null;
+      _mapCtrl.value = Matrix4.identity();
     });
   }
 
@@ -339,13 +354,24 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
     });
 
     try {
-      final snapshot = await FirebaseFirestore.instance
+      final db = FirebaseFirestore.instance;
+
+      // 좌석 + 공연장 병렬 로드
+      final seatsFuture = db
           .collection('seats')
           .where('eventId', isEqualTo: event.id)
           .where('status', isEqualTo: 'available')
           .get();
 
-      final seats = snapshot.docs.map((d) => Seat.fromFirestore(d)).toList();
+      final venueFuture = event.venueId.isNotEmpty
+          ? db.collection('venues').doc(event.venueId).get()
+          : Future<DocumentSnapshot<Map<String, dynamic>>?>.value(null);
+
+      final results = await Future.wait([seatsFuture, venueFuture]);
+      final seatsSnap = results[0] as QuerySnapshot<Map<String, dynamic>>;
+      final venueSnap = results[1] as DocumentSnapshot<Map<String, dynamic>>?;
+
+      final seats = seatsSnap.docs.map((d) => Seat.fromFirestore(d)).toList();
       seats.sort((a, b) {
         final ga = _gradeOrder.indexOf(a.grade ?? '');
         final gb = _gradeOrder.indexOf(b.grade ?? '');
@@ -359,10 +385,25 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
         byGrade.putIfAbsent(g, () => []).add(s);
       }
 
+      // 공연장 좌석배치도 로드
+      VenueSeatLayout? layout;
+      if (venueSnap != null && venueSnap.exists) {
+        final venueData = venueSnap.data();
+        if (venueData != null && venueData['seatLayout'] != null) {
+          final parsed = VenueSeatLayout.fromMap(
+              venueData['seatLayout'] as Map<String, dynamic>);
+          if (parsed.seats.isNotEmpty) {
+            layout = parsed;
+          }
+        }
+      }
+
       setState(() {
         _availableSeats = seats;
         _seatsByGrade = byGrade;
         _selectedGrade = byGrade.keys.isNotEmpty ? byGrade.keys.first : null;
+        _venueLayout = layout;
+        _mapCtrl.value = Matrix4.identity();
         _step = _Step.selectSeats;
       });
     } catch (e) {
@@ -589,8 +630,37 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
 
           const SizedBox(height: 24),
 
-          // ── 좌석 선택 그리드 ──
-          if (_selectedGrade != null) ...[
+          // ── 좌석 선택 ──
+          if (_venueLayout != null) ...[
+            // 배치도 모드: 모든 등급 표시
+            Row(
+              children: [
+                Text('좌석 선택',
+                    style: AdminTheme.sans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AdminTheme.textPrimary)),
+                const Spacer(),
+                Text(
+                    '${_selectedSeatIds.length}석 선택됨',
+                    style: AdminTheme.sans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AdminTheme.gold)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text('좌석을 클릭하면 선택/해제됩니다 (드래그로 이동, 스크롤로 확대/축소)',
+                style:
+                    AdminTheme.sans(fontSize: 12, color: AdminTheme.textTertiary)),
+            const SizedBox(height: 12),
+            _buildDotMapView(),
+            const SizedBox(height: 24),
+
+            // ── 생성 버튼 ──
+            _buildCreateButton(),
+          ] else if (_selectedGrade != null) ...[
+            // 기존 그리드 모드
             Row(
               children: [
                 Text('좌석 선택',
@@ -616,39 +686,43 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
             const SizedBox(height: 24),
 
             // ── 생성 버튼 ──
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: _selectedSeatIds.isNotEmpty &&
-                        !_loading &&
-                        _selectedUserId != null
-                    ? _createMockTickets
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AdminTheme.gold,
-                  foregroundColor: AdminTheme.onAccent,
-                  disabledBackgroundColor: AdminTheme.cardElevated,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
-                child: _loading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: AdminTheme.onAccent))
-                    : Text(
-                        '${_selectedSeatIds.length}매 모의 티켓 생성',
-                        style: AdminTheme.sans(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: AdminTheme.onAccent),
-                      ),
-              ),
-            ),
+            _buildCreateButton(),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildCreateButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: ElevatedButton(
+        onPressed: _selectedSeatIds.isNotEmpty &&
+                !_loading &&
+                _selectedUserId != null
+            ? _createMockTickets
+            : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AdminTheme.gold,
+          foregroundColor: AdminTheme.onAccent,
+          disabledBackgroundColor: AdminTheme.cardElevated,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8)),
+        ),
+        child: _loading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: AdminTheme.onAccent))
+            : Text(
+                '${_selectedSeatIds.length}매 모의 티켓 생성',
+                style: AdminTheme.sans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: AdminTheme.onAccent),
+              ),
       ),
     );
   }
@@ -740,6 +814,178 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
     );
   }
 
+  // ─── Dot Map (좌석배치도) ───
+  Widget _buildDotMapView() {
+    final layout = _venueLayout!;
+    final seatByKey = <String, Seat>{};
+    for (final seat in _availableSeats) {
+      final key = '${seat.block}:${seat.floor}:${seat.row ?? ''}:${seat.number}';
+      seatByKey[key] = seat;
+    }
+
+    return Container(
+      height: 500,
+      decoration: BoxDecoration(
+        color: const Color(0xFF16161C),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AdminTheme.border),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Column(
+          children: [
+            // 범례
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _legendDot(const Color(0xFFD4AF37), 'VIP'),
+                  _legendDot(const Color(0xFFE53935), 'R'),
+                  _legendDot(const Color(0xFF1E88E5), 'S'),
+                  _legendDot(const Color(0xFF43A047), 'A'),
+                  const SizedBox(width: 8),
+                  _legendDot(const Color(0xFFFFD700), '선택'),
+                  _legendDot(const Color(0xFF444450), '판매됨'),
+                ],
+              ),
+            ),
+            // 좌석배치도
+            Expanded(
+              child: Stack(
+                children: [
+                  GestureDetector(
+                    onTapDown: (details) =>
+                        _onDotMapTap(details, layout, seatByKey),
+                    child: InteractiveViewer(
+                      transformationController: _mapCtrl,
+                      minScale: 0.3,
+                      maxScale: 5.0,
+                      constrained: false,
+                      boundaryMargin: const EdgeInsets.all(100),
+                      child: CustomPaint(
+                        size: Size(layout.canvasWidth, layout.canvasHeight),
+                        painter: _AdminDotMapPainter(
+                          layout: layout,
+                          seatByKey: seatByKey,
+                          selectedSeatIds: _selectedSeatIds,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // 줌 컨트롤
+                  Positioned(
+                    right: 12,
+                    bottom: 12,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _zoomBtn(Icons.add_rounded, () => _applyZoom(1.3)),
+                        const SizedBox(height: 4),
+                        _zoomBtn(Icons.remove_rounded, () => _applyZoom(1 / 1.3)),
+                        const SizedBox(height: 4),
+                        _zoomBtn(Icons.crop_free_rounded, () {
+                          setState(() => _mapCtrl.value = Matrix4.identity());
+                        }),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onDotMapTap(
+    TapDownDetails details,
+    VenueSeatLayout layout,
+    Map<String, Seat> seatByKey,
+  ) {
+    final matrix = _mapCtrl.value.clone()..invert();
+    final scenePoint =
+        MatrixUtils.transformPoint(matrix, details.localPosition);
+
+    LayoutSeat? nearest;
+    double nearestDist = 15.0;
+    for (final ls in layout.seats) {
+      final d = (Offset(ls.x, ls.y) - scenePoint).distance;
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearest = ls;
+      }
+    }
+    if (nearest == null) return;
+
+    final eventSeat = seatByKey[nearest.key];
+    if (eventSeat == null) return;
+    if (eventSeat.status != SeatStatus.available) return;
+
+    setState(() {
+      if (_selectedSeatIds.contains(eventSeat.id)) {
+        _selectedSeatIds.remove(eventSeat.id);
+      } else {
+        _selectedSeatIds.add(eventSeat.id);
+      }
+    });
+  }
+
+  void _applyZoom(double factor) {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final center = renderBox.size.center(Offset.zero);
+    final zoom = Matrix4.identity()
+      ..setEntry(0, 3, center.dx * (1 - factor))
+      ..setEntry(1, 3, center.dy * (1 - factor))
+      ..setEntry(0, 0, factor)
+      ..setEntry(1, 1, factor);
+    setState(() => _mapCtrl.value = zoom * _mapCtrl.value);
+  }
+
+  Widget _legendDot(Color color, String label) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 3),
+          Text(label,
+              style: AdminTheme.sans(
+                  fontSize: 10, color: AdminTheme.textSecondary)),
+        ],
+      ),
+    );
+  }
+
+  Widget _zoomBtn(IconData icon, VoidCallback onTap) {
+    return Material(
+      color: Colors.transparent,
+      child: Ink(
+        decoration: BoxDecoration(
+          color: AdminTheme.surface.withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AdminTheme.border, width: 0.5),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Icon(icon, color: AdminTheme.textPrimary, size: 18),
+          ),
+        ),
+      ),
+    );
+  }
+
   // ─── Create tickets in Firestore ───
   Future<void> _createMockTickets() async {
     if (_loading || _selectedSeatIds.isEmpty || _selectedEvent == null) return;
@@ -753,8 +999,24 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
       final quantity = _selectedSeatIds.length;
 
       final priceByGrade = event.priceByGrade ?? {};
-      final unitPrice = priceByGrade[_selectedGrade] ?? event.price;
-      final totalAmount = unitPrice * quantity;
+      // 배치도 모드: 혼합 등급 지원 → 좌석별 가격 합산
+      int totalAmount = 0;
+      int unitPrice = event.price;
+      String resultGrade = _selectedGrade ?? '';
+      if (_venueLayout != null) {
+        final grades = <String>{};
+        for (final seatId in _selectedSeatIds) {
+          final seat = _availableSeats.firstWhere((s) => s.id == seatId);
+          final g = seat.grade ?? '';
+          grades.add(g);
+          totalAmount += priceByGrade[g] ?? event.price;
+        }
+        resultGrade = grades.length == 1 ? grades.first : grades.join('+');
+        unitPrice = quantity > 0 ? totalAmount ~/ quantity : event.price;
+      } else {
+        unitPrice = priceByGrade[_selectedGrade] ?? event.price;
+        totalAmount = unitPrice * quantity;
+      }
 
       final batch = db.batch();
 
@@ -835,7 +1097,7 @@ class _MockTicketScreenState extends ConsumerState<MockTicketScreen> {
           0,
           _TicketResult(
             eventTitle: event.title,
-            grade: _selectedGrade ?? '',
+            grade: resultGrade,
             seatLabels: seatLabels,
             ticketIds: ticketIds,
             orderId: orderRef.id,
@@ -1116,4 +1378,182 @@ class _ResultCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── Admin Dot Map Painter ───
+
+class _AdminDotMapPainter extends CustomPainter {
+  final VenueSeatLayout layout;
+  final Map<String, Seat> seatByKey;
+  final Set<String> selectedSeatIds;
+
+  static const Map<String, Color> _gradeColors = {
+    'VIP': Color(0xFFD4AF37),
+    'R': Color(0xFFE53935),
+    'S': Color(0xFF1E88E5),
+    'A': Color(0xFF43A047),
+  };
+  static const Color _soldColor = Color(0xFF444450);
+  static const Color _selectedColor = Color(0xFFFFD700);
+  static const Color _emptyDotColor = Color(0xFF2A2A34);
+  static const Color _holdColor = Color(0xFF555555);
+  static const double _dotR = 7.0;
+
+  _AdminDotMapPainter({
+    required this.layout,
+    required this.seatByKey,
+    required this.selectedSeatIds,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Stage
+    _drawStage(canvas, size);
+
+    // Floor labels
+    _drawFloorLabels(canvas);
+
+    // Seats
+    for (final ls in layout.seats) {
+      final eventSeat = seatByKey[ls.key];
+      Color dotColor;
+      bool isSelected = false;
+
+      if (eventSeat != null) {
+        isSelected = selectedSeatIds.contains(eventSeat.id);
+        if (isSelected) {
+          dotColor = _selectedColor;
+        } else {
+          switch (eventSeat.status) {
+            case SeatStatus.available:
+              dotColor = _gradeColors[eventSeat.grade] ??
+                  _gradeColors[ls.grade] ?? _emptyDotColor;
+            case SeatStatus.reserved:
+            case SeatStatus.used:
+              dotColor = _soldColor;
+            case SeatStatus.blocked:
+              dotColor = _holdColor;
+          }
+        }
+      } else {
+        // 배치도에 있지만 이벤트 좌석 없음 → 등급색 표시
+        dotColor = _gradeColors[ls.grade] ?? _emptyDotColor;
+      }
+
+      final fillPaint = Paint()
+        ..color = dotColor
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(ls.x, ls.y), _dotR, fillPaint);
+
+      // 선택 하이라이트 링
+      if (isSelected) {
+        final ringPaint = Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.0;
+        canvas.drawCircle(Offset(ls.x, ls.y), _dotR + 2, ringPaint);
+      }
+
+      // 판매된 좌석: X 표시
+      if (eventSeat != null &&
+          !isSelected &&
+          (eventSeat.status == SeatStatus.reserved ||
+              eventSeat.status == SeatStatus.used)) {
+        final xPaint = Paint()
+          ..color = Colors.white.withValues(alpha: 0.15)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0;
+        canvas.drawLine(
+            Offset(ls.x - 3, ls.y - 3), Offset(ls.x + 3, ls.y + 3), xPaint);
+        canvas.drawLine(
+            Offset(ls.x + 3, ls.y - 3), Offset(ls.x - 3, ls.y + 3), xPaint);
+      }
+    }
+  }
+
+  void _drawStage(Canvas canvas, Size size) {
+    final stageW = size.width * layout.stageWidthRatio;
+    final stageH = layout.stageHeight;
+    final stageX = (size.width - stageW) / 2;
+    final stageY =
+        layout.stagePosition == 'top' ? 4.0 : size.height - stageH - 4;
+
+    final stagePaint = Paint()
+      ..color = const Color(0xFF3A3A44)
+      ..style = PaintingStyle.fill;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(stageX, stageY, stageW, stageH),
+        const Radius.circular(6),
+      ),
+      stagePaint,
+    );
+
+    final textPainter = TextPainter(
+      text: const TextSpan(
+        text: 'STAGE',
+        style: TextStyle(
+          color: Color(0xFF666670),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 3,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(
+      canvas,
+      Offset(
+        stageX + (stageW - textPainter.width) / 2,
+        stageY + (stageH - textPainter.height) / 2,
+      ),
+    );
+  }
+
+  void _drawFloorLabels(Canvas canvas) {
+    final floorBounds = <String, List<double>>{};
+    for (final ls in layout.seats) {
+      final b = floorBounds.putIfAbsent(ls.floor, () => [
+        ls.x, ls.y, ls.x, ls.y, // minX, minY, maxX, maxY
+      ]);
+      if (ls.x < b[0]) b[0] = ls.x;
+      if (ls.y < b[1]) b[1] = ls.y;
+      if (ls.x > b[2]) b[2] = ls.x;
+      if (ls.y > b[3]) b[3] = ls.y;
+    }
+
+    if (floorBounds.length <= 1) return;
+
+    for (final entry in floorBounds.entries) {
+      final b = entry.value;
+      final tp = TextPainter(
+        text: TextSpan(
+          text: entry.key,
+          style: const TextStyle(
+            color: Color(0xFF888898),
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1,
+          ),
+        ),
+        textDirection: ui.TextDirection.ltr,
+      );
+      tp.layout();
+      tp.paint(canvas, Offset(b[0] - 4, b[1] - 18));
+
+      // 점선 구분선
+      final lineY = b[1] - 6;
+      final linePaint = Paint()
+        ..color = const Color(0xFF444450)
+        ..strokeWidth = 0.5;
+      for (double x = b[0]; x < b[2] + 16; x += 6) {
+        canvas.drawLine(Offset(x, lineY), Offset(x + 3, lineY), linePaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _AdminDotMapPainter oldDelegate) => true;
 }
