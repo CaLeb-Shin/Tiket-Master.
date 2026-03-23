@@ -63,10 +63,29 @@ class NaverOrderScreen extends ConsumerStatefulWidget {
 
 enum _Filter { all, confirmed, cancelled }
 
+Color _entryMethodColor(EntryMethod m) => switch (m) {
+  EntryMethod.paper => AdminTheme.textSecondary,
+  EntryMethod.naver => const Color(0xFF2DB400),
+  EntryMethod.mTicket => const Color(0xFF60A5FA),
+};
+
+Future<void> _cycleEntryMethod(NaverOrder order) async {
+  final next = switch (order.entryMethod) {
+    EntryMethod.paper => EntryMethod.naver,
+    EntryMethod.naver => EntryMethod.mTicket,
+    EntryMethod.mTicket => EntryMethod.paper,
+  };
+  await FirebaseFirestore.instance
+      .collection('naverOrders')
+      .doc(order.id)
+      .update({'entryMethod': next.name});
+}
+
 class _NaverOrderScreenState extends ConsumerState<NaverOrderScreen> {
   _Filter _filter = _Filter.all;
   String _searchQuery = '';
   String? _expandedOrderId;
+
 
   @override
   Widget build(BuildContext context) {
@@ -2256,6 +2275,23 @@ class _NaverOrderRow extends ConsumerWidget {
                       const SizedBox(height: 3),
                       Row(
                         children: [
+                          // 입장 방식 배지
+                          GestureDetector(
+                            onTap: () => _cycleEntryMethod(order),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: _entryMethodColor(order.entryMethod).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: _entryMethodColor(order.entryMethod).withValues(alpha: 0.3), width: 0.5),
+                              ),
+                              child: Text(
+                                order.entryMethod.label,
+                                style: AdminTheme.label(fontSize: 8, color: _entryMethodColor(order.entryMethod)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
                           Text(
                             '${order.naverOrderId}  ·  ${dateFormat.format(order.createdAt)}',
                             style: AdminTheme.sans(

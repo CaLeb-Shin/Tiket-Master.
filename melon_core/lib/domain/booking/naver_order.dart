@@ -20,6 +20,7 @@ class NaverOrder {
   final String? userId;
   final DateTime? linkedAt;
   final String? linkSource;
+  final EntryMethod entryMethod; // 입장 방식
 
   NaverOrder({
     required this.id,
@@ -40,6 +41,7 @@ class NaverOrder {
     this.userId,
     this.linkedAt,
     this.linkSource,
+    this.entryMethod = EntryMethod.paper,
   });
 
   factory NaverOrder.fromFirestore(DocumentSnapshot doc) {
@@ -63,6 +65,7 @@ class NaverOrder {
       userId: data['userId'],
       linkedAt: (data['linkedAt'] as Timestamp?)?.toDate(),
       linkSource: data['linkSource'],
+      entryMethod: EntryMethod.fromString(data['entryMethod']),
     );
   }
 
@@ -87,8 +90,29 @@ class NaverOrder {
       if (userId != null) 'userId': userId,
       if (linkedAt != null) 'linkedAt': Timestamp.fromDate(linkedAt!),
       if (linkSource != null) 'linkSource': linkSource,
+      'entryMethod': entryMethod.name,
     };
   }
+}
+
+/// 입장 방식
+enum EntryMethod {
+  paper,   // 놀티켓 종이 발권
+  naver,   // 네이버 티켓 발권
+  mTicket; // M 티켓 (모바일 QR)
+
+  static EntryMethod fromString(String? value) {
+    return EntryMethod.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => EntryMethod.paper,
+    );
+  }
+
+  String get label => switch (this) {
+    EntryMethod.paper => '놀티켓',
+    EntryMethod.naver => '네이버',
+    EntryMethod.mTicket => 'M 티켓',
+  };
 }
 
 enum NaverOrderStatus {
