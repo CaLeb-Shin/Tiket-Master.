@@ -305,7 +305,7 @@ class _SidebarState extends ConsumerState<_Sidebar> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'MELON',
+                      'M',
                       style: AdminTheme.label(
                         fontSize: 12,
                         color: AdminTheme.gold,
@@ -921,22 +921,37 @@ class _DashboardContent extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 24),
-                      // 진행중(네이버/일반) / 종료 분리
+                      // 진행중(네이버/일반) / 종료 분리 — 날짜 기반 자동 감지
                       Builder(builder: (context) {
+                        final now = DateTime.now();
                         bool isNaver(Event e) =>
                           e.naverOnly || (e.naverProductUrl ?? '').isNotEmpty;
 
-                        final activeEvents = events.where((e) =>
-                          e.status != EventStatus.completed &&
-                          e.status != EventStatus.canceled).toList();
+                        // 종료 판정: status 기반 + 날짜 기반 (공연일 지남)
+                        bool isEnded(Event e) =>
+                          e.status == EventStatus.completed ||
+                          e.status == EventStatus.canceled ||
+                          (e.startAt.isBefore(now) && e.status != EventStatus.draft);
+
+                        final activeEvents = events.where((e) => !isEnded(e)).toList();
                         final naverActive = activeEvents.where(isNaver).toList();
                         final generalActive = activeEvents.where((e) => !isNaver(e)).toList();
-                        final endedEvents = events.where((e) =>
-                          e.status == EventStatus.completed ||
-                          e.status == EventStatus.canceled).toList();
+                        final endedEvents = events.where(isEnded).toList()
+                          ..sort((a, b) => b.startAt.compareTo(a.startAt));
+
+                        // 미처리 종료 공연 (status가 아직 completed가 아닌 것)
+                        final needsAttention = endedEvents.where((e) =>
+                          e.status != EventStatus.completed &&
+                          e.status != EventStatus.canceled).toList();
 
                         return Column(
                           children: [
+                            // 미처리 안내 배너
+                            if (needsAttention.isNotEmpty) ...[
+                              _EndedEventsBanner(events: needsAttention),
+                              const SizedBox(height: 16),
+                            ],
+
                             // 네이버/놀티켓 공연
                             if (naverActive.isNotEmpty)
                               _EventGroupCard(
@@ -1295,6 +1310,196 @@ class _CollapsibleEndedEventsState extends State<_CollapsibleEndedEvents> {
             Container(height: 0.5, color: AdminTheme.border),
             _EventsTable(events: widget.events),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Ended Events Banner (미처리 안내) ───
+
+class _EndedEventsBanner extends StatelessWidget {
+  final List<Event> events;
+  const _EndedEventsBanner({required this.events});
+
+  @override
+  Widget build(BuildContext context) {
+    final dateFmt = DateFormat('M/d', 'ko_KR');
+    return _LightCard(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF9800).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.notification_important_rounded,
+                color: Color(0xFFFF9800),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '종료 공연 처리 필요',
+                    style: AdminTheme.sans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AdminTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    events.map((e) =>
+                      '${e.title.length > 15 ? '${e.title.substring(0, 15)}...' : e.title} (${dateFmt.format(e.startAt)})'
+                    ).join(', '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AdminTheme.sans(
+                      fontSize: 11,
+                      color: AdminTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            ...events.take(3).map((e) => Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Tooltip(
+                message: '${e.title}\n상태를 "종료"로 변경합니다',
+                child: ElevatedButton(
+                  onPressed: () => _showCompleteDialog(context, e),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF9800).withValues(alpha: 0.12),
+                    foregroundColor: const Color(0xFFFF9800),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    minimumSize: Size.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  child: Text(
+                    '${dateFmt.format(e.startAt)} 종료 처리',
+                    style: AdminTheme.sans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCompleteDialog(BuildContext context, Event event) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AdminTheme.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            const Icon(Icons.check_circle_outline_rounded,
+                color: AdminTheme.gold, size: 22),
+            const SizedBox(width: 8),
+            Text('공연 종료 처리',
+                style: AdminTheme.sans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AdminTheme.textPrimary)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              event.title,
+              style: AdminTheme.sans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AdminTheme.textPrimary),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '이 공연의 상태를 "종료"로 변경합니다.\n종료된 공연은 아카이브 섹션으로 이동됩니다.',
+              style: AdminTheme.sans(
+                  fontSize: 13, color: AdminTheme.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AdminTheme.surface,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('처리 항목:',
+                      style: AdminTheme.sans(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AdminTheme.textTertiary)),
+                  const SizedBox(height: 4),
+                  _checkItem('공연 상태 → 종료(completed)'),
+                  _checkItem('정산 대상으로 표시'),
+                  _checkItem('대시보드에서 아카이브로 이동'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('취소',
+                style: AdminTheme.sans(color: AdminTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await FirebaseFirestore.instance
+                  .collection('events')
+                  .doc(event.id)
+                  .update({'status': 'completed'});
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AdminTheme.gold,
+              foregroundColor: AdminTheme.onAccent,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text('종료 처리',
+                style: AdminTheme.sans(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _checkItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Row(
+        children: [
+          const Icon(Icons.check_rounded, size: 12, color: AdminTheme.success),
+          const SizedBox(width: 6),
+          Text(text,
+              style:
+                  AdminTheme.sans(fontSize: 11, color: AdminTheme.textPrimary)),
         ],
       ),
     );

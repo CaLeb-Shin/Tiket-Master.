@@ -36,7 +36,7 @@ class EventListScreen extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              '멜론티켓',
+              'M 티켓',
               style: AppTheme.nanum(
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.5,

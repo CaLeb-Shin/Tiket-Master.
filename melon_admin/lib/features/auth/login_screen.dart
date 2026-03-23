@@ -379,7 +379,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             shaderCallback: (bounds) =>
                 AdminTheme.goldGradient.createShader(bounds),
             child: Text(
-              'MELON TICKET',
+              'M TICKET',
               style: AdminTheme.label(fontSize: 15, color: Colors.white)
                   .copyWith(letterSpacing: 3),
             ),

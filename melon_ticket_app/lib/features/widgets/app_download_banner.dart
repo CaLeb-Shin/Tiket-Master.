@@ -61,7 +61,7 @@ class _AppDownloadBannerState extends State<AppDownloadBanner> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '멜론티켓 앱으로 더 편하게!',
+                  'M 티켓 앱으로 더 편하게!',
                   style: AppTheme.nanum(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,

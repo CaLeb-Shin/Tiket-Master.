@@ -106,7 +106,7 @@ class _MelonTicketAppState extends ConsumerState<MelonTicketApp> {
     if (_ready) {
       final router = ref.watch(routerProvider);
       return MaterialApp.router(
-        title: '멜론티켓',
+        title: 'M 티켓',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
         locale: const Locale('ko', 'KR'),
@@ -121,7 +121,7 @@ class _MelonTicketAppState extends ConsumerState<MelonTicketApp> {
     }
 
     return MaterialApp(
-      title: '멜론티켓',
+      title: 'M 티켓',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
       locale: const Locale('ko', 'KR'),

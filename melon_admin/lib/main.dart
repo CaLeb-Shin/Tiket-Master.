@@ -71,7 +71,7 @@ class _MelonAdminAppState extends ConsumerState<MelonAdminApp> {
 
     final router = ref.watch(routerProvider);
     return shad.ShadcnApp.router(
-      title: '멜론티켓 관리자',
+      title: 'M 티켓 관리자',
       debugShowCheckedModeBanner: false,
       theme: AdminTheme.shadcnTheme,
       materialTheme: AdminTheme.theme,

@@ -217,7 +217,7 @@ class _TopBar extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Text(
-          '멜론티켓',
+          'M 티켓',
           style: AppTheme.nanum(
             color: _textPrimary,
             fontSize: 24,

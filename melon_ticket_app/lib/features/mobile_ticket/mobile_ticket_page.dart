@@ -2122,7 +2122,7 @@ class _SharePosterImage extends StatelessWidget {
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          '멜론티켓',
+                          'M 티켓',
                           style: AppTheme.nanum(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,

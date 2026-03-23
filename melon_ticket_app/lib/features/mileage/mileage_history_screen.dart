@@ -189,18 +189,64 @@ class _MileageSummaryCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Text(
-                '${formatter.format(mileage.balance)}P',
-                style: AppTheme.serif(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
-                  shadows: AppTheme.textShadowStrong,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${formatter.format(mileage.balance)}P',
+                    style: AppTheme.serif(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                      shadows: AppTheme.textShadowStrong,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '사용 가능',
+                    style: AppTheme.sans(
+                      fontSize: 10,
+                      color: AppTheme.textTertiary,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
+
+          // 누적 마일리지 (자랑용 — 절대 감소 안 함)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppTheme.cardElevated,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.military_tech_rounded, size: 16, color: tierColor),
+                const SizedBox(width: 8),
+                Text(
+                  '누적 마일리지',
+                  style: AppTheme.sans(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${formatter.format(mileage.totalEarned)}P',
+                  style: AppTheme.serif(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: tierColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
 
           // Progress to next tier
           if (nextTier != null) ...[

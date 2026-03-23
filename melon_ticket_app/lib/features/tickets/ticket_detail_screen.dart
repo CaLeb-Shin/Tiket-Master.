@@ -581,12 +581,24 @@ class _UpgradeCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            '보유 마일리지: ${NumberFormat('#,###', 'ko_KR').format(balance)}P',
-            style: AppTheme.nanum(
-              fontSize: 12,
-              color: hasEnoughMileage ? _textSecondary : _danger,
-            ),
+          Row(
+            children: [
+              Text(
+                '보유: ${NumberFormat('#,###', 'ko_KR').format(balance)}P',
+                style: AppTheme.nanum(
+                  fontSize: 12,
+                  color: hasEnoughMileage ? _textSecondary : _danger,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '누적 마일리지는 유지됩니다',
+                style: AppTheme.nanum(
+                  fontSize: 10,
+                  color: AppTheme.textTertiary,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           SizedBox(

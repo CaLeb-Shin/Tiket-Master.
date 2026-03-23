@@ -735,7 +735,7 @@ class _ScannerInviteDialogState extends State<_ScannerInviteDialog> {
       final link =
           'https://melonticket-web-20260216.vercel.app/staff/scanner?invite=$token';
       final copyText =
-          '[멜론티켓 스캐너 초대]\n'
+          '[M 티켓 스캐너 초대]\n'
           '아래 링크를 눌러 스캐너에 접속하세요.\n'
           '로그인 후 자동으로 기기가 승인됩니다.\n\n'
           '$link';
@@ -884,7 +884,7 @@ class _ScannerInviteDialogState extends State<_ScannerInviteDialog> {
                       child: GestureDetector(
                         onTap: () {
                           final copyText =
-                              '[멜론티켓 스캐너 초대]\n'
+                              '[M 티켓 스캐너 초대]\n'
                               '아래 링크를 눌러 스캐너에 접속하세요.\n'
                               '로그인 후 자동으로 기기가 승인됩니다.\n\n'
                               '${_generatedLink!}';
