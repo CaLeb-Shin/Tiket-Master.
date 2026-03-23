@@ -47,6 +47,7 @@ class Event {
   final bool naverOnly; // 네이버 티켓으로 등록된 공연
   final String? naverProductUrl; // 네이버 상품 URL (놀티켓 연계 판별용)
   final Map<String, int>? subscriptionSeats; // 구독 좌석 풀 (등급별: {"VIP": 2, "R": 5})
+  final LivePhase livePhase; // 공연 당일 실시간 단계
 
   Event({
     required this.id,
@@ -91,6 +92,7 @@ class Event {
     this.naverOnly = false,
     this.naverProductUrl,
     this.subscriptionSeats,
+    this.livePhase = LivePhase.pre,
   });
 
   /// 좌석 공개 여부
@@ -161,6 +163,7 @@ class Event {
       subscriptionSeats: data['subscriptionSeats'] != null
           ? Map<String, int>.from(data['subscriptionSeats'])
           : null,
+      livePhase: LivePhase.fromString(data['livePhase']),
     );
   }
 
@@ -207,11 +210,36 @@ class Event {
       if (naverOnly) 'naverOnly': naverOnly,
       if (naverProductUrl != null) 'naverProductUrl': naverProductUrl,
       if (subscriptionSeats != null) 'subscriptionSeats': subscriptionSeats,
+      'livePhase': livePhase.name,
     };
   }
 
   /// 다회 공연 여부
   bool get isMultiSession => totalSessions > 1;
+}
+
+/// 공연 당일 실시간 진행 단계 (어드민이 클릭으로 전환)
+enum LivePhase {
+  pre,           // 공연 전 (기본)
+  entry,         // 입장 중
+  intermission,  // 인터미션
+  part2,         // 2부 진행 중
+  ended;         // 공연 종료
+
+  static LivePhase fromString(String? value) {
+    return LivePhase.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => LivePhase.pre,
+    );
+  }
+
+  String get label => switch (this) {
+    LivePhase.pre => '공연 전',
+    LivePhase.entry => '입장 중',
+    LivePhase.intermission => '인터미션',
+    LivePhase.part2 => '2부',
+    LivePhase.ended => '종료',
+  };
 }
 
 enum EventStatus {

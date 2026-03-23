@@ -25,6 +25,7 @@ import '../features/admin/naver_order_screen.dart';
 import '../features/admin/naver_ticket_wizard_screen.dart';
 import '../features/admin/checkin_dashboard_screen.dart';
 import '../features/admin/naver_waitlist_screen.dart';
+import '../features/admin/event_phase_control_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -117,6 +118,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final eventId = state.pathParameters['eventId']!;
               return NaverWaitlistScreen(eventId: eventId);
+            },
+          ),
+          GoRoute(
+            path: '/events/:eventId/phase-control',
+            name: 'adminPhaseControl',
+            builder: (context, state) {
+              final eventId = state.pathParameters['eventId']!;
+              return EventPhaseControlScreen(eventId: eventId);
             },
           ),
           GoRoute(

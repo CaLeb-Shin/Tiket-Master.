@@ -1719,6 +1719,18 @@ class _EventRowState extends ConsumerState<_EventRow> {
                               onPressed: (_) =>
                                   context.go('/events/${event.id}/naver-orders'),
                             ),
+                          shad.MenuButton(
+                            child: Text(
+                              '공연 진행 제어',
+                              style: AdminTheme.sans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF4ADE80),
+                              ),
+                            ),
+                            onPressed: (_) =>
+                                context.go('/events/${event.id}/phase-control'),
+                          ),
                           const shad.MenuDivider(),
                           shad.MenuButton(
                             child: Text(
@@ -1823,6 +1835,12 @@ class _EventRowState extends ConsumerState<_EventRow> {
               child: Text('네이버 주문', style: AdminTheme.sans(fontSize: 13)),
               onPressed: (_) => context.go('/events/${event.id}/naver-orders'),
             ),
+          shad.MenuButton(
+            child: Text('공연 진행 제어',
+                style: AdminTheme.sans(
+                    fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF4ADE80))),
+            onPressed: (_) => context.go('/events/${event.id}/phase-control'),
+          ),
           const shad.MenuDivider(),
           shad.MenuButton(
             child: Text('공연 시작',
