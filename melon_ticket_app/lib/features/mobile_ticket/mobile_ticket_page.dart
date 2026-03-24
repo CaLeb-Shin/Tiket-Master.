@@ -336,6 +336,12 @@ class _MobileTicketPageState extends ConsumerState<MobileTicketPage> {
     if (eventId != null && eventId.isNotEmpty) {
       _startPhasePolling(eventId);
     }
+
+    // 포스터 이미지 사전 캐시 (첫 로드 시 렌더링 지연 방지)
+    final imageUrl = eventData['imageUrl'] as String?;
+    if (imageUrl != null && imageUrl.isNotEmpty && mounted) {
+      precacheImage(NetworkImage(imageUrl), context).catchError((_) {});
+    }
   }
 
   // ─── 로컬 캐시 (오프라인 폴백용) ───
@@ -734,11 +740,15 @@ class _TicketView extends ConsumerStatefulWidget {
 
 class _TicketViewState extends ConsumerState<_TicketView>
     with SingleTickerProviderStateMixin {
-  bool _showFront = true;
   late AnimationController _flipCtrl;
   late Animation<double> _flipAnim;
   final _cardKey = GlobalKey();
   final _sharePosterKey = GlobalKey();
+
+  /// 뒷면 표시 여부 — ValueNotifier로 불필요한 전체 rebuild 방지
+  final _showFrontNotifier = ValueNotifier<bool>(true);
+  /// 뒷면이 한 번이라도 표시됐는지 (QR lazy-load용)
+  final _backEverShown = ValueNotifier<bool>(false);
 
   @override
   void initState() {
@@ -752,10 +762,10 @@ class _TicketViewState extends ConsumerState<_TicketView>
       end: 1,
     ).animate(CurvedAnimation(parent: _flipCtrl, curve: Curves.easeInOutCubic));
     _flipCtrl.addListener(() {
-      if (_flipCtrl.value >= 0.5 && _showFront) {
-        setState(() => _showFront = false);
-      } else if (_flipCtrl.value < 0.5 && !_showFront) {
-        setState(() => _showFront = true);
+      final isFront = _flipCtrl.value < 0.5;
+      if (_showFrontNotifier.value != isFront) {
+        _showFrontNotifier.value = isFront;
+        if (!isFront) _backEverShown.value = true;
       }
     });
   }
@@ -763,6 +773,8 @@ class _TicketViewState extends ConsumerState<_TicketView>
   @override
   void dispose() {
     _flipCtrl.dispose();
+    _showFrontNotifier.dispose();
+    _backEverShown.dispose();
     super.dispose();
   }
 
@@ -1076,60 +1088,71 @@ class _TicketViewState extends ConsumerState<_TicketView>
                   final angle = _flipAnim.value * math.pi;
                   final isFront = _flipAnim.value < 0.5;
 
+                  // 앞/뒤면을 미리 빌드해서 플립 중 위젯 트리 재생성 방지
+                  final frontCard = _FrontCard(
+                    eventTitle: eventTitle,
+                    imageUrl: imageUrl,
+                    naverProductUrl: naverProductUrl,
+                    buyerName: buyerName,
+                    buyerPhoneMasked: buyerPhoneMasked,
+                    recipientName: recipientName,
+                    seatGrade: seatGrade,
+                    startAt: startAt,
+                    revealAt: revealAt,
+                    venueName: venueName,
+                    venueAddress: venueAddress,
+                    gradeCol: gradeCol,
+                    stateInfo: stateInfo,
+                    isCancelled: isCancelled,
+                    isUsed: isUsed,
+                    qrRevealed: qrRevealed,
+                    orderIndex: orderIndex,
+                    totalInOrder: totalInOrder,
+                    entryNumber: entryNumber,
+                    onQrTap: _flipToQr,
+                    onDoubleTap: _flipToQr,
+                  );
+
                   return Transform(
                     alignment: Alignment.center,
                     transform: Matrix4.identity()
                       ..setEntry(3, 2, 0.001)
                       ..rotateY(angle),
                     child: isFront
-                        ? _FrontCard(
-                            eventTitle: eventTitle,
-                            imageUrl: imageUrl,
-                            naverProductUrl: naverProductUrl,
-                            buyerName: buyerName,
-                            buyerPhoneMasked: buyerPhoneMasked,
-                            recipientName: recipientName,
-                            seatGrade: seatGrade,
-                            startAt: startAt,
-                            revealAt: revealAt,
-                            venueName: venueName,
-                            venueAddress: venueAddress,
-                            gradeCol: gradeCol,
-                            stateInfo: stateInfo,
-                            isCancelled: isCancelled,
-                            isUsed: isUsed,
-                            qrRevealed: qrRevealed,
-                            orderIndex: orderIndex,
-                            totalInOrder: totalInOrder,
-                            entryNumber: entryNumber,
-                            onQrTap: _flipToQr,
-                            onDoubleTap: _flipToQr,
-                          )
+                        ? frontCard
                         : Transform(
                             alignment: Alignment.center,
                             transform: Matrix4.identity()..rotateY(math.pi),
-                            child: _BackCard(
-                              eventTitle: eventTitle,
-                              venueName: venueName,
-                              buyerName: buyerName,
-                              buyerPhoneMasked: buyerPhoneMasked,
-                              recipientName: recipientName,
-                              naverOrderId: naverOrderId,
-                              naverProductUrl: naverProductUrl,
-                              seatGrade: seatGrade,
-                              seatInfo: seatInfo,
-                              entryNumber: entryNumber,
-                              orderIndex: orderIndex,
-                              startAt: startAt,
-                              revealAt: revealAt,
-                              ticketId: ticketId,
-                              accessToken: widget.accessToken,
-                              qrVersion: qrVersion,
-                              qrRevealed: qrRevealed,
-                              isCancelled: isCancelled,
-                              isUsed: isUsed,
-                              pamphletUrls: pamphletUrls,
-                              onBack: _flipToFront,
+                            child: ValueListenableBuilder<bool>(
+                              valueListenable: _backEverShown,
+                              builder: (context, shown, _) {
+                                if (!shown) {
+                                  return const SizedBox.shrink();
+                                }
+                                return _BackCard(
+                                  eventTitle: eventTitle,
+                                  venueName: venueName,
+                                  buyerName: buyerName,
+                                  buyerPhoneMasked: buyerPhoneMasked,
+                                  recipientName: recipientName,
+                                  naverOrderId: naverOrderId,
+                                  naverProductUrl: naverProductUrl,
+                                  seatGrade: seatGrade,
+                                  seatInfo: seatInfo,
+                                  entryNumber: entryNumber,
+                                  orderIndex: orderIndex,
+                                  startAt: startAt,
+                                  revealAt: revealAt,
+                                  ticketId: ticketId,
+                                  accessToken: widget.accessToken,
+                                  qrVersion: qrVersion,
+                                  qrRevealed: qrRevealed,
+                                  isCancelled: isCancelled,
+                                  isUsed: isUsed,
+                                  pamphletUrls: pamphletUrls,
+                                  onBack: _flipToFront,
+                                );
+                              },
                             ),
                           ),
                   );
