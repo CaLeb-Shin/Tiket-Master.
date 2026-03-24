@@ -221,6 +221,7 @@ class Event {
 /// 공연 당일 실시간 진행 단계 (어드민이 클릭으로 전환)
 enum LivePhase {
   pre,           // 공연 전 (기본)
+  seatReveal,    // 좌석 공개 (비지정석용)
   entry,         // 입장 중
   intermission,  // 인터미션
   part2,         // 2부 진행 중
@@ -235,6 +236,7 @@ enum LivePhase {
 
   String get label => switch (this) {
     LivePhase.pre => '공연 전',
+    LivePhase.seatReveal => '좌석 공개',
     LivePhase.entry => '입장 중',
     LivePhase.intermission => '인터미션',
     LivePhase.part2 => '2부',

@@ -21,6 +21,7 @@ class _EventPhaseControlScreenState
 
   static const _phases = [
     LivePhase.pre,
+    LivePhase.seatReveal,
     LivePhase.entry,
     LivePhase.intermission,
     LivePhase.part2,
@@ -29,6 +30,7 @@ class _EventPhaseControlScreenState
 
   IconData _iconFor(LivePhase phase) => switch (phase) {
         LivePhase.pre => Icons.schedule_rounded,
+        LivePhase.seatReveal => Icons.visibility_rounded,
         LivePhase.entry => Icons.login_rounded,
         LivePhase.intermission => Icons.coffee_rounded,
         LivePhase.part2 => Icons.play_arrow_rounded,
@@ -39,6 +41,7 @@ class _EventPhaseControlScreenState
     if (phase == current) {
       return switch (phase) {
         LivePhase.pre => AdminTheme.textSecondary,
+        LivePhase.seatReveal => const Color(0xFFA78BFA),
         LivePhase.entry => const Color(0xFF4ADE80),
         LivePhase.intermission => AdminTheme.gold,
         LivePhase.part2 => const Color(0xFF60A5FA),
@@ -116,10 +119,16 @@ class _EventPhaseControlScreenState
     setState(() => _isUpdating = true);
     try {
       final repo = ref.read(eventRepositoryProvider);
-      await repo.updateEvent(widget.eventId, {
+      final updates = <String, dynamic>{
         'livePhase': phase.name,
         'livePhaseUpdatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+      // 좌석 공개 단계 전환 시 자동으로 revealAt 트리거
+      if (phase == LivePhase.seatReveal && !event.isSeatsRevealed) {
+        updates['revealAt'] = Timestamp.fromDate(
+            DateTime.now().subtract(const Duration(minutes: 1)));
+      }
+      await repo.updateEvent(widget.eventId, updates);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('${phase.label} 단계로 전환되었습니다'),
@@ -427,6 +436,7 @@ class _EventPhaseControlScreenState
 
   String _descriptionFor(LivePhase phase) => switch (phase) {
         LivePhase.pre => '공연 시작 전 대기 상태',
+        LivePhase.seatReveal => '좌석 + QR 공개, 좌석 배정 확인',
         LivePhase.entry => 'QR 스캔 입장 진행 중',
         LivePhase.intermission => '설문지 표시, 재입장 준비',
         LivePhase.part2 => '2부 공연 진행 중',

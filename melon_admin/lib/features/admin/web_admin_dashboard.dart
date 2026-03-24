@@ -312,7 +312,7 @@ class _SidebarState extends ConsumerState<_Sidebar> {
                       ),
                     ),
                     Text(
-                      'TICKET ADMIN',
+                      '티켓',
                       style: AdminTheme.label(
                         fontSize: 8,
                         color: AdminTheme.textTertiary,
