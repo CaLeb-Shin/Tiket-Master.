@@ -1585,7 +1585,7 @@ export const verifyAndCheckIn = functions
     }
     ticketId = isShortMobile ? `mt_${shortTokenDoc.ticketId}` : shortTokenDoc.ticketId;
     qrToken = "__short__";
-    db.collection("qrTokens").doc(shortTokenKey).delete().catch(() => {});
+    // QR 토큰 삭제는 체크인 트랜잭션 내에서 처리 (원자성 보장)
   }
 
   // ── 디바이스 검증 결과 처리 ──
@@ -1783,6 +1783,11 @@ export const verifyAndCheckIn = functions
 
     if (seatRef && seatExists) {
       transaction.update(seatRef, { status: "used" });
+    }
+
+    // QR short token 삭제 (트랜잭션 내에서 원자성 보장)
+    if (isShortToken && shortTokenKey) {
+      transaction.delete(db.collection("qrTokens").doc(shortTokenKey));
     }
 
     const checkinRef = db.collection("checkins").doc();
@@ -5119,7 +5124,18 @@ export const submitIntermissionSurvey = functions.https.onCall(async (data: any)
     throw new functions.https.HttpsError("already-exists", "이미 설문을 제출하셨습니다");
   }
 
-  // 설문 저장
+  // 마일리지 적립 먼저 시도 (로그인 유저인 경우)
+  let mileageAwarded = false;
+  if (ticket.claimedByUserId) {
+    try {
+      await addMileageInternal(ticket.claimedByUserId, 500, "review", "인터미션 설문 적립 (500P)");
+      mileageAwarded = true;
+    } catch (e) {
+      functions.logger.error("인터미션 설문 마일리지 적립 실패:", e);
+    }
+  }
+
+  // 설문 저장 (마일리지 적립 결과 반영)
   await db.collection("intermissionSurveys").add({
     ticketId,
     eventId: ticket.eventId,
@@ -5127,21 +5143,9 @@ export const submitIntermissionSurvey = functions.https.onCall(async (data: any)
     rating,
     bestMoment,
     comment: typeof comment === "string" ? comment.trim().slice(0, 100) : null,
-    mileageAwarded: false,
+    mileageAwarded,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
-
-  // 마일리지 적립 (로그인 유저인 경우)
-  if (ticket.claimedByUserId) {
-    await addMileageInternal(ticket.claimedByUserId, 500, "review", "인터미션 설문 적립 (500P)");
-    await db.collection("intermissionSurveys")
-      .where("ticketId", "==", ticketId)
-      .limit(1)
-      .get()
-      .then((snap) => {
-        if (!snap.empty) snap.docs[0].ref.update({ mileageAwarded: true });
-      });
-  }
 
   // 알림
   sendNotification({
@@ -5190,22 +5194,28 @@ export const confirmNaverReview = functions.https.onCall(async (data: any) => {
     throw new functions.https.HttpsError("already-exists", "이미 네이버 리뷰 확인이 완료되었습니다");
   }
 
-  // 기록 저장
+  // 마일리지 적립 먼저 (로그인 유저인 경우)
+  let mileageAwarded = false;
+  if (ticket.claimedByUserId) {
+    try {
+      await addMileageInternal(ticket.claimedByUserId, 500, "review", "네이버 리뷰 적립 (500P)");
+      mileageAwarded = true;
+    } catch (e) {
+      functions.logger.error("네이버 리뷰 마일리지 적립 실패:", e);
+    }
+  }
+
+  // 기록 저장 (마일리지 적립 결과 반영)
   await db.collection("naverReviewConfirms").add({
     ticketId,
     eventId: ticket.eventId,
     buyerName: ticket.buyerName || "",
     buyerPhone: ticket.buyerPhone || "",
-    mileageAwarded: !!ticket.claimedByUserId,
+    mileageAwarded,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-  // 마일리지 적립 (로그인 유저인 경우)
-  if (ticket.claimedByUserId) {
-    await addMileageInternal(ticket.claimedByUserId, 500, "review", "네이버 리뷰 적립 (500P)");
-  }
-
-  return { success: true, mileageAwarded: !!ticket.claimedByUserId };
+  return { success: true, mileageAwarded };
 });
 
 // ============================================================
