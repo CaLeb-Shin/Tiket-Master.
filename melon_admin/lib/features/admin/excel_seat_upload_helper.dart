@@ -570,11 +570,13 @@ class EnhancedExcelParser {
   }
 
   /// Auto-detect format and parse Excel bytes
-  static ExcelParseResult parse(List<int> bytes, {int gridCols = 60}) {
+  static ExcelParseResult parse(List<int> bytes, {int gridCols = 60, Map<String, Map<String, String>>? colorMap}) {
     final sanitized = _sanitizeNumFmts(bytes);
     final excel = Excel.decodeBytes(sanitized);
     // Resolve theme colors from raw xlsx ZIP (dart excel package can't do this)
-    final colorResolver = _ThemeColorResolver(bytes);
+    final colorResolver = colorMap != null
+        ? _ThemeColorResolver.fromExternalMap(colorMap)
+        : _ThemeColorResolver(bytes);
     final allSeats = <LayoutSeat>[];
     final allWarnings = <String>[];
     final allErrors = <String>[];
@@ -1378,6 +1380,9 @@ class _ThemeColorResolver {
   // sheetName → { rowIndex → { colIndex → styleIndex } }
   final Map<String, Map<int, Map<int, int>>> _cellStyles = {};
 
+  // 외부 색상 맵 (CF에서 전달된 셀 색상) — sheetName → row → col → hex
+  Map<String, Map<int, Map<int, String>>>? _externalColors;
+
   // Debug info
   final List<String> debugInfo = [];
   String? parseError;
@@ -1399,8 +1404,45 @@ class _ThemeColorResolver {
     }
   }
 
+  /// CF에서 전달받은 외부 색상 맵으로 생성
+  /// colorMap: { "시트명": { "A1": "FF8080", "B2": "0066CC", ... } }
+  _ThemeColorResolver.fromExternalMap(Map<String, Map<String, String>> colorMap) {
+    _externalColors = {};
+    for (final entry in colorMap.entries) {
+      final sheetColors = <int, Map<int, String>>{};
+      for (final cellEntry in entry.value.entries) {
+        final parsed = _parseCellAddress(cellEntry.key);
+        if (parsed != null) {
+          sheetColors.putIfAbsent(parsed.$1, () => {});
+          sheetColors[parsed.$1]![parsed.$2] = cellEntry.value.toUpperCase();
+        }
+      }
+      _externalColors![entry.key] = sheetColors;
+    }
+    debugInfo.add('외부 색상맵: ${colorMap.keys.map((k) => "$k(${colorMap[k]!.length}셀)").join(", ")}');
+  }
+
+  /// "A1" → (row: 0, col: 0), "BT64" → (row: 63, col: 71)
+  static (int, int)? _parseCellAddress(String addr) {
+    final match = RegExp(r'^([A-Z]+)(\d+)$').firstMatch(addr);
+    if (match == null) return null;
+    final letters = match.group(1)!;
+    final rowNum = int.parse(match.group(2)!) - 1;
+    int col = 0;
+    for (int i = 0; i < letters.length; i++) {
+      col = col * 26 + (letters.codeUnitAt(i) - 64);
+    }
+    return (rowNum, col - 1);
+  }
+
   /// Get resolved background RGB hex for a cell, or null if none/white/black.
   String? getBackgroundColor(String sheetName, int row, int col) {
+    // 외부 색상 맵 우선 확인 (CF에서 전달된 .xls 색상)
+    if (_externalColors != null) {
+      final hex = _externalColors![sheetName]?[row]?[col];
+      if (hex != null && hex != 'FFFFFF' && hex != '000000') return hex;
+    }
+
     final sheetStyles = _cellStyles[sheetName];
     if (sheetStyles == null) return null;
 
@@ -2204,10 +2246,13 @@ class ExcelToSeatMapConverter {
   static const double _padding = 60.0;
 
   /// 엑셀 바이트 → VenueSeatLayout v2 변환
-  static SeatMapConversionResult convert(List<int> bytes) {
+  /// [colorMap]: CF에서 전달받은 외부 셀 색상 (sheetName → cellAddr → hex)
+  static SeatMapConversionResult convert(List<int> bytes, {Map<String, Map<String, String>>? colorMap}) {
     final sanitized = EnhancedExcelParser._sanitizeNumFmts(bytes);
     final excel = Excel.decodeBytes(sanitized);
-    final colorResolver = _ThemeColorResolver(bytes);
+    final colorResolver = colorMap != null
+        ? _ThemeColorResolver.fromExternalMap(colorMap)
+        : _ThemeColorResolver(bytes);
 
     final allCellSeats = <_CellSeat>[];
     final allWarnings = <String>[];

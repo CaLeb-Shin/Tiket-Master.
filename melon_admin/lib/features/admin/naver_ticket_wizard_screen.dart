@@ -2059,10 +2059,19 @@ class _NaverTicketWizardScreenState
         final err = jsonDecode(response.body)['error'] ?? 'HTTP ${response.statusCode}';
         throw Exception('엑셀 처리 실패: $err');
       }
-      final resultBase64 = jsonDecode(response.body)['base64'] as String;
+      final respData = jsonDecode(response.body);
+      final resultBase64 = respData['base64'] as String;
       final xlsxBytes = base64Decode(resultBase64);
 
-      final parseResult = EnhancedExcelParser.parse(xlsxBytes);
+      // CF에서 추출한 셀 색상 맵 (SheetJS write는 스타일 보존 불가 → 별도 전달)
+      Map<String, Map<String, String>>? colorMap;
+      if (respData['colorMap'] != null) {
+        colorMap = (respData['colorMap'] as Map).map((k, v) =>
+          MapEntry(k.toString(), (v as Map).map((ck, cv) =>
+            MapEntry(ck.toString(), cv.toString()))));
+      }
+
+      final parseResult = EnhancedExcelParser.parse(xlsxBytes, colorMap: colorMap);
 
       if (!mounted) return;
 

@@ -4730,15 +4730,23 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
         body: jsonEncode({'base64': base64Encode(bytes)}),
       );
       Uint8List xlsxBytes;
+      Map<String, Map<String, String>>? colorMap;
       if (response.statusCode == 200) {
-        final resultBase64 = jsonDecode(response.body)['base64'] as String;
+        final respData = jsonDecode(response.body);
+        final resultBase64 = respData['base64'] as String;
         xlsxBytes = base64Decode(resultBase64);
+        // CF에서 추출한 셀 색상 맵 (SheetJS write는 스타일 보존 불가하므로 별도 전달)
+        if (respData['colorMap'] != null) {
+          colorMap = (respData['colorMap'] as Map).map((k, v) =>
+            MapEntry(k.toString(), (v as Map).map((ck, cv) =>
+              MapEntry(ck.toString(), cv.toString()))));
+        }
       } else {
         // CF 실패 시 원본으로 시도
         xlsxBytes = bytes;
       }
 
-      final convResult = ExcelToSeatMapConverter.convert(xlsxBytes);
+      final convResult = ExcelToSeatMapConverter.convert(xlsxBytes, colorMap: colorMap);
       final layout = convResult.layout;
 
       if (layout.seats.isEmpty && !mounted) {

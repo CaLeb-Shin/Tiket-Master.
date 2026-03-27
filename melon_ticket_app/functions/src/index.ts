@@ -4870,23 +4870,41 @@ export const convertXlsToXlsxHttp = functions
         cellNF: false,
       });
 
+      // 셀 색상 추출 (SheetJS write는 스타일 보존 불가 → 별도 colorMap 반환)
+      const colorMap: Record<string, Record<string, string>> = {};
+      let hasColors = false;
+
       // numFmt 메타데이터 제거 — Dart excel 패키지 호환성 문제 방지
       for (const sheetName of workbook.SheetNames) {
         const sheet = workbook.Sheets[sheetName];
+        const sheetColors: Record<string, string> = {};
         for (const cellAddr of Object.keys(sheet)) {
           if (cellAddr.startsWith("!")) continue;
           const cell = sheet[cellAddr];
           if (cell) {
             delete cell.z; // number format 제거
+            // fgColor.rgb 추출 (배경색)
+            const rgb = cell.s?.fgColor?.rgb;
+            if (rgb && typeof rgb === "string" && rgb !== "FFFFFF" && rgb !== "000000FF") {
+              sheetColors[cellAddr] = rgb;
+              hasColors = true;
+            }
           }
+        }
+        if (Object.keys(sheetColors).length > 0) {
+          colorMap[sheetName] = sheetColors;
         }
       }
 
       const outputBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
-      res.status(200).json({
+      const result: any = {
         base64: Buffer.from(outputBuffer).toString("base64"),
-      });
+      };
+      if (hasColors) {
+        result.colorMap = colorMap;
+      }
+      res.status(200).json(result);
     } catch (err: any) {
       functions.logger.error("Excel 변환 에러:", err);
       res.status(500).json({ error: `변환 실패: ${err.message}` });
