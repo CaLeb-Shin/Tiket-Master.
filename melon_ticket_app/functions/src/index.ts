@@ -1570,7 +1570,7 @@ export const verifyAndCheckIn = functions
   const shortTokenKey = isShortToken ? rawQr.substring(rawQr.indexOf(":") + 1) : "";
 
   // ── 병렬 처리: auth + token 해석 + 디바이스 검증 동시 실행 ──
-  const isDemoDevice = scannerDeviceId === "admin-demo-device";
+  const isDemoDevice = scannerDeviceId === "admin-demo-device" || scannerDeviceId === "admin-e2e-test";
   const [scannerUid, shortTokenDoc, deviceStatus] = await Promise.all([
     assertScannerAuthorized(context?.auth?.uid),
     isShortToken ? resolveShortToken(shortTokenKey) : Promise.resolve(null),
@@ -2773,7 +2773,7 @@ export const verifyAndCheckInGroup = functions
   const shortTokenKey = isShortToken ? rawQr.substring(3) : "";
 
   // ── 병렬 처리: auth + token + device 동시 ──
-  const isDemoDevice = scannerDeviceId === "admin-demo-device";
+  const isDemoDevice = scannerDeviceId === "admin-demo-device" || scannerDeviceId === "admin-e2e-test";
   const [scannerUid, shortTokenDoc, deviceStatus] = await Promise.all([
     assertScannerAuthorized(context?.auth?.uid),
     isShortToken ? resolveShortToken(shortTokenKey) : Promise.resolve(null),

@@ -1309,7 +1309,7 @@ exports.verifyAndCheckIn = functions
     const isShortMobile = rawQr.startsWith("mm:");
     const shortTokenKey = isShortToken ? rawQr.substring(rawQr.indexOf(":") + 1) : "";
     // ── 병렬 처리: auth + token 해석 + 디바이스 검증 동시 실행 ──
-    const isDemoDevice = scannerDeviceId === "admin-demo-device";
+    const isDemoDevice = scannerDeviceId === "admin-demo-device" || scannerDeviceId === "admin-e2e-test";
     const [scannerUid, shortTokenDoc, deviceStatus] = await Promise.all([
         assertScannerAuthorized(context?.auth?.uid),
         isShortToken ? resolveShortToken(shortTokenKey) : Promise.resolve(null),
@@ -1323,7 +1323,7 @@ exports.verifyAndCheckIn = functions
         }
         ticketId = isShortMobile ? `mt_${shortTokenDoc.ticketId}` : shortTokenDoc.ticketId;
         qrToken = "__short__";
-        db.collection("qrTokens").doc(shortTokenKey).delete().catch(() => { });
+        // QR 토큰 삭제는 체크인 트랜잭션 내에서 처리 (원자성 보장)
     }
     // ── 디바이스 검증 결과 처리 ──
     if (!deviceStatus.valid) {
@@ -1510,6 +1510,10 @@ exports.verifyAndCheckIn = functions
         }
         if (seatRef && seatExists) {
             transaction.update(seatRef, { status: "used" });
+        }
+        // QR short token 삭제 (트랜잭션 내에서 원자성 보장)
+        if (isShortToken && shortTokenKey) {
+            transaction.delete(db.collection("qrTokens").doc(shortTokenKey));
         }
         const checkinRef = db.collection("checkins").doc();
         transaction.set(checkinRef, {
@@ -2328,7 +2332,7 @@ exports.verifyAndCheckInGroup = functions
     const isShortToken = rawQr.startsWith("mg:");
     const shortTokenKey = isShortToken ? rawQr.substring(3) : "";
     // ── 병렬 처리: auth + token + device 동시 ──
-    const isDemoDevice = scannerDeviceId === "admin-demo-device";
+    const isDemoDevice = scannerDeviceId === "admin-demo-device" || scannerDeviceId === "admin-e2e-test";
     const [scannerUid, shortTokenDoc, deviceStatus] = await Promise.all([
         assertScannerAuthorized(context?.auth?.uid),
         isShortToken ? resolveShortToken(shortTokenKey) : Promise.resolve(null),
@@ -4386,7 +4390,18 @@ exports.submitIntermissionSurvey = functions.https.onCall(async (data) => {
     if (!existingSurvey.empty) {
         throw new functions.https.HttpsError("already-exists", "이미 설문을 제출하셨습니다");
     }
-    // 설문 저장
+    // 마일리지 적립 먼저 시도 (로그인 유저인 경우)
+    let mileageAwarded = false;
+    if (ticket.claimedByUserId) {
+        try {
+            await addMileageInternal(ticket.claimedByUserId, 500, "review", "인터미션 설문 적립 (500P)");
+            mileageAwarded = true;
+        }
+        catch (e) {
+            functions.logger.error("인터미션 설문 마일리지 적립 실패:", e);
+        }
+    }
+    // 설문 저장 (마일리지 적립 결과 반영)
     await db.collection("intermissionSurveys").add({
         ticketId,
         eventId: ticket.eventId,
@@ -4394,21 +4409,9 @@ exports.submitIntermissionSurvey = functions.https.onCall(async (data) => {
         rating,
         bestMoment,
         comment: typeof comment === "string" ? comment.trim().slice(0, 100) : null,
-        mileageAwarded: false,
+        mileageAwarded,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
-    // 마일리지 적립 (로그인 유저인 경우)
-    if (ticket.claimedByUserId) {
-        await addMileageInternal(ticket.claimedByUserId, 500, "review", "인터미션 설문 적립 (500P)");
-        await db.collection("intermissionSurveys")
-            .where("ticketId", "==", ticketId)
-            .limit(1)
-            .get()
-            .then((snap) => {
-            if (!snap.empty)
-                snap.docs[0].ref.update({ mileageAwarded: true });
-        });
-    }
     // 알림
     sendNotification({
         phone: ticket.buyerPhone,
@@ -4447,20 +4450,27 @@ exports.confirmNaverReview = functions.https.onCall(async (data) => {
     if (!existing.empty) {
         throw new functions.https.HttpsError("already-exists", "이미 네이버 리뷰 확인이 완료되었습니다");
     }
-    // 기록 저장
+    // 마일리지 적립 먼저 (로그인 유저인 경우)
+    let mileageAwarded = false;
+    if (ticket.claimedByUserId) {
+        try {
+            await addMileageInternal(ticket.claimedByUserId, 500, "review", "네이버 리뷰 적립 (500P)");
+            mileageAwarded = true;
+        }
+        catch (e) {
+            functions.logger.error("네이버 리뷰 마일리지 적립 실패:", e);
+        }
+    }
+    // 기록 저장 (마일리지 적립 결과 반영)
     await db.collection("naverReviewConfirms").add({
         ticketId,
         eventId: ticket.eventId,
         buyerName: ticket.buyerName || "",
         buyerPhone: ticket.buyerPhone || "",
-        mileageAwarded: !!ticket.claimedByUserId,
+        mileageAwarded,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
-    // 마일리지 적립 (로그인 유저인 경우)
-    if (ticket.claimedByUserId) {
-        await addMileageInternal(ticket.claimedByUserId, 500, "review", "네이버 리뷰 적립 (500P)");
-    }
-    return { success: true, mileageAwarded: !!ticket.claimedByUserId };
+    return { success: true, mileageAwarded };
 });
 // ============================================================
 // 스캐너 오프라인 캐시용 — 이벤트 전체 티켓 다운로드
