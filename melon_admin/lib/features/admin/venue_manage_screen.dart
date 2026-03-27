@@ -3948,57 +3948,37 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
               color: AdminTheme.textSecondary,
             )),
         const SizedBox(height: 6),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _addressCtrl,
-                style: AdminTheme.sans(),
-                decoration: InputDecoration(
-                  hintText: '예: 서울특별시 강서구 등촌동',
-                  hintStyle: AdminTheme.sans(
-                      fontSize: 13, color: AdminTheme.textTertiary),
-                  filled: true,
-                  fillColor: AdminTheme.card,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide:
-                        const BorderSide(color: AdminTheme.border, width: 0.5),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide:
-                        const BorderSide(color: AdminTheme.border, width: 0.5),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide:
-                        const BorderSide(color: AdminTheme.gold, width: 1),
-                  ),
-                ),
-              ),
+        TextFormField(
+          controller: _addressCtrl,
+          style: AdminTheme.sans(),
+          readOnly: true,
+          onTap: _searchAddress,
+          decoration: InputDecoration(
+            hintText: '클릭하여 주소 검색',
+            hintStyle: AdminTheme.sans(
+                fontSize: 13, color: AdminTheme.textTertiary),
+            filled: true,
+            fillColor: AdminTheme.card,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            suffixIcon: IconButton(
+              onPressed: _searchAddress,
+              icon: const Icon(Icons.search_rounded, size: 20, color: AdminTheme.gold),
+              tooltip: '주소 검색',
             ),
-            const SizedBox(width: 8),
-            SizedBox(
-              height: 46,
-              child: OutlinedButton.icon(
-                onPressed: _searchAddress,
-                icon: const Icon(Icons.search_rounded, size: 16),
-                label: Text('검색',
-                    style: AdminTheme.sans(fontSize: 12, fontWeight: FontWeight.w600)),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AdminTheme.gold,
-                  side: const BorderSide(color: AdminTheme.gold),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                ),
-              ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: AdminTheme.border, width: 0.5),
             ),
-          ],
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: AdminTheme.border, width: 0.5),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: AdminTheme.gold, width: 1),
+            ),
+          ),
         ),
       ],
     );
