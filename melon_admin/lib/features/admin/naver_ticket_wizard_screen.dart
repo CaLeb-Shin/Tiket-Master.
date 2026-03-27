@@ -17,6 +17,8 @@ import 'package:melon_core/data/repositories/event_repository.dart';
 import 'package:melon_core/data/repositories/seat_repository.dart';
 import 'package:melon_core/data/models/event.dart';
 import 'package:melon_core/infrastructure/firebase/functions_service.dart';
+import 'package:melon_core/data/repositories/venue_repository.dart';
+import 'package:melon_core/data/models/venue.dart';
 import 'excel_seat_upload_helper.dart';
 
 // =============================================================================
@@ -1106,6 +1108,20 @@ class _NaverTicketWizardScreenState
               ),
               const SizedBox(height: 32),
 
+              // 공연장에서 좌석 가져오기
+              _buildVenueImportButton(),
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  '또는 엑셀 파일 직접 업로드',
+                  style: AdminTheme.sans(
+                    fontSize: 11,
+                    color: AdminTheme.textTertiary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
               // 엑셀 업로드 영역 (드래그앤드롭 지원)
               DropTarget(
                 onDragEntered: (_) => setState(() => _isDragging = true),
@@ -2083,6 +2099,248 @@ class _NaverTicketWizardScreenState
         _seatError = '파싱 오류: $e';
       });
     }
+  }
+
+  // ── 공연장에서 좌석 가져오기 ──
+
+  Widget _buildVenueImportButton() {
+    return OutlinedButton.icon(
+      onPressed: _isParsingSeat ? null : _showVenuePickerDialog,
+      icon: const Icon(Icons.apartment_rounded, size: 18),
+      label: Text(
+        '등록된 공연장에서 좌석 가져오기',
+        style: AdminTheme.sans(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AdminTheme.gold,
+        side: const BorderSide(color: AdminTheme.gold),
+        minimumSize: const Size(double.infinity, 48),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showVenuePickerDialog() async {
+    final venues = await FirebaseFirestore.instance
+        .collection('venues')
+        .orderBy('name')
+        .get();
+
+    if (!mounted) return;
+
+    final venueList = venues.docs
+        .map((doc) => Venue.fromFirestore(doc))
+        .where((v) => v.totalSeats > 0)
+        .toList();
+
+    if (venueList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('등록된 공연장이 없거나 좌석 데이터가 없습니다'),
+          backgroundColor: AdminTheme.error,
+        ),
+      );
+      return;
+    }
+
+    final selected = await showDialog<Venue>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AdminTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420, maxHeight: 500),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                child: Text(
+                  '공연장 선택',
+                  style: AdminTheme.serif(fontSize: 18),
+                ),
+              ),
+              const Divider(color: AdminTheme.border, height: 1),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: venueList.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(color: AdminTheme.border, height: 1, indent: 16, endIndent: 16),
+                  itemBuilder: (_, i) {
+                    final v = venueList[i];
+                    final hasSeatLayout = v.seatLayout != null && v.seatLayout!.seats.isNotEmpty;
+                    final floorSummary = v.floors
+                        .map((f) => '${f.name}: ${f.totalSeats}석')
+                        .join(' · ');
+                    return ListTile(
+                      leading: Icon(
+                        hasSeatLayout ? Icons.grid_on_rounded : Icons.list_alt_rounded,
+                        color: hasSeatLayout ? AdminTheme.gold : AdminTheme.textTertiary,
+                        size: 20,
+                      ),
+                      title: Text(
+                        v.name,
+                        style: AdminTheme.sans(fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
+                        '${v.totalSeats}석${floorSummary.isNotEmpty ? ' ($floorSummary)' : ''}',
+                        style: AdminTheme.sans(fontSize: 11, color: AdminTheme.textTertiary),
+                      ),
+                      onTap: () => Navigator.of(ctx).pop(v),
+                    );
+                  },
+                ),
+              ),
+              const Divider(color: AdminTheme.border, height: 1),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: Text(
+                      '취소',
+                      style: AdminTheme.sans(color: AdminTheme.textSecondary),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (selected == null || !mounted) return;
+    _importSeatsFromVenue(selected);
+  }
+
+  void _importSeatsFromVenue(Venue venue) {
+    // seatLayout이 있으면 LayoutSeat에서 가져오기
+    if (venue.seatLayout != null && venue.seatLayout!.seats.isNotEmpty) {
+      final seats = venue.seatLayout!.seats
+          .where((s) => s.seatType == SeatType.normal)
+          .toList();
+
+      final gradeCounts = <String, int>{};
+      for (final s in seats) {
+        gradeCounts[s.grade] = (gradeCounts[s.grade] ?? 0) + 1;
+      }
+      final summary = _gradeOrder
+          .where((g) => gradeCounts.containsKey(g))
+          .map((g) => '$g: ${gradeCounts[g]}')
+          .join('  ·  ');
+
+      setState(() {
+        _seatData = ParsedSeatData(
+          seats: seats
+              .map((s) => <String, dynamic>{
+                    'block': s.zone,
+                    'floor': s.floor,
+                    'row': s.row,
+                    'number': s.number,
+                    'grade': s.grade,
+                  })
+              .toList(),
+          totalSeats: seats.length,
+          gradeSummary: summary,
+        );
+        _parseResult = null;
+        _seatError = null;
+        // 공연장명 자동 채우기
+        if (_venueNameCtrl.text.trim().isEmpty) {
+          _venueNameCtrl.text = venue.name;
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${venue.name}에서 ${seats.length}석 가져옴'),
+          backgroundColor: AdminTheme.success,
+        ),
+      );
+      return;
+    }
+
+    // seatLayout 없으면 floors/blocks 구조에서 좌석 생성
+    final seatList = <Map<String, dynamic>>[];
+    final gradeCounts = <String, int>{};
+
+    for (final floor in venue.floors) {
+      for (final block in floor.blocks) {
+        final grade = block.grade ?? 'S';
+        if (block.customRows.isNotEmpty) {
+          for (final customRow in block.customRows) {
+            for (int n = 1; n <= customRow.seatCount; n++) {
+              seatList.add({
+                'block': block.name,
+                'floor': floor.name,
+                'row': customRow.name,
+                'number': n,
+                'grade': grade,
+              });
+              gradeCounts[grade] = (gradeCounts[grade] ?? 0) + 1;
+            }
+          }
+        } else {
+          for (int r = 1; r <= block.rows; r++) {
+            for (int n = 1; n <= block.seatsPerRow; n++) {
+              seatList.add({
+                'block': block.name,
+                'floor': floor.name,
+                'row': '$r',
+                'number': n,
+                'grade': grade,
+              });
+              gradeCounts[grade] = (gradeCounts[grade] ?? 0) + 1;
+            }
+          }
+        }
+      }
+    }
+
+    if (seatList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('이 공연장에 좌석 데이터가 없습니다'),
+          backgroundColor: AdminTheme.error,
+        ),
+      );
+      return;
+    }
+
+    final summary = _gradeOrder
+        .where((g) => gradeCounts.containsKey(g))
+        .map((g) => '$g: ${gradeCounts[g]}')
+        .join('  ·  ');
+
+    setState(() {
+      _seatData = ParsedSeatData(
+        seats: seatList,
+        totalSeats: seatList.length,
+        gradeSummary: summary,
+      );
+      _parseResult = null;
+      _seatError = null;
+      if (_venueNameCtrl.text.trim().isEmpty) {
+        _venueNameCtrl.text = venue.name;
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${venue.name}에서 ${seatList.length}석 가져옴'),
+        backgroundColor: AdminTheme.success,
+      ),
+    );
   }
 
   List<String> _getGradesFromSeatData() {
