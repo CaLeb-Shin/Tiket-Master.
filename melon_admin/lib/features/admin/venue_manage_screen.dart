@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -6,12 +7,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../../app/admin_theme.dart';
 import 'package:melon_core/data/models/venue.dart';
 import 'package:melon_core/data/models/venue_request.dart';
 import 'package:melon_core/data/repositories/venue_repository.dart';
 import 'package:melon_core/data/repositories/venue_request_repository.dart';
+import 'package:melon_core/infrastructure/external/kakao_postcode_service.dart';
 import 'package:melon_core/services/auth_service.dart';
 import 'package:melon_core/services/storage_service.dart';
 import 'excel_seat_upload_helper.dart';
@@ -3812,7 +3815,7 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
 
               _buildField('공연장명', _nameCtrl, '예: 스카이아트홀'),
               const SizedBox(height: 12),
-              _buildField('주소 (선택)', _addressCtrl, '예: 서울특별시 강서구 등촌동'),
+              _buildAddressField(),
               const SizedBox(height: 12),
               _buildSeatMapUploadField(),
 
@@ -3931,6 +3934,84 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
       _addressCtrl.text = preset.address ?? '';
       _layoutFloors = preset.floors;
       _stagePosition = _normalizeStagePosition(preset.stagePosition);
+    });
+  }
+
+  Widget _buildAddressField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('주소 (선택)',
+            style: AdminTheme.sans(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AdminTheme.textSecondary,
+            )),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _addressCtrl,
+                style: AdminTheme.sans(),
+                decoration: InputDecoration(
+                  hintText: '예: 서울특별시 강서구 등촌동',
+                  hintStyle: AdminTheme.sans(
+                      fontSize: 13, color: AdminTheme.textTertiary),
+                  filled: true,
+                  fillColor: AdminTheme.card,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide:
+                        const BorderSide(color: AdminTheme.border, width: 0.5),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide:
+                        const BorderSide(color: AdminTheme.border, width: 0.5),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide:
+                        const BorderSide(color: AdminTheme.gold, width: 1),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 46,
+              child: OutlinedButton.icon(
+                onPressed: _searchAddress,
+                icon: const Icon(Icons.search_rounded, size: 16),
+                label: Text('검색',
+                    style: AdminTheme.sans(fontSize: 12, fontWeight: FontWeight.w600)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AdminTheme.gold,
+                  side: const BorderSide(color: AdminTheme.gold),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _searchAddress() async {
+    final result = await openKakaoPostcode();
+    if (result == null || !mounted) return;
+    setState(() {
+      _addressCtrl.text = result.fullAddress;
+      if (_nameCtrl.text.trim().isEmpty && result.buildingName.isNotEmpty) {
+        _nameCtrl.text = result.buildingName;
+      }
     });
   }
 
@@ -4661,8 +4742,23 @@ class _VenueCreateFormState extends ConsumerState<_VenueCreateForm> {
         _excelFileName = file.name;
       });
 
-      // ExcelToSeatMapConverter로 직접 변환 (색상 기반 + 리스트 등 모든 포맷 지원)
-      final convResult = ExcelToSeatMapConverter.convert(bytes);
+      // CF로 xls→xlsx 변환 + numFmt 호환성 처리
+      const cfBaseUrl = 'https://us-central1-melon-ticket-mvp-2026.cloudfunctions.net';
+      final response = await http.post(
+        Uri.parse('$cfBaseUrl/convertXlsToXlsxHttp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'base64': base64Encode(bytes)}),
+      );
+      Uint8List xlsxBytes;
+      if (response.statusCode == 200) {
+        final resultBase64 = jsonDecode(response.body)['base64'] as String;
+        xlsxBytes = base64Decode(resultBase64);
+      } else {
+        // CF 실패 시 원본으로 시도
+        xlsxBytes = bytes;
+      }
+
+      final convResult = ExcelToSeatMapConverter.convert(xlsxBytes);
       final layout = convResult.layout;
 
       if (layout.seats.isEmpty && !mounted) {
